@@ -1,0 +1,464 @@
+#!/usr/bin/env perl
+
+@ARGV = &elixir_config (@ARGV);
+if (@ARGV == 0) { &usage; }
+
+&pnotice;
+&pnotice ("current run ID: $run");
+&pnotice ("current camera: $camera");
+&pnotice;
+
+{ # check for valid camera
+    if ($camera eq "cfh12k")  { last; }
+    if ($camera eq "cfhtir")  { last; }
+    if ($camera eq "megacam") { last; }
+    if ($camera eq "meganorth") { last; }
+    &escape ("camera $camera not supported, skipping");
+}
+
+if ($ARGV[0] eq "init")   { 
+    &ck_dirs; 
+    &ck_flocks; 
+    &ck_fifos; 
+    
+    if ($camera eq "cfh12k") { &ck_detrend; }
+    if ($camera eq "megacam") { &ck_detrend; }
+    if ($camera eq "meganorth") { &ck_detrend; }
+    &goodbye; 
+}
+# if ($ARGV[0] eq "unlock") { &ck_dirs; &ck_flocks; &cl_locks; &goodbye; }
+
+&escape ("checkconfig command $ARGV[0] not valid");
+
+### main user functions
+
+# check state of directories
+sub ck_detrend {
+
+    $answer = `mkdetrend state -camera $camera -run $run`;
+    if ($VERBOSE) { 
+	&pnotice ("checking mkdetrend system");
+	push @notices, $answer; 
+    }
+    if ($?) {
+	&pnotice ("define mkdetrend $camera $run");
+	$answer = `mkdetrend create run $run`;
+	if ($?) {
+	    &pwarning ("can't define mkdetrend $camera $run");
+	    push @warnings, $answer;
+	}
+    }
+
+    $answer = `mkfringe state -camera $camera -run $run`;
+    if ($VERBOSE) { 
+	&pnotice ("checking mkfringe system");
+	push @notices, $answer; 
+    }
+    if ($?) {
+	&pnotice ("define mkfringe $camera $run");
+	$answer = `mkfringe create run $run`;
+	if ($?) {
+	    &pwarning ("can't define mkfringe $camera $run");
+	    push @warnings, $answer;
+	}
+    }
+}
+
+sub ck_dirs {
+    my ($i, @dirs, @need);
+
+    @dirs = ('RAWDIR', 'TMPDIR', 'HDXDIR', 'CATDIR', 'DATDIR', 'FIFOS');
+    @need = ( 20,       5,        1,        0.2,      2,        0);
+
+    if ($VERBOSE) { 
+	foreach $dir (@dirs) {
+	    $filename = `gconfig $dir`; chop ($filename);
+	    &pnotice ("check $dir : $filename");
+	}
+	&pnotice;
+    }
+
+    for ($i = 0; $i < @dirs; $i++) {
+	checkdir ($dirs[$i], 0777, $need[$i]);
+    }
+    if ($VERBOSE) { &pnotice; }
+    return 0;
+}
+
+# check state of files with locks
+sub ck_flocks { 
+
+    @files = ('REGISTRATION_DATABASE');
+    foreach $file (@files) {
+	&checklocks ($file, 0666);
+    }
+    if ($VERBOSE) { &pnotice; }
+}
+
+# check elixir fifo files
+sub ck_fifos {
+    @elixirs = ('imstats', 'ptolemy');
+    @fifos = ('global.source', 'global.msg', 'global.end');
+
+    foreach $elixir (@elixirs) {
+	if ($VERBOSE) { &pnotice ("check fifos for elixir $elixir"); }
+	foreach $fifo (@fifos) {
+	    $filename = `gconfig -D mode $elixir $fifo`; chop ($filename);
+	    setmode ($filename, 0666);
+	}
+    }
+    if ($VERBOSE) { &pnotice; }
+}
+
+sub cl_locks { 
+
+    @files = ('REGISTRATION_DATABASE');
+    foreach $file (@files) {
+
+	$filename = `gconfig $file`;  chop ($filename);
+	$lock = lockname ($filename);
+
+	if (!cklock ($lock) && $unlock) { setlock ($lock); }
+    }
+}
+
+sub ckelixir {
+    my($elixir) = $_[0];
+    
+    if ($VERBOSE) { &pnotice ("Checking on Elixir $elixir"); }
+    
+    $answer = `elixir -status -D mode $elixir`;
+    if ($?) { }
+    if ($VERBOSE) { push @notices, $answer; }
+
+    return (1);
+}
+
+# check that directory exists, create it if not, set permissions
+sub checkdir {
+    # in: dir-key, mode, bytes
+    # out: status
+
+    my ($dir) = $_[0];
+    my ($mode) = $_[1];
+    my ($bytes) = $_[2];
+    my ($status);
+
+    # set camera, runid from .current
+    $filename = `gconfig $dir`; chop ($filename);
+
+    # this will make a dir if the parent doesn't exist.
+    if (! -e $filename) {
+	$status = mkdirhier ($filename, $mode);
+	if (!$status) {
+	    &pwarning ("can't create directory $filename ($dir)");
+	    return 0;
+	}
+    }
+
+    # set mode to desired value
+    if (!ckmode ($filename, $mode)) { 
+	if (!chmod $mode, $filename) {
+	    &pwarning ("can't set permissions on $filename ($dir)");
+	    return 0;
+	}
+    }	    
+
+    # check available space
+    if ($bytes) {
+	$left = `sdf $filename`;
+	$left = sprintf "%5.1f", ($left / 1024 / 1024);
+	if ($VERBOSE) { &pnotice ("$dir : $left GB free : $filename"); }
+	if ($left < $bytes) {
+	    &pwarning ("$filename ($dir) is getting full");
+	    return 0;
+	}
+    }
+    return 1;
+}
+
+# check existence & permissions on file & corresponding lockfile
+sub checklocks { 
+
+    my ($file) = $_[0];
+    my ($mode) = $_[1];
+    
+    $filename = `gconfig $file`;  chop ($filename);
+    $lock = lockname ($filename);
+
+    if ($VERBOSE) { &pnotice ("check $file ($filename)"); }
+
+    # create file if it does not exist
+    setmode ($filename, $mode);
+
+    # create file if it does not exist
+    setmode ($lock, $mode);
+
+    return 1;
+}
+
+# basic utilities
+
+sub lockname {
+    # in: path/file
+    # out: path/.file.lck
+
+    my($lock, $N, $i);
+
+    @words = split ("/", $_[0]);
+    
+    $lock = "";
+    $N = @words - 1;
+    for ($i = 0; $i < $N; $i++) {
+	$lock = $lock . $words[$i] . "/";
+    }
+    $lock = $lock . "." . "$words[$N]" . ".lck";
+
+    return ($lock);
+}
+
+sub ckmode {
+    # in: file mode
+    # out: yes/no
+
+    $filename = $_[0];
+    $mode = $_[1];
+    $setmode = $mode;
+
+    unless (@fstat = stat ($filename)) {
+	if ($VERBOSE) { &pwarning ("$filename not found"); }
+	return 0;
+    }
+
+    $fmode = 07777 & $fstat[2];
+    $status = !($setmode ^ $fmode);
+
+    if (!$status && $VERBOSE) {
+	$line = sprintf "$filename has wrong mode: %o vs %o\n", $fmode, $setmode;
+	&pnotice ($line);
+    }
+
+    return ($status);
+}
+
+sub cklock {
+    # in: file
+    # out: yes/no
+
+    $filename = $_[0];
+
+    if (! -e $filename) { return (1); }
+
+    open (FILE, $filename);
+    $word = <FILE>;
+    close (FILE);
+
+    unless ($word =~ /^IDLE/) {
+	&pwarning ("$filename is locked");
+	return 0;
+    }
+
+    return 1;
+}
+
+# create file & set mode 
+sub setmode {
+    # in: file mode
+    # out: yes/no
+
+    $filename = $_[0];
+    $mode = $_[1];
+
+    if (! -e $filename) {
+	if (!open (FILE, ">$filename")) {
+	    &pwarning ("can't create file $filename");
+	    return 0;
+	}
+	close (FILE);
+    }
+    
+    if (!ckmode ($filename, $mode)) {
+	if (!chmod $mode, $filename) {
+	    &pwarning ("can't set mode on $filename");
+	    return 0;
+	}
+    }
+
+    return 1;
+}
+
+sub setlock {
+    # in: file
+    # out: yes/no
+
+    $filename = $_[0];
+
+    unless (open (FILE, ">$filename")) {
+	&pwarning ("can't set lock $filename");
+	return 0;
+    }
+    print FILE "IDLE";
+    close (FILE);
+    return 1;
+}
+
+sub mkdirhier {
+    # in: directory mode
+    # out: status
+
+    my ($dir) = $_[0];
+    my ($mode) = $_[1];
+    my (@words, $first, $last, $i, $part);
+
+    @words = split ("/", $dir);
+
+    foreach $level (@words) {
+	if ($level eq "") { $part = "/"; next; }
+	$part = $part . $level; 
+
+	if (-e $part && !-d $part) { return 0; }
+	if (! -e $part && !mkdir ($part, $mode)) { return 0; }
+	chmod $mode, $part;
+
+	$part = $part . "/";
+    }
+    return 1;
+}
+
+sub usage {
+    print STDERR "USAGE: checkconfig [command]\n";
+    print STDERR "  check elixir configuration & files\n";
+    exit 2;
+}
+
+sub escape { 
+    &dump_output;
+    if ($_[0]) { print "$_[0]\n"; }
+    unlink $tmpenv;
+    exit 1;
+}
+
+sub goodbye { 
+    &dump_output;
+    if ($_[0]) { print "$_[0]\n"; }
+    unlink $tmpenv;
+    exit 0;
+}
+
+sub pwarning {
+    push @warnings, $_[0];
+}
+
+sub pnotice {
+    push @notices, $_[0];
+}
+
+sub dump_output {
+    # output to screen
+    if (@warnings) {
+	print STDERR "\n--- problem with elixir system checkconfig --\n\n";
+	foreach $line (@warnings) { print STDERR "$line\n"; }
+	print STDERR "\n--- checkconfig output ---\n";
+    }
+    foreach $line (@notices) { print STDERR "$line\n"; }
+
+    if ($notify && @warnings) {
+	$answer = `mkrun sys notify`;
+	@list = split (",", $answer);
+	open (MAIL, "|mail -s 'elixir checkconfig error' @list");
+	print MAIL "problem with elixir system checkconfig:\n";
+	foreach $line (@warnings) { print MAIL "$line\n"; }
+	print MAIL "\n--- checkconfig output ---\n";
+	foreach $line (@notices) { print MAIL "$line\n"; }
+	close (MAIL);
+    }
+}
+
+# grab complete configuration info from the elixir config system, 
+# applying appropriate command-line arguments
+sub elixir_config {
+    my (@argv) = @_;
+    my ($opt, $config, @tmparg, $status);
+    $config = "";
+    if ($ENV{'PTOLEMY'}) { $config = "-c $ENV{'PTOLEMY'}"; }
+    umask (0);
+    $notify = 0;
+    $VERBOSE = 0;
+
+    # look for optional command-line arguments
+    @tmparg = @argv;
+    foreach (@tmparg) {
+	$value = shift @argv;
+
+	if ($value eq "-h")     { &usage; }
+	if ($value eq "--help") { &usage; }
+
+	if ($value eq "-c") {
+	    $value = shift @argv;
+	    $config = "-c $value";
+	    next;
+	}
+
+	if ($value eq "-C") {
+	    push @opt, $value;
+	    $value = shift @argv;
+	    push @opt, $value;
+	    $elconf = $value;
+	    next;
+	}
+	
+	if ($value eq "-C") {
+	    push @opt, $value;
+	    $value = shift @argv;
+	    push @opt, $value;
+	    $value = shift @argv;
+	    push @opt, $value;
+	    next;
+	}
+	
+	if ($value eq "-run") {
+	    $run = shift @argv;
+	    push @opt, "-D RUNID.CURRENT $run -D RUNID $run";
+	    next;
+	}
+	if ($value eq "-camera") {
+	    $camera = shift @argv;
+	    push @opt, "-D CAMERA.CURRENT $camera -D CAMERA $camera";
+	    next;
+	}
+	if ($value eq "-notify") {
+	    $notify = 1;
+	    next;
+	}
+	if ($value eq "-v") {
+	    $VERBOSE = 1;
+	    next;
+	}
+	push @argv, $value;
+    }
+
+    # load RUNID from state.data (unless set on command line)
+    if ($run eq "") {
+	$run = `gconfig RUNID.CURRENT`; chop $run;
+	if ($?) {  &escape ("run is not defined: use 'mkrun sys'\n"); }
+	if ($run eq "") {  &escape ("run is not defined: use 'mkrun sys'\n"); }
+	push @opt, "-D RUNID.CURRENT $run -D RUNID $run";
+    }
+
+    # load CAMERA from state.data (unless set on command line)
+    if ($camera eq "") {
+	$camera = `gconfig CAMERA.CURRENT`; chop $camera;
+	if ($?) {  &escape ("camera is not defined: use 'mkrun sys' to set\n"); }
+	if ($camera eq "") {  &escape ("camera is not defined: use 'mkrun sys'\n"); }
+	push @opt, "-D CAMERA.CURRENT $camera -D CAMERA $camera";
+    }
+
+    # set env PTOLEMY using values from command line
+    $config = join (" ", $config, @opt);
+    $tmpenv = `mktemp /tmp/elixir.XXXXXX`; chop ($tmpenv);
+    $status = system ("gconfig -raw $config > $tmpenv");
+    if ($status) { &escape ("error in elixir configuration: gconfig fails"); }
+    $ENV{'PTOLEMY'} = "$tmpenv";
+
+    return (@argv);
+}

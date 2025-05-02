@@ -1,0 +1,123 @@
+
+20090809 : more on extended sources:
+
+ my algorithm for getting the petrosian radii and fluxes is:
+
+  * measure radial profile by interpolation to specific locations along the radial line
+    (at low radii, this gives much more accurate results; at high radii, we may need to 
+    average a group of pixels -- say, for 15 deg separations, choose a box that is 
+    < 5 degree in width -- this is > 1 pixel at a distance of 12 pixels.
+
+    psphotRadialProfilesByAngle
+
+  * find intersection of profile with isophot
+
+    psphotRadiusFromProfile -> r50(theta)
+
+  * generate r50x, r50y and fit to ellipse
+
+    psphotEllipticalContour
+
+  * generate elliptical profile
+
+    psphotEllipticalProfile
+
+  * convert to \alpha r_i < r < \beta r_i bins
+
+    psphotPetrosianRadialBins
+
+20090725 : extended source radial profiles
+
+ I need to fix the Petrosian and similar code.  There are several issues:
+
+ 1) correct implementation of the actual Petrosian radius / Petrosian flux measurement:
+
+    R_p : Given F(R) : F(0) / F(R_p) = 0.9 ?? (something like this...)
+
+    Actually implemented by calculating the average surface brightness in annullii:
+
+    R_p : Given F(R) -> define f(R) = \sum_{R-dR}^{R+dR}F(R) / 4\pi R dR
+    R_p : f(dR) / F(R_p) = P_ratio
+
+ 2) need to construct a clean, normalized radial profile to make this measurement
+
+    * generate radial profiles for each of N annular wedges
+    * find R_50 : f(0) / f(R_50) = 0.5
+    $ fit the ellipse of R_50 to Rmaj sin(T) + Rmin cos(T) 
+
+
+    cos(a+b) = cos(a) cos(b) - sin(a) sin(b)
+    sin(a+b) = cos(a) sin(b) + cos(b) sin(a)
+
+    cos(theta+To) = cos(theta) cos(To) - sin(theta) sin(To)
+    sin(theta+To) = cos(theta) sin(To) + sin(theta) cos(To)
+
+    R_x = R_maj cos(theta + theta_o) = R_maj cos(theta) cos(theta_o) - Rmaj sin(theta) sin(theta_o)
+    R_y = R_min sin(theta + theta_o) = R_min cos(theta) sin(theta_o) + Rmin sin(theta) cos(theta_o)
+
+    R_X = R_x cos(phi) - R_y sin(phi)
+    R_Y = R_x sin(phi) + R_y cos(phi)
+
+    R_X = R_maj cos(phi) cos(theta + To) - R_min sin(phi) sin(theta + To)
+    R_Y = R_maj sin(phi) cos(theta + To) + R_min cos(phi) sin(theta + To)
+
+    R_X = (R_maj cos(phi) cos (To) - R_min sin(phi) sin(To)) cos(theta) - (Rmaj cos(phi) sin(To) + Rmin sin(phi) cos(To)) sin(theta)
+    R_Y = (R_maj sin(phi) cos (To) + R_min cos(phi) sin(To)) cos(theta) - (Rmaj cos(phi) sin(To) + Rmin sin(phi) cos(To)) sin(theta)
+    
+
+    R_X = Ax cos(theta) + Bx sin(theta)
+    R_Y = Ay cos(theta) + By sin(theta)
+    
+    Ax = \sum (R_X * cos(theta))
+    Bx = \sum (R_X * sin(theta))
+    Ay = \sum (R_Y * cos(theta))
+    By = \sum (R_Y * sin(theta))
+
+    R_maj = sqrt(Ax^2 + Ay^2)
+    R_min = sqrt(Bx^2 + By^2)
+
+    phi = atan2(Bx + By, Ax + Ay)
+
+    *** get rest of math from my notebook...
+
+20090525 : some clarity of issues:
+
+ I've made some progress understanding why the moments analysis was
+ giving poor results.  I've added Gaussian (pseudo-gaussian)
+ windowing and the ability to set the per-pixel S/N limit.  The first
+ important conclusion was:
+
+ * the per-pixel S/N limit of 1.0 was driving the Mxx,Myy values low
+   for faint sources.  This should be completely disabled.
+
+ The next point is about the Gaussian vs tophat windowing.  One
+ interesting realization was that the Gaussian windowing (or tophat
+ for that matter) have a stronger impact on the measured moments for
+ sources with profiles that are non-Gaussian.  
+
+ * Gauss with seeing (FWHM) = 1.0 arcsec = 4pix -> sigma = 1.702 
+
+   Gauss window | measured Mxx
+   2.0	 	  1.75
+   4.0		  2.58
+   6.0		  2.85
+   
+ * QGAUSS with see 
+
+20090523 : extended source analysis -- further development
+
+ issues to address:
+
+ * quality of moments used for initial psf selection
+   - what is the behavior of moments with Gaussian windowing as function of S/N & size?
+   - can we choose a sigma value that will give reliable moments for an expected range of seeing?
+
+ * moments for galaxy model guesses
+   - trade-off between Gaussian windowing, tophat windowing, and S/N windowing in footprint area
+
+ initial dev work:
+
+ * add Gaussian windowing, S/N windowing, (tophat windowing) and options to select
+
+ * check visualization of moments
+

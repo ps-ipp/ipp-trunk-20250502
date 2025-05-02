@@ -1,0 +1,91 @@
+
+2012.03.05 
+
+ Notes on parallel relastro modifications
+
+ relastro has 4 major modes:  
+
+ * relastro_objects
+ * high_speed_catalogs
+ * relastro_merge_source
+ * standard relastro (update chips, etc)
+
+ Of these:
+ * relastro_merge_source can be skipped for not (not interesting for parallel analysis)
+ * relastro_objects, high_speed_catalogs, and standard relastro all call UpdateObjects, one way or another.
+
+ The big question is if / how we can use MeasureTiny (or if we need a separate astrometry version)
+
+  * average.d fields we are NOT using in UpdateObjects (28 / 120 bytes)
+  FIELD Nmissing,       NMISSING,    unsigned short,  number of missings
+  FIELD Nextend,        NEXTEND,     unsigned short,  number of extended measurements
+  FIELD missingOffset,  OFF_MISSING, int,             offset to first missing obs
+  FIELD extendOffset,   OFF_EXTEND,  int,             offset to first extended measurement
+  FIELD photFlagsUpper, PHOTFLAGS_U, uint32_t,        upper bit of 2 bit summary of per-measure photflags
+  FIELD photFlagsLower, PHOTFLAGS_L, uint32_t,        lower bit of 2 bit summary of per-measure photflags
+  FIELD extID,          EXT_ID,      uint64_t,        external ID for object (eg PSPS objID)
+
+  * measure.d fields in use in UpdateObjects
+* measure[m].t
+* measure[m].dbFlags
+* measure[m].dt
+* measure[0].dR
+* measure[0].dD
+* measure[0].M
+* measure[0].dM
+* measure[0].photcode
+* measure[0].photFlags
+* measure[m].Xccd;
+* measure[m].Yccd;
+* measure[m].averef;
+* measure[0].imageID;
+* measure[0].airmass
+* measure[0].Mcal (only used in PhotRelTiny)
++ measure[0].dXccd
++ measure[0].dYccd
++ measure[m].dRsys
+
+  float          dR;
+  float          dD;
+  float          M;
+  float          Mcal;
+  float          dM;
+  float          airmass;
+  float          Xccd;
+  float          Yccd;
+  float          dt;
+  int   	 t;
+  unsigned int   averef;
+  unsigned int   imageID;
+  unsigned int   dbFlags;
+  unsigned int   photFlags;
+- int            catID; // unsigned int?
+  unsigned short photcode;
+
+maybe
+FIELD Map,            M_APER,       float,          aperture mag,		    mag
+FIELD psfQual,        PSF_QF,       float,          psf coverage/quality factor
+
+not used
+FIELD dMcal,          MAG_CAL_ERR,  float,          systematic calibration error,   mag
+FIELD az,             AZ,           float,          telescope azimuth
+FIELD Sky,            SKY_FLUX,     float,          local estimate of sky flux,     counts/sec
+FIELD dSky,           SKY_FLUX_ERR, float,          local estimate of sky flux,     counts/sec
+FIELD t_msec,         TIME_MSEC,    unsigned short, time fraction of second,        milliseconds
+FIELD detID,          DET_ID,       unsigned int,   detection ID
+FIELD objID,          OBJ_ID,       unsigned int,   unique ID for object in table
+FIELD catID,          CAT_ID,       unsigned int,   unique ID for table in which object was first realized
+FIELD psfChisq,       PSF_CHISQ,    float,          psf fit chisq
+FIELD psfNdof,        PSF_NDOF,     int,            psf degrees of freedom
+FIELD psfNpix,        PSF_NPIX,     int,            psf number of pixels
+FIELD crNsigma,       CR_NSIGMA,    float,          Nsigma deviation towards CR
+FIELD extNsigma,      EXT_NSIGMA,   float,          Nsigma deviation towards EXT
+FIELD FWx,            FWHM_MAJOR,   short,          object fwhm major axis,         1/100 of pixels 
+FIELD FWy,            FWHM_MINOR,   short,          object fwhm minor axis,         1/100 of pixels 
+FIELD theta,          PSF_THETA,    short,          angle wrt ccd X dir,            (0xffff/360) deg
+FIELD Mxx,            MXX,          short,          second moments in pixel coords, 1/100 of pixels^2
+FIELD Mxy,            MXY,          short,          second moments in pixel coords, 1/100 of pixels^2
+FIELD Myy,            MYY,          short,          second moments in pixel coords, 1/100 of pixels^2
+FIELD posangle,       POSANGLE,     short,          position angle sky to chip,     (0xffff/360) deg
+FIELD pltscale,       PLTSCALE,     float,          plate scale,                    arcsec/pixel
+

@@ -1,0 +1,42 @@
+TODO list for Perl module Nebulous
+
+- support delete of instances from volumes that are offline
+- mode to replicate all files from a volume (reguardless of how many copies are requested)
+- "inverse" replication to remove extra copies
+- add a means of listing all instances (online or not)
+
+- make nebclient lib thread safe
+- handle/check for storage volumes being offline
+- admin interface to control volumes (enable/disable, add/remove)
+- add zeroconf support
+- add support for SQL and/or Apache logging
+- make copy replicate source attributes, implement as replicate/reparent?
+- test that client->delete_instance removes the storage object too
+- review caching of database statement handles
+- code tiding/consistency
+- file creation retrying
+- server config file
+- make Apache::DBI behave
+- split SOAP out of Client.pm
+- Perl client error string support with DBI like 'AutoRaise' exceptions
+- CLI utilities
+- write neb-fsck utility
+- write Linux::statfs module so that statfs.f_bavail can be obtained (not available via df)
+- change neb-ls to have a limit number of keys shown (-n) param and default to
+  something reasonable (say 20)
+- add multiple regex and/or glob support to neb-ls, eg. neb-ls -r 'foo.*' -r 'bar$'
+- store the key name as an xattr on the actual on disk file
+- add an neb-locate --reverse option to map uri/paths into keys
+
+distant future
+--
+- cache some database tables (updated at some interval) 
+- volume size/% in-use discovery
+- server side per client lock tracking
+- per client authentication
+- client side lookup table of filehandles/locks
+- Perl only?, scoped lock release/filehandle destruction
+- restructure database so that storage objects are more like inodes
+- add support for directories
+- FUSE interface
+- hot-spot analysis

@@ -1,0 +1,74 @@
+
+detregister / detsearch MEF support:
+
+issue of database image format:
+
+filename			type	CCD  mode
+modes/2001A.modes.R.12.00.fits  modes   12   modes
+flat/R/02Bk06.flat.R.00.00.fits flat    00   split
+flat/R/03Ak01.flat.R.00.fits    flat    12   mef
+
+detsearch / detregister concepts:
+
+selection rules:
+
+ match all simple filters 
+
+ -image foo.fits[ccd 08] matches (split 08) or (mef NCCD)
+ 
+ if CCD is defined, return foo.fits[ext] if foo.fits is MEF
+
+simple filters:
+
+ -ccd (N)                       : match ccd
+ -time yyyy/mm/dd,HH:MM:SS      : match time
+ -trange (start) (stop)         : match time range
+ -entry (value)                 : match entry (entry == version number)
+ -label (word)                  : match this label
+ -filter (name)                 : match filter
+ -exptime (value)               : match exposure time
+
+complex rules:
+ -image (filename) (ccd) (mode) : determine filters from image
+
+ -mosaic (filename)		: determine filters from image
+
+ -recipe			: determine filters from image
+
+ -type (type)                   : match type, limit valid filters
+
+ -match (value)                 : only list the Nth matched entry ???
+
+ -close                         : allow non-perfect matches
+
+ -select                        : select 'best' match
+
+display rules:
+ -tstop                         : display end of valid time range
+ -treg                          : display time of image registration
+ -ve                            : Elixir verbose (SUCCESS / ERROR) 
+ -quiet                         : Elixir quiet (no SUCCESS / ERROR) 
+
+
+behaviour rules:
+ -modify (entry) (value)        : change entry for matched images to value
+  [possible -modify entries: label, order, tstart, tstop]
+
+ -del    : delete the matched entries
+ -delete : delete the matched entries
+
+
+-image sets:  -filter, -ccd, -time, -exptime
+-mosaic sets: -filter, -time, -exptime, (-ccds?)
+-recipe sets -type, for each type, sets -
+
+possible values for -type:  mask, bias, dark, flat, fringe, scatter, modes
+
+valid filters for type selections:
+  mask:    -ccd, -label, -entry, -time || -trange
+  bias:    -ccd, -label, -entry, -time || -trange
+  dark:    -ccd, -label, -entry, -time || -trange, -exptime
+  flat:    -ccd, -label, -entry, -time || -trange, -filter
+  fringe:  -ccd, -label, -entry, -time || -trange, -filter
+  scatter: -ccd, -label, -entry, -time || -trange, -filter
+  modes:   -ccd, -label, -entry, -time || -trange, -filter

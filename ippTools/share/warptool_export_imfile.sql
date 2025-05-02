@@ -1,0 +1,3 @@
+SELECT
+    warpImfile.*
+FROM warpImfile

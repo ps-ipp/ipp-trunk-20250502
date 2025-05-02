@@ -1,0 +1,4 @@
+bool [% table.namespace %]DropTable(psDB *dbh)
+{
+    return psDBDropTable(dbh, [% table.namespace FILTER upper %]_TABLE_NAME);
+}

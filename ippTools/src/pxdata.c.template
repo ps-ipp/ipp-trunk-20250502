@@ -1,0 +1,145 @@
+/*
+ * pxdata.c
+ *
+ * Copyright (C) 2006  Joshua Hoblitt
+ *
+ * This program is free software; you can redistribute it and/or modify it
+ * under the terms of the GNU General Public License as published by the Free
+ * Software Foundation; version 2 of the License.
+ *
+ * This program is distributed in the hope that it will be useful, but WITHOUT
+ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+ * FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public License for
+ * more details.
+ *
+ * You should have received a copy of the GNU General Public License along with
+ * program; see the file COPYING. If not, write to the Free Software
+ * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA.
+ */
+
+#ifdef HAVB_CONFIG_H
+#include <config.h>
+#endif
+
+#include <stdlib.h> // getenv
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <unistd.h>
+
+#include <pslib.h>
+
+#include "pxtools.h"
+#include "pxdata.h"
+
+static psHash *cachedData = NULL;
+
+static int test_f(const char *path);
+
+psString pxDataGet(const char *filename)
+{
+    PS_ASSERT_PTR_NON_NULL(filename, NULL);
+
+    {
+        psString filepath = NULL;
+
+        // look to see if PXDATA is set
+        char *PXDATA = getenv("PXDATA");
+        if (PXDATA) {
+            // if it is, then prepend filename to PXDATA
+            psStringAppend(&filepath, "%s/%s", PXDATA, filename);
+        }
+
+        // see if we have a valid filename
+        if (test_f(filepath)) {
+            // if we do, slurp the file
+            psString data = psSlurpFilename(filepath);
+            if (!data) {
+                psError(PS_ERR_IO, false, "failed to slurp %s", filepath);
+                psFree(filepath);
+                return NULL;
+            }
+            psTrace("pxdata", PS_LOG_INFO, "slupred %s", filepath);
+            psFree(filepath);
+
+            return data;
+        }
+
+        psFree(filepath);
+    }
+
+    {
+        psString filepath = NULL;
+
+        // look under our share path
+        psStringAppend(&filepath, "%s/%s", "@PKGDATADIR@", filename);
+
+        // see if we have a valid filename
+        if (test_f(filepath)) {
+            // if we do, slurp the file
+            psString data = psSlurpFilename(filepath);
+            if (!data) {
+                psError(PS_ERR_IO, false, "failed to slurp %s", filepath);
+                psFree(filepath);
+                return NULL;
+            }
+            psTrace("pxdata", PS_LOG_INFO, "slupred %s", filepath);
+            psFree(filepath);
+
+            return data;
+        }
+
+        psFree(filepath);
+    }
+
+    // couldn't find a matching filename
+    psError(PS_ERR_IO, true, "can't find a file in search path(s) to match : %s", filename);
+
+    return NULL;
+}
+
+static int test_f(const char *path)
+{
+        // copied from coreutils 6.4 test.c licenced under GPL v2 
+        struct stat stat_buf;
+        return (stat (path, &stat_buf) == 0
+                   && S_ISREG (stat_buf.st_mode));
+}
+
+psString pxDataGetCached(const char *filename)
+{
+    bool persistence = p_psMemAllocatePersistent(true);
+
+    // make sure the cache is initalized
+    if (!cachedData) {
+        cachedData = psHashAlloc(10);
+    }
+
+    // look to see if we've cached this file
+    {
+        psString data = psHashLookup(cachedData, filename);
+        if (data) {
+            p_psMemAllocatePersistent(persistence);
+            return psStringCopy(data);
+        } 
+    }
+
+    // we didn't have a cached copy so we need to try to read the file
+    psString data = pxDataGet(filename);
+    if (!data) {
+        p_psMemAllocatePersistent(persistence);
+        psError(PS_ERR_IO, false, "pxDataGet(%s) failed", filename);
+        return NULL;
+    }
+
+    // store a copy of the file
+    if (!psHashAdd(cachedData, filename, data)) {
+        psFree(data);
+        p_psMemAllocatePersistent(persistence);
+        psError(PS_ERR_UNKNOWN, false, "psHashAdd() failed");
+        return NULL;
+    }
+
+    p_psMemAllocatePersistent(persistence);
+
+    return psStringCopy(data);
+}

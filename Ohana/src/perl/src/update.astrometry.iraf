@@ -1,0 +1,116 @@
+#!/usr/bin/env perl
+
+$version = 1.0;
+if (@ARGV != 2) { die "USAGE: update.astrometry.iraf (efile) (cmpfile)\n" ; }
+
+$efile   = $ARGV[0];
+$cmpfile = $ARGV[1];
+
+if (! -e $efile) { die "output file $efile not found\n"; }
+if (! -e $cmpfile) { die "header source file $cmpfile not found\n"; }
+
+# grab astrometry keywords from $cmpfile:
+@header = &load_header ($cmpfile);
+
+# set some default values:
+@astrom = ();
+$Nastro = 0;
+
+# search for the appropriate lines:
+foreach $line (@header) {
+    
+    # astrometry keywords which are copied directly
+    if ($line =~ /NASTRO  =/) { $Nastro = substr ($line, 10, 21); }
+
+    if ($line =~ /CTYPE1  =/) { @astrom = (@astrom, $line);}
+    if ($line =~ /CTYPE2  =/) { @astrom = (@astrom, $line);}
+    if ($line =~ /CRPIX1  =/) { @astrom = (@astrom, $line);}
+    if ($line =~ /CRPIX2  =/) { @astrom = (@astrom, $line);}
+    if ($line =~ /CRVAL1  =/) { @astrom = (@astrom, $line);}
+    if ($line =~ /CRVAL2  =/) { @astrom = (@astrom, $line);}
+#    if ($line =~ /NASTRO  =/) { @astrom = (@astrom, $line); $Nastro = substr ($line, 10, 21); }
+#    if ($line =~ /CERROR  =/) { @astrom = (@astrom, $line);}
+    if ($line =~ /EQUINOX =/) { @astrom = (@astrom, $line);}
+
+    # convert the PC00i00j matrix & CDELTi to CDi_j
+    if ($line =~ /PC001001=/) { $pc11 = substr ($line, 10, 21); }
+    if ($line =~ /PC001002=/) { $pc12 = substr ($line, 10, 21); }
+    if ($line =~ /PC002001=/) { $pc21 = substr ($line, 10, 21); }
+    if ($line =~ /PC002002=/) { $pc22 = substr ($line, 10, 21); }
+    if ($line =~ /CDELT1  =/) { $cd1  = substr ($line, 10, 21); }
+    if ($line =~ /CDELT2  =/) { $cd2  = substr ($line, 10, 21); }
+}
+
+# check for validity of astrometry data
+if ($Nastro == 0) {
+    print STDERR "can't find all astrometry keywords from $infile\n";
+    @astrom = ($line);
+} else {
+    # convert the pc, cdelt terms to cd terms
+    $cd11 = $cd1*$pc11;
+    $cd12 = $cd2*$pc12;
+    $cd21 = $cd1*$pc21;
+    $cd22 = $cd2*$pc22;
+    $line = sprintf "CD1_1   = %20G / WCS Coordinate scale matrix                   ", $cd11; @astrom = (@astrom, $line);
+    $line = sprintf "CD1_2   = %20G / WCS Coordinate scale matrix                   ", $cd12; @astrom = (@astrom, $line);
+    $line = sprintf "CD2_1   = %20G / WCS Coordinate scale matrix                   ", $cd21; @astrom = (@astrom, $line);
+    $line = sprintf "CD2_2   = %20G / WCS Coordinate scale matrix                   ", $cd22; @astrom = (@astrom, $line);
+}
+
+# write output to file
+foreach $line (@astrom) {
+    $hedit = convert_to_hedit ($line);
+    # print STDOUT "$line\n";
+    print STDOUT "$hedit\n";
+}
+
+exit 0;
+
+###################################################################################
+
+sub vsystem {
+    print STDERR "@_\n";
+    $status = system ("@_");
+    $status;
+}
+
+sub goodbye {
+    die "@_\n";
+}
+
+# load FITS header lines (up to including END)
+sub load_header {
+
+    my ($file) = $_[0];
+    my ($buffer, $done, @buffer, $line);
+
+    open (FILE, "$file");
+    
+    $done = 0;
+    @buffer = ();
+
+    while (! $done) {
+	read FILE, $buffer, 2880;
+	for ($i = 0; $i < 2880; $i+=80) {
+	    $line = substr ($buffer, $i, 80);
+	    if (! $done) {
+		@buffer = (@buffer, $line);
+	    }
+	    if ($line =~ /^END     /) { $done = 1; }
+	}
+    }
+    close (FILE);
+    return (@buffer);
+}
+
+sub convert_to_hedit {
+
+    my ($line) = $_[0];
+    my ($hedit, $keyword, $value);
+
+    $keyword = substr ($line, 0, 8);
+    $value   = substr ($line, 10, 21);
+
+    $hedit = sprintf "hedit $efile $keyword $value ver- show-";
+    return ($hedit);
+}

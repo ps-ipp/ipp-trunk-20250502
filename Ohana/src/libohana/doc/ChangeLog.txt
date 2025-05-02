@@ -1,0 +1,66 @@
+
+- libohana 1.8.1 : 2006.10.04
+  * added tap-based tests
+  * added strsubs functions
+
+- libohana 1.8 : 2006.08.23
+  * cleanups in ohana.h
+  * moved gaussj to libohana
+  * added PrintIOBuffer functions
+  * added check_dir_access 
+  * added ohana_lst to time.c
+
+- libohana 1.7
+  * added 'mode' to mkdirhier
+  * moved _check_permissions to check_file_exec
+
+- libohana 1.6
+  * added check_file_access (check parent dirs and permissions)
+  * cleaned up signed/unsigned inconsistencies
+  * allow date_to_set to handle enclosing quotes
+
+libohana-1-5
+  moved dvo functions to libdvo
+  made libfits depend on libohana
+  added IOBuffer and Comm functions to libohana
+  added time functions from opihi and others
+  moved Fseek into findexec.c
+
+2005.10.07
+
+	I was having some memory collision problems, and attempting to
+	use the ohana_allocate functions reminded me that the libFITS
+	functions were not supported under ohana_allocate.  This was
+	unhelpful.  I bit the bullet and split libohana into libohana
+	(base functions only, including ohana_allocate) and libdvo
+	(functions based on the libautocode structures).  Doing this
+	allowed me to make libFITS depend on libohana (including
+	ohana_allocate).  BUT, this forced me to change all LDFLAGS
+	entries in ohana to swap -lohana -lFITS for -lFITS -lohana,
+	and to add include <fitsio.h> in some cases.
+
+libohana-1-4
+  further cleanup of the autocode system
+  eliminated the elixir.h, panstarrs.h, loneos.h files:
+   these are now completely absorbed into libautocode
+  minor improvements to ohana_allocate
+
+libohana-1-3
+  changed meaning of PLY / WRP / DIS (see coordtrans.txt)
+  added check on ALLOCATE/REALLOCATE to avoid failures on Nvalues < 1
+  added ohana_allocate system (memory tracking)
+  added autocode elements (refers to libautocode)
+  cleanup glockfile APIs
+
+libohana-1-2
+  added 'STG' to allowed coordinate transforms (inaccurate & stop-gap)
+  set default Npolyterms to 1
+  initialized filemode in glockfile.c
+
+libohana-1-1
+  dropped the configuration source ./.(name)rc : was just confusing
+  in glockfile : made closing a NULL file OK
+  added imreg_datatypes (part of imregister-1-1 datatype reorganization)
+
+libohana-1-0
+  import to CVS

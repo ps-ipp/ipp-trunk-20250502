@@ -1,0 +1,203 @@
+#!/usr/bin/env mana
+
+macro getstats 
+ # usage getstats (filename) (ccd) (mef) (stats) (split)
+
+ # load image into 'b'
+ if (($3 == mef) || ($3 == MEF))
+  rd b $1 -n $2
+ else
+  rd b $1
+ end
+
+ # raster goes in buffer 'a'
+ # $flux has sky + bias 
+ getraster
+
+ # result of this is $bias
+ getbiassec b $2
+
+ mkoutput $4 $5
+end
+
+# extract subraster from image center 0.1-0.9*NAXIS1 (max 800,800)
+macro getraster
+ keyword b NAXIS1 nx
+ keyword b NAXIS2 ny
+
+# $DX = $nx * 0.8 
+# if ($DX > $dx) 
+#   $DX = $dx
+# end
+# $DY = $ny * 0.8
+# if ($DY > $dy) 
+#   $DY = $dy
+# end
+#
+# $X0 = 0.5*($nx - $DX)
+# $Y0 = 0.5*($ny - $DX)
+#
+# extract b a $X0 $Y0 $DX $DY 0 0 $DX $DY
+
+ if ($nx < (2*$dx))
+   $dx = 0.5 * $nx
+ end
+ if ($ny < (2*$dy))
+   $dy = 0.5 * $ny
+ end
+ echo extract a b {0.5*$nx - $dx} {0.5*$ny - $dy} {2*$dx} {2*$dy} 0 0 {2*$dx} {2*$dy}
+ extract b a {0.5*$nx - $dx} {0.5*$ny - $dy} {2*$dx} {2*$dy} 0 0 {2*$dx} {2*$dy}
+
+ stats -q a - - - -
+ $flux = $MEDIAN
+end
+
+# usage: mkoutput (stats) (split)
+macro mkoutput 
+ $sky = $flux - $bias
+ output $1
+ echo $sky $bias
+ output stdout
+ wd a $2 
+end
+
+# get bias from BIASSEC (header or config)
+macro getbiassec 
+ if ($BIASSEC) 
+  echo "using header biassec"
+  keyword $1 BIASSEC biassec
+ else 
+  # this line converts 2 digit zero-padded number to single
+  echo "using config biassec"
+  $ccd = $2
+  $biassec = 0
+  for n 0 $biassec:n
+    if ($ccdlist:$n == $ccd) 
+      $biassec = $biassec:$n
+    end
+  end
+  if ($biassec == 0)
+    echo "biassec for chip $ccd not found"
+    exit 1
+  end
+ end
+ parsesec $biassec
+ stats -q $1 $x1 $y1 {$x2-$x1} {$y2-$y1}
+ $bias = $MEDIAN
+end
+
+# convert BIASSEC string to x1, x2, y1, y2 vars
+macro parsesec
+  $f = $1
+  getchr $f : n
+  substr $f 1 {$n-1} x1
+  strlen $f N
+  substr $f $n {$N-$n} f
+  
+  getchr $f , n
+  substr $f 1 {$n-1} x2
+  strlen $f N
+  substr $f $n {$N-$n} f
+  
+  getchr $f : n
+  substr $f 1 {$n-1} y1
+  strlen $f N
+  substr $f $n {$N-$n} f
+  
+  getchr $f ] n
+  substr $f 1 {$n-1} y2
+  strlen $f N
+  substr $f $n {$N-$n} f
+end
+
+macro vysub
+ if ($0 != 2)
+  echo "USAGE vysub (buffer)"
+  break
+ end
+
+ keyword $1 NAXIS1 nx
+ keyword $1 NAXIS2 ny
+
+ create dy 0 $ny
+ create dx 0 $ny
+ for ty 0 $ny
+  cut $1 x y x 0 $ty $nx 1
+  vstat -q y
+  dy[$ty] = $MEDIAN
+ end
+
+ # this subtraction is not at all obvious
+ set $1 = $1 - dy
+end
+
+macro vxsub
+ if ($0 != 2)
+  echo "USAGE vxsub (buffer)"
+  break
+ end
+
+ keyword $1 NAXIS1 nx
+ keyword $1 NAXIS2 ny
+
+ create dy 0 $nx
+ create dx 0 $nx
+ for tx 0 $nx
+  cut $1 x y y $tx 0 1 $ny
+  vstat -q y
+  dy[$tx] = $MEDIAN
+ end
+
+ # this subtraction is not at all obvious
+ set $1 = -(dy - $1)
+end
+
+macro irstats
+ $plane = $2 + 1
+ rd a $1 -plane $plane
+ vysub a
+ vstat -q dy
+ $sky = $MEDIAN
+ vxsub a
+ set a = a / $sky
+ wd a $3 -bitpix 16 -bzero 0 -bscale {1/$sky}
+ exec sexstats $3 $4
+ $fwhm = `seeingstats $4`
+ exec echo "$2 $sky $fwhm >> $5"
+ echo "$2 $sky $fwhm to $5"
+end
+
+unsign 0
+$dx = 800
+$dy = 800
+
+$CCDKEYWORD = `gconfig CCDNUM-KEYWORD`
+
+list biassec -x "cameraconfig -biassec"
+$BIASSEC = `cameraconfig -usebiassec`
+list ccdlist -x "cameraconfig -ccds"
+
+# if we can use BIASSEC, use it - BIASSEC changes with rastered, binned images
+# if not, use xbias, ybias lists to extract bias
+
+if ($argv:n != 5) 
+  echo "USAGE: imstats (file.fits) (file.stats) (file.split) CCD MODE"
+  exit 1
+end
+
+break -auto off
+$path = `dirname $argv:1`
+exec test -d $path
+if ($STATUS == 0)
+  exec mkdir -p $path
+  if ($STATUS == 0)
+    echo "ERROR: can't make directory"
+    exit 1
+  end
+end
+
+echo exec rm -f $argv:1
+echo exec rm -f $argv:2
+
+getstats $argv:0 $argv:3 $argv:4 $argv:1 $argv:2
+exit 0

@@ -1,0 +1,10 @@
+/** Deletes up to limit rows from the database and returns the number of rows actually deleted. 
+ *
+ * @return A The number of rows removed or a negative value on error
+ */
+
+long long [% table.namespace %]Delete(
+    psDB            *dbh,               ///< Database handle
+    const psMetadata *where,            ///< Row match criteria
+    unsigned long long limit            ///< Maximum number of elements to delete 
+);

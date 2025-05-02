@@ -1,0 +1,12 @@
+#
+# This file is used to generate pmErrorClasses.h
+#
+BASE = 4500		First value we use; lower values belong to psLib
+UNKNOWN			Unknown fpcamera error code
+NOT_IMPLEMENTED		Desired feature is not yet implemented
+ARGUMENTS		Incorrect arguments
+CONFIG			Problem in configure files
+IO			Problem in FITS I/O
+WCS      		Error interpreting FITS WCS information
+DATA                    Problem in data values
+REFSTARS                Problem in data values

@@ -1,0 +1,251 @@
+=pod
+
+=head1 SYNOPSIS
+
+C<pXtools> is a collection of utilties for tracking image processing
+tasks.  Very little decision making logic is built into these programs.  The
+intent is for higher level programs and scripts to make the real I<decisions>
+and then use C<pXtools> to encode those choices in a persistent manner.
+
+=head1 INSTALL
+
+=head2 Prerequisites
+
+C<pXtools> depends on C<psLib> (built with C<psDB> support), C<psModules>, and
+C<ippdb> and requires a C<C99> capable compiler.
+
+XXX document required library versions
+
+=head2 Build Procedure
+
+C<pXtools> is built with the so-called suite of autotools.   The build
+procedure is pretty typical for software built with these tools.  E.g.
+    
+    ./configure
+    make
+    make install
+
+If you checked out the sources directly from CVS you need to run the
+C<autogen.sh> script.  C<autogen.sh> will run C<configure> for you so that
+changes the build procedure to just:
+
+    sh autogen.sh
+    make
+    make install
+
+=head2 jhbuild Build Procedure
+
+If you are using one of the C<ippdev> modulesets jhbuild can build and install C<pXtools> for you.  E.g.
+
+    jhbuild build pxtools
+    
+=head2 Database Setup
+
+All of the C<pXtools>' persistent storage is ultimately done through C<psLib>'s
+C<psDB> facilties.  In turn, C<psDB> uses C<MySQL> to impliment storage (and
+relational querying).  C<MySQL> requires that each namespace (aka database) is
+configured with basic access controls.  These include usernames, passwords,
+access filtering, and privilege restrictions.  Below is a simple (but somewhat
+dangerous) example of configuring a database named C<ipp>.
+
+    mysql -u root mysql -p
+    (enter your MySQL root password)
+
+    DROP DATABASE IF EXISTS ipp;
+    CREATE DATABASE ipp;
+    GRANT ALL PRIVILEGES ON *.* TO 'ippuser'@'localhost' IDENTIFIED BY 'ipppass';
+    FLUSH PRIVILEGES;
+    quit
+
+After setting up the database you should verify that you can connect to with the username and password you configured
+
+    mysql -u ipp ipp -pipp
+
+Next, C<pXtools> needs to be told where to to find MySQL, the name of the
+database you created, the username, and the password you created.  C<pXtools>
+uses the typical C<psModules> configuration system.  The simplest method is to
+add the follow lines to your $HOME/.ipprc file.
+
+    ### Database configuration
+    DBSERVER        STR     localhost   # Database host name (for psDBInit)
+    DBNAME          STR     ipp
+    DBUSER          STR     ipp         # Database user name (for psDBInit)
+    DBPASSWORD      STR     ipp         # Database password (for psDBInit)
+
+The C<pxTools> utilities require the a schema is pre-loaded into the database.  The C<pxadmin> tool can do this for you.  E.g.
+
+    pxadmin -create
+
+You should always verify that the scheme was actually loaded.  E.g.
+
+    mysql -u ipp ipp -pipp
+    Welcome to the MySQL monitor.  Commands end with ; or \g.
+    Your MySQL connection id is 6 to server version: 4.1.20-log
+
+    Type 'help;' or '\h' for help. Type '\c' to clear the buffer.
+
+    mysql> show tables;
+    +------------------------+
+    | Tables_in_ipp          |
+    +------------------------+
+    | detInputExp            |
+    | detMasterFrame         |
+    | detMasterImfile        |
+    | detNormalizedImfile    |
+    | detProcessedImfile     |
+    | detResidExpAnalysis    |
+    | detResidImfileAnalysis |
+    | detRun                 |
+    | detStackedImfile       |
+    | newExp                 |
+    | newImfile              |
+    | p1PendingExp           |
+    | p2DoneExp              |
+    | p2DoneImfile           |
+    | p2PendingExp           |
+    | p2PendingImfile        |
+    | p3PendingExp           |
+    | pzPendingExp           |
+    | pzPendingImfile        |
+    | rawDetrendExp          |
+    | rawImfile              |
+    | rawScienceExp          |
+    | summitExp              |
+    +------------------------+
+    23 rows in set (0.00 sec)
+
+=head1 USE
+
+The workflow is as follows:
+
+XXX
+
+=head2 Phase 0 tools
+
+The primary C<pXtools> utility for handling Phase 0 is C<p0search>.  This tool
+has two modes C<-pending> and C<-update>. The pending mode lists all
+C<newImfile>s that are part of an exposure that I<has not> yet been classified
+as either science or detrend data.
+
+For example:
+
+    p0search -pending
+
+Would output something like:
+
+    newImfile MULTI #
+
+    newImfile  METADATA
+       exp_id STR  10
+       class STR  OTA
+       class_id STR  0
+       uri STR  file://0
+    END
+
+    newImfile  METADATA
+       exp_id STR  10
+       class STR  OTA
+       class_id STR  1
+       uri STR  file://1
+    END
+
+    newImfile  METADATA
+       exp_id STR  10
+       class STR  OTA
+       class_id STR  2
+       uri STR  file://2
+    END
+
+    newImfile  METADATA
+       exp_id STR  10
+       class STR  OTA
+       class_id STR  3
+       uri STR  file://3
+    END
+
+To declare C<exp_id 10> as science data, you would invoke C<p0search> like this:
+    
+    p0search -update -exp_id 10
+
+Note that by default C<-update> flags the exposure as science data.  To declare it to be detrend data the command would be:
+
+    p0search -update -exp_id 10 -detrend
+
+Also keep in mind that this is a one time declaration.  Once it has been
+declared as either science or detrend data this decision can not be undone
+(without manually editing the database)
+
+=head2 Phase 1 tools
+
+These tools are not yet in use.
+
+=head2 Phase 2 tools
+
+C<p2search> handles all of state for Phase 2.  It has four basic modes:
+
+=over 4
+
+=item * C<-quick>
+
+=item * C<-define>
+
+=item * C<-pending>
+
+    p0search -pending
+
+=item * C<-done>
+
+=head2 Administrative tools
+
+=over 4
+
+=item * C<pxadmin>
+
+This tool can be used to load/unload the database schema.  It has three modes of operation:
+
+=over 4
+
+=item * C<-create>
+
+Loads the database schema.
+
+=item * C<-delete>
+
+Deletes the database schema.
+
+=item * C<-recreate>
+
+Deletes the database schema then reloads it.
+
+=back
+
+=item * C<pxinject>
+
+I<Injects> data directly into the database.  It has one mode parameter for each database table.  Note: support for only a few tables has been impliemented.
+
+=back
+
+=head2 Bypassing 'Summit Copy'
+
+The C<pXtools> suite assumes that exposures and image data are initially
+registered with the C<pz*> set of I<Summit Copy step> tools.  Sometimes this is
+inconvenient as you want to work with local data and bypass this set.  This is
+what the C<pxinject> utility is for.  C<pxinject> directly inserts data into
+the database, side stepping any ordering rules or sanity checking.
+
+The end result of the C<pz*> utilities is that new exposures are registered in the C<newExp> table and raw image data is in the C<newImfile> table.  You can insert this data yourself, preparing the system to run I<phase 0>.
+
+Here is an example of inserting an exposure that has 4 component image files.
+
+    #!//bin/sh
+
+    inject="./pxinject"
+
+    $inject -newExp -exp_id 10 -inst gpc -telescope ps1 -exp_type object -imfiles 4
+
+    `$inject -newImfile -exp_id 10 -class OTA -class_id 0 -uri file://0`
+    `$inject -newImfile -exp_id 10 -class OTA -class_id 1 -uri file://1`
+    `$inject -newImfile -exp_id 10 -class OTA -class_id 2 -uri file://2`
+    `$inject -newImfile -exp_id 10 -class OTA -class_id 3 -uri file://3`
+
+=cut

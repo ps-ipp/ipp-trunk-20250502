@@ -1,0 +1,106 @@
+# include <ohana.h>
+
+static char dbfile[] = "/h/eugene/d4/flattest/test.db";
+
+void main (int argc, char **argv) {
+
+  char buffer[10000];
+  int vbuffer[10000];
+  FILE *f;
+  int i, j, Nrun, status, fd;
+
+  if (argc > 1) {
+    if (!strcmp (argv[1], "-check")) {
+      f = fopen (dbfile, "r");
+      if (f == (FILE *) NULL) {
+	fprintf (stderr, "ERROR: can't open file\n");
+	exit (0);
+      }
+      status = fread (buffer, 1, 5000, f);
+      if (status != 5000) {
+	fprintf (stderr, "ERROR: can't read header\n");
+	exit (0);
+      }
+      sscanf (&buffer[500], "%*s %*s %*s %d", &Nrun);
+      for (j = 0 ; j < Nrun; j++) {
+	status = fread (vbuffer, 4, 1000, f);
+	if (status != 1000) {
+	  fprintf (stderr, "ERROR: can't read data\n");
+	  exit (0);
+	}
+	for (i = 0; i < 1000; i++) {
+	  if (vbuffer[i] != j) {
+	    fprintf (stderr, "ERROR: invalid data %d/%d,  %d - %d\n", j, Nrun, i, vbuffer[i]);
+	    exit (0);
+	  }
+	}
+      }
+      fprintf (stderr, "Data is good\n");
+      exit (0);
+    }
+  }	  
+
+  /* read the header block, change one line, write the header block */
+  /* write a block to EOF */
+
+  /* if lockfile exists, program will complain and quit */
+  if ((fd = setlockfile (dbfile, 60.0)) == -1) {
+    fprintf (stderr, "ERROR: can't set lock on %s\n", dbfile);
+    exit (1);
+  }
+
+  f = fopen (dbfile, "r");
+  if (f == (FILE *) NULL) {
+    /* make a header block */
+    for (i = 0; i < 50; i++) {
+      memset (&buffer[100*i], 65+i, 99);
+      buffer[100*i + 99] = '\n';
+    }
+    sprintf (&buffer[500], "THIS IS TEST    0   \n");
+    Nrun = 0;
+  } else {
+    status = fread (buffer, 1, 5000, f);
+    if (status != 5000) {
+      fprintf (stderr, "ERROR: can't read data\n");
+      exit (0);
+    }
+    
+    sscanf (&buffer[500], "%*s %*s %*s %d", &Nrun);
+    Nrun ++;
+    sprintf (&buffer[500], "THIS IS TEST    %d   \n", Nrun);
+  }
+
+  f = fopen (dbfile, "r+");
+  if (f == NULL) {
+    f = fopen (dbfile, "w");
+    if (f == NULL) {
+      fprintf (stderr, "ERROR: can't create/open file %s\n", dbfile);
+      exit (0);
+    }
+  }
+
+  /* position to begining of file to write header */
+  fseek (f, 0, SEEK_SET);
+  status = fwrite (buffer, 1, 5000, f);
+  if (status != 5000) {
+    fprintf (stderr, "ERROR: failed writing data to header\n");
+    exit (0);
+  }
+
+  for (i = 0; i < 1000; i++) vbuffer[i] = Nrun;
+
+  fseek (f, 0, SEEK_END);
+  status = fwrite (vbuffer, 4, 1000, f);
+  if (status != 1000) {
+    fprintf (stderr, "ERROR: failed writing data to file\n");
+    exit (0);
+  }
+
+  if (!gnfsflush (dbfile)) {
+    fprintf (stderr, "ERROR: failed to flush image catalog\n");
+    exit (0);
+  }
+
+  clearlockfile (dbfile, fd);
+
+}

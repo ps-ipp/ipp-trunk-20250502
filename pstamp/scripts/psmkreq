@@ -1,0 +1,448 @@
+#!/usr/bin/env perl
+###
+### psmkreq
+###
+###     Program to make a postage stamp request table for a set of coordinates using supplied command
+###     line options and defaults
+###
+
+use warnings;
+use strict;
+
+use Getopt::Long qw( GetOptions ) ; # :config auto_help auto_version gnu_getopt );
+use Pod::Usage qw( pod2usage );
+use PS::IPP::Config qw( :standard );
+use PS::IPP::PStamp::RequestFile qw( :standard );
+use PS::IPP::PStamp::Job qw( :standard );
+use File::Temp qw(tempfile);
+use File::Basename qw(basename);
+use IPC::Cmd 0.36 qw( can_run run );
+use Carp;
+use POSIX;
+
+my $verbose;
+my $save_temps;
+
+# list file columns
+# RA DEC FILTER MJD_MIN MJD_MAX | COMMENT
+
+my ($ra, $dec, $x, $y, $list, $output, $req_name, $req_name_base);
+
+my ($image, $mask, $variance, $jpeg, $allroi, $cmf, $psf, $backmdl, $inverse, $restorebackground);
+my ($exptime, $expnum, $exptimejpeg, $expnumjpeg);
+my ($convolved, $unconvolved, $uncompressed, $use_imfile_id, $no_wait);
+
+# new header keywords for version 2
+my $action = 'PROCESS';
+my $email = 'null';
+
+my $default_size = 100;
+my $job_type     = 'stamp';
+my $req_type     = 'bycoord';
+my $stage        = 'stack';
+my $option_mask;
+my $width        = $default_size;
+my $height       = $default_size;
+my $whole_file   = 0;
+my $project      = 'gpc1';
+my $coord_mask;
+my $pixcenter;
+my $arcseconds;
+
+my $id;
+my $tess_id = 'null';
+my $component = 'null';
+my $data_group = 'null';
+my $filter;
+my $mjd_min = 0;
+my $mjd_max = 0;
+my $comment;
+
+# new request specification columns for version 2
+my $survey_name ='null';
+my $release_name = 'null';
+my $run_type ='null';
+my $fwhm_min = 0;
+my $fwhm_max = 0;
+
+
+my $missing_tools;
+my $pstamp_request_file  = can_run('pstamp_request_file')  or (warn "Can't find required program pstamp_request_file"  and $missing_tools = 1);
+
+if ($missing_tools) {
+    warn("Can't find required tools.");
+    exit ($PS_EXIT_CONFIG_ERROR);
+}
+
+GetOptions(
+    'list=s'            => \$list,          # list of coordinates if undef ra and dec or x and y are required
+    'ra=s'              => \$ra,
+    'dec=s'             => \$dec,
+    'x=s'               => \$x,
+    'y=s'               => \$y,
+    'width=i'           => \$width,
+    'height=i'          => \$height,
+    'whole-file'        => \$whole_file,
+    'pixcenter'         => \$pixcenter,
+    'arcseconds'        => \$arcseconds,
+    'coord_mask=i'      => \$coord_mask,
+    'job_type=s'        => \$job_type,
+    'output=s'          => \$output,
+    'req_name=s'        => \$req_name,
+    'req_name_base=s'   => \$req_name_base,
+    'stage=s'           => \$stage,
+    'project=s'         => \$project,
+    'req_type=s'        => \$req_type,
+    'id=s'              => \$id,
+    'tess_id=s'         => \$tess_id,
+    'component=s'       => \$component,
+    'data_group=s'      => \$data_group,
+    'filter=s'          => \$filter,
+    'mjd_min=s'         => \$mjd_min,
+    'mjd_max=s'         => \$mjd_max,
+    'comment=s'         => \$comment,
+
+    'survey=s'          => \$survey_name,
+    'release=s'         => \$release_name,
+    'run_type=s'        => \$run_type,
+    'fwhm_min=s'        => \$fwhm_min,
+    'fwhm_max=s'        => \$fwhm_max,
+
+    'option_mask=i'     => \$option_mask,
+    'image'             => \$image,
+    'mask'              => \$mask,
+    'jpeg'              => \$jpeg,
+    'allroi'            => \$allroi,
+    'variance'          => \$variance,
+    'cmf'               => \$cmf,
+    'psf'               => \$psf,
+    'backmdl'           => \$backmdl,
+    'exptime'           => \$exptime,
+    'expnum'            => \$expnum,
+    'exptimejpeg'       => \$exptimejpeg,
+    'expnumjpeg'        => \$expnumjpeg,
+    'inverse'           => \$inverse,
+    'unconvolved'       => \$unconvolved,
+    'convolved'         => \$convolved,
+    'uncompressed'      => \$uncompressed,
+    'restorebackground' => \$restorebackground,
+    'use_imfile_id'     => \$use_imfile_id,
+    'do_not_wait'       => \$no_wait,
+
+    'action=s'          => \$action,
+    'email=s'           => \$email,
+
+    'verbose'           => \$verbose,
+    'save-temps'        => \$save_temps,
+) or pod2usage(2);
+
+pod2usage( -msg => "Unknown option: @ARGV", -exitval => 2 ) if @ARGV;
+
+pod2usage( -msg => "Required options: --req_name | --req_name_base --stage ") 
+    unless (defined $req_name or defined $req_name_base)
+       and defined $stage;
+
+pod2usage( -msg => "Invalid job_type: $job_type", -exitval =>1 )
+        unless ($job_type eq 'stamp' or $job_type eq 'get_image');
+
+if ($job_type eq 'stamp') {
+    if (defined $list) {
+        pod2usage( -msg => "--ra --dec --x --y are not used with --list", -exitval =>1 )
+            if defined $x or defined $y;
+    } else {
+        if ($whole_file) {
+            $pixcenter = 1;
+            $x = 0;
+            $y = 0;
+            $width = 0;
+            $height = 0;
+        }
+        if (!$pixcenter) {
+            pod2usage( -msg => "Required options for stamp requests: --ra and --dec or --list", -exitval =>1 )
+                unless (defined $ra and defined $dec);
+            # to simplify code we just use $x and $y from here
+            $x = $ra;
+            $y = $dec;
+        } else {
+            pod2usage( -msg => "Required options for stamp requests: --x and --y or --list", -exitval =>1 )
+                    unless (defined $x and defined $y);
+        }
+    }
+} else {
+    pod2usage( -msg => "req_type must be byid or byexp for get_image requests",
+        -exitval =>1 ) unless $req_type eq 'byid' or $req_type eq 'byexp';
+    $x  = 0;
+    $y = 0;
+}
+
+if ($req_type eq 'byid') {
+    pod2usage( -msg => "ID required for get_image requests", -exitval =>1 )
+            if !defined $id;
+    die("ID must be number for byid requests") if !validID($id);
+} elsif ($req_type eq 'byexp') {
+    pod2usage( -msg => "ID (exp_name) required for byexp requests", -exitval =>1 )
+            if !defined $id;
+} elsif ($req_type eq 'bydiff') {
+    pod2usage( -msg => "ID (exp_name) required for bydiff requests", -exitval =>1 )
+            if !defined $id;
+} elsif ($req_type eq 'byskycell') {
+    pod2usage( -msg => "tess_id and skycell_id required for byskycell requests", -exitval =>1 )
+            if !(defined $tess_id and defined $component);
+} elsif ($req_type ne 'bycoord') {
+    pod2usage( -msg => "$req_type is not a valid req_type", -exitval =>1 );
+}
+
+$id = 0 if !$id;
+
+unless ($stage eq 'raw' or $stage eq 'chip' or $stage eq 'warp' or $stage eq 'diff' or $stage eq 'stack'
+    or $stage eq 'stack_summary') {
+    die "$stage is not a valid value for stage\n";
+}
+
+if ($stage eq 'stack') {
+    # default is to do convolved stack
+    unless (defined $option_mask || $convolved) {
+        $unconvolved = 1;
+    }
+}
+
+checkFilter($filter, 'null', $filter)  if $filter;
+checkMJD($mjd_min, 0, "") if $mjd_min;
+checkMJD($mjd_max, 0, "" ) if $mjd_min;
+
+# user supplied option mask takes precedence
+if (!defined $option_mask) {
+    $option_mask = 0;
+    if ($job_type eq 'stamp') {
+        $option_mask |= $PSTAMP_SELECT_IMAGE    if $image;
+        $option_mask |= $PSTAMP_SELECT_MASK     if $mask;
+        $option_mask |= $PSTAMP_SELECT_VARIANCE if $variance;
+        $option_mask |= $PSTAMP_SELECT_JPEG     if $jpeg;
+        $option_mask |= $PSTAMP_MULTI_OVERLAP_IMAGE     if $allroi;
+
+        # if no image was requested make a stamp of the image
+        $option_mask = $PSTAMP_SELECT_IMAGE    if $option_mask == 0;
+
+        $option_mask |= $PSTAMP_SELECT_CMF      if $cmf;
+        $option_mask |= $PSTAMP_SELECT_PSF      if $psf;
+        $option_mask |= $PSTAMP_SELECT_BACKMDL  if $backmdl;
+        $option_mask |= $PSTAMP_SELECT_EXP      if $exptime;
+        $option_mask |= $PSTAMP_SELECT_NUM      if $expnum;
+        $option_mask |= $PSTAMP_SELECT_EXPJPEG  if $exptimejpeg;
+        $option_mask |= $PSTAMP_SELECT_NUMJPEG  if $expnumjpeg;
+        $option_mask |= $PSTAMP_SELECT_UNCOMPRESSED if $uncompressed;
+        $option_mask |= $PSTAMP_SELECT_UNCONV   if $unconvolved;
+        $option_mask |= $PSTAMP_USE_IMFILE_ID   if $use_imfile_id;
+        $option_mask |= $PSTAMP_SELECT_INVERSE  if $inverse;
+        $option_mask |= $PSTAMP_RESTORE_BACKGROUND  if $restorebackground;
+    }
+    $option_mask |= $PSTAMP_NO_WAIT_FOR_UPDATE if $no_wait;
+}
+
+
+# user supplied coord_mask takes precedence
+if (!defined $coord_mask) {
+    $coord_mask = 0;
+    if ($pixcenter) {
+        $coord_mask |= $PSTAMP_CENTER_IN_PIXELS;
+    }
+    if (!$arcseconds) {
+        $coord_mask |= $PSTAMP_RANGE_IN_PIXELS;
+    }
+}
+
+
+# if req_name is not supplied use the current date and time to build one off of the base
+if (!$req_name) {
+    my $datestr = strftime "%Y%m%dT%H%M%S", gmtime;
+    $req_name .= $req_name_base . $datestr;
+}
+
+# ok ready to go
+
+my $rows;
+if ($list) {
+    $rows = readList($list);
+} else {
+    $rows = [];
+    push @$rows, buildRow("", $comment, 1, $x, $y, $filter, $mjd_min, $mjd_max);
+}
+
+my ($tdf, $table_def_name) = tempfile ("/tmp/tabledef.XXXX", UNLINK => !$save_temps);
+my $line = "$req_name 2 $action $email";
+print "$line\n" if $verbose;
+print $tdf "$line\n";
+my $rownum = 0;
+foreach my $row (@$rows) {
+    $rownum++;
+    my $line = "$rownum $row->{ra}\t$row->{dec}\t$width $height"
+        . " $coord_mask $job_type $option_mask $project $survey_name $release_name $req_type"
+        . " $stage $id $tess_id $component $data_group"
+        . " $row->{filter} $row->{mjd_min} $row->{mjd_max} $run_type $fwhm_min $fwhm_max";
+
+    if ($row->{comment} and $row->{comment} ne '') {
+        $line .= " |$row->{comment}" ;
+    } else {
+        $line .= " |$comment" if $comment;
+    }
+
+    print "$line\n" if $verbose;
+    print $tdf "$line\n";
+}
+close $tdf;
+
+{
+    my $command = "$pstamp_request_file --input $table_def_name --req_name $req_name";
+    $command .= " --output $output" if $output;
+    my ( $success, $error_code, $full_buf, $stdout_buf, $stderr_buf ) =
+        run(command => $command, verbose => $verbose);
+    unless ($success) {
+        print STDERR @$stderr_buf;
+        exit $error_code >> 8;
+    }
+}
+
+exit 0;
+
+sub readList {
+    my $file = shift;
+    open IN, "<$file" or die "failed to open $file for input\n";
+
+    my @rows;
+
+    my $linenumber = 0;
+    foreach my $line (<IN>) {
+        $linenumber++;
+        chomp $line;
+        next if !$line;
+        next if ($line =~ /^#/);
+
+        my ($spec, $comment) = split /\|/, $line;
+        $comment = '' if !defined $comment;
+
+        my @vals = split " ", $spec;
+        push @rows, buildRow("at line number $linenumber", $comment, @vals);
+    }
+    close IN;
+
+    return \@rows;
+}
+
+sub buildRow {
+    my $linenumber = shift;
+    my $comment = shift;
+    my @vals = @_;
+
+    my $row = {};
+    $row->{rownum}  = checkRownum($vals[0], $linenumber);
+    $row->{ra}      = checkRA($vals[1], $linenumber);
+    $row->{dec}     = checkDEC($vals[2], $linenumber);
+    $row->{filter}  = checkFilter($vals[3], $filter, $linenumber);
+    $row->{mjd_min} = checkMJD($vals[4], $mjd_min, $linenumber);;
+    $row->{mjd_max} = checkMJD($vals[5], $mjd_max, $linenumber);;
+    $row->{comment} = $comment;
+
+    return $row;
+}
+
+sub validNumber {
+    my $val = shift;
+
+    return 0 if !defined $val;
+
+    return ($val =~ /^([+-]?)(?=\d|\.\d)\d*(\.\d*)?([Ee]([+-]?\d+))?$/);
+}
+
+sub validID
+{
+    my $val = shift;
+
+    return 0 if !$val;
+
+    return  ! ($val =~ /\D/);
+}
+
+sub checkCoord {
+    my $c          = shift;
+    my $linenumber = shift;
+
+   my $result;
+    if ($c =~ /\:/) {
+        # sexagesmial format not valid for pixel coordinates
+        die "invalid coordinate value $c found $linenumber\n" if $pixcenter;
+
+        my ($d, $m, $s) = split '\:', $c;
+        die "invalid coordinate value $c found $linenumber\n" 
+            unless validNumber($d) and validNumber($m) and validNumber($s);
+        my $sign;
+        if ($c =~ /^-/) {   # checking $d < 0 doesn't work for $d = -0
+            $sign = -1;
+            $d = -$d;
+        } else {
+            $sign = 1;
+        }
+        $result = $sign * ($d + ($m + $s/60.) /60.);
+    } else {
+        die "$c is not  valid coordinate value $linenumber\n" 
+            unless validNumber($c);
+        $result = $c;
+    }
+    return $result;
+}
+
+sub checkRownum {
+    my $rownum = shift;
+    my $linenumber = shift;
+    die "rownum can not be null at $linenumber\n" unless defined $rownum;
+
+    # XXX: For now just check that rownum is defined and a single word
+    # extend this. Should we require a number?
+    my @words = split " ", $rownum;
+    die "$rownum is not a vaild rownum at $linenumber\n" unless (scalar @words) == 1;
+}
+
+sub checkRA {
+    my $ra = shift;
+    my $linenumber = shift;
+    my $checked = checkCoord($ra, $linenumber);
+
+    if ($ra =~ /\:/) {
+        # assume RA is in hours:minutes:seconds
+        return $checked * 360. / 24.;
+    } else {
+        return $checked;
+    }
+}
+
+sub checkDEC {
+    return checkCoord(@_);
+}
+
+sub checkFilter {
+    my $f = shift;
+    my $default = shift;
+    my $linenumber = shift;
+
+    $default = 'null' if !defined $default;
+
+    $f = $default if (!defined$f or $f eq 'null');
+
+    return $f;
+}
+
+sub checkMJD {
+    my $mjd = shift;
+    my $default = shift;
+    my $linenumber = shift;;
+
+    return $default if (!$mjd) ;
+
+    die "invalid mjd value '$mjd' found $linenumber\n" if !validNumber($mjd);
+
+    return $mjd;
+}
+
+sub checkStage {
+    my $stage = shift;
+
+}

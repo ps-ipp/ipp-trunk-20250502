@@ -1,0 +1,5 @@
+
+FITS_DB represents a FITS table file, including the primary header,
+any existing matrix, the table header, and the table data as either an
+ftable (real) or vtable (virtual) FITS table.  
+

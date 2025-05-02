@@ -1,0 +1,513 @@
+#!/usr/bin/env perl
+
+# Copyright (C) 2005-2006  Joshua Hoblitt
+#
+# $Id: glueforge.in,v 1.51 2006-10-20 00:55:43 jhoblitt Exp $
+
+use strict;
+use warnings FATAL => qw( all );
+
+use vars qw( $VERSION );
+$VERSION = '@PACKAGE_VERSION@';
+
+use PS::IPP::Metadata::Config;
+use Template;
+
+use Getopt::Long qw( GetOptions :config auto_help auto_version );
+use Pod::Usage qw( pod2usage );
+
+my ( $input, $output, $template );
+GetOptions(
+    'input=s'       => \$input,
+    'output=s'      => \$output,
+    'template=s'    => \$template,
+) || pod2usage( 2 );
+
+pod2usage( -msg => "Unknown option: @ARGV", -exitval => 2 ) if @ARGV;
+pod2usage( -msg => "Required option: --input|-i", -exitval => 2 ) unless $input;
+
+$template = "@datadir@/@PACKAGE_NAME@/templates/psdb" unless $template;
+
+die "file doesn't exist: $input" unless -e $input;
+die "file isn't readable: $input" unless -r $input;
+
+my $config = parse_config( $input );
+
+die "file doesn't not contain a valid config" unless defined $config->[0];
+
+# if the first hash has a class of "metadata" then this is a complex config.
+# Otherwise it is a simple config.
+my $complex = ($config->[0]->{class} eq "metadata") ? 1 : 0;
+
+my $data; # hashref
+if ($complex) {
+    $data = complex_config($config);
+} else {
+    $data = simple_config($config);
+}
+
+# determine output path
+$output = $data->{pkg_name} unless defined $output;
+
+my $ttconfig;
+{
+    # slurp config.pl
+    open(my $fh, "$template/config.pl")
+        or die "can't open $template/config.pl: $!";
+    $ttconfig = do {local $/; <$fh>};
+    close($fh) or die "can't close $template/config.pl: $!";
+}
+
+# configure template file paths
+my %tt;
+eval $ttconfig;
+die "can't eval contents of $template/config.pl: $@" if $@;
+
+my $mangler = Template->new({ INCLUDE_PATH => $template, EVAL_PERL => 1 });
+
+foreach my $t ( keys %tt ) {
+    $mangler->process( $t, $data, $tt{$t})
+        or die $mangler->error;
+}
+
+# make autogen.sh executable
+# permissions are in octal
+#chmod 0744, $tt{'autogen_sh.tt'}; 
+
+sub parse_config {
+    my $file = shift;
+
+    my $mdparser = PS::IPP::Metadata::Config->new;
+    $mdparser->overwrite( 1 );
+
+    open( my $data, $file ) or die "can't open file: $!";
+    my $example = do { local $/; <$data> };
+    close( $data ) or die "can't close file: $!";
+
+    my $config = $mdparser->parse( $example )
+        or die "error parsing file: $input";
+
+    return $config;
+}
+
+sub lookup_type {
+    my $type = shift;
+
+    my %primitives = map { $_ => 1 }
+            qw( S8 S16 S32 S64 U8 U16 U32 U64 F32 F64 );
+    my %times = map { $_ => 1 } qw( UTC UT1 TAI TT );
+    my %mtypes = (map({ $_ => "PS_DATA_$_" } keys %primitives),
+                  map({ $_ => "PS_DATA_TIME" } keys %times));
+    my %ctypes = (map({ $_ => "ps$_" } keys %primitives),
+                  map({ $_ => "psTime*"} keys %times));
+
+    my %ttypes = (
+        S8      => -8,
+        S16     => -16,
+        S32     => -32,
+        S64     => -64,
+        U8      => 8,
+        U16     => 16,
+        U32     => 32,
+        U64     => 64,
+        F32     => 32.32,
+        F64     => 64.64,
+        UTC     => '"0001-01-01T00:00:00Z"',
+        UT1     => '"0001-01-01T00:00:00Z"',
+        TAI     => '"0001-01-01T00:00:00Z"',
+        TT      => '"0001-01-01T00:00:00Z"',
+    );
+
+    if ($primitives{$type}) {
+        return {
+            ctype   => $ctypes{$type},
+            mtype   => $mtypes{$type},
+            test    => $ttypes{$type},
+        }; 
+    }
+    elsif ($times{$type}) {
+        return {
+            ctype   => $ctypes{$type},
+            mtype   => $mtypes{$type},
+            test    => $ttypes{$type},
+            timetype => "PS_TIME_$type",
+        }; 
+    } elsif ( $type =~ /STR|STRING/ ) {
+        return {
+            ctype   => "char*",
+            mtype   => 'PS_DATA_STRING',
+            test    => '"a string"',
+        };
+    } elsif ( $type =~ /BOOL/ ) {
+        return {
+            ctype   => "bool",
+            mtype   => 'PS_DATA_BOOL',
+            test    => 'true',
+        };
+    } else {
+        return undef;
+    }
+}
+
+sub simple_config {
+    my $config = shift;
+
+    # find table name
+    my $table_name;
+    for (my $i = 0; $i < @{$config}; $i++) {
+        my $elem = $config->[$i];
+
+        if ( $elem->{name} eq "table" ) {
+            $table_name = $elem->{value};
+
+            # delete element from array
+            splice @$config, $i, 1;
+
+            last;
+        }
+    }
+
+    my %data;
+
+    # global data
+    $data{glueforge_version}= $VERSION;
+
+    $data{pkg_name}         = $table_name . "db";
+    $data{pkg_namespace}    = $table_name;
+
+    # per table data
+    my %table;
+    $table{name}        = $table_name;
+    $table{namespace}   = $table_name;
+    $table{object_name} = $table{namespace} . "Row";
+
+    my @items;
+
+    # setup one table per nested metadata
+    my @tables;
+    foreach my $meta (@{$config}) {
+        push @tables, tabledata_from_meta($meta);
+    }
+
+=for off
+    # setup items
+    for (my $i = 0; $i < @{$config}; $i++) {
+        my $elem = $config->[$i];
+
+        my $mdtypes = lookup_type( $elem->{type} );
+        next if ! defined $mdtypes;
+
+        push @items, {
+            %{$mdtypes},
+            name    => $elem->{name},
+            type    => $elem->{type},
+#            ctype   => $mdtypes->{ctype},
+#            mtype   => $mdtypes->{mtype},
+#            test    => $mdtypes->{test},
+            comment => $elem->{comment},
+            value   => $elem->{value},
+        };
+    }
+=cut
+
+    $table{columns} = \@items;
+    $data{tables} = [ \%table ];
+
+    return \%data;
+}
+
+sub complex_config {
+    my $config = shift;
+
+    # find the glueforge metadata
+    my $glueforge_meta;
+    for (my $i = 0; $i < @{$config}; $i++) {
+        my $elem = $config->[$i];
+
+        if ($elem->{name} eq "glueforge") {
+            $glueforge_meta = $elem;
+
+            # delete element from array
+            splice @$config, $i, 1;
+
+            last;
+        }
+    }
+
+    # global data
+
+    my ($pkg_name, $pkg_namespace, $pkg_version);
+    unless (defined $glueforge_meta) {
+        # set default values
+        warn "missing glueforge METADATA, using default values";
+        $pkg_name = "foodb";
+        $pkg_namespace = "foo";
+    } else {
+        # process glueforge metadata for global data
+
+        foreach my $item (@{$glueforge_meta->{value}}) {
+            if ($item->{name} eq 'pkg_name') {
+                $pkg_name = $item->{value};
+            } elsif ($item->{name} eq 'pkg_namespace') {
+                $pkg_namespace = $item->{value};
+            } elsif ($item->{name} eq 'pkg_version') {
+                $pkg_version = $item->{value};
+            } else {
+                die "invalid glueforge METADATA key: $item->{name}";
+            }
+        }
+    }
+
+    die "pkg_name is required in complex config" unless defined $pkg_name;
+    die "pkg_namespace is required in complex config" unless defined
+        $pkg_namespace;
+    die "pkg_version is required in complex config" unless defined
+        $pkg_version;
+
+    my %data;
+    $data{glueforge_version}= $VERSION;
+    $data{pkg_name}         = $pkg_name;
+    $data{pkg_namespace}    = $pkg_namespace;
+    $data{pkg_version}      = $pkg_version;
+
+    # setup one table per nested metadata
+    my @tables;
+    foreach my $meta (@{$config}) {
+        push @tables, tabledata_from_meta($meta);
+    }
+
+    $data{tables} = \@tables;
+
+    return \%data;
+}
+
+sub tabledata_from_meta {
+    my $meta = shift;   # hashref
+
+    die "not a valid metadata" unless $meta->{class} eq 'metadata';
+
+    my $table_name = $meta->{name};
+
+    my @fields;
+    foreach my $column (@{$meta->{value}}) {
+        my $mdtypes = lookup_type( $column->{type} );
+        next if not defined $mdtypes;
+
+        push @fields, {
+            name    => $column->{name},
+            type    => $column->{type},
+#            ctype   => $mdtypes->{ctype},
+#            mtype   => $mdtypes->{mtype},
+#            test    => $mdtypes->{test},
+            comment => $column->{comment},
+            value   => $column->{value},
+            %{$mdtypes},
+        };
+    }
+
+    my %table = (
+        name        => $table_name,
+        namespace   => $table_name,
+        object_name => $table_name . "Row",
+        columns     => \@fields,
+    );
+
+    return \%table;
+}
+
+__END__
+
+=pod
+
+=head1 NAME
+
+@PACKAGE_NAME@ - auto-generate Pan-STARRS IPP 'meta' database bindings
+
+=head1 SYNOPSIS
+
+    @PACKAGE_NAME@ --input <filename> [--output <dirname>] [--template <dirname>]
+
+=head1 DESCRIPTION
+
+This program generates a set of database table format specific bindings in the
+ANSI C language.  The code generated is largely just wrapper functions around
+the C<pslib> C<psDB> API.  Table information is read in from a configuration
+file in the pslib C<MetadataConfig> format.  A complete autotools configured
+package that builds both static & shared libraries is generated.
+
+=head2 Features
+
+=over 4
+
+=item * Generates a complete autoconf/automake/libtool package.
+
+=item * Generated packages include an C<autogen.sh> script.
+
+=item * Installs a pkgconfig C<.pc> data file.
+
+=item * Includes a table format specific autotest test suite.
+
+=item * Builds both shared and static libraries by default.
+
+=item * Generates man pages and HTML documentation with Doxygen.
+
+=item * Header files should be C++ safe.
+
+=item * Functions to open and close database connections.
+
+=item * Functions to create and destroy a table of the appropriate format.
+
+=item * Functions to insert and pop a row.
+
+=item * Functions to insert and pop a simple object representing a row.
+
+=item * Functions to insert, select, and pop to/from FITS files.
+
+=item * Functions to convert between row structs and pslib C<psMetadata>s.
+
+=back
+
+=head1 TABLE DESCRIPTION FORMAT
+
+There are two slightly different configuration file forms.  A C<simple> format
+for describing a single table and a C<complex> format for describing more then
+one table and/or configuring specific details as to how the package is
+generated.  The syntax for both of these forms follows the C<Configuration
+files> format as described in C<PSDC-430-007>.
+
+=head2 Simple configuration
+
+A simple config file specifies the name of the table, the name and types of all
+columns, and can optionally specify which column(s) are to be used as indexes.
+
+=head2 Example simple configuration
+
+    table   STR     foo
+    foo     STR     60      # Primary Key # the name of foo thing
+    bar     S32     0       ## count of bar
+    baz     F32     0.0
+    boing   F64     0.0
+    zot     BOOL    t       # Key
+
+The key name C<table> is reserved and specifies the name of the database table.
+It may appear any where in the file but it is most I<convenient> to have it as
+the first line of the table description.
+
+The key name C<type> is reserved and I<may not> be used.
+
+The value of a C<STR> column specifies the maximum number of characters that
+the database is required to store for that field.  The values for C<S32>,
+C<F32>, C<F64>, & C<BOOL> columns are ignored.
+
+Indexes maybe specified as comment value of either C<Primary Key> or C<Key>.
+Only one C<Primary Key> may be specified per table.  
+
+Description comments may specified as either a C<# ...> after an index
+specifier or as stand alone comment value of C<## ...>.
+
+The key name C<position> is also reserved as it is used internally by the
+database bindings.
+
+=head2 Complex configuration
+
+A complex config file consists of a series of C<METADATA> blocks.  One (and
+only one) of these blocks I<must> be named C<glueforge>. This block contains
+the global package configuration data.  Only the keys C<pkg_name>,
+C<pkg_namespace>, and C<pkg_version> are allowed in this block and they are
+both required.
+
+All other C<METADATA> blocks describe a single table with the name of the
+C<METATA> block being the tables name.  Otherwise, the format of items
+contained in a C<METADATA> block is the same as for the simple configuration.
+
+Note that nested C<METADATA> blocks are not allowed.
+
+=head2 Example complex configuration
+
+glueforge METADATA
+    pkg_name        STR  foodb 
+    pkg_namespace   STR  foo
+    pkg_version     STR  0.0.1
+END
+
+foo METADATA
+    foo     STR     60      # Primary Key # the name of foo thing
+    bar     S32     0       ## count of bar
+    baz     F32     0.0
+    boing   F64     0.0
+    zot     BOOL    t       # Key
+END
+
+bar METADATA
+    zot     BOOL    t       # Key
+    boing   F64     0.0
+    baz     F32     0.0
+    bar     S32     0       ## count of bar
+    foo     STR     60      # Primary Key # the name of foo thing
+END
+
+=head1 OPTIONS
+
+=over 4
+
+=item * --input|-i <filename>
+
+File to read table description from.
+
+=item * --output|-o <dirname>
+
+Send the generate files to this directory name.
+
+Defaults to the name of the database table.
+
+=item * --template|-t <dirname>
+
+Directory to load template files from.
+
+Defaults to C<@datadir@/@PACKAGE_NAME@/templates/psdb>.
+
+=back
+
+=head1 BUGS
+
+The format of configuration files is not rigorously checked.  Improperly
+formatted files may not be caught and cause random (possibly silent) errors
+and/or improperly code generation.
+
+=head1 CREDITS
+
+Just me, myself, and I.
+
+=head1 SUPPORT
+
+Please contact the author directly via e-mail.
+
+=head1 AUTHOR
+
+Joshua Hoblitt <jhoblitt@cpan.org>
+
+=head1 COPYRIGHT
+
+Copyright (C) 2005-2006  Joshua Hoblitt.  All rights reserved.
+
+This program is free software; you can redistribute it and/or modify it under
+the terms of the GNU General Public License as published by the Free Software
+Foundation; either version 2 of the License, or (at your option) any later
+version.
+
+This program is distributed in the hope that it will be useful, but WITHOUT ANY
+WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A
+PARTICULAR PURPOSE.  See the GNU General Public License for more details.
+
+You should have received a copy of the GNU General Public License along with
+this program; if not, write to the Free Software Foundation, Inc., 59 Temple
+Place - Suite 330, Boston, MA  02111-1307, USA.
+
+The full text of the license can be found in the L<perlgpl> Pod as supplied
+with Perl 5.8.1 and later.
+
+=head1 SEE ALSO
+
+C<pslib>, C<PSDC-430-007>. L<PS:IPP::Metadata::Config>
+
+=cut

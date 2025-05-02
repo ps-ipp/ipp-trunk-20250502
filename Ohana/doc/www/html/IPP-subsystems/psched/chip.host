@@ -1,0 +1,23 @@
+#!/usr/bin/env perl
+
+if (@ARGV != 1) { die "USAGE: chip.host (chip)\n"; }
+
+$chip = $ARGV[0];
+
+if ($chip eq "ccd00") {
+    print "po04\n";
+    exit 0;
+}
+if ($chip eq "ccd01") {
+    print "po01\n";
+    exit 0;
+}
+if ($chip eq "ccd02") {
+    print "po02\n";
+    exit 0;
+}
+if ($chip eq "ccd03") {
+    print "po03\n";
+    exit 0;
+}
+print "anyhost\n";

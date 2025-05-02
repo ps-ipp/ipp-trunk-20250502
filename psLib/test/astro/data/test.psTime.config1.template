@@ -1,0 +1,23 @@
+# This configuration file specifies values required for time calculations by psLib.
+psLib.time.tables.dir STR bogus                                                    # Directory for time tables
+psLib.time.tables.n S32 4                                                               # Number of time tables
+psLib.time.tables.files STR ser7.dat eopc01_1900_2004.dat finals_all.dat tai_utc.dat    # These are the table file names
+@psLib.time.tables.from F64 53258.0, 15020.0, 41684.0 2437300.5                         # Valid from these dates
+@psLib.time.tables.to F64 53622.0, 53258.0, 53627.0 2451179.5                           # Valid to these dates
+psLib.time.before.xp F64 0.0                                                            # Value of XP for before the earliest MJD
+psLib.time.before.yp F64 0.0                                                            # Value of YP for before the earliest MJD
+psLib.time.before.dut F64 0.0                                                           # Value of UT1-UTC for before the earliest MJD
+
+# Now follows formulae for predicting ahead of the most recent available table entry.
+# xp = [0] + [1]*cos A + [2]*sin A + [3]*cos C + [4]*sin C
+# yp = [0] + [1]*cos A + [2]*sin A + [3]*cos C + [4]*sin C
+# A = 2*pi*(MJD - pslib.time.predict.mjd)/365.25
+# C = 2*pi*(MJD - pslib.time.predict.mjd)/435.0
+# dut = ut1-utc = [0] + [1]*(MJD - [2]) - (UT2-UT1)
+# ut2-ut1 = 0.022 sin(2*pi*T) - 0.012 cos(2*pi*T) - 0.006 sin(4*pi*T) + 0.007 cos(4*pi*T)
+# T = 2000.0 + (MJD - 51544.03)/365.2422
+@psLib.time.predict.xp F64 0.0569, 0.0555, -0.0200, 0.0513, 0.1483
+@psLib.time.predict.yp F64 0.3498, -0.0176, -0.0498, 0.1483, -0.0513
+psLib.time.predict.mjd F64 53257.0
+@psLib.time.predict.dut F64 -0.4944, -0.00023, 53262.0
+

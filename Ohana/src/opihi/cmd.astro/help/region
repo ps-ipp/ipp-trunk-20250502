@@ -1,0 +1,18 @@
+
+  region RA DEC Radius [projection]
+
+  define the current sky region and optionally the projection.  
+  RA, DEC and Radius are all values in decimal degrees.  The possible 
+  values for "projection" are:
+
+  TAN - a tangent plane projection (default, and typical for optical images)
+  SIN - a sine plane projection (more appropriate for polar regions)
+  AIT - aitoff projection (good for the full sky)
+  GLS - ?? (also good for the full sky)
+
+  optional orientation flags:
+
+  -ew : display with East Left (default)
+  +ew : display with East Right 
+  -ns : display with North Down
+  +ns : display with North Up (default)

@@ -1,0 +1,74 @@
+
+  catalog (filename/-all) [many options!]
+
+  plot the star positions from any of several possible catalogs.  By
+default, the photometry database (see Database) is used, but the HST
+Guide Star Catalog and a simple ASCII file may also be used.  The
+plotting is done on window 0, with the current point type.  The point
+size can be scaled by the magnitude of the star or by the number
+of observations (-n).  
+
+There are many options to this function.  Here they are all:
+
+-e epoch: given ASCII catalog has this epoch, plot in J2000
+
+-ID ID: plot only measurements with this ID number
+ ID may be one of:
+	0 - star
+	4 - variable
+	5 - transient
+      100 - ghost image
+      101 - trail (satellite)
+      102 - bright star garbage	
+      note that numbers < 50 are static objects, 
+	and numbers > 100 are bad data.
+
+-all:  plot all data for the current display region
+
+-g: use the HST GSC instead of the photometry database
+
+-a RA DEC MAG:  the given file is an ASCII file with 
+	RA, DEC, and MAG in columns given by the three numbers
+
+-v ra dec scale: save the values in vectors with the three names given
+	the ra and dec are always used, but the third is the size of 
+	the points plotted, based on whatever the scaling is.
+
+-m m1 m2: scale points by magnitude, with smallest points having
+	magnitude m2.
+
++n n1 n2: scale points by number of measurements, with smallest points
+	having number n1.
+
+-n n1 n2: scale points by number of missing values, with smallest points
+	having number n1.
+
+Note that if two of -m, -n, +n are given, the first determines the
+ scaling of the points.  the second provides an allowed range, so
+ points are only plotted if the second parameter has a value in the
+ given range.
+
+Examples: 
+
+  catalog -all -m 12 18  
+    plot all stars in current region with magnitude 12 having the
+    biggest points and magnitude 18 having the smallest.
+   
+  catalog -all -m 12 18 +n 2 4
+    plot all stars in current region with magnitude 12 having the
+    biggest points and magnitude 18 having the smallest, but only
+    if the stars have 2-4 measurements each
+   
+  catalog -all -m 12 18 +n 0 1 -ID 101
+    plot all stars in current region with magnitude 12 having the
+    biggest points and magnitude 18 having the smallest, but only
+    if the stars have 1 measurements each, and if the object is 
+    found to be a trail.
+   
+  catalog n2230/1819.cpt -n 2 8  
+    plot all stars in catalog n2230/1819.cpt with the biggest points
+    having 8 measurements and the smallest having only 2.
+
+  See Also: lcat, pcat, style, region
+
+   

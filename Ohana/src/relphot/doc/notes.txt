@@ -1,0 +1,160 @@
+
+2008.09.20
+
+  I am working on the flat-field correction analysis.  This is
+  currently triggered by the -grid flag.  This analysis needs to
+  require a single camera. 
+
+  * need to define the relationship between image and ccdnum
+    (currently it uses as regex, effectively, to match the ccdnum to
+    the number portion of the photcode).  make an explicit entry in
+    the dvo.config table.
+    
+  * clean up the output files (make the output files have names
+    supplied by the user, etc)
+
+  * I use the string MOSAICNAME to determine the relationship between
+    chips.  this allows me to do the relphot grid process on mosaic
+    images for which I don't have bilevel astrometry, but where we do,
+    we could link the mosaic together via the mosaic reference image.
+    Maybe this is a future upgrade.
+
+  * I think mosaic name can be replaced with camera name: we need to
+    supply CAMERA in any case, and the photcodes have names of the
+    form CAMERA.XXX.  This is all very ad hoc, but can be effective
+    for the near term.  
+
+2006.10.17
+
+  I am working on a partial upgrade of relphot to handle more general
+  problems than I have treated in the past.  In particular, I would
+  like to be able to have it assign the average magnitudes, regardless
+  of whether any or all images and/or objects are well-treated for
+  relative photometry.  In fact, I would like it to be able to
+  determine average magnitudes even for sources which have only
+  externally supplied data, and thus have no matching images.  I would
+  eventually like to have more flexibility about the filtering which
+  is performed on the measurements to determine the average
+  magnitudes.  Some of this work will require a bit of a more careful
+  treatment of the process.  
+
+  At the moment, we can consider the relphot process to consist of the
+  following steps:
+
+  1) load the complete catalog data
+  2) select a subset of the sources:
+     - appropriate photcode (equiv == selected photcode)
+     - in time range, if specified
+     - appropriate dophot type, if specified
+     - bright enough:
+       - mag < MAG_LIM	
+       - dMag > SIGMA_LIM
+       - ImagMin < iMag < ImagMax
+     - other restrictions
+       - within valid image region for chip
+  3) iterate to a solution for Mcal (image offsets)
+     - mark specific images as bad
+     - mark specific sources as bad
+     - mark specific measurements as bad
+     - include desired restrictions on Mcal (eg, all chips of mosaic
+       matched)
+     - only keep the image offsets
+
+  4) if the results are to be kept, recalculate the average magnitudes
+     using the image exclusions and Mcal values determined above 
+
+2006.05.03
+
+  I am upgrading relphot to accept as input an arbitrary region (using
+  the standard ohana SkyRegion concept of a RA & DEC bounded patch on
+  the sky).  This modification has a few implications.  First, the
+  analysis is in fact performed on the populated SkyRegions which
+  overlap the requested area on the sky.
+
+- select different calibration options
+- plot various terms
+
+- rationalize Mmos & Mcal (sum(Mcal) -> Mmos)
+
+- options:
+
+  -update:  update phot database 
+  -mosaic:  apply per-mosaic corrections
+  -grid:    apply X,Y-based offset
+  -chips:   apply per-chip corrections
+  -trange:  select images in time range
+  
+
+find_images: selects images in region, filtered by photcode, time range
+
+bcatalog:    selects stars & measurments, filtered by mag limit, photcode, time range
+
+image:  a single ccd
+mosaic: a collection of associate ccds (mosaiclink[image])
+grid:   x,y magnitude correction grid across mosaic 
+fit:    2-d fit of mag offsets across field
+
+
+
+m = Mrel + Mcal + Mmos + Mxy + Mgrid
+
+Mrel  (average)
+Mcal  (image)
+Mmos  (mosaic)
+Mxy   (Xi, Yi) (Xi,Yi per image ??)
+Mgrid (Xm, Ym)
+
+
+ measure -> average           catalog[i].measure[j].averef 
+ average -> measure           catalog[i].average[j].offset, catalog[i].average[j].Nm
+
+ measure -> image             image:  image[cat, meas]
+ image   -> measure           image:  catlist[image], measlist[image]
+
+ measure -> mosaic            mosaic: mosaic[cat, meas]
+ mosaic  -> measure	      mosaic: catlist[mosaic], measlist[mosaic]
+
+ measure -> gridbin           grid:   bin[cat, meas]
+ gridbin -> measure           grid:   catlist[bin], measlist[bin]
+
+ measure -> Xi, Yi -> Mxy     
+
+
+getMmos:
+
+ for (i = 0; i < Nmosaic; i++) {
+
+   for (j = 0; j < Nmeasure[i]; j++) {
+      cat  = catlist[i][j]
+      meas = measlist[i][j]
+
+      M = catalog[cat].measure[meas].M
+      Mcal  = applyMcal  (cat, meas)
+      Mrel  = applyMrel  (cat, meas)
+      Mxy   = applyMxy   (cat, meas)
+      Mgrid = applyMgrid (cat, meas)
+
+      list[n] = M - Mcal - Mrel - Mxy - Mgrid
+    }
+  }
+
+
+
+excluding data points:
+
+star:   N < 2
+image:  
+
+
+--
+
+MAG_LIM      : keep stars brighter than MAG_LIM (Mcat)
+SIGMA_LIM    : keep stars with error < SIGMA_LIM
+STAR_SCATTER : exclude stars with dM > STAR_SCATTER
+IMAGE_SCATTER, NIMAGE_SCATTER : define image scatter limits
+
+
+
+load_images - exclude images 
+
+

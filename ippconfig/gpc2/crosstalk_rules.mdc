@@ -1,0 +1,490 @@
+#TdB20220601: GPC2 crosstalk rules now set up in the recipes as a series of metadata blocks
+CROSSTALK.RULE			MULTI
+
+CROSSTALK.RULE                  METADATA
+  CHIP.SRC                      S32 0
+  CELL.SRC                      S32 0
+  CHIP.OFFSET                   STR 0/0 
+  CELL.OFFSET                   STR 10/20
+  CROSS.MAGDIFF                 STR 9.08/8.07  
+END
+
+CROSSTALK.RULE                  METADATA
+  CHIP.SRC                      S32 0
+  CELL.SRC                      S32 1
+  CHIP.OFFSET                   STR 0/10
+  CELL.OFFSET                   STR 10/0
+  CROSS.MAGDIFF                 STR 7.78/8.37  
+END
+
+CROSSTALK.RULE                  METADATA
+  CHIP.SRC                      S32 0
+  CELL.SRC                      S32 2
+  CHIP.OFFSET                   STR 0/0/10
+  CELL.OFFSET                   STR -10/10/0
+  CROSS.MAGDIFF                 STR 8.26/7.99/8.43  
+END
+
+CROSSTALK.RULE                  METADATA
+  CHIP.SRC                      S32 0
+  CELL.SRC                      S32 3
+  CHIP.OFFSET                   STR 0/0 
+  CELL.OFFSET                   STR -10/10
+  CROSS.MAGDIFF                 STR 8.25/8.14  
+END
+
+CROSSTALK.RULE                  METADATA
+  CHIP.SRC                      S32 0
+  CELL.SRC                      S32 4
+  CHIP.OFFSET                   STR 0/0 
+  CELL.OFFSET                   STR -10/10
+  CROSS.MAGDIFF                 STR 8.08/8.4  
+END
+
+CROSSTALK.RULE                  METADATA
+  CHIP.SRC                      S32 0
+  CELL.SRC                      S32 5
+  CHIP.OFFSET                   STR 0/0 
+  CELL.OFFSET                   STR -10/10
+  CROSS.MAGDIFF                 STR 8.13/8.01  
+END
+
+CROSSTALK.RULE                  METADATA
+  CHIP.SRC                      S32 0
+  CELL.SRC                      S32 6
+  CHIP.OFFSET                   STR 0/0/10/10
+  CELL.OFFSET                   STR -10/10/-10/0
+  CROSS.MAGDIFF                 STR 8.22/7.65/8.06/7.54  
+END
+
+CROSSTALK.RULE                  METADATA
+  CHIP.SRC                      S32 1
+  CELL.SRC                      S32 0
+  CHIP.OFFSET                   STR 0 
+  CELL.OFFSET                   STR 10
+  CROSS.MAGDIFF                 STR 8.63  
+END
+
+CROSSTALK.RULE                  METADATA
+  CHIP.SRC                      S32 1
+  CELL.SRC                      S32 1
+  CHIP.OFFSET                   STR -10/0/0 
+  CELL.OFFSET                   STR 10/-10/20
+  CROSS.MAGDIFF                 STR 8.47/8.54/9.01  
+END
+
+CROSSTALK.RULE                  METADATA
+  CHIP.SRC                      S32 1
+  CELL.SRC                      S32 2
+  CHIP.OFFSET                   STR 0 
+  CELL.OFFSET                   STR -10
+  CROSS.MAGDIFF                 STR 8.68  
+END
+
+CROSSTALK.RULE                  METADATA
+  CHIP.SRC                      S32 1
+  CELL.SRC                      S32 3
+  CHIP.OFFSET                   STR 0/0/0/0/0/0 
+  CELL.OFFSET                   STR -30/-20/-10/10/20/30
+  CROSS.MAGDIFF                 STR 8.73/8.77/8.69/8.27/8.27/8.14  
+END
+
+CROSSTALK.RULE                  METADATA
+  CHIP.SRC                      S32 1
+  CELL.SRC                      S32 4
+  CHIP.OFFSET                   STR 0/0/0 
+  CELL.OFFSET                   STR -30/-20/-10
+  CROSS.MAGDIFF                 STR 8.37/8.46/8.37  
+END
+
+CROSSTALK.RULE                  METADATA
+  CHIP.SRC                      S32 1
+  CELL.SRC                      S32 5
+  CHIP.OFFSET                   STR 0/0/0/0/0 
+  CELL.OFFSET                   STR -40/-30/-20/-10/20
+  CROSS.MAGDIFF                 STR 8.45/8.39/8.64/8.73/7.62  
+END
+
+CROSSTALK.RULE                  METADATA
+  CHIP.SRC                      S32 1
+  CELL.SRC                      S32 7
+  CHIP.OFFSET                   STR 0/0 
+  CELL.OFFSET                   STR -20/-10
+  CROSS.MAGDIFF                 STR 8.19/8.04  
+END
+
+CROSSTALK.RULE                  METADATA
+  CHIP.SRC                      S32 2
+  CELL.SRC                      S32 0
+  CHIP.OFFSET                   STR 0/0 
+  CELL.OFFSET                   STR 10/30
+  CROSS.MAGDIFF                 STR 9.13/8.99  
+END
+
+CROSSTALK.RULE                  METADATA
+  CHIP.SRC                      S32 2
+  CELL.SRC                      S32 2
+  CHIP.OFFSET                   STR 0 
+  CELL.OFFSET                   STR 10
+  CROSS.MAGDIFF                 STR 8.81  
+END
+
+CROSSTALK.RULE                  METADATA
+  CHIP.SRC                      S32 2
+  CELL.SRC                      S32 3
+  CHIP.OFFSET                   STR 0/0/0/0/10
+  CELL.OFFSET                   STR -20/-10/10/20/-10
+  CROSS.MAGDIFF                 STR 8.81/9.06/8.66/9.04/8.43  
+END
+
+CROSSTALK.RULE                  METADATA
+  CHIP.SRC                      S32 2
+  CELL.SRC                      S32 4
+  CHIP.OFFSET                   STR 0/0/0/0 
+  CELL.OFFSET                   STR -30/-20/-10/10
+  CROSS.MAGDIFF                 STR 8.59/8.95/9.16/8.79  
+END
+
+CROSSTALK.RULE                  METADATA
+  CHIP.SRC                      S32 2
+  CELL.SRC                      S32 5
+  CHIP.OFFSET                   STR 0/0/0/0 
+  CELL.OFFSET                   STR -20/-10/10/20
+  CROSS.MAGDIFF                 STR 8.11/8.32/7.71/7.09  
+END
+
+CROSSTALK.RULE                  METADATA
+  CHIP.SRC                      S32 2
+  CELL.SRC                      S32 6
+  CHIP.OFFSET                   STR 0 
+  CELL.OFFSET                   STR -10
+  CROSS.MAGDIFF                 STR 8.33  
+END
+
+CROSSTALK.RULE                  METADATA
+  CHIP.SRC                      S32 2
+  CELL.SRC                      S32 7
+  CHIP.OFFSET                   STR 0 
+  CELL.OFFSET                   STR -10
+  CROSS.MAGDIFF                 STR 8.18  
+END
+
+CROSSTALK.RULE                  METADATA
+  CHIP.SRC                      S32 3
+  CELL.SRC                      S32 0
+  CHIP.OFFSET                   STR 0 
+  CELL.OFFSET                   STR 10
+  CROSS.MAGDIFF                 STR 8.13  
+END
+
+CROSSTALK.RULE                  METADATA
+  CHIP.SRC                      S32 3
+  CELL.SRC                      S32 1
+  CHIP.OFFSET                   STR -10/0/0 
+  CELL.OFFSET                   STR 10/-10/20
+  CROSS.MAGDIFF                 STR 8.49/8.15/8.23  
+END
+
+CROSSTALK.RULE                  METADATA
+  CHIP.SRC                      S32 3
+  CELL.SRC                      S32 2
+  CHIP.OFFSET                   STR -10/-10/-10/0/0/0/0 
+  CELL.OFFSET                   STR -10/0/10/-20/-10/10/20
+  CROSS.MAGDIFF                 STR 8.74/9.08/9.08/8.22/8.49/8.44/8.65  
+END
+
+CROSSTALK.RULE                  METADATA
+  CHIP.SRC                      S32 3
+  CELL.SRC                      S32 3
+  CHIP.OFFSET                   STR 0/0/0 
+  CELL.OFFSET                   STR -30/-20/-10
+  CROSS.MAGDIFF                 STR 8.7/8.47/8.4  
+END
+
+CROSSTALK.RULE                  METADATA
+  CHIP.SRC                      S32 3
+  CELL.SRC                      S32 4
+  CHIP.OFFSET                   STR 0/0/0/0/0/0 
+  CELL.OFFSET                   STR -30/-20/-10/10/20/30
+  CROSS.MAGDIFF                 STR 7.83/7.89/7.89/8.56/7.92/7.56  
+END
+
+CROSSTALK.RULE                  METADATA
+  CHIP.SRC                      S32 3
+  CELL.SRC                      S32 5
+  CHIP.OFFSET                   STR 0/0/0 
+  CELL.OFFSET                   STR -10/10/20
+  CROSS.MAGDIFF                 STR 7.44/7.54/7.24  
+END
+
+CROSSTALK.RULE                  METADATA
+  CHIP.SRC                      S32 3
+  CELL.SRC                      S32 6
+  CHIP.OFFSET                   STR 0/0/0 
+  CELL.OFFSET                   STR -20/-10/10
+  CROSS.MAGDIFF                 STR 8.04/8.81/7.4  
+END
+
+CROSSTALK.RULE                  METADATA
+  CHIP.SRC                      S32 3
+  CELL.SRC                      S32 7
+  CHIP.OFFSET                   STR 0/0/0/0 
+  CELL.OFFSET                   STR -40/-30/-20/-10
+  CROSS.MAGDIFF                 STR 7.77/7.86/8.34/8.29  
+END
+
+CROSSTALK.RULE                  METADATA
+  CHIP.SRC                      S32 4
+  CELL.SRC                      S32 0
+  CHIP.OFFSET                   STR 0/0/0/0/0 
+  CELL.OFFSET                   STR 10/20/30/40/50
+  CROSS.MAGDIFF                 STR 7.46/8.11/8.24/8.15/7.68  
+END
+
+CROSSTALK.RULE                  METADATA
+  CHIP.SRC                      S32 4
+  CELL.SRC                      S32 1
+  CHIP.OFFSET                   STR 0/0/0/0/0/0/0/10/10/10/10/10/10
+  CELL.OFFSET                   STR -10/10/20/30/40/50/60/-10/0/10/20/30/40
+  CROSS.MAGDIFF                 STR 8.79/8.52/8.83/8.35/8.38/8.07/8.27/8.13/8.1/8.81/7.81/7.54/7.92  
+END
+
+CROSSTALK.RULE                  METADATA
+  CHIP.SRC                      S32 4
+  CELL.SRC                      S32 2
+  CHIP.OFFSET                   STR 0/0/0/0 
+  CELL.OFFSET                   STR -10/10/20/30
+  CROSS.MAGDIFF                 STR 8.24/8.04/8.13/8.03  
+END
+
+CROSSTALK.RULE                  METADATA
+  CHIP.SRC                      S32 4
+  CELL.SRC                      S32 3
+  CHIP.OFFSET                   STR 0/0/0/0/0/0/0 
+  CELL.OFFSET                   STR -30/-20/-10/10/20/30/40
+  CROSS.MAGDIFF                 STR 8.42/8.14/8.34/8.06/7.75/7.74/7.74  
+END
+
+CROSSTALK.RULE                  METADATA
+  CHIP.SRC                      S32 4
+  CELL.SRC                      S32 4
+  CHIP.OFFSET                   STR 0/0/0/0/0/0/0 
+  CELL.OFFSET                   STR -40/-30/-20/-10/10/20/30
+  CROSS.MAGDIFF                 STR 8.09/8.42/8.45/8.54/8.22/8.1/7.6  
+END
+
+CROSSTALK.RULE                  METADATA
+  CHIP.SRC                      S32 4
+  CELL.SRC                      S32 5
+  CHIP.OFFSET                   STR 0/0/0/0/0/0/0 
+  CELL.OFFSET                   STR -50/-40/-30/-20/-10/10/20
+  CROSS.MAGDIFF                 STR 7.79/7.57/8.13/7.99/7.85/7.8/7.4  
+END
+
+CROSSTALK.RULE                  METADATA
+  CHIP.SRC                      S32 4
+  CELL.SRC                      S32 6
+  CHIP.OFFSET                   STR 0/0/0/0/0/0/0 
+  CELL.OFFSET                   STR -60/-50/-40/-30/-20/-10/10
+  CROSS.MAGDIFF                 STR 7.53/7.98/7.86/7.54/7.46/7.85/7.6  
+END
+
+CROSSTALK.RULE                  METADATA
+  CHIP.SRC                      S32 4
+  CELL.SRC                      S32 7
+  CHIP.OFFSET                   STR 0/0/0/0/0/0 
+  CELL.OFFSET                   STR -60/-50/-40/-30/-20/-10
+  CROSS.MAGDIFF                 STR 7.82/7.99/7.78/7.95/8.07/7.75  
+END
+
+CROSSTALK.RULE                  METADATA
+  CHIP.SRC                      S32 5
+  CELL.SRC                      S32 0
+  CHIP.OFFSET                   STR 0/0/0/0/0/10/10/10/10/10/10/20/20/20
+  CELL.OFFSET                   STR 10/20/30/40/50/0/10/20/30/40/50/0/10/20
+  CROSS.MAGDIFF                 STR 8.28/8.81/8.31/8.12/8.19/7.8/7.56/7.74/7.52/7.65/7.83/8.01/7.51/7.74  
+END
+
+CROSSTALK.RULE                  METADATA
+  CHIP.SRC                      S32 5
+  CELL.SRC                      S32 1
+  CHIP.OFFSET                   STR -10/0/0/0/0/0/0/0/10/10/10/20
+  CELL.OFFSET                   STR 0/-10/10/20/30/40/50/60/-10/0/10/10
+  CROSS.MAGDIFF                 STR 7.77/8.36/7.94/8.09/8.13/8.1/7.6/7.51/7.45/7.53/7.48/7.71  
+END
+
+CROSSTALK.RULE                  METADATA
+  CHIP.SRC                      S32 5
+  CELL.SRC                      S32 2
+  CHIP.OFFSET                   STR -10/-10/0/0/0/0/0/0/0/10/10/10/20/20/20
+  CELL.OFFSET                   STR -10/0/-20/-10/10/20/30/40/50/-10/0/10/-10/0/10
+  CROSS.MAGDIFF                 STR 8.29/8.18/8.26/7.92/8.17/8.13/7.87/7.52/7.54/7.4/7.03/7.79/7.44/7.49/8.12  
+END
+
+CROSSTALK.RULE                  METADATA
+  CHIP.SRC                      S32 5
+  CELL.SRC                      S32 3
+  CHIP.OFFSET                   STR 0/0/0/0/0/0 
+  CELL.OFFSET                   STR -30/-20/-10/10/20/30
+  CROSS.MAGDIFF                 STR 8.04/8.32/8.32/8.05/8.36/7.91  
+END
+
+CROSSTALK.RULE                  METADATA
+  CHIP.SRC                      S32 5
+  CELL.SRC                      S32 4
+  CHIP.OFFSET                   STR 0/0/0/0/0/0/0 
+  CELL.OFFSET                   STR -40/-30/-20/-10/10/20/30
+  CROSS.MAGDIFF                 STR 7.88/7.74/7.6/7.86/7.52/7.3/7.21  
+END
+
+CROSSTALK.RULE                  METADATA
+  CHIP.SRC                      S32 5
+  CELL.SRC                      S32 5
+  CHIP.OFFSET                   STR 0/0/0/0/0/0/0 
+  CELL.OFFSET                   STR -50/-40/-30/-20/-10/10/20
+  CROSS.MAGDIFF                 STR 8.24/8.47/8.52/8.01/7.89/7.99/7.46  
+END
+
+CROSSTALK.RULE                  METADATA
+  CHIP.SRC                      S32 5
+  CELL.SRC                      S32 6
+  CHIP.OFFSET                   STR -10/-10/-10/-10/-10/0/0/0/0/0/0/0 
+  CELL.OFFSET                   STR -30/-20/-10/0/10/-60/-50/-40/-30/-20/-10/10
+  CROSS.MAGDIFF                 STR 7.96/8.26/7.49/7.6/7.47/7.91/8.11/7.97/7.91/8.41/7.9/8.01  
+END
+
+CROSSTALK.RULE                  METADATA
+  CHIP.SRC                      S32 5
+  CELL.SRC                      S32 7
+  CHIP.OFFSET                   STR -10/-10/0/0/0/0/0/0/0 
+  CELL.OFFSET                   STR -10/0/-70/-60/-50/-40/-30/-20/-10
+  CROSS.MAGDIFF                 STR 7.98/7.62/8.74/8.36/8.36/8.16/7.84/8.31/8.12  
+END
+
+CROSSTALK.RULE                  METADATA
+  CHIP.SRC                      S32 6
+  CELL.SRC                      S32 0
+  CHIP.OFFSET                   STR 0/0/0/0/0/10/10/10/10/10/10/10
+  CELL.OFFSET                   STR 10/20/30/40/50/0/10/20/30/40/50/60
+  CROSS.MAGDIFF                 STR 8.44/8.37/8.1/8.37/8.05/8.37/8.04/8.13/8.26/7.96/8.54/8.19  
+END
+
+CROSSTALK.RULE                  METADATA
+  CHIP.SRC                      S32 6
+  CELL.SRC                      S32 1
+  CHIP.OFFSET                   STR 0/0/0/0/0/0/0/10/10/10/10/10/10
+  CELL.OFFSET                   STR -10/10/20/30/40/50/60/-10/0/10/20/30/40
+  CROSS.MAGDIFF                 STR 8.44/8.17/8.29/8.21/8.26/7.69/7.09/8.18/8.04/8.54/7.73/8.26/8.31  
+END
+
+CROSSTALK.RULE                  METADATA
+  CHIP.SRC                      S32 6
+  CELL.SRC                      S32 2
+  CHIP.OFFSET                   STR 0/0/0/0/0/0/0/10/10/10/10/10/10/10/10
+  CELL.OFFSET                   STR -20/-10/10/20/30/40/50/-20/-10/0/10/20/30/40/50
+  CROSS.MAGDIFF                 STR 8.42/8.46/-8/7.94/7.94/7.72/7.38/7.95/7.65/8.2/8.9/7.81/8.15/7.74/7.93  
+END
+
+CROSSTALK.RULE                  METADATA
+  CHIP.SRC                      S32 6
+  CELL.SRC                      S32 3
+  CHIP.OFFSET                   STR 0/0/0/0/0/0/0/10/10/10/10/10/10/10/10
+  CELL.OFFSET                   STR -30/-20/-10/10/20/30/40/-30/-20/-10/0/10/20/30/40
+  CROSS.MAGDIFF                 STR 8.03/8.53/8.32/7.79/8.36/7.68/7.66/8.64/8.09/7.89/7.79/8.35/8.09/8.36/7.31  
+END
+
+CROSSTALK.RULE                  METADATA
+  CHIP.SRC                      S32 6
+  CELL.SRC                      S32 4
+  CHIP.OFFSET                   STR 0/0/0/0/0/0/10/10/10/10
+  CELL.OFFSET                   STR -30/-20/-10/10/20/30/-10/0/10/20
+  CROSS.MAGDIFF                 STR 8.2/8.1/8.36/7.94/7.7/7.66/8.4/8.47/-8/7.48  
+END
+
+CROSSTALK.RULE                  METADATA
+  CHIP.SRC                      S32 6
+  CELL.SRC                      S32 5
+  CHIP.OFFSET                   STR -10/-10/-10/0/0/0/0/0/0/0/10/10/10/10
+  CELL.OFFSET                   STR -10/0/10/-50/-40/-30/-20/-10/10/20/-20/-10/0/10
+  CROSS.MAGDIFF                 STR 7.63/7.4/7.4/8.1/8.03/8.06/8.03/8.04/8.05/7.69/7.98/8.12/8.22/7.99  
+END
+
+CROSSTALK.RULE                  METADATA
+  CHIP.SRC                      S32 6
+  CELL.SRC                      S32 6
+  CHIP.OFFSET                   STR -20/-20/-20/-10/-10/-10/-10/-10/0/0/0/0/0/0/0/10/10/10/10/10/10
+  CELL.OFFSET                   STR -10/0/10/-30/-20/-10/0/10/-60/-50/-40/-30/-20/-10/10/-40/-30/-20/-10/0/10
+  CROSS.MAGDIFF                 STR 7.73/7.11/7.21/7.5/7.66/7.37/7.23/-7/7.63/7.98/7.93/8.12/8.09/8.26/7.62/7.84/8.56/7.87/7.93/7.75/7.14  
+END
+
+CROSSTALK.RULE                  METADATA
+  CHIP.SRC                      S32 6
+  CELL.SRC                      S32 7
+  CHIP.OFFSET                   STR -10/-10/-10/-10/-10/-10/-10/-10/0/0/0/0/0 
+  CELL.OFFSET                   STR -70/-60/-50/-40/-30/-20/-10/0/-50/-40/-30/-20/-10
+  CROSS.MAGDIFF                 STR 7.45/7.49/8.01/7.31/7.08/7.4/7.13/6.84/8.1/8.16/8.36/7.58/7.67  
+END
+
+CROSSTALK.RULE                  METADATA
+  CHIP.SRC                      S32 7
+  CELL.SRC                      S32 0
+  CHIP.OFFSET                   STR -10/-10/-10/-10/-10/-10/-10/-10/0/0/0/0/0/0/0 
+  CELL.OFFSET                   STR 0/10/20/30/40/50/60/70/10/20/30/40/50/60/70
+  CROSS.MAGDIFF                 STR 8.22/-8/7.91/8.26/7.77/7.45/7.22/7.25/8.1/7.82/8.27/8.26/8.09/7.9/7.41  
+END
+
+CROSSTALK.RULE                  METADATA
+  CHIP.SRC                      S32 7
+  CELL.SRC                      S32 1
+  CHIP.OFFSET                   STR -10/-10/-10/-10/-10/0/0/0/0/0/0/0 
+  CELL.OFFSET                   STR -10/0/10/20/30/-10/10/20/30/40/50/60
+  CROSS.MAGDIFF                 STR 7.99/7.76/7.27/7.89/7.59/7.64/8.09/7.96/8.11/8.1/7.47/7.42  
+END
+
+CROSSTALK.RULE                  METADATA
+  CHIP.SRC                      S32 7
+  CELL.SRC                      S32 2
+  CHIP.OFFSET                   STR -10/-10/0/0/0/0/0/0/0 
+  CELL.OFFSET                   STR -10/0/-20/-10/10/20/30/40/50
+  CROSS.MAGDIFF                 STR 8.26/7.98/7.9/7.95/8.18/7.82/8.07/7.5/7.74  
+END
+
+CROSSTALK.RULE                  METADATA
+  CHIP.SRC                      S32 7
+  CELL.SRC                      S32 3
+  CHIP.OFFSET                   STR -10/-10/0/0/0/0/0/0/0 
+  CELL.OFFSET                   STR -10/0/-30/-20/-10/10/20/30/40
+  CROSS.MAGDIFF                 STR 7.87/7.46/7.61/8.08/8.03/8.06/8.44/7.79/7.65  
+END
+
+CROSSTALK.RULE                  METADATA
+  CHIP.SRC                      S32 7
+  CELL.SRC                      S32 4
+  CHIP.OFFSET                   STR 0/0/0/0/0/0/0 
+  CELL.OFFSET                   STR -40/-30/-20/-10/10/20/30
+  CROSS.MAGDIFF                 STR 8.11/8.73/8.24/8.24/8.14/8.33/7.7  
+END
+
+CROSSTALK.RULE                  METADATA
+  CHIP.SRC                      S32 7
+  CELL.SRC                      S32 5
+  CHIP.OFFSET                   STR -10/0/0/0/0/0/0/0 
+  CELL.OFFSET                   STR 0/-50/-40/-30/-20/-10/10/20
+  CROSS.MAGDIFF                 STR 8.33/7.98/7.93/7.8/8.23/7.74/7.79/7.81  
+END
+
+CROSSTALK.RULE                  METADATA
+  CHIP.SRC                      S32 7
+  CELL.SRC                      S32 6
+  CHIP.OFFSET                   STR -10/-10/-10/-10/-10/0/0/0/0/0/0/0 
+  CELL.OFFSET                   STR -30/-20/-10/0/10/-60/-50/-40/-30/-20/-10/10
+  CROSS.MAGDIFF                 STR 7.85/7.72/7.7/7.68/7.47/8.08/7.86/7.77/8.39/8.27/8.45/8.11  
+END
+
+CROSSTALK.RULE                  METADATA
+  CHIP.SRC                      S32 7
+  CELL.SRC                      S32 7
+  CHIP.OFFSET                   STR -10/-10/-10/-10/0/0/0/0/0/0/0 
+  CELL.OFFSET                   STR -30/-20/-10/0/-70/-60/-50/-40/-30/-20/-10
+  CROSS.MAGDIFF                 STR 7.43/7.43/7.24/7.43/7.9/8.03/8.42/8.17/7.71/7.79/7.55  
+END

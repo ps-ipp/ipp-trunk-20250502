@@ -1,0 +1,223 @@
+#!/usr/bin/env perl
+
+$Ngrab = 5;
+$scriptdir   = "/hebe/d27/logs/";
+$dumpspace   = "/pallas/d1/";
+$tapedrive   = "/dev/rmt/1cn";
+$tapelogfile = $scriptdir . "tape.log";
+$donelogfile = $scriptdir . "processed.log";
+$scriptfile  = $scriptdir . "extracted.log";
+
+# old directories:
+# $topdir  = "/pallas/";
+# $rootdir = "/pallas/d1/";
+
+sub vsystem {
+    print STDERR "@_\n";
+    $status = system ("@_");
+    $status;
+}
+
+sub goodbye {
+    print STDERR "@_\n";
+    vsystem ("unload $tape");
+    vsystem ("lunlock $tapedrive");
+    vsystem ("lunlock $dumpspace");
+    die;
+}
+
+# goodbye ("quit suddenly");
+
+# checkdone (line)
+# returns 1 if not in line (and sets $name), 
+# returns 0 otherwise
+sub checkdone {
+    local($inline) = @_;
+    @entries = split (" ",$inline);
+    $found = 0;
+    if ((@entries[0] > 1996) && (@entries[0] < 2097)) {
+	$found = 1;
+	$name = substr(@entries[0],2,2) . @entries[1] . @entries[2];
+	for ($j = 0; ($j < $Ndone) && ($found); $j++) {
+	    @done = split (" ", $donelist[$j]);
+	    if ($done[0] eq $name) {
+		$found = 0;
+	    }
+	}
+    }
+    $found;
+}
+
+# checktape (name)
+# find all entries which match name and add to dolist
+sub checktape {
+  local($inname) = @_;
+  $j = 0;
+  while ($j < $Ntape) {
+    @entries = split (" ",$tapelist[$j]);
+    if ((@entries[0] > 1996) && (@entries[0] < 2097)) {
+      $tmpname = substr(@entries[0],2,2) . @entries[1] . @entries[2];
+      if ($inname eq $tmpname) {
+	@dolist = (@dolist,$tapelist[$j]);
+	@doname = (@doname,$inname);
+      }
+    }
+    $j ++;
+  }
+}
+
+
+# load in done date list
+open (DONELOG, $donelogfile);
+@donelist = ();
+while ($line = <DONELOG>) {
+  chop ($line);
+  @donelist = (@donelist,$line);
+}
+$Ndone = @donelist;
+close (DONELOG);
+print "Ndone = $Ndone\n";
+
+# load in tape.log list
+open (TAPELOG, $tapelogfile);
+@tapelist = ();
+while ($line = <TAPELOG>) {
+  chop ($line);
+  @tapelist = (@tapelist,$line);
+}
+$Ntape = @tapelist;
+close (TAPELOG);
+# @tapelist = reverse(@tapelist);
+print "Ntape = $Ntape\n";
+
+# find 5 new nights not already in the "donelist"
+$N = 0;
+@tryname = ();
+for ($i = 0; ($i < $Ntape) && ($N < $Ngrab); $i++) {
+    if (&checkdone ($tapelist[$i])) {
+	$j = 0; 
+	$gotit = 0;
+	for ($j = 0; ($j < $N) && (! $gotit); $j++) {
+	    if ($name eq $tryname[$j]) {
+		$gotit = 1;
+	    }
+	}
+	if (! $gotit) {
+	    @tryname = (@tryname, $name);  
+	    $N ++;
+	}
+    }
+}
+$Ntryname = @tryname;
+# tryname has a list of the 980103 style names
+
+# now that we have a list of interesting nights, 
+# get a list of the actual lines from tape.log, 
+# along with a list of the matchine names
+$i = 0;
+@dolist = ();
+@doname = ();
+while ($i < $Ntryname) {
+  &checktape ($tryname[$i]);
+  $i ++;
+}
+
+$i = 0;
+$Ndolist = @dolist;
+@fileno = ();
+@tapeno = ();
+@gbytes = ();
+@photno = ();
+@entry = ();
+while ($i < $Ndolist) {
+    print STDERR "$doname[$i] == $dolist[$i]\n";
+    @words = split (" ",$dolist[$i]);
+    @entry = (@entry,$i);
+    @tapeno = (@tapeno,$words[3]);
+    @fileno = (@fileno,$words[4]);
+    @gbytes = (@gbytes,$words[5]);
+    @photno = (@photno,$words[8]);
+    $i ++;
+}
+
+# delete old downloaded data
+
+$dir = $dumpspace . "9";
+print STDERR "dir: $dir\n";
+@files = <$dir*>;
+$Nfiles = @files;
+print "files: @files\n";
+for ($i = 0; $i < $Nfiles; $i++) {
+    if ((-d $files[$i]) && (-O $files[$i])) {
+	if (vsystem ("rm -r $files[$i]")) { goodbye "error deleting directory $files[$i]"; }
+    }
+}
+
+# now sort the entries by tape and file number:
+
+sub by_tape_and_file { ($tapeno[$a] <=> $tapeno[$b]) || ($fileno[$a] <=> $fileno[$b]); }
+@entry = sort by_tape_and_file @entry;
+
+# lock tape and disk space. keep trying for up to 10 hours
+for ($i = 0; ($i < 30) && vsystem ("llock $dumpspace"); $i++) { system ("sleep 1200"); }
+ if ($i == 100) { goodbye "failed to grab disk space"; }
+for ($i = 0; ($i < 30) && vsystem ("llock $tapedrive"); $i++) { system ("sleep 1200"); }
+ if ($i == 100) { goodbye "failed to grab tape drive"; }
+
+$tape = -1;
+for ($i = 0; $i < $Ndolist; $i++) {
+    # do a df and compare to $gbytes[$entry[$i]]
+    @answer = `df -k $dumpspace`;
+    @tmp = split (" ", $answer[1]);
+    $space = $tmp[3] / (1024*1024);
+    print STDERR "compare $space and $gbytes[$entry[$i]]\n";
+    if (0.95*$space < $gbytes[$entry[$i]]) { last; }
+    # load tape if needed
+    if ($tapeno[$entry[$i]] != $tape) {
+	# unload old tape, load desired tape 
+	if ($tape != -1) { if (vsystem ("unload $tape")) { goodbye "trouble unloading tape $tape"; } }
+	if (vsystem ("load $tapeno[$entry[$i]]")) { goodbye "trouble loading tape $tapeno[$entry[$i]]"; }
+	$tape = $tapeno[$entry[$i]];
+	$j = 0;
+	$offline = 1;
+	# wait for tape to come online before starting anything
+	while (($j < 12) && $offline) {
+	    vsystem ("sleep 10");
+	    $offline = vsystem ("mt -f $tapedrive status");
+	    $j ++;
+	}
+	if ($j == 12) { goodbye "tape still not online!"; }
+	$file = 0;
+    }
+    # advance to first file of interest
+    $nskip = $fileno[$entry[$i]] - $file;
+    if ($nskip > 0) {
+	if (vsystem ("mt -f $tapedrive fsf $nskip")) { goodbye "error advancing tape"; }
+    }
+    # create output directory if it doesn't exist
+    $dir = $dumpspace . $doname[$entry[$i]];
+    unless (-e $dir) {
+	unless (mkdir ($dir,0777)) { goodbye "cannot create output directory $dir"; }
+    }
+    chdir $dir;
+    # extract the files
+    vsystem ("tar -xvfb $tapedrive 128");
+    $file = $fileno[$entry[$i]] + 1;
+}
+$Ndolist = $i;
+
+if (vsystem("unload $tape")) { goodbye "trouble unloading tape $tape"; }
+if (vsystem("lunlock $tapedrive")) { goodbye "trouble unlocking tape drive $tapedrive"; }
+if (vsystem ("lunlock $dumpspace")) { goodbye "trouble unlocking disk drive $dumpspace"; }
+
+open (MAESTRO, ">$scriptfile");
+chdir $dumpspace;
+$i = 0;
+while ($i < $Ndolist) {
+    vsystem ("ls $doname[$entry[$i]]/*b.fits > $scriptdir/$doname[$entry[$i]].inlist");
+    print MAESTRO "$doname[$entry[$i]] $photno[$entry[$i]] \n";
+    $i ++;
+}
+close (MAESTRO);
+
+1;

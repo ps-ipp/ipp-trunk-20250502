@@ -1,0 +1,78 @@
+#!/usr/bin/env perl
+
+# check the usage
+if ($ARGV[0] eq "-h") { &usage (); }
+if ($ARGV[0] eq "-help") { &usage (); }
+if (@ARGV != 6) { &usage (); }
+
+# assign the command line arguments
+$modefits  = $ARGV[0];
+$modelist  = $ARGV[1];
+$modesave  = $ARGV[2];
+$startime  = $ARGV[3];
+$stoptime  = $ARGV[4];
+$filter    = $ARGV[5];
+
+# find the appropriate script file
+$confdir = `gconfig -q CONFDIR`; chop ($confdir);
+$script  = "$confdir/mana/modes.pro";
+
+# load in list of modes
+open (LIST, $modelist);
+@modelist = <LIST>;
+close (LIST);
+
+$Nmode = 8;
+
+# run mana script:
+open (MANA, "|mana --norc");
+print MANA "input $script\n";
+
+print MANA "macro go\n";
+print MANA "\$filter = $filter\n";
+print MANA "\$start = \"$startime\"\n";
+print MANA "\$stop = \"$stoptime\"\n";
+print MANA "\$Nmode = $Nmode\n";
+for ($i = 0; $i < $Nmode; $i++ ) {
+    ($mode, $status) = split (" ", $modelist[$i]);
+    if ($status) {
+	print MANA "\$mode$i = 1\n";
+    } else {
+	print MANA "\$mode$i = 0\n";
+    }
+}
+print MANA "rd U $modefits\n";
+print MANA "savemodes $modesave\n";
+print MANA "exit 0\n";
+
+print MANA "end\n";
+print MANA "go\n";
+print MANA "exit 1\n";
+close (MANA);
+if ($?) {
+    print STDERR "ERROR problem with fr.modesave\n";
+    exit 1;
+}
+
+print STDOUT "SUCCESS: finished with fr.modesave\n";
+exit 0;
+
+sub vsystem {
+    print STDERR "@_\n";
+    $status = system ("@_");
+    $status;
+}
+
+sub goodbye {
+    die "@_\n";
+}
+
+sub usage {
+    print "USAGE: fr.modesave (mode.fits) (mode.list) (mode.mef.fits) (start) (stop) (filter)\n";
+    exit 1;
+}
+
+# mana within perl:  we embed the mana functions within a macro to trap the 
+# exit status.  If mana has an error with one of the steps, it will exit the macros and 
+# the second exit will be called. Otherwise, the "go" macro will perform the exit 0
+# and mana will exit with status 0

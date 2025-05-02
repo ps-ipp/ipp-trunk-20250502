@@ -1,0 +1,99 @@
+# this file defines C libraries and C headers needed by the ipp, and information on finding them
+
+# directories to search: /lib, /usr/lib, /usr/X11R6/lib, etc.
+# modifications based on the architecture (eg, PATH/lib64, etc)
+# additional locations based on the env variables
+# dlltype to use
+
+# each entry contains:
+#   type : lib / include
+#   name 
+#   alternate names
+#   alternate paths
+#   tarball name
+#   tar directory
+#   force install by default?
+#   configure options
+#   make options
+#   make install options
+
+
+# Build tools
+bin m4                   NONE           NONE   m4-1.4.13.tar.gz         m4-1.4.13        N NONE NONE NONE
+bin autoconf             NONE           NONE   autoconf-2.63.tar.gz     autoconf-2.63    N NONE NONE NONE
+bin automake             NONE           NONE   automake-1.10.tar.gz     automake-1.10    N NONE NONE NONE
+bin libtool              NONE           NONE   libtool-2.2.6-p1.tar.gz  libtool-2.2.6-p1 N NONE NONE NONE
+bin pkg-config           NONE           NONE   pkg-config-0.23.tar.gz   pkg-config-0.23  N NONE NONE NONE
+
+lib libm                 NONE           NONE   NONE                     NONE             N NONE NONE NONE
+lib libX11               NONE           NONE   NONE                     NONE             N NONE NONE NONE
+lib libpthread           NONE           NONE   NONE                     NONE             N NONE NONE NONE
+lib libncurses           curses,termcap NONE   ncurses-5.6.tar.gz       ncurses-5.6      N NONE NONE NONE
+lib libreadline          NONE           NONE   readline-5.2-p15.tar.gz  readline-5.2-p15 Y NONE NONE NONE
+lib libz                 NONE           NONE   zlib-1.2.3.tar.gz        zlib-1.2.3       N --shared NONE NONE
+lib libpng               NONE           NONE   libpng-1.2.15.tar.gz     libpng-1.2.15    N NONE NONE NONE
+lib libjpeg              NONE           jpeg   jpegsrc.v8c.tar.gz       jpeg-8c          N --enable-shared NONE NONE
+lib libcfitsio           NONE           NONE   cfitsio3100-p5.tar.gz    cfitsio3100-p5   N --enable-shared shared,all NONE
+lib libmysqlclient       NONE           mysql  mysql-5.0.51a.tar.gz     mysql-5.0.51a    Y --with-unix-socket-path=/var/run/mysqld/mysqld.sock NONE NONE
+lib libgsl               NONE           NONE   gsl-1.11.tar.gz          gsl-1.11         N NONE NONE NONE
+lib libfftw3f            NONE           NONE   fftw-3.0.1.tar.gz        fftw-3.0.1       N --enable-float,--enable-shared,--disable-fortran NONE NONE
+lib libsla		 NONE		NONE   slalib_c.ipp.tgz		slalib_c	 N NONE NONE NONE
+
+inc X11/Xatom.h          NONE           NONE   NONE                     NONE             N NONE NONE NONE 
+inc X11/Xlib.h           NONE           NONE   NONE                     NONE             N NONE NONE NONE 
+inc X11/Xresource.h      NONE           NONE   NONE                     NONE             N NONE NONE NONE 
+inc X11/Xutil.h          NONE           NONE   NONE                     NONE             N NONE NONE NONE 
+inc X11/cursorfont.h     NONE           NONE   NONE                     NONE             N NONE NONE NONE 
+inc X11/keysym.h         NONE           NONE   NONE                     NONE             N NONE NONE NONE 
+inc X11/keysymdef.h      NONE           NONE   NONE                     NONE             N NONE NONE NONE 
+inc arpa/inet.h          NONE           NONE   NONE                     NONE             N NONE NONE NONE 
+inc assert.h             NONE           NONE   NONE                     NONE             N NONE NONE NONE 
+inc complex.h            NONE           NONE   NONE                     NONE             N NONE NONE NONE 
+inc ctype.h              NONE           NONE   NONE                     NONE             N NONE NONE NONE 
+inc errno.h              NONE           NONE   NONE                     NONE             N NONE NONE NONE 
+inc fcntl.h              NONE           NONE   NONE                     NONE             N NONE NONE NONE 
+inc fftw3.h              NONE           NONE   fftw-3.0.1.tar.gz        fftw-3.0.1       N --enable-float,--enable-shared,--disable-fortran NONE NONE
+inc fitsio.h             NONE           NONE   cfitsio3100-p3.tar.gz    cfitsio3100-p3   N --enable-shared shared NONE
+inc glob.h               NONE           NONE   NONE                     NONE             N NONE NONE NONE 
+inc gsl/gsl_randist.h    NONE           NONE   gsl-1.11.tar.gz          gsl-1.11         N NONE NONE NONE 
+inc gsl/gsl_rng.h        NONE           NONE   gsl-1.11.tar.gz          gsl-1.11         N NONE NONE NONE 
+inc inttypes.h           NONE           NONE   NONE                     NONE             N NONE NONE NONE 
+inc jpeglib.h            NONE           jpeg   jpegsrc.v6b-p1.tar.gz    jpeg-6b          N --enable-shared NONE install-lib
+inc limits.h             NONE           NONE   NONE                     NONE             N NONE NONE NONE 
+inc malloc.h             NONE           NONE   NONE                     NONE             N NONE NONE NONE 
+inc math.h               NONE           NONE   NONE                     NONE             N NONE NONE NONE 
+inc memory.h             NONE           NONE   NONE                     NONE             N NONE NONE NONE 
+inc mysql.h              NONE           mysql  mysql-5.0.51a.tar.gz     mysql-5.0.51a    N NONE NONE NONE
+inc netdb.h              NONE           NONE   NONE                     NONE             N NONE NONE NONE 
+inc netinet/ip.h         NONE           NONE   NONE                     NONE             N NONE NONE NONE 
+inc png.h                NONE           NONE   libpng-1.2.15.tar.gz     libpng-1.2.15    N NONE NONE NONE
+inc pthread.h            NONE           NONE   NONE                     NONE             N NONE NONE NONE 
+inc readline/history.h   NONE           NONE   readline-5.2-p12.tar.gz  readline-5.2-p12 N NONE NONE NONE
+inc readline/readline.h  NONE           NONE   readline-5.2-p12.tar.gz  readline-5.2-p12 N NONE NONE NONE
+inc regex.h              NONE           NONE   NONE                     NONE             N NONE NONE NONE 
+inc signal.h             NONE           NONE   NONE                     NONE             N NONE NONE NONE 
+inc stdint.h             NONE           NONE   NONE                     NONE             N NONE NONE NONE 
+inc stdio.h              NONE           NONE   NONE                     NONE             N NONE NONE NONE 
+inc stdlib.h             NONE           NONE   NONE                     NONE             N NONE NONE NONE 
+inc string.h             NONE           NONE   NONE                     NONE             N NONE NONE NONE 
+inc sys/ipc.h            NONE           NONE   NONE                     NONE             N NONE NONE NONE 
+inc sys/resource.h       NONE           NONE   NONE                     NONE             N NONE NONE NONE 
+inc sys/sem.h            NONE           NONE   NONE                     NONE             N NONE NONE NONE 
+inc sys/socket.h         NONE           NONE   NONE                     NONE             N NONE NONE NONE 
+inc sys/stat.h           NONE           NONE   NONE                     NONE             N NONE NONE NONE 
+inc sys/time.h           NONE           NONE   NONE                     NONE             N NONE NONE NONE 
+inc sys/types.h          NONE           NONE   NONE                     NONE             N NONE NONE NONE 
+inc sys/uio.h            NONE           NONE   NONE                     NONE             N NONE NONE NONE 
+inc sys/un.h             NONE           NONE   NONE                     NONE             N NONE NONE NONE 
+inc sys/wait.h           NONE           NONE   NONE                     NONE             N NONE NONE NONE 
+inc time.h               NONE           NONE   NONE                     NONE             N NONE NONE NONE 
+inc unistd.h             NONE           NONE   NONE                     NONE             N NONE NONE NONE 
+inc zlib.h               NONE           NONE   zlib-1.2.3.tar.gz        zlib-1.2.3       N --shared NONE NONE
+inc slalib.h             NONE           NONE   slalib_c.ipp.tgz		slalib_c	 N NONE NONE NONE
+
+# xml is currently not used by IPP
+# lib xml2       NONE           NONE   NONE                     NONE             Y NONE NONE NONE
+
+# doxygen is having some unknown build issues on alala
+# bin doxygen            NONE NONE doxygen-1.5.1.src.tar.gz doxygen-1.5.1    N NONE NONE NONE
+

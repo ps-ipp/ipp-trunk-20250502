@@ -1,0 +1,61 @@
+
+macro plan
+ if ($0 != 2)
+  echo "USAGE: plan (Ntest)"
+  break
+ end
+
+ $tap_Nplan = $1
+ $tap_Npass = 0
+ $tap_Nfail = 0
+ $tap_Ntest = 0
+end
+
+macro done
+ if (not($?tap_Nplan))
+  echo "ERROR: tap tests not planned"
+  break
+ end
+
+ echo "planned $tap_Nplan tests, ran $tap_Ntest"
+ echo "passed $tap_Npass tests, failed $tap_Nfail tests"
+
+ if (($tap_Nfail == 0) && ($tap_Ntest == $tap_Nplan) && ($tap_Npass == $tap_Ntest))
+   echo "PASS: all tests run and passed"
+   return 1
+ end
+
+ if ($tap_Nfail > 0)
+   echo "FAIL: $tap_Nfail tests failed"
+ end
+
+ if ($tap_Ntest != $tap_Nplan)
+   echo "FAIL: not all tests run"
+ end
+
+ if ($tap_Ntest != $tap_Npass + $tap_Nfail)
+   echo "FAIL: inconsistent count: $tap_Ntest tests != $tap_Npass pass + $tap_Nfail fail"
+ end
+end
+
+macro ok
+ if ($0 != 3)
+  echo "USAGE (condition) (label)"
+  break
+ end
+ 
+ if (not($?tap_Nplan))
+  echo "ERROR: tap tests not planned"
+  break
+ end
+ 
+ if ($1)
+  echo "OK: $2"
+  $tap_Npass ++
+ else     
+  echo "not OK: $2"
+  $tap_Nfail ++
+ end
+ $tap_Ntest ++
+end
+

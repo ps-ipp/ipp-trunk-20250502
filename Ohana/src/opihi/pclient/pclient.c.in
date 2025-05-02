@@ -1,0 +1,110 @@
+# include "pclient.h"
+
+# define opihi_name "PCLIENT"
+# define opihi_prompt "pclient: "
+# define opihi_description "pcontrol client shell\n"
+# define opihi_history ""
+# define opihi_rcfile ".pcontrolrc"
+
+void dummy_prep_term (int flag) {
+  OHANA_UNUSED_PARAM(flag);
+}
+
+/* program-dependent initialization */
+void program_init (int *argc, char **argv) {
+  OHANA_UNUSED_PARAM(argc);
+  OHANA_UNUSED_PARAM(argv);
+  
+  auto_break = TRUE;
+
+  /* load the commands used by this implementation */
+  InitBasic ();
+  InitPclient ();
+
+  rl_prep_term_function = dummy_prep_term;
+  rl_readline_name = opihi_name;
+  rl_attempted_completion_function = command_completer;
+  rl_event_hook = CheckChild;
+  rl_set_keyboard_input_timeout (20000); 
+  /* 1 ms seems to be the minimum valid number */
+
+  // set_str_variable ("HISTORY", opihi_history);
+  set_str_variable ("PROMPT", opihi_prompt);
+  set_str_variable ("RCFILE", opihi_rcfile);
+
+  {
+    char *helpdir;
+    char *modules;
+    static char *datadir = "@DATADIR@";
+    ALLOCATE (helpdir, char, strlen(datadir) + strlen("/help") + 2);
+    sprintf (helpdir, "%s/help", datadir);
+    set_str_variable ("HELPDIR", helpdir);
+    free (helpdir);
+    ALLOCATE (modules, char, strlen(datadir) + strlen("/modules") + 2);
+    sprintf (modules, "%s/modules", datadir);
+    set_str_variable ("MODULES:0", modules);
+    set_int_variable ("MODULES:n", 1);
+    free (modules);
+  }
+
+  /* ignore the history file.  to change this, see, eg, mana.c */
+
+  /* We do not want pclient to exit just because the connection to the 
+     child process is broken.  However, if the connection to the parent 
+     process is broken, we should exit.  To handle this, we define 
+     pipe_signal() which tracks the number of times it has been called.
+     Every time an I/O operation on the child file descriptor raises this signal, 
+     we need to manage the crashed child and then clear the count.  Signals raised by 
+     I/O to the parent do not result in clearing the count.  If the count passes a maximum,
+     we exit pclient */
+     
+  signal (SIGPIPE, pipe_signal);
+  signal (SIGTSTP, gotsignal);
+  signal (SIGTTIN, gotsignal);
+  return;
+}
+
+/* standard welcome message */
+void welcome () {
+  gprint (GP_ERR, "\n");
+  gprint (GP_ERR, "Welcome to %s - %s\n\n", opihi_name, opihi_description);
+}
+
+/* add program-dependent exit functions here */
+void cleanup () {
+  ConfigFree ();
+  FreeBasic ();
+  FreePclient ();
+  gprint (GP_LOG, "Goodbye\n");
+  return;
+}
+
+static int Npipe = 0;
+
+void pipe_signal (int signum) {
+  OHANA_UNUSED_PARAM(signum);
+
+  Npipe ++;
+  if (Npipe > 100) {
+    exit (5);
+  }
+  gprint (GP_ERR, "closed pipe : did child process exit unexpectedly?\n");
+  return;
+}
+
+void pipe_signal_clear(void) {
+  Npipe = 0;
+}
+
+void gotsignal (int signum) {
+  gprint (GP_ERR, "got signal : %d\n", signum);
+  return;
+}
+
+/* call to opihi shell */
+int main (int argc, char **argv) {
+  int status;
+  status = opihi (argc, argv);
+  exit (status);
+}
+

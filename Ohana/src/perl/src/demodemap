@@ -1,0 +1,74 @@
+#!/usr/bin/env perl
+
+# grab the command line options
+$limitmodes = "";
+$mapfile = "";
+$close = "";
+@tARGV = ();
+for (; @ARGV > 0; ) {
+    if ($ARGV[0] eq "-close") {
+	$close = "-close";
+        shift; next;
+    }
+    if ($ARGV[0] eq "-mapfile") {
+	$mapfile = $ARGV[1];
+        shift; shift; next;
+    }
+    if ($ARGV[0] eq "-limitmodes") {
+	$limitmodes = $ARGV[1];
+        shift; shift; next;
+    }
+    @tARGV = (@tARGV, $ARGV[0]);
+    shift;
+}
+@ARGV = @tARGV;
+
+if (@ARGV != 2) { die "USAGE: demodemap (inlist) (outlist) [-mapfile file] [-limitmodes N] [-close]\n" }
+
+$inlist  = $ARGV[0];
+$outlist = $ARGV[1];
+
+open (FILE, "$inlist");
+@list = <FILE>;
+$first = $list[$i]; chop ($first);
+close (FILE);
+
+# find the appropriate script file
+$confdir = `gconfig -q CONFDIR`; chop ($confdir);
+$script  = "$confdir/mana/modes.pro";
+$answer  = `cameraconfig -ccds`;
+@ccds    = split (" ", $answer);
+
+$modefits = `detsearch $close -quiet -image $first $ccds[0] split -type modes`; chop ($modefits);
+if ($?) { die "can't get mode image\n"; }
+
+@words = split ("/", $modefits);
+$basename = $words[-1];
+
+open (MANA, "|mana --norc");
+print MANA "input $script\n";
+
+# override default values (set in modes.pro):
+if ($limitmodes) { print MANA "\$Nmodes = $limitmodes\n"; }
+if ($mapfile) { print MANA "\$savemap = $mapfile\n"; }
+print MANA "demodemap $inlist $outlist $modefits $basename\n";
+print MANA "exit 1\n";
+close (MANA);
+if ($?) {
+    print STDERR "problem with demodemap\n";
+    exit 1;
+}
+
+print STDOUT "finished with demodemap\n";
+
+exit 0;
+
+sub vsystem {
+    print STDERR "@_\n";
+    $status = system ("@_");
+    $status;
+}
+
+sub goodbye {
+    die "@_\n";
+}

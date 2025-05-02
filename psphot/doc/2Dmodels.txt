@@ -1,0 +1,29 @@
+
+I am testing a new concept for the 2D representation of various values
+measured by psphot.  I have been using 2D polynomials to fit the
+variations of, eg, the psf parameters as a function of position in the
+images.  this has been somewhat successful, but it has also been
+fraught with a number of problems.  the worst issue has been the fact
+that the polynomial form is not physically motivated.  in some cases,
+eg the variation of the psf shape parameters, the true variations for
+real distributions are not well represented by a polynomial.  I have
+done some ad hoc tricks to get the functional form to look roughly
+like a polynomial, but this is really quite a hack.  the other problem
+is that it is difficult to decide if the polynomial does an acceptable
+job representing the variations.
+
+My new concept for modeling 2D variations in some parameter is to
+define a low-resolution 2D image to represent the variation.  The
+advantage is that the image may be define with whatever resolution may
+be sampled by the input data, and the functional form need not be
+constrained by the polynomial basis function.  
+
+** is this a poor substitute for using a chebychev polynomial as a
+   better basis function?
+
+psphot parameters which vary by position:
+
+pmPSF.params 
+pmPSF.ApTrend
+pmPSF.FluxScale (flux given normalization of 1.0)
+

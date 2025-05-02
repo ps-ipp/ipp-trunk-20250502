@@ -1,0 +1,19 @@
+
+   for var (start) (stop) [delta]
+
+    perform a loop, with $var as the loop variable. 
+    the value of $var runs from (start) to (stop) inclusive, 
+    and is incremented by [delta] (1 by default).
+
+    The loop commands are entered until the appropriate "end" is typed;
+    if there are nested loops, macro definitions, or logical blocks,
+    the correct "end" is used!
+
+    for may be used at the command line, in a macro, or in an input
+    file with no ill effects.
+
+    the variable $var may be accessed during the loop execution.  if
+    the variable $var is assigned a value beyond (stop) during the
+    loop, the loop execution will end.
+
+    See also: macro, if

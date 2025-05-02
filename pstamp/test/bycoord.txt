@@ -1,0 +1,28 @@
+# Sample Postage stamp request description file
+# This can be parsed by the program pstamp_req_create to build a 
+# PS1_PSTAMP_REQUEST binary table
+
+# First line of data is for the extension header
+# The order of keywords follows TABLE 6 of ICD
+#
+# Note that value for REQ_NAME may be overriden by a command line
+# argument to pstamp_req_create.
+# Blank and comment lines are ignored
+
+# REQ_NAME      EXTVER
+bycoord_test     1
+
+# subsequent lines define the rows in the table
+
+# If ROWNUM is set to zero, pstamp_request_file will set insert a value for each row beginning with 1
+# If a later input row reuses a value an error occurs
+
+# Thsee coordinates are in MD06
+#
+# ID    |     ROI Specification                   |  JOB Specification | Images of interest specification
+# ROWNUM CENTER_X    CENTER_Y  WIDTH HEIGHT COORD_MASK JOB_TYPE OPTION_MASK PROJECT REQ_TYPE IMG_TYPE    ID   TESS_ID COMPONENT    DATA_GROUP  REQFILT MJD_MIN MJD_MAX | COMMENT
+#
+0       183.2375     47.30388 500    500      2        stamp       1        gpc1    bycoord chip       null   null   null           null        null   55240     0   |
+0       183.2375     47.30388 500    500      2        stamp       1        gpc1    bycoord warp      null   null   null           null        null   55240     0   |
+0       183.2375     47.30388 500    500      2        stamp       1        gpc1    bycoord stack      null   null   null           null        null   55240     0   |
+0       183.2375     47.30388 500    500      2        stamp       1        gpc1    bycoord diff      null   null   null           null        null   55240     0   |

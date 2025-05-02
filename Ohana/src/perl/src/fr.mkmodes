@@ -1,0 +1,146 @@
+#!/usr/bin/env perl
+
+{ # grab the command line arguments:
+    $elconf = "";
+    $elixcf = "-c /h/eugene/.ptolemyrc";
+    @tARGV = ();
+    for (; @ARGV > 0; ) {
+	
+	# grab elixir/ptolemy config option -c 
+	if ($ARGV[0] eq "-c") {
+	    shift;
+	    $elixcf = "-c $ARGV[0]";
+	    shift;
+	    next;
+	}
+	
+	# grab elixir/ptolemy config option -C 
+	if ($ARGV[0] eq "-C") {
+	    @opt = (@opt, $ARGV[0]);
+	    shift;
+	    @opt = (@opt, $ARGV[0]);
+	    $elconf = $ARGV[0];
+	    shift;
+	    next;
+	}
+	
+	# grab elixir/ptolemy config option -D
+	if ($ARGV[0] eq "-D") {
+	    @opt = (@opt, $ARGV[0]);
+	    shift;
+	    @opt = (@opt, $ARGV[0]);
+	    shift;
+	    @opt = (@opt, $ARGV[0]);
+	    shift;
+	    next;
+	}
+	
+	@tARGV = (@tARGV, $ARGV[0]);
+	shift;
+    }
+    @ARGV = @tARGV;
+    $elixir = join (" ", $elixcf, @opt);
+}
+
+# check the usage
+if ($ARGV[0] eq "-h") { usage (); }
+if ($ARGV[0] eq "-help") { usage (); }
+if (@ARGV != 3) { die "USAGE: fr.mkmodes (maplist) (mode.fits) (mode.list)\n" }
+
+# assign the command line arguments
+$list = $ARGV[0];
+$output = $ARGV[1];
+$modes = $ARGV[2];
+
+# find the appropriate script file
+$confdir = `gconfig $elixir -q CONFDIR`; chop ($confdir);
+$script  = "$confdir/mana/modes.pro";
+$Nccd = `cameraconfig $elixir -Nccd`; chop ($Nccd);
+
+# load in list of input image lists
+open (LIST, $list);
+@list = <LIST>;
+close (LIST);
+
+# if mode list exists, load it in and use the selected modes
+# to set the new default selection
+$GotModes = 0;
+if (-e $modes) {
+    open (LIST, $modes);
+    @modes = <LIST>;
+    close (LIST);
+    $GotModes = 1;
+}
+
+# send commands to mana:
+open (MANA, "|mana --norc");
+print MANA "input $script\n";
+
+# create a mana list of input file names
+print MANA "list names\n";
+$Nimages = 0;
+foreach $line (@list) {
+    ($name, $status) = split (" ", $line);
+    if ($status) { print MANA " $name\n"; }
+    $Nimages ++;
+}
+print MANA "end\n";
+
+# create a mana list of input file names
+print MANA "macro go\n";
+print MANA "  mkimage $output\n";
+print MANA "  exit 0\n";
+print MANA "end\n";
+print MANA "go\n";
+print MANA "exit 1\n";
+close (MANA);
+if ($?) {
+    print STDERR "ERROR running mana\n";
+    exit 1;
+}
+
+# create new list of modes.  if modes existed, use selected modes, otherwisaudio/x-pn-realaudio-plugine first 8:
+$DefaultStatus = 1;
+open (LIST, ">$modes");
+for ($i = 0; $i < $Nimages; $i++) {
+    # this is just a little funny: there is not a 1-1 relationship 
+    # between the selected images and the modes in this selection.
+    # only the first few modes will be significant, so we are just
+    # cutting of the few end modes
+    if ($i >= 8) { $DefaultStatus = 0; }
+    if ($GotModes) {
+	($mode, $status) = split (" ", $modes[$i]);
+	print LIST "$mode $status\n";
+    } else {
+	print LIST "$i $DefaultStatus\n";
+    }
+}
+close (LIST);
+
+print STDOUT "SUCCESS: finished with fr.detrend\n";
+exit 0;
+
+sub vsystem {
+    print STDERR "@_\n";
+    $status = system ("@_");
+    $status;
+}
+
+sub goodbye {
+    die "@_\n";
+}
+
+sub usage {
+    print "\n";
+    print "USAGE: fr.mkmodes (list) (output) (modes)\n";
+    print " list:   list of lists - each list contains names of the input images (*.map/*.fits)\n";
+    print " output: master image of orthonormal modes\n";
+    print " modes:  list of modes in output, with status\n";
+    exit 1;
+}
+
+# mana within perl:  we embed the mana functions within a macro to trap the 
+# exit status.  If mana has an error with one of the steps, it will exit the macros and 
+# the second exit will be called. Otherwise, the "go" macro will perform the exit 0
+# and mana will exit with status 0
+

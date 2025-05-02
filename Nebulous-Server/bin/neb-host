@@ -1,0 +1,283 @@
+#!/usr/bin/env perl
+
+use strict;
+use warnings FATAL => qw( all );
+
+use vars qw( $VERSION );
+$VERSION = '0.01';
+
+use DBI;
+use Nebulous::Server::SQL;
+use URI::file;
+use SQL::Interp qw( sql_interp );
+use URI;
+
+use Getopt::Long qw( GetOptions :config auto_help auto_version );
+use Pod::Usage qw( pod2usage );
+
+my ($host, $state, $note,
+    $db, $dbhost, $dbpass, $dbuser,
+    $allocate, $available, $debug,$volume);
+
+# $db     = $ENV{'NEB_DB'} unless $db;
+# $dbhost = $ENV{'NEB_DBHOST'} || 'localhost';
+# $dbuser = $ENV{'NEB_USER'} unless $dbuser;
+# $dbpass = $ENV{'NEB_PASS'} unless $dbpass;
+
+# my $conffile = "/data/ippc64.1/ippitc/ippconfig/nebulous.config";
+# my $conffile = "/home/panstarrs/ipp/ippconfig/nebulous.config";
+my $conffile = "/home/panstarrs/ippps1/ippconfig/nebulous.config";
+
+if (-e $conffile) {
+#    printf STDERR "found config\n";
+    open(IN,$conffile);
+    while(<IN>) {
+	chomp;
+	if ($_ =~ /NEB_DB\s+/) {
+	    $db = (split /\s+/,$_)[2];
+	}
+	elsif ($_ =~ /NEB_DBHOST/) {
+	    $dbhost = (split /\s+/,$_)[2];
+	}
+	elsif ($_ =~ /NEB_USER/) {
+	    $dbuser = (split /\s+/,$_)[2];
+	}
+	elsif ($_ =~ /NEB_PASS/) {
+	    $dbpass = (split /\s+/,$_)[2];
+	}
+    }
+    close(IN);
+#    print STDERR  "$db $dbhost $dbuser $dbpass\n";
+}
+
+GetOptions(
+    'host=s'         => \$host,
+    'state=s'        => \$state,
+    'note=s'         => \$note,
+    'db=s'           => \$db,
+    'dbhost=s'       => \$dbhost,
+    'dbuser=s'       => \$dbuser,
+    'dbpass=s'       => \$dbpass,
+    'volume'         => \$volume,
+    
+    ) || pod2usage( 2 );
+
+if (($#ARGV == 1)&&(!defined($host))&&(!defined($state))) {
+    $host = shift(@ARGV);
+    $state = shift(@ARGV);
+}
+
+pod2usage( -msg => "Unknown option: @ARGV", -exitval => 2 ) if @ARGV;
+pod2usage( -msg => "Cannot configure nebulous database", -exitval => 2) unless
+    defined $db && defined $dbhost && defined $dbuser && defined $dbpass;
+
+my $dbh = DBI->connect(
+    "DBI:mysql:database=$db:host=$dbhost",
+    $dbuser,
+    $dbpass,
+    {
+        RaiseError => 1,
+        PrintError => 0,
+        AutoCommit => 0,
+    },
+    );
+
+if ((defined($host))&&(defined($state))) {
+    if ($state eq 'up') {
+	$allocate = 1;
+	$available = 1;
+    }
+    elsif ($state eq 'down') {
+	$allocate = 0;
+	$available = 0;
+    }
+    elsif ($state eq 'repair') {
+	$allocate = 0;
+	$available = 1;
+    }
+    else {
+	die "Unknown state '$state'";
+    }
+    
+    my %constraint;
+    if (defined($volume)) {
+	$constraint{'v.name'} = $host;
+    }
+    else {
+	$constraint{'v.host'} = $host;
+    }
+    my %set;
+    $set{'v.allocate'} = $allocate if defined $allocate;
+    $set{'v.available'} = $available if defined $available;
+    $set{'v.note'} = $note if defined $note;
+
+    eval {
+	my ($q, @bind) = sql_interp("UPDATE volume AS v SET", \%set, "WHERE", \%constraint);
+	warn "$q\n" if $debug;
+	my $query = $dbh->prepare($q);
+	$query->execute(@bind);
+	$dbh->commit;
+    };
+    if ($@) {
+	$dbh->rollback;
+	die $@;
+    }
+    eval {
+	my ($q, @bind) = sql_interp("UPDATE mountedvol AS v SET", \%set, "WHERE", \%constraint);
+	warn "$q\n" if $debug;
+	my $query = $dbh->prepare($q);
+	$query->execute(@bind);
+	$dbh->commit;
+    };
+    if ($@) {
+	$dbh->rollback;
+	die $@;
+    }
+}
+
+my $sql = Nebulous::Server::SQL->new();
+my ($q, @bind);
+$q = $sql->get_volumes . " ORDER BY v.host, v.name";
+warn "$q\n" if $debug;
+my $query = $dbh->prepare($q);
+$query->execute(@bind);
+$dbh->commit;
+
+my $format  = "%-15s %-15s %-7s %-8s %-9s %-5s %15s %s\n";
+my @columns = qw(host name mounted allocate available xattr last_modified note);
+printf($format, @columns);
+
+while (my $row = $query->fetchrow_hashref) {
+    unless ((exists($$row{ 'note' })) && (defined($$row{ 'note' }))) {
+	$$row{ 'note' } = '-';
+    }
+
+    printf($format, @$row{@columns});
+}
+
+__END__
+
+=pod
+
+=head1 NAME
+
+neb-host - simply manage the state of Nebulous storage volumes
+
+=head1 SYNOPSIS
+
+    neb-host [<nebulous host> <nebulous state>]
+    [--note '<status note>']
+    [--host <nebulous host>] [--state <up|down|repair>]
+    [--volume]
+    [--dbhost <database host>] [--db <database name>]
+    [--dbuser <database user>] [--dbpass <database password>]
+
+
+=head1 DESCRIPTION
+
+This program manages a Nebulous server's list of known storage volumes.  It 
+is designed to provide an easy interface to toggle hosts.  If no options are 
+given, the host and state are read directly from the command line.  If nothing
+is specified, prints out the table of currently mounted volumes in nebulous.
+
+=head1 OPTIONS
+
+=over 4
+
+=item * --note <status note>
+
+Set a status note for the specified volume.
+
+=item * --host <nebulous host>
+
+Name of the host on which the nebulous volume(s) reside.
+
+=item * --state <up|down|repair>
+
+Set the state of the nebulous volume:
+    up     Allocate = 1, Available = 1
+    down   Allocate = 0, Available = 0
+    repair Allocate = 0, Available = 1
+
+=item * --volume
+
+Set a particular volume to the given state.  This is a Boolean option,
+and uses the value of --host as the volume name to update.
+
+=item * --db <database name>
+
+Name of database (C<namespace>) to create tables in.
+
+Optional if the appropriate environment variable is set.
+
+=item * --dbhost <database host>
+
+Host name where the database resides.
+
+Defaults to C<localhost>.
+
+=item * --dbuser <database username>
+
+Username to authenticate with.
+
+Optional if the appropriate environment variable is set.
+
+=item * --dbpass <database password>
+
+Password to authenticate with.
+
+Optional if the appropriate environment variable is set.
+
+=back
+
+=head1 ENVIRONMENT
+
+These environment variables may be used in place of the specified command line
+options.  All command line option will override the corresponding environment
+value.
+
+=over 4
+
+=item * C<NEB_DB>
+
+Equivalent to --db|-d
+
+=item * C<NEB_HOST>
+
+Equivalent to --host
+
+=item * C<NEB_USER>
+
+Equivalent to --user|-u
+
+=item * C<NEB_PASS>
+
+Equivalent to --pass|-p 
+
+=back
+
+=head1 COPYRIGHT
+
+Copyright (C) 2008  Joshua Hoblitt.  All rights reserved.
+
+This program is free software; you can redistribute it and/or modify it under
+the terms of the GNU General Public License as published by the Free Software
+Foundation; either version 2 of the License, or (at your option) any later
+version.
+
+This program is distributed in the hope that it will be useful, but WITHOUT ANY
+WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A
+PARTICULAR PURPOSE.  See the GNU General Public License for more details.
+
+You should have received a copy of the GNU General Public License along with
+this program; if not, write to the Free Software Foundation, Inc., 59 Temple
+Place - Suite 330, Boston, MA  02111-1307, USA.
+
+The full text of the license can be found in the L<perlgpl> Pod as supplied
+with Perl 5.8.1 and later.
+
+=head1 SEE ALSO
+
+L<Nebulous::Server>, L<neb-voladm>, L<neb-voladd>
+
+=cut

@@ -1,0 +1,78 @@
+
+plan - use imregister / imsearch framework for spectra.db
+
+relevant database usages:
+
+use this for spectra.db ref ?
+  average.code or average.Xg
+
+
+spectra in spectra.db will have RA,DEC: join between tables using position
+
+example queries:
+
+spsearch 
+
+/* structure for Spectra Registration Database */
+typedef struct {
+  char filename[64];
+  char pathname[128];
+  char telescope[32];
+  char instrument[32];
+ 
+  char objname[64];
+
+  char mode (MEF?)
+  
+  float ra, dec;
+  float exptime;
+  float airmass;
+
+  /* spectral range representation */
+  float W0, W1, dW; 
+
+  /* spectral range start, end; average value for nm / pixel */
+
+  float sky;
+  float bias;
+  float fwhm;
+
+  float telfocus;
+  float xprobe, yprobe, zprobe;
+  float dettemp;
+  float teltemp[4];
+  float rotangle;
+
+  unsigned long int obstime;
+  unsigned long int regtime;
+} RegImage;  /* 360 bytes / image */
+
+
+outstanding questions:
+
+- convert spectral file to standard format on db insertion?
+  - uniform keywords for wavelength calibration?
+  - need header WCS
+  - single FITS file
+  - how to store discontiguous spectra? (MEF?)
+
+
+-------------------------------------------
+
+spectra examples in hand:
+
+Keck I / HiRes : 
+     - single IRAF FITS spectra
+     - BANDIDn gives def of slice (spectrum, sigma, background, raw)
+     - WATn_001 gives units (Angstroms)     
+     - wavelength = (x-CRPIX1+1) * CD1_1 + CRVAL1
+     * how do we know the orientation?
+
+Keck I / ESI : 
+     - MEF spectra (yso/keck)
+       - spload-mef converts to a single 
+
+-----
+
+database interactions vs autocode FITS tables
+

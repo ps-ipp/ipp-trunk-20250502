@@ -1,0 +1,224 @@
+
+<h2> relphot outline </h2>
+
+<ul>
+<li> load data
+     <ul>
+     <li> images: match photcode and time range, reset flags
+     <li> measure: select subset matching restritions on:
+          photcode, time, dM, Minst, Mag, dophot == 1
+     </ul>
+<li> iterate to find Mcal, image.flags:
+<li> write out modified Mcal values to image table
+<li> write out modified Mcal values to measure table
+<li> write out modified Mrel values to average table
+</ul>
+
+<h2> relphot overview </h2>
+
+<p> relphot has two primary purposes:<br>
+<ul>
+<li> calculate <b>Mcal</b> for images / measures
+<li> calculate <b>Mrel</b> for stars
+</ul>
+
+<p> relphot can also be used to determine the mosaic grid used to generate
+photometrically corrected flats (-grid option).
+
+<h2> data exclusion </h2>
+
+<p> relphot uses only a subset of the photometry data to calculate
+Mcal and Mrel.  In the first stage, calculation of the Mcal values,
+relphot loads the photometry data from each relevant catalog and
+creates an internal subset catalog with the function
+<em>bcatalog</em>, excluding some of the irrelevant data.  In
+addition, it uses flags to mark some of the data as invalid for the
+processing.
+
+<b> bcatalog exclusions </b>
+<ul>
+<li> measure.photcode not equivalent to requested photcode
+<li> measure.dophot != 1
+<li> measure.Mcat > MAG_LIM
+<li> measure.dM > SIGMA_LIM
+<li> measure.Minst out of range (ImagMin - ImagMax) [optional]
+<li> measure.t out of range (TSTART, TSTOP)
+</ul>
+
+<b> flagged data </b>
+
+<b> flagged image data </b>
+
+images can be flagged by setting bits of <b>image.code</b>
+
+stars can be flagged by setting bits of <b>average.code</b>
+
+measures can be flagged by setting bits of <b>measure.flag</b>
+
+<b>image.code</b>
+
+ID_IMAGE_NOCAL : ignore, irrelevant
+ID_IMAGE_POOR  : image measured bad
+ID_IMAGE_SKIP  : externally known bad
+
+dMcal > VALUE       FLAG_IMAGE_SCATTER <em>clean_images</em>
+fabs(Mcal) > VALUE  FLAG_IMAGE_ZEROPT  <em>clean_images</em>
+
+dMcal > VALUE       FLAG_IMAGE_SCATTER <em>clean_mosaics</em>
+fabs(Mcal) > VALUE  FLAG_IMAGE_ZEROPT  <em>clean_mosaics</em>
+
+<em> mark_images </em> does not seem to do anything useful?
+
+<b>average.code</b>
+
+Ngood < MEAS_TOOFEW                     <em>setMrel</em>
+Ngood < MEAS_TOOFEW                     <em>clean_measures</em>
+ChiSq > STAR_CHISQ                      <em>clean_stars</em>
+dM    > STAR_SCATTER                    <em>clean_stars</em>
+
+average.code (STAR_BAD) is not saved by relphot: it is set by
+clean_stars, clean_measures, and setMrel, but not setMrelOutput.
+STAR_BAD should only be internal since it depends on the photcode, but
+is not associated with a specific photcode in the data.  Just in case,
+it is reset to 0 in setMrelFinal.
+
+<b>measure.flag</b>
+
+X,Y out of range                        <em>setExclusions</em>
+3 sigma clipping                        <em>clean_measures</em>
+
+<h2> setting Mrel final value </h2>
+
+setMrelFinal is used to set the final average.Mrel values.  We do this
+in 4 stages.  In each stage, we set the Mrel values for stars which
+have not already been set, based on the current exclusion settings.
+At successive stages, we relax the exclusions, allowing the more
+spurious objects to have a valid Mrel value to be set.  In this loop,
+we actually run setMrelOutput twice: once to get the approximate Mrel
+value, then we flag the outlier measurements with clean_measure,
+then we redetermine the Mrel values on this basis, and mark the stars
+for exclusion from the next iteration.  
+
+<pre>
+exclude on
+ photcode       0 1 2 3
+ time range     0 1 2 3
+ MEAS_POOR      0 1 2 3
+ MEAS_TOOFEW    0 1 2 3
+ dophot == 10   0 1 2 
+ inst mag       0 1 2 
+ dophot != 1,2  0 1  
+ ID_IMAGE_POOR  0 1
+ ID_IMAGE_SKIP  0 1
+ dophot != 1    0
+ measure.dM     0 
+</pre>
+
+for all relphot runs, Mrel is re-calculated, and measures are marked
+at least if they are outliers in mag or ccd area.
+
+setMrel.output needs to do a few things differently from setMrel:
+<ul>
+<li> set measure.Mcal (skipped in setMrel.basic)
+<li> set average.Mrel if N < TOO_FEW (not STAR_BAD) (optional!)
+<li> use MAX (stats.error, stats.sigma) (optionally)
+<li> allow STAR_BAD?
+</ul>
+
+<h2> imphotset </h2>
+
+imphotset allows you to set certain phot.image table entries.  here
+are the options:
+
+imphotset [-photcode code] [-name foo] [-trange (start) (stop)] -flag and value
+
+
+Here is a complete list of relphot configuration variable names, a
+quick description, and reasonable values to start with:
+
+<pre>
+--- configuration variables used by relphot ---
+MAG_LIM : float
+  ignore measurements fainter than this absolute magnitude
+
+SIGMA_LIM : float
+  ignore measurements with magnitude error larger than this value
+
+STAR_SCATTER : float
+  mark stars as bad if their scatter is larger than this value
+
+IMAGE_SCATTER : float
+  mark images as bad if their scatter is larger than this value
+
+IMAGE_OFFSET : float
+  mark images as bad if the absolute value of thie zero point offset
+  is larger than this number
+
+STAR_CHISQ : float
+  mark stars as variable if their reduced chisq are larger than this value
+
+STAR_TOOFEW : int
+  mark stars as bad if the have fewer than this number of valid measurements
+
+IMAGE_TOOFEW : int
+  mark images as bad if the have fewer than this number of valid measurements
+
+IMAGE_GOOD_FRACTION : float
+  mark images as bad if the have fewer than this fraction of valid measurements  
+
+IMAGE_CATALOG : string
+  name of the image catalog file
+
+IMAGE_CATALOG_TEMPLATE : string
+  name of the template file to create the image catalog file
+
+CATALOG_TEMPLATE : string
+  name of the template file to create the catalog file
+
+GSCFILE : string
+  name of the GSC region table
+
+CATDIR : string
+  directory where the database is stored
+
+PHOTCODE_FILE : string
+  file containing photometry code information
+
+ZERO_PT : float
+  default zero point for random data
+
+RELPHOT_GRID_X : int
+  scale of mosaic correction grid 
+
+RELPHOT_GRID_Y : int
+  scale of mosaic correction grid 
+
+RELPHOT_GRID_BINNING : int
+  deprecated
+
+CAMERA_CONFIG : string
+  name of the file containing descriptive information about the camera
+
+--- sample ConfigFile entries with typical values ---
+
+MAG_LIM                	 24.0
+SIGMA_LIM              	  0.05
+STAR_SCATTER           	  0.05
+IMAGE_SCATTER          	  0.05
+IMAGE_OFFSET           	  0.2
+STAR_CHISQ             	 10.0
+STAR_TOOFEW            	  3
+IMAGE_TOOFEW           	 10
+IMAGE_GOOD_FRACTION    	 
+IMAGE_CATALOG          	 $CATDIR/Images.dat
+IMAGE_CATALOG_TEMPLATE 	 $REFSDIR/elixir/template.cat
+CATALOG_TEMPLATE       	 $REFSDIR/elixir/template.cat
+GSCFILE                	 $REFSDIR/gsc/GSCregions.tbl
+CATDIR                 	 $CATDIR
+PHOTCODE_FILE          	 $CONFDIR/camera/$CAMERA.photcode
+ZERO_PT                	 25.0
+RELPHOT_GRID_X         	 4
+RELPHOT_GRID_Y         	 8
+RELPHOT_GRID_BINNING   	 512
+CAMERA_CONFIG          	 $CONFDIR/camera/$CAMERA.config
+</pre>

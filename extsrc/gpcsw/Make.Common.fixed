@@ -1,0 +1,727 @@
+#
+# $Id: Make.Common,v 2.17 2004/09/05 10:10:45 thomas Exp $
+# $Locker:  $
+#
+# 2006-2-25: Windows cross-compilation support (not in CFHT RCS.)
+# 2006-4-19: "PREFIX" patch added by Sidik (not in CFHT RCS.)
+#
+# Make.Common - include at top of Makefiles for some common defaults.
+# Override any variables by setting them after including this file.
+# Then include Make.Common a second time, followed by any project
+# specific targets. For example, a typical library Makefile looks like this:
+#
+#   # Makefile for libfoo
+#   include ../Make.Common
+#   SRCS=foo1.c foo2.c foo3.c
+#   HDRS=foo.h
+#   include ../Make.Common
+#
+# If SRCS just equals *.c and *.cc (recommended) then you can
+# omit it completely from your makefile.  When a new C file
+# appears in the directory for libfoo, it will then automatically
+# be added to libfoo on the next build.  HDRS gives the header
+# files you want to install.  If you do not have any internal .h
+# files in your library, you can omit HDRS as well and *.h is assumed.
+# For a program, a typical Makefile looks like this:
+#
+#   # Makefile for foo
+#   include ../Make.Common
+#   VERSION=1.1
+#   $(EXECNAME): $(OBJS) libfoo.a libcfht.a
+#   include ../Make.Common
+#
+# Again, if you don't want it to pick up *.c and *.cc, then you might
+# want to define SRCS explicitly (OBJS will be generated for you).
+# If you omit VERSION, the current date (YYMMDD) is used instead.
+# And for a project toplevel directory, a Makefile might look like:
+#
+#   # Makefile for foo project directory
+#   include ../Make.Common
+#   SUBDIRS=libfoo foo
+#   foo.d: libfoo.d.install
+#   include ../Make.Common
+#
+# Use this last template whenever creating a subdirectory off of
+# the main directory which contains Make.Common.  Create a symlink
+# in the new directory so that the "leaves" (programs and libraries)
+# can always include "../Make.Common" from their Makefiles.
+#
+# The dependency line "foo.d: libfoo.d.install" indicates that libfoo
+# must be _installed_ before foo is _built_.  Other dependencies
+# within a program are generated automatically by "make dep".  It
+# only generates dependencies for files included with "" (quotes)
+# and not <>, so if want your program to rebuild if cfht.h changes,
+# include it with "cfht/cfht.h" instead of <cfht/cfht.h>.
+#
+# More user information can be found at http://software/make.html
+# The rest of the comments in this file mostly pertain to hacking
+# on Make.Common itself.
+#
+# ---------------------------------------------------------------------------
+ifndef HAVE_VARS
+#
+# On the first pass, define defaults for makefile variables.
+# Then the user gets a chance to override any, and finally
+# Make.Common is included again.
+#
+HAVE_VARS := True
+#
+# Default is to build everything, but not install it (except that
+# some libraries may get installed if other projects depend on them).
+#
+default: all
+#
+#                          --- Directories ---
+#
+# Find out where to store the architecture dependent objects.
+# Apr 2000: Added some temporary transitional hacks to help migration.
+#           Remove /tmp_mnt, /local, /usr/local/cfht to /cfht, /cfht/dev -> /cfht/src
+#           This might break building at other sites!
+# 
+FIND_ROOT := $(shell DA=`pwd`; DR="obs"; \
+while [ ! -f $$DA/ThisIsTopLevel -a "$$DA" != "/" ]; do \
+  DA=`cd $$DA/..;pwd | sed -e 's,^/local/,/,' -e 's,/tmp_mnt/,/,' -e 's,^/usr/local/cfht/,/cfht/,' -e 's,/cfht/dev,/cfht/src,'`; DR=../$$DR; \
+done; \
+if [ "$$DA" = "/" ]; then \
+echo "ERROR: You must create an empty file called \`ThisIsTopLevel' in a common" 1>&2;\
+echo "  directory shared by project sources.  e.g.: /usr/local/src/ThisIsTopLevel" 1>&2;\
+echo "  The directory one level higher will be used as a base for lib,bin,include" 1>&2;\
+echo "  e.g. /usr/local/{bin,lib,...} if you create /usr/local/src/ThisIsTopLevel." 1>&2;\
+echo "*** Please press ^C now and create this file before continuing..." 1>&2;\
+read Dmy; else \
+echo `cd $$DA/..;pwd | sed -e 's,^/local/,/,' -e 's,/tmp_mnt/,/,' -e 's,^/usr/local/cfht/,/cfht/,' -e 's,/cfht/dev,/cfht/src,'` ../$$DR $$DA; fi)
+
+#
+# This defines that basic paths that are commonly used during the build
+# process.  DIR_GNU must be the prefix where you've installed gcc,
+# gmake, and ginstall.  The rest are all install locations for header
+# files, man pages, libraries, objects, and programs.
+#
+DIR_GNU   := /apps/gnu
+PREFIX    := $(word 1,$(FIND_ROOT))
+DIR_OBSREL:= $(word 2,$(FIND_ROOT))
+DIR_SRC   := $(word 3,$(FIND_ROOT))
+#
+# Allow local settings to override PREFIX.  Make.Local is
+# included again at the very end, allowing any other
+# variables to be overridden.
+#
+ifeq ($(DIR_SRC)/Make.Local,$(wildcard $(DIR_SRC)/Make.Local))
+include $(DIR_SRC)/Make.Local
+endif
+#
+DIR_ROOT  := $(PREFIX)
+DIR_CONF  := $(DIR_ROOT)/conf
+DIR_BIN   := $(DIR_ROOT)/bin
+DIR_LIB   := $(DIR_ROOT)/lib
+DIR_MAN   := $(DIR_ROOT)/man
+DIR_INC   := $(DIR_ROOT)/include
+DIR_OBS   := $(DIR_ROOT)/obs
+#
+#                         --- Build Tools ---
+#
+# MAKEFILE may be useful during migration (if a project needs two styles
+# of makefiles at once.)  PATH should have at least DIR_GNU and DIR_BIN.
+# Rest are just the basic programs used to build the program.  User is
+# expected to run GNU Make 3.74 or better.  After that, everything here
+# should take care of making sure the right versions of things are run.
+#
+MAKEFILE = Makefile
+PATH     := .:$(DIR_GNU)/bin:$(DIR_BIN):/usr/local/bin:/usr/5bin:/usr/bin:/bin:/usr/ucb:$(PATH)
+SHELL	 = /bin/sh
+# INSTALL  = ginstall
+INSTALL  = install
+INSTSTRIP= $(INSTALL) -s
+TAR	 = gtar
+AR	 = ar
+FC       = gfortran
+CC	 = gcc
+LD       = gcc
+CXX	 = g++
+CMM	 = g++	# for make depend
+PURIFY   = purify
+#
+#                       --- Build Tool Flags ---
+#
+# Standard flags to ar and gcc during compile/link phases.  The GNU compiler
+# allows -g and -O at the same time.  At installation, the executables are
+# stripped and become the equivalent of just a "-O" compiled version.  The
+# copy with the symbols stays in $(DIR_OBS) until the next make or make clean.
+#
+# The setting of CCWARN here gives messages comparable to most things that
+# lint used to check for.  Override in the project makefile by setting it
+# to nothing if it's too noisy.
+#
+# The flags in CCSHARE apply to two different things: -fPIC is used during
+# compilation and -shared applies to the link stage.
+#
+FCDEBUG  = -g -O -fno-automatic
+FFWARN   = -Wall
+FFLAGS   = $(FCDEBUG) $(EXTRA_FFLAGS) $(FFWARN) $(CCDEFS) $(CCINCS)
+CCDEBUG  = -g -O
+CCSHARE  = -fPIC -shared
+CCWARN	 = -Wall -Wstrict-prototypes # -Wshadow
+CFLAGS   = $(CCDEBUG) $(EXTRA_CFLAGS) $(CCWARN) $(CCDEFS) $(CCINCS) $(CCHACKS)
+LDFLAGS  = $(CCDEBUG) $(EXTRA_CFLAGS) $(CCLIBS)
+CXXFLAGS = $(subst -Wstrict-prototypes,,$(CFLAGS))
+ARFLAGS  = -rc
+#
+# Find out the host name and type that we are currently running on.
+# TARGET=OSname-OSmajor. No support is provided for cross-compilers.
+# Later in this file TARGET is looked at and is used to define
+# one of: -DHPUX -DCYGWIN32 -DLINUX -DSOLARIS or -DSUNOS.  If absolutely
+# necessary, use this for conditional compiles in your code.  If
+# further distinctions are needed for other OSes or OS versions,
+# make up a new define and add it to the section that checks TARGET.
+#
+HOSTNAME := $(strip $(shell hostname))
+ifeq ($(TARGET),)
+TARGET := $(shell echo `uname -s`-`uname -r | cut -d . -f 1`)
+endif
+DOMAIN := $(shell domainname 2> /dev/null || echo "unknown")
+#
+# At CFHT, make sure stuff gets installed as group `daprog':
+#
+ifeq ($(DOMAIN),cfht)
+INSTALL += -g daprog
+endif
+#
+# Override or += these variables in the project's Makefile
+#
+VERSION_DATE := $(shell date +%y%m%d | sed -e 's/:/0/')
+VERSION      = $(VERSION_DATE)
+EXTRA_CFLAGS =
+#
+# Include the following defines by adding CCDEFS+=$(VERSIONDEFS) to Makefile:
+#
+VERSIONDEFS=-DVERSION=$(VERSION) -DSOURCEDATE="\"`sourcedate . 2> /dev/null`\"" -DBUILDDATE="\"`date +'%b %d %Y'`\""
+#
+# Provide a HINT for programs that can use either syslog or cfht_log
+#
+ifeq ($(origin NO_CFHTLOG), undefined)
+NO_CFHTLOG   := $(shell if [ ! -p /tmp/pipes/syslog.np ];then echo "-DNO_CFHTLOG";fi)
+endif
+#
+# Don't build in support for EPICS except on saturn and neptune (RPM & hform)
+#
+ifeq ($(origin USE_EPICS), undefined)
+USE_EPICS    := $(shell if [ "$(HOSTNAME)" = "saturn" -o "$(HOSTNAME)" = "neptune" ]; then echo "-DUSE_EPICS";fi)
+endif
+#
+CCDEFS       = $(NO_CFHTLOG) $(USE_EPICS)
+CCINCS       = -I. -Iinclude -I$(DIR_INC)
+CCLIBS       = -L$(DIR_LIB)
+CCHACKS      =
+#
+#                        --- Program Files ---
+#
+# The *INST variables end up containing the list of targets as their
+# installed names with the full paths like $(DIR_INC) and $(DIR_CONF)
+# tacked on to each filename.  NEEDTITLES is a list of files which
+# Sidik's titler program should attempt to place a copyright header in.
+#
+SRCS	     = $(shell ls *.f *.f77 *.c *.cc 2> /dev/null)
+HDRS	     = $(shell ls *.h *.hh 2> /dev/null)
+HDRINST	     = $(HDRS:%=$(DIR_INC)/$(PROJBASE)/%)
+MAN1         = $(shell cd ./man 2>/dev/null && /bin/ls *.1 2>/dev/null)
+MAN2         = $(shell cd ./man 2>/dev/null && /bin/ls *.2 2>/dev/null)
+MAN3         = $(shell cd ./man 2>/dev/null && /bin/ls *.3 2>/dev/null)
+MAN4         = $(shell cd ./man 2>/dev/null && /bin/ls *.4 2>/dev/null)
+MAN5         = $(shell cd ./man 2>/dev/null && /bin/ls *.5 2>/dev/null)
+MAN6         = $(shell cd ./man 2>/dev/null && /bin/ls *.6 2>/dev/null)
+MAN7         = $(shell cd ./man 2>/dev/null && /bin/ls *.7 2>/dev/null)
+MAN8         = $(shell cd ./man 2>/dev/null && /bin/ls *.8 2>/dev/null)
+CONFS        = $(shell cd ./conf 2>/dev/null && /bin/ls *.def *.par *.bm *.xbm *.rdb *.xrdb 2>/dev/null)
+SCRIPTS      = $(shell cd ./scripts 2>/dev/null && /bin/ls *.sh 2>/dev/null)
+COPYINST     = $(CONFS:%=$(DIR_CONF)/%) $(SCRIPTS:%.sh=$(DIR_BIN)/%) \
+	$(MAN1:%=$(DIR_MAN)/man1/%) \
+	$(MAN2:%=$(DIR_MAN)/man2/%) \
+	$(MAN3:%=$(DIR_MAN)/man3/%) \
+	$(MAN4:%=$(DIR_MAN)/man4/%) \
+	$(MAN5:%=$(DIR_MAN)/man5/%) \
+	$(MAN6:%=$(DIR_MAN)/man6/%) \
+	$(MAN7:%=$(DIR_MAN)/man7/%) \
+	$(MAN8:%=$(DIR_MAN)/man8/%)
+NEEDTITLES   = $(shell ls * | egrep -v "^\#|~$$" 2> /dev/null)
+#
+# SUBDIRS gets overridden only by Makefiles that just build other
+# subdirectories in their tree.  These directory nodes cannot generate
+# a program or a library (this is only done at the `leaves')
+#
+SUBDIRS      =
+#
+#                       --- System Dependent ---
+#
+# Some typical places we might find X11, typical extension for shared lib,
+# and extension for executables.
+#
+CCINCSX11 = -I/usr/X11/include
+CCLIBSX11 = -L/usr/X11/lib
+CCLINKX11 = -lX11 -lXext
+OBJ_LINK = obj
+EXE =
+SL  = .so
+#
+# Some overrides for a Win32 system running a cygnus win32 gcc
+#
+ifeq ($(TARGET), CYGWIN32_NT-4)
+CCDEFS   += -DCYGWIN32
+EXE       = .exe
+SL        = .dll
+endif
+#
+# Some overrides for HPUX (X11 in non-standard place, .sl for shared libs)
+#
+ifeq ($(TARGET), HP-UX-A)
+CCINCSX11 = -I/usr/include/X11R5
+CCLIBSX11 = -L/usr/lib/X11R5
+CCLINKX11 = -lX11
+CCDEFS   += -DHPUX -DHACK_XLIBS -DHACK_SELECT
+# X Libraries may have bugs, so X clients (hform) that really care
+# about this should add /usr/local/lib/wm (a CFHT-ism) to SHLIB_PATH.
+# select() prototype is broken, and missing_protos.h should fix it.
+CCHACKS   = -fwritable-strings
+SL        = .sl
+endif
+#
+# HP-UX 10.20 no longer has the scanf bug in the C library, so
+# doesn't need -fwritable-strings anymore.  X is also up to R6 now.
+#
+ifeq ($(TARGET), HP-UX-B)
+CCINCSX11 = -I/usr/include/X11R6
+CCLIBSX11 = -L/usr/lib/X11R6
+CCLINKX11 = -lX11
+CCDEFS   += -DHPUX
+SL        = .sl
+endif
+#
+# Linux often has dns in a separate libresolv and crypt in libcrypt.
+# Some installations require them to be explicitly linked.
+# Linux's utilities (tar, install) are the GNU versions, so no need
+# for the `g' prefix which we use on other platforms to ensure that
+# we're getting the GNU versions.
+#
+ifeq ($(TARGET), Linux-2)
+TAR = tar
+INSTALL = install
+CCINCSX11 = -I/usr/X11R6/include
+CCLIBSX11 = -L/usr/X11R6/lib
+CCLINKX11 = -lX11
+CCLINK  = -Wl,-R,$(DIR_LIB)
+ifeq (/usr/lib/libresolv.so,$(wildcard /usr/lib/libresolv.so))
+CCLINKNET += -lresolv
+endif
+ifeq (/usr/lib/libcrypt.so,$(wildcard /usr/lib/libcrypt.so))
+CCLINKNET += -lcrypt
+endif
+CCDEFS   += -DLINUX
+endif
+#
+# Solaris needs to link with libsocket and libnsl.  Also X11 is with openwin.
+#
+ifeq ($(TARGET), SunOS-5)
+CCINCSX11 = -I/usr/openwin/include
+CCLIBSX11 = -L/usr/openwin/lib
+CCLINKNET = -lsocket -lnsl
+# Without this the Solaris dynamic linker may not be able to find shared
+# versions of libg++ and libstdc++.  SunOS builds it from the -L's.
+CCLINK  = -Wl,-R,$(DIR_GNU)/lib
+CCDEFS   += -DSOLARIS
+endif
+#
+# Old suns are missing EXIT_FAILURE and EXIT_SUCCESS from stdlib.h
+#
+ifeq ($(TARGET), SunOS-4)
+CCDEFS   += -DSUNOS -D__USE_FIXED_PROTOTYPES__ -DEXIT_FAILURE=1 -DEXIT_SUCCESS=0
+endif
+#
+# Cross-compiler for VxWorks on a Sparc
+#
+ifeq ($(TARGET), VXSPARC)
+AR      = vxarsparc
+CC      = vxgccsparc
+LD      = vxgccsparc
+CXX     = vxg++sparc
+CMM	= vxg++sparc	# for make depend
+CROSSCC = vxsparc
+OBJ_LINK     = obj.vxsparc
+CCDEFS += -DCPU=SPARC -DVXWORKS -Dmain=$(PROJECT)
+DIR_BIN   := $(DIR_BIN)/$(CROSSCC)
+DIR_LIB   := $(DIR_LIB)/$(CROSSCC)
+DIR_OBS   := $(DIR_OBS)/$(CROSSCC)
+DIR_OBSREL:= $(DIR_OBSREL)/$(CROSSCC)
+NO_CFHTLOG:= -DNO_CFHTLOG
+INSTSTRIP= $(INSTALL)
+endif
+#
+# Cross-compiler for VxWorks on a PowerPC
+#
+ifeq ($(TARGET), VXPOWERPC)
+AR      = vxarpowerpc
+CC      = vxgccpowerpc
+LD      = vxgccpowerpc
+CXX     = vxg++powerpc
+CMM	= vxgccpowerpc	# for make depend, change to ++ if vxg++powerpc works
+CROSSCC = vxpowerpc
+OBJ_LINK     = obj.vxpowerpc
+CCDEFS += -DCPU=PPC604 -DVXWORKS -Dmain=$(PROJECT)
+DIR_BIN   := $(DIR_BIN)/$(CROSSCC)
+DIR_LIB   := $(DIR_LIB)/$(CROSSCC)
+DIR_OBS   := $(DIR_OBS)/$(CROSSCC)
+DIR_OBSREL:= $(DIR_OBSREL)/$(CROSSCC)
+NO_CFHTLOG:= -DNO_CFHTLOG
+INSTSTRIP= $(INSTALL)
+endif
+#
+# Cross-compiler for PowerPC405 (embedded)
+#
+ifeq ($(TARGET), PPC405)
+AR      = /apps/ppc405/powerpc-405-linux-gnu/gcc-3.4.2-glibc-2.2.5/bin/powerpc-405-linux-gnu-ar
+CC      = /apps/ppc405/powerpc-405-linux-gnu/gcc-3.4.2-glibc-2.2.5/bin/powerpc-405-linux-gnu-gcc
+LD      = /apps/ppc405/powerpc-405-linux-gnu/gcc-3.4.2-glibc-2.2.5/bin/powerpc-405-linux-gnu-gcc
+CXX     = /apps/ppc405/powerpc-405-linux-gnu/gcc-3.4.2-glibc-2.2.5/bin/powerpc-405-linux-gnu-g++
+CMM	= /apps/ppc405/powerpc-405-linux-gnu/gcc-3.4.2-glibc-2.2.5/bin/powerpc-405-linux-gnu-g++
+CROSSCC = ppc405
+OBJ_LINK     = obj.ppc405
+CCDEFS += -DPPC405
+DIR_BIN   := $(DIR_BIN)/$(CROSSCC)
+DIR_LIB   := $(DIR_LIB)/$(CROSSCC)
+DIR_OBS   := $(DIR_OBS)/$(CROSSCC)
+DIR_OBSREL:= $(DIR_OBSREL)/$(CROSSCC)
+NO_CFHTLOG:= -DNO_CFHTLOG
+INSTSTRIP= $(INSTALL)
+endif
+#
+# Cross-compiler for Windows i386
+#
+ifeq ($(TARGET), MINGW32)
+PATH   := /usr/local/cross-tools/bin:$(PATH)
+AR      = i386-mingw32msvc-ar
+CC      = i386-mingw32msvc-gcc
+LD      = i386-mingw32msvc-gcc
+CXX     = i386-mingw32msvc-g++
+CMM     = i386-mingw32msvc-g++
+CROSSCC = mingw32
+OBJ_LINK     = obj.mingw32
+EXE       = .exe
+SL        = .dll
+CCDEFS += -DMINGW32
+#DIR_BIN   := $(DIR_BIN)/$(CROSSCC)
+DIR_LIB   := $(DIR_LIB)/$(CROSSCC)
+DIR_OBS   := $(DIR_OBS)/$(CROSSCC)
+DIR_OBSREL:= $(DIR_OBSREL)/$(CROSSCC)
+NO_CFHTLOG:= -DNO_CFHTLOG
+INSTSTRIP= $(INSTALL)
+endif
+#
+#                  --- Project and Target Names ---
+#
+OBJ	  = $(DIR_OBS)/$(PROJECT)
+#
+# OBJS1 is just a temporary variable with *.cc converted to *.o and
+# OBJS contains *.cc + *.c -> *.o.  OBJS_PIC lists the names that
+# would be used if a shared library is being build (*.pic.o, in the
+# same directory where the other *.o files went.
+#
+OBJS3    = $(SRCS:%.cc=$(OBJ)/%.o)
+OBJS2	 = $(OBJS3:%.c=$(OBJ)/%.o)
+OBJS1    = $(OBJS2:%.f=$(OBJ)/%.o)
+OBJS     = $(OBJS1:%.f77=$(OBJ)/%.o)
+OBJS_PIC = $(OBJS:%.o=%.pic.o)
+#
+# If a program or library is generated, the subdirectory MUST have the
+# same name as the program it generates.  This is placed in PROJECT.
+# PROJBASE contains the same thing, unless it started with `lib', in
+# which case the lib is trimmed off.  This is how we know if we are
+# building a library or not.
+#
+PROJECT   = $(patsubst %-$(VERSION),%,$(notdir $(shell pwd)))
+PROJBASE  = $(PROJECT:lib%=%)
+#
+# `make all' causes the program to be deposited in this temporary directory
+#
+EXECNAME  = $(OBJ)/$(PROJBASE)$(EXE)
+#
+# `make install' strips it and copies it to the main bin/ directory.
+#
+EXECINST  = $(DIR_BIN)/$(PROJBASE)$(EXE)
+#
+# `make all' for libraries first assembles the .a here
+#
+LIBNAME   = $(OBJ)/$(PROJECT).a
+#
+# `make install' for libraries copies it unstripped to the lib/ directory
+#
+LIBINST   = $(DIR_LIB)/$(PROJECT).a
+#
+# Same all over again, except for the shared versions of the libraries.
+#
+SHLIBNAME = $(OBJ)/$(PROJECT)$(SL)
+SHLIBINST = $(DIR_LIB)/$(PROJECT)$(SL)
+#
+# This is where we detect if this is a library or a program
+#
+ifeq ($(PROJECT), $(PROJBASE))
+ALL	= $(EXECNAME)
+ALLINST = $(COPYINST) $(EXECINST)
+HDRINST =
+else
+ALL	= $(LIBNAME)
+# ALL += $(SHLIBNAME)
+ALLINST = $(HDRINST) $(LIBINST)
+# ALLINS += $(SHLIBINST)
+endif
+#
+# ------------------------- End of Variables -----------------------------
+else
+# -------------------------- Start of Rules ------------------------------
+#
+# This section gets read during the second pass.  It defines the standard
+# rules defined at http://software/make.html, using the variables defined
+# above (possibly with some overrides that the user put in between.)
+#
+.SUFFIXES: ; # Do not use default targets like '.c.o' and '.cc.o'
+#
+# Tell make never to expect a file by any of these names:
+#
+.PHONY:	clean all dep default checkdep checkbin preinstall libinstall install execlist execlist-sh
+#
+vpath %.h     $(DIR_INC)/cfht:$(DIR_INC)	# include files
+vpath %.hh    $(DIR_INC)			# C++ include files
+vpath %.bm    $(DIR_INC)			# bitmap include files
+vpath %.a     $(DIR_LIB)			# libraries
+vpath %$(SL)  $(DIR_LIB)			# shared libraries
+#
+#                        --- Rule Patterns ---
+#
+# These are just the standard ways to cause gcc to generate a .o from a .c,
+# g++ to generate a .o from a .cc, and to create libraries with ar (or
+# gcc in the case of shared libraries... which we are not really using yet.)
+#
+$(OBJ)/%.o: %.f          ; $(FC)  $(FFLAGS)   -c $*.f  -o $@
+$(OBJ)/%.o: %.c          ; $(CC)  $(CFLAGS)   -c $*.c  -o $@
+$(OBJ)/%.o: %.cc         ; $(CXX) $(CXXFLAGS) -c $*.cc -o $@
+$(OBJ)/%.pic.o: %.f      ; $(CC)  $(CFLAGS)   $(CCSHARE) -c $*.f  -o $@
+$(OBJ)/%.pic.o: %.c      ; $(CC)  $(CFLAGS)   $(CCSHARE) -c $*.c  -o $@
+$(OBJ)/%.pic.o: %.cc     ; $(CXX) $(CXXFLAGS) $(CCSHARE) -c $*.cc -o $@
+$(LIBNAME):  $(OBJS)      ; rm -f $@ ; $(AR) $(ARFLAGS) $@~ $^ ; mv $@~ $@
+$(SHLIBNAME): $(OBJS_PIC) ; rm -f $@ ; $(LD) $(LDFLAGS) $(CCSHARE) $^ $(CCLINK) -o $@
+#
+# The cryptic substitution that starts with $(^... takes all the dependencies
+# that this executable has and replaces anything like /usr/local/lib/libcfht.a
+# with a -lcfht.  WARNING: if a shared version exists, it will be used!
+#
+$(EXECNAME):
+	$(LD) $(LDFLAGS) $(^:$(DIR_LIB)/lib%.a=-l%) $(CCLINK) -o $@~
+	@mv $@~ $@
+#
+# NOTE: Use `make obj/myprogram-pure' to invoke this.  Also be sure you have
+#       $(EXECNAME) $(EXECNAME)-pure: in your project Makefile
+#
+$(EXECNAME)-pure: ; $(PURIFY) $(LD) $(LDFLAGS) $^ $(CCLINK) -o $@
+#
+# Sidik's titler program will insert comment header blocks into all your
+# source files if you create the proper Index files.
+#
+titles: ; @titler $(NEEDTITLES)
+#
+# `make execlist' at any level produces a list of all the "executables"
+# (scripts or compiled C programs) from the current level down.  It is
+# used by the version programs for pegasus accounts.
+#
+execlist: execlist-sh
+execlist-sh:
+	@for i in "" $(SCRIPTS:%.sh=%); do if [ "$$i" != "" ]; then echo $$i; fi; done
+
+ifneq ($(SUBDIRS),)
+#
+#         --- Standard Targets for project parent directories ---
+#                                    (See http://software/make.html)
+world: all install
+install:	$(COPYINST)
+ifneq ($(SUBDIRS),NONE)
+all preinstall libinstall dep depend: Make.Common
+all:     	$(SUBDIRS:%=%.d)
+preinstall:	$(SUBDIRS:%=%.d.preinstall)
+libinstall:	$(SUBDIRS:%=%.d.libinstall)
+install: 	$(SUBDIRS:%=%.d.install)
+titles: 	$(SUBDIRS:%=%.d.titles)
+clean:   	$(SUBDIRS:%=%.d.clean)
+dep depend:	$(SUBDIRS:%=%.d.depend)
+execlist:	$(SUBDIRS:%=%.d.execlist)
+endif
+#
+# Define rule patterns %.d.TARGET, which mean go into directory % and
+# build TARGET.  The % can get replaced by all dirs in $SUBDIRS.
+#
+%.d:		; $(MAKE) -f $(MAKEFILE) -C $(@:%.d=%) all
+%.d.preinstall:	; $(MAKE) -f $(MAKEFILE) -C $(@:%.d.preinstall=%) preinstall
+%.d.libinstall:	; $(MAKE) -f $(MAKEFILE) -C $(@:%.d.libinstall=%) libinstall
+%.d.install:	; $(MAKE) -f $(MAKEFILE) -C $(@:%.d.install=%) install
+%.d.clean:	; $(MAKE) -f $(MAKEFILE) -C $(@:%.d.clean=%) clean
+%.d.depend:	; $(MAKE) -f $(MAKEFILE) -C $(@:%.d.depend=%) depend
+%.d.execlist:	; @$(MAKE) -s -f $(MAKEFILE) -C $(@:%.d.execlist=%) execlist
+%.d.titles:	; @$(MAKE) -f $(MAKEFILE) -C $(@:%.d.titles=%) titles || \
+	        sh -c "cd $(@:%.d.titles=%) ; titler $(NEEDTITLES)"
+#
+# Regenerate Make.Common symlinks if they were lost by SVN.
+#
+Make.Common:
+	ln -s ../Make.Common $@
+else
+#
+#       --- Standard Targets for program and library directories ---
+#
+all: checkbin checkdep $(ALL)
+preinstall: $(HDRINST)
+install: checkbin checkdep $(ALLINST)
+world: ; $(MAKE) -f $(MAKEFILE) -C.. all install
+clean: ; -rm -rf $(DIR_OBS)/$(PROJECT)
+ifeq ($(PROJECT), $(PROJBASE))
+execlist: ; @echo $(PROJBASE)
+else
+# This target exists for the "mama-make" pass which only installs
+# libraries.  (After that, the mama-make gets all the programs.)
+libinstall: install
+endif
+#
+# Check if there are any dependencies in the Makefile, if not, run `make dep'
+#
+checkdep: ; @fgrep -e '# Dependencies by Make.Common $$Revision: 2.17 $$' $(MAKEFILE) > /dev/null || $(MAKE) -f $(MAKEFILE) dep
+#
+# Auto-generate dependencies.  This is very GNU C dependent.  The -MM
+# option tells gcc to only generate dependencies for files that are
+# #include'd with ""'s and not <> or system include files.  (So it is
+# generally ok to recompile on a different architecture without remaking
+# the dependencies.)
+#
+# Loop through each file in $SRCS and stick obj/ in front of each
+# .o dependency that gcc outputs (it does not have a way to tell it that
+# our .o's are not going into the current directory, and I couldn't get
+# it to work right with vpath.)  Strip off full paths to DIR_INC since
+# vpath *does* handle this correctly, allowing the same dependencies to
+# be re-used even if DIR_INC is in a different place on a different machine.
+#
+dep depend:
+	@fgrep -e "# Dependencies" $(MAKEFILE) > /dev/null || \
+	echo "# Dependencies" >> $(MAKEFILE)
+	@-rm -rf .Mtmp
+	sed -e 's/^\#\ Dependencies.*$$/\#\ Dependencies by Make.Common $$Revision: 2.17 $$/' -e '/^\#\ Dependencies/q' < $(MAKEFILE) > $(MAKEFILE).New
+	if [ "$(SRCS)" != "" ]; then for i in $(SRCS); do 		\
+	  ( echo;echo '$$(OBJ)/' )| dd bs=8 count=1 2>/dev/null>>.Mtmp;	\
+          DIRNAME=`dirname $$i`; [ $$DIRNAME != "." ] && echo -n $$DIRNAME/ >>.Mtmp; \
+	  $(CMM) -MM $(CFLAGS) $$i >> .Mtmp || exit 1;			\
+	  done;								\
+	  sed 's|$(DIR_INC)/||g' < .Mtmp >> $(MAKEFILE).New;		\
+	  sed 's| /[^ ]*.h||g' < $(MAKEFILE).New > .Mtmp;               \
+	  mv .Mtmp $(MAKEFILE).New;                                     \
+	  mv $(MAKEFILE) $(MAKEFILE).bak;				\
+	  mv $(MAKEFILE).New $(MAKEFILE);				\
+	fi
+	@-rm -rf .Mtmp
+endif
+#
+# Make a tar file snapshot of a current directory tree.
+#
+tar tgz: ; ( PD=`pwd`; PDV=`basename $$PD -$(VERSION)`-$(VERSION); cd .. ; \
+	$(TAR) -czvf $$PDV.tgz --exclude "*~" --exclude "#*#" \
+	--exclude "obj" --exclude "obj.*" \
+	--exclude "*.orig" --exclude "*.rej" --exclude "*.bak" \
+	--exclude ".xvpics" --exclude ".svn" --exclude "RCS" `basename $$PD` )
+
+#
+# Make sure that the $(DIR_OBS)/$(PROJECT) dir at least exists, which is
+# where programs, libraries, and/or .o's go before they are installed.
+# Directories are created with group write permissions.  The ./obj link
+# will be re-created if it doesn't point to a real directory after the
+# $(DIR_OBS)/$(PROJECT) is created.  This also checks that $(DIR_BIN) exists,
+# which is not really correct, but other targets fail if its not done now :-(
+#
+# The ./obj link is now just for convenience.  The makefile rules
+# do not require this to succeed, so it is possible to build with
+# "src" mounted read-only, as long as someone did "make dep" first.
+#
+# 2002-8-1: Clean the project OBS directory if it was previously used for
+#   another version (alternative would be to use /cfht/obs/proj-version).
+#
+checkbin:
+	@test -d $(DIR_BIN) || $(INSTALL) -m 0775 -d $(DIR_BIN)
+	@test -d $(DIR_OBS)/$(PROJECT) || $(INSTALL) -m 0775 -d $(DIR_OBS)/$(PROJECT)
+	@test -d $(OBJ_LINK) || ( rm -rf $(OBJ_LINK) 2> /dev/null && \
+	             ln -s $(DIR_OBSREL)/$(PROJECT) $(OBJ_LINK) ) 2> /dev/null \
+		     || true
+	@if [ "$(VERSION)" != "$(VERSION_DATE)" ]; then 		\
+	   if [ ! -r "$(DIR_OBS)/$(PROJECT)/version-$(VERSION)" ]; then	\
+	     rm -rf $(DIR_OBS)/$(PROJECT)/* ; 				\
+	     touch "$(DIR_OBS)/$(PROJECT)/version-$(VERSION)" ;		\
+	   fi ; 							\
+	fi
+
+# Final installed version of a program depends on the versioned installed
+# program.  This has to depend on the special target .PRECIOUS so that GNU
+# make will not see the versioned file as a temporary and try to remove it
+# at the end of a make install.  See the echo "--> ..." lines in the rest
+# of these targets for a description of what they install.
+#
+# The install line for "program" includes a -s, which strips the executable
+# at the same time that it is copied into the main bin/ directory.
+#
+.PRECIOUS: $(DIR_BIN)/%-$(VERSION)
+
+$(DIR_BIN)/%:	$(DIR_BIN)/%-$(VERSION)
+	@echo "--> Installing link to $(notdir $<) as $(notdir $@)"
+	@-mv $@ $@.$(shell date +%H%M%S).TEXT_FILE_BUSY 2> /dev/null || true
+	@-rm -f $(DIR_BIN)/*.TEXT_FILE_BUSY 2> /dev/null || true
+	@ln $< $@
+	# @-setuidinst $@
+
+$(DIR_BIN)/%-$(VERSION): scripts/%.sh
+	@echo "--> Installing sh script $(notdir $@)"
+	@-mv $@ $@.$(shell date +%H%M%S).TEXT_FILE_BUSY 2> /dev/null || true
+	@$(INSTALL) -m 0555 $< $@ || ( rm -f $@ && exit 1 )
+
+$(DIR_BIN)/%-$(VERSION): $(EXECNAME)
+	@echo "--> Installing program $(notdir $@)"
+	@-mv $@ $@.$(shell date +%H%M%S).TEXT_FILE_BUSY 2> /dev/null || true
+	@$(INSTSTRIP) -m 0755 $< $@ || ( rm -f $@ && exit 1 )
+	@chmod 0555 $@
+
+$(LIBINST):	$(LIBNAME)
+	@echo "--> Installing archive library $(notdir $<)"
+	@test -d $(DIR_LIB) || $(INSTALL) -m 0775 -d $(DIR_LIB)
+	@$(INSTALL) -m 0444 $< $@ || ( rm -f $@ && exit 1 )
+
+$(SHLIBINST):	$(SHLIBNAME)
+	@echo "--> Installing shared library $(SHLIBNAME)"
+	@test -d $(DIR_LIB) || $(INSTALL) -m 0775 -d $(DIR_LIB)
+	@$(INSTALL) -m 0555 $< $@ || ( rm -f $@ && exit 1 )
+
+$(DIR_CONF)/%: conf/%
+	@echo "--> Installing conf file $(notdir $<)"
+	@test -d $(DIR_CONF) || $(INSTALL) -m 0775 -d $(DIR_CONF)
+	@$(INSTALL) -m 0444 $< $@ || ( rm -f $@ && exit 1 )
+
+$(DIR_MAN)/man1/%: man/%
+	@echo "--> Installing man page $(notdir $<)"
+	@test -d $(DIR_MAN) || $(INSTALL) -m 0775 -d $(DIR_MAN)
+	@test -d $(DIR_MAN)/man1 || $(INSTALL) -m 0775 -d $(DIR_MAN)/man1
+	@$(INSTALL) -m 0444 $< $@ || ( rm -f $@ && exit 1 )
+
+# %%% The rm -f $(DIR_INC)/cfht/foo.h is a temporary hack to remove header
+# files from the old location, so that other programs don't accidentally
+# find an old copy of the header file if their #include statements haven't
+# been updated from "cfht/foo.h" to "libname/foo.h".
+$(DIR_INC)/$(PROJBASE)/%: %
+	@echo "--> Installing header file $<"
+	@rm -f $(DIR_INC)/cfht/$<
+	@test -d $(DIR_INC)/$(PROJBASE) || $(INSTALL) -m 0775 -d $(DIR_INC)/$(PROJBASE)
+	@$(INSTALL) -m 0444 $< $@ || ( rm -f $@ && exit 1 )
+endif
+#
+# Local settings (at CFHT, we want to compile with -Werror for most projects)
+#
+ifeq ($(DIR_SRC)/Make.Local,$(wildcard $(DIR_SRC)/Make.Local))
+include $(DIR_SRC)/Make.Local
+endif
+#
+# End of Make.Common

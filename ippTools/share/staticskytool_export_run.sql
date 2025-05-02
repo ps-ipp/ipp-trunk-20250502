@@ -1,0 +1,1 @@
+SELECT staticskyRun.* from staticskyRun

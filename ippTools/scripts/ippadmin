@@ -1,0 +1,83 @@
+#!/bin/csh -f
+## this script creates the top-level tables needed to manage the IPP databases
+set IPPADMIN = "ippadmin"
+
+if ($#argv < 3) goto usage;
+
+if ("$1" == "init") then
+  if ($#argv != 5) goto usage;
+  set dbserver = $2
+  set rootuser = $3
+  set dbuser = $4
+  set dbpass = $5
+
+  mysql -h $dbserver -u $rootuser -p <<EOF
+  create database $IPPADMIN;
+  use $IPPADMIN;
+  create table users (user_id BIGINT AUTO_INCREMENT, username char(255) not null, password varchar(255), primary key (user_id));
+  create table cookies (cookie_id BIGINT AUTO_INCREMENT, username char(255) not null, cookie varchar(255), primary key (cookie_id));
+  create table projects (proj_id BIGINT AUTO_INCREMENT, projname char(255) not null, primary key (proj_id));
+  create user '$dbuser'@'$dbserver' identified by '$dbpass';
+  grant all on *.* to '$dbuser'@'$dbserver';
+  flush privileges;
+EOF
+    exit 0;
+endif
+
+if ("$1" == "project") then
+  if ($#argv != 4) goto usage;
+  set dbserver = $2
+  set dbuser = $3
+  set dbname = $4
+
+  mysql -h $dbserver -u $dbuser -p $IPPADMIN <<EOF
+   insert into projects (projname) values ('$dbname');
+   create database $dbname;
+EOF
+    exit 0;
+endif
+
+if ("$1" == "user") then
+  if ($#argv != 5) goto usage;
+  set dbserver = $2
+  set dbuser = $3
+  set user = $4
+  set pass = $5
+
+  mysql -h $dbserver -u $dbuser -p $IPPADMIN <<EOF
+  insert into users (username, password) values ('$user', '$pass');
+EOF
+    exit 0;
+endif
+
+if ("$1" == "client") then
+  if ($#argv != 5) goto usage;
+  set dbserver = $2
+  set dbuser = $3
+  set dbpass = $4
+  set client = $5
+
+  mysql -h $dbserver -u root -p <<EOF
+   grant all on *.* to $dbuser@"$client" identified by '$dbpass';
+EOF
+    exit 0;
+endif
+
+usage:
+  echo "USAGE: ippadmin (options)"
+  echo ""
+  echo "  ippadmin init (dbserver) (rootuser) (dbuser) (dbpassword)"
+  echo "      creates admin tables, basic db user -- requires mysql (rootuser) password"
+  echo "      (rootuser) is a mysql user with global privileges"
+  echo ""
+  echo "  ippadmin project (dbserver) (dbuser) (dbname)"
+  echo "      create a new ipp project (database)"
+  echo "      (need to run pxadmin -create after it is created)"
+  echo ""
+  echo "  ippadmin user (dbserver) (dbuser) (username) (password)"
+  echo "      create a new www user and password"
+  echo ""
+  echo "  ippadmin client (dbserver) (dbuser) (dbpassword) (client)"
+  echo "      add client name or regex"
+  echo ""
+  exit 2

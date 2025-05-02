@@ -1,0 +1,58 @@
+<meta name=file  content=postrun>
+<meta name=title content=Elixir Postrun Systems>
+<meta name=page  content=Elixir Postrun Systems>
+
+The Elixir postrun system (<tt>elixir.postrun</tt>) manages the
+end-of-run processing of the calibration and science data.  The
+command <tt>elixir.postrun</tt> manages the stages of the processing.
+The elixir.postrun commands are as follows: <br><br>
+
+<tt>
+<table>
+<tr><td>elixir.postrun state               </td><td> check the current postrun status </td></tr>
+<tr><td>elixir.postrun update              </td><td> update the status, start the next stage </td></tr>
+<tr><td>elixir.postrun set (entry) (value) </td><td> set the state for a specific entry </td></tr>
+<tr><td>elixir.postrun (entry)             </td><td> run a specific entry </td></tr>
+</table>
+</tt>
+
+<p>
+The Elixir postrun system consists of a series of processing stages,
+illustrated by the command <tt> elixir.postrun state </tt>: <br><br>
+
+<tt>
+<table>
+<tr><td> imstats   </td><td> process the unprocessed entries in the imstats database </td></tr>
+<tr><td> mkdetrend </td><td> run the mkdetrend system to generate the detrend data </td></tr>
+<tr><td> mkfringe  </td><td> run the mkfringe system to generate the fringe data </td></tr>
+<tr><td> ptolemy   </td><td> run the science images through the ptolemy system </td></tr>
+<tr><td> standards </td><td> process the standard stars and generate zero-point information </td></tr>
+<tr><td> validate  </td><td> perform the image validation stages </td></tr>
+</table>
+</tt>
+
+<p>
+These stages must be performed in sequence, and the postrun system
+automatically enforces the sequencing.  At the beginning of a run,
+each of these stages are in the state 'init'.  At any stage, the
+command <tt>elixir.postrun update</tt> will attempt to identify the
+state of each of the processing stages, and run the first which is
+ready in the init state.  While stages are running, elixir.postrun
+will set their state to 'running', and as the stages finish, they are
+set to the value 'done'.  
+
+<p> In fact, the description above is an ideal, but in practice, the
+elixir.postrun script does not quite follow these rules.  For example,
+elixir.postrun will not run the mkdetrend or mkfringe systems; these
+must be run manually with the mkdetrend and mkfringe commands.  In
+addition, the mkfringe and ptolemy systems are required to be run in
+sequence by elixir.postrun, but these do not really require this
+sequencing: ptolemy can be run independently of mkfringe since ptolemy
+does not require the fringe frames.  
+
+<p> Furthermore, the error checking in the elixir.postrun system is
+not very well refined, and manual intervention is occasionally needed.
+It is possible, therefore, to set the state to appropriate values as
+needed with the elixir.postrun set (entry) (value) command.  Also, the
+elixir.postrun (entry) command can be used to run the specific stage
+manually.

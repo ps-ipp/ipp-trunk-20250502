@@ -1,0 +1,59 @@
+#!/usr/bin/env perl
+
+if (@ARGV != 3) { die "USAGE: dads.jpeg (inbase) (outbase) (level)\n" }
+
+# test named Xserver, or start vnc on specified machine
+$xhost = `gconfig XHOST`; chop $xhost;
+$xdisp = `gconfig XDISP`; chop $xdisp;
+if (vsystem ("xdpyinfo -display $xdisp")) {
+    print STDERR "X server is not running. start it now on $xhost\n";
+    exit 1;
+}
+$ENV{'DISPLAY'} = $xdisp;
+
+# find mana script
+$confdir = `gconfig CONFDIR`;  chop $confdir;
+$script = "$confdir/mana/dads.pro";
+
+# get image list
+@ilist = <$ARGV[0]/*.fits>;
+
+# level may be: 'perfect', 'best', 'raw'
+$level = "\U$ARGV[2]\E";
+if (($level ne "PERFECT") && ($level ne "BEST") && ($level ne "RAW")) {
+    die "ERROR: invalid entry for (level)\n";
+}
+
+$out1 = "$ARGV[1].b10.jpg";
+$out2 = "$ARGV[1].b50.jpg";
+
+open (MANA, "|mana --norc");
+print MANA "input $script\n";
+print MANA "init.mosaic\n";
+print MANA "macro go\n";
+foreach $in (@ilist) {
+    print MANA "load.image $in\n";
+}
+print MANA "do.jpeg $out1 $out2 $level\n";
+print MANA "exit 0\n";
+print MANA "end\n";
+print MANA "go\n";
+print MANA "exit 1\n";
+close (MANA);
+if ($?) {
+    die "ERROR: problem running dads.jpeg\n"; 
+} 
+
+print STDOUT "SUCCESS: finished running dads.jpeg\n"; 
+exit 0;
+
+sub vsystem {
+    print STDERR "@_\n";
+    $status = system ("@_");
+    $status;
+}
+
+sub goodbye {
+    die "@_\n";
+}
+

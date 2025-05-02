@@ -1,0 +1,80 @@
+#!/usr/bin/env perl
+
+if (@ARGV != 4) { die "USAGE: gtfringe (in.fits) (fringe.coords) (binning) (out.dat)\n"; }
+
+$input   = $ARGV[0];
+$coords  = $ARGV[1];
+$binning = $ARGV[2];
+$output  = $ARGV[3];
+
+# create temporary files:
+$PARFILE = `mktemp /tmp/gtfringe.XXXXXX`;
+$INFILE  = `mktemp /tmp/@gtfringe.XXXXXX`
+$OUTFILE = `mktemp /tmp/gtfringe.XXXXXX`
+
+# convert 
+
+open (FILE, "$inlist");
+@mef = <FILE>;
+close (FILE);
+
+@split = ();
+foreach $name (@mef) {
+    chop ($name);
+
+    # convert name /path/name.fits to /outdir/rootNN.fits
+    @words = split ("/", $name);
+    $root = $words[-1];
+    $root =~ s/.fits//;
+    
+    $new = sprintf "%s/%s%02d.fits", $outdir, $root, $ccd;
+    push @split, $new;
+}
+    
+open (MANA, "|mana --norc");
+
+# define the macro 'split'
+print MANA "macro split\n";
+print MANA " rd a \$1 -n $ccd\n";
+print MANA " keyword a NAXIS1 nx\n";
+print MANA " keyword a NAXIS2 ny\n";
+print MANA " if ((\$nx == 2080) && (\$ny == 4128))\n";
+print MANA "   wd a \$2 -bitpix 16 -bzero 32768 -bscale 1.0\n";
+print MANA "   exec echo \$2 >> $outlist\n";
+print MANA " end\n";
+print MANA "end\n";
+
+# create the macro 'go' with the commands 
+print MANA "macro go\n";
+for ($i = 0; $i < @mef; $i++) {
+    if (-e $split[$i]) { 
+	print STDERR "$split[$i] exists, skipping\n";
+	next; 
+    }
+    print MANA " split $mef[$i] $split[$i]\n";
+}
+# if the macro ends successfully, exit 0
+print MANA " exit 0\n";
+print MANA "end\n";
+
+# if the macro exits before the end, exit 1
+print MANA "go\n";
+print MANA "exit 1\n";
+close (MANA);
+
+$status = $?;
+print STDERR "mana exit status: $status\n";
+if ($status) {
+    print STDERR "ERROR: problem running split.mef\n";
+    exit 1;
+}
+
+print STDERR "SUCCESS\n";
+exit 0;
+
+sub vsystem {
+    print STDERR "@_\n";
+    $status = system ("@_");
+    $status;
+}
+

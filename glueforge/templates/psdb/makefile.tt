@@ -1,0 +1,19 @@
+SHELL   = /bin/sh
+CFLAGS  = -g -O0 -pipe -fpic -Wall -pedantic -std=c99
+LIBS    = -lpslib
+CFLAGS += `mysql_config --cflags`
+LIBS   += `mysql_config --libs`
+
+
+objects=[% table.namespace %]db.o
+
+all: lib[% table.namespace %]db.so
+
+lib[% table.namespace %]db.so: $(objects)
+	$(CC) $(CFLAGS) -shared -o lib[% table.namespace %]db.so $(objects) $(LIBS)
+
+$(objects): %.o : %.c
+	$(CC) $(CFLAGS) -o $@ -c $<
+
+clean:
+	$(RM) *.so *.o core test

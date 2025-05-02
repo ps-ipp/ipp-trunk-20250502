@@ -1,0 +1,105 @@
+#!/usr/bin/env perl
+
+# Copyright (C) 2009 Chris Waters
+
+use strict;
+use warnings FATAL => qw( all );
+
+use vars qw( $VERSION );
+$VERSION = '0.01';
+
+use Nebulous::Client;
+use Nebulous::Util qw( :standard);
+use File::Copy;
+use File::Basename;
+
+use Getopt::Long qw( GetOptions :config auto_help auto_version );
+use Pod::Usage qw( pod2usage );
+
+my ($server, $implicit_key, $copies, $destroy);
+
+$server = $ENV{'NEB_SERVER'} unless $server;
+
+GetOptions(
+    'server|s=s' => \$server,
+    'implicit|f' => \$implicit_key,
+    'copies|c=i' => \$copies,
+    'destroy|d' => \$destroy,
+    
+    ) || pos2usage( 2 );
+
+my $key  = shift;
+my $file = shift;
+
+pod2usage( -msg => "Unknown option: @ARGV", -exitval => 2 ) if @ARGV;
+pod2usage( -msg => "Required options: --server", -exitval => 2 )
+    unless $server;
+pod2usage( -msg => "missing key", exitval => 2 )
+    unless defined $key;
+pod2usage( -msg => "missing file", exitval => 2 )
+    unless defined $file;
+pod2usage( -msg => "file does not exist or is unreadable", exitval => 2) 
+    unless (-e $file && -r $file);
+
+my $neb = Nebulous::Client->new(
+    proxy => $server,
+    );
+
+die "Can't connect to Nebulous server: $server"
+    unless defined $neb;
+
+if ($implicit_key) {
+    my ($filename,$directories) = fileparse($file);
+    $key .= $filename;
+}
+
+
+if ($neb->stat($key)) {
+    die "Cowardly refusing to overwrite a file already in nebulous: $key";
+}
+
+my $neb_fh = $neb->open_create( $key )
+    or die "Nebulous can't create key $key";
+
+if ((defined $copies)&&($copies >= 1)) {
+    $neb->setxattr($key, "user.copies", 2, "create")
+	or die "Nebulous can't set xattr on key $key";
+}
+open(my $src_fh, $file) or die "Can't open file $file: $!";
+
+File::Copy::copy( $src_fh, $neb_fh ) or die "File copy failed";
+
+close($src_fh) or die "Can't close filehandle $file: $!";
+$neb_fh->flush or die "Can't flush nebulous filehandle: $!";
+$neb_fh->sync  or die "Can't sync nebulous filehandle: $!";
+close($neb_fh) or die "Can't close nebulous filehandle: $!";
+
+if ((defined $copies)&&($copies > 1)) {
+    foreach (1 .. ($copies - 1)) {
+	$neb->replicate($key) or die "Failed to replicate $key: $!";
+    }
+}
+
+if ($destroy) {
+    unlink $file;
+}
+
+__END__
+
+=pod
+
+=head1 NAME
+
+neb-insert - insert a file into Nebulous.
+
+=head1 SYNOPSIS
+
+    neb-insert [--server <neb-server>] <neb-key> <local-file> [--copies <n>] [--destroy]
+
+#=head1 DESCRIPTION
+
+#=head1 OPTIONS
+
+#=over 4
+
+

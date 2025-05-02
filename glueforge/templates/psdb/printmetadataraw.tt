@@ -1,0 +1,92 @@
+bool [% pkg_namespace %]PrintMetadataRaw(FILE *stream, psMetadata *md, bool mdcf)
+{
+    PS_ASSERT_PTR_NON_NULL(md, false);
+
+    if (mdcf) {
+        psString str = psMetadataConfigFormat(md);
+        if (!str) {
+            psError(PS_ERR_UNKNOWN, false, "failed to format data into a string");
+            psFree(str);
+            return false;
+        }
+        fprintf(stream, "%s\n", str);
+        psFree(str);
+
+        return true;
+    }
+
+#define METADATAITEM_STRIFY_CASE(ptype, format, type) \
+case ptype: \
+    psStringAppend(&str, format, item->data.type); \
+    break;
+
+    // else
+    // flatten the metadata into | separated values
+    psString str = NULL;
+    psMetadataItem *item = NULL;
+    psMetadataIterator *iter = psMetadataIteratorAlloc(md, 0, NULL);
+    while ((item = psMetadataGetAndIncrement(iter))) {
+        switch (item->type) {
+            METADATAITEM_STRIFY_CASE(PS_DATA_S8, "%hhd", S8);
+            METADATAITEM_STRIFY_CASE(PS_DATA_S16, "%hd", S16);
+            METADATAITEM_STRIFY_CASE(PS_DATA_S32, "%d", S32);
+            METADATAITEM_STRIFY_CASE(PS_DATA_S64, "%" PRId64, S64);
+            METADATAITEM_STRIFY_CASE(PS_DATA_U8, "%hhu", U8);
+            METADATAITEM_STRIFY_CASE(PS_DATA_U16, "%hu", U16);
+            METADATAITEM_STRIFY_CASE(PS_DATA_U32, "%u", U32);
+            METADATAITEM_STRIFY_CASE(PS_DATA_U64, "%" PRIu64, U64);
+            METADATAITEM_STRIFY_CASE(PS_DATA_F32, "%f", F32);
+            METADATAITEM_STRIFY_CASE(PS_DATA_F64, "%f", F64);
+            case PS_DATA_STRING:
+                if (item->data.str) {
+                    psString tmpStr = psStringCopy(item->data.str);
+                    psStringSubstitute(&tmpStr, "_", " ");
+                    psStringAppend(&str, "%s", tmpStr);
+                    psFree(tmpStr);
+                }
+                break;
+            case PS_DATA_BOOL:
+                if (item->data.B) {
+                    psStringAppend(&str, "T");
+                } else {
+                    psStringAppend(&str, "F");
+                }
+                break;
+            case PS_DATA_METADATA:
+                if (![% pkg_namespace %]PrintMetadataRaw(stream, item->data.md, mdcf)) {
+                    psError(PS_ERR_UNKNOWN, false ,"failed to print nested metadata");
+                }
+                // a metadata is a special case. We don't want a | seperating
+                // the metadata from any other output so we need to skip the
+                // !->offEnd test
+                continue;
+            case PS_DATA_TIME:
+               // pass through NULLs as "NULL"
+                if (item->data.V) {
+                    psString time = psTimeToISO(item->data.V);
+                    psStringAppend(&str, "%s", time);
+                psFree(time);
+                } else {
+                    psStringAppend(&str, "NULL");
+                }
+                break;
+            default:
+                psError(PS_ERR_UNKNOWN, true,"unsupported psMetadataItem type");
+                psFree(iter);
+                psFree(str);
+                return false;
+        }
+        if (!iter->iter->offEnd) {
+            psStringAppend(&str, " ");
+        }
+    }
+    psFree(iter);
+
+    // if we did nothing but handle recursive metadatas str will be NULL
+    if (str) {
+        fprintf(stream, "%s\n", str);
+        psFree(str);
+    }
+
+    return true;
+}

@@ -1,0 +1,13 @@
+
+  cursor
+
+  place cursor coordinates (and values ??) into Mana variables.  to do
+this, type cursor, then place the cursor on the desired spot in the
+Ki'i window and type a digit (0 - 9).  The coordinates of the cursor
+are then placed in the variables $Xn and $Yn (where n is the digit you
+typed).  To exit the cursor mode, type "q" (or "Q") in the Ki'i
+window.  
+
+  See Also: Kii, tv, center
+
+ 

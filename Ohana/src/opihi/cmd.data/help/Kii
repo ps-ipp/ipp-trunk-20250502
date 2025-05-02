@@ -1,0 +1,57 @@
+
+
+  Kii (= "picture" in Hawaiian) is the program which Mana uses to
+display images on an X terminal.  The window consists of a main region
+where the image is displayed, a small "zoom box" where a magnified
+view of the region around the cursor is shown, a colorbar showing the
+current color map across the top of the window, a status box where the
+coordinates and pixel values are displayed, and several buttons.
+Clicking with the mounse in the different regions produces different
+effects.
+
+  Image Window:  Clicking with the left mouse button (mouse-1)
+recenters the image at the specified location.  Clicking with the
+right button (mouse-3) also recenters, but increases the zoom factor
+by one.  Clicking with the middle button centers and decreases the
+zoom factor.  
+
+  Colorbar: Clicking and draging with the left button (mouse-1) alters
+the color mapping.  Moving left-to-right slides the center of the
+color scale with the mouse.  Moving up-and-down squeezes or expands
+the color scale.  The middle button resets the color mapping.
+Clicking and dragging side-to-side with the right button expands or
+squeezes the color mapping.  **Note: the dynamic colormap cannot be
+used with a 24 or 32 bit visual.  The standard Linux XFree86 server
+does not support 8 bit visuals in 24 or 32 bit/pixel mode.  In this
+case, the Kii window must resort to a static colormap with the
+colorbar disabled.  In Linux, it is possible to run startx with the
+following command-line options to force the 8 bit/pixel mode:
+# startx -- -bpp 8 
+This assumes that you have an 8bpp Display mode set in the XF86Config
+file.  If not, you can just duplicate the 24 or 32 bpp Display modes
+which will enable this option.
+
+  Buttons:
+    PS: this button creates a PostScript version of the image.
+    Grey: this button makes the colormap a greyscale.
+    Rainbow: this button makes the colormap a rainbow.
+    Puns: this button make the colormap a blue and yellow mapping.
+    Recenter: this button recenters the image and resets the zoom.
+
+  Kii also recognizes several X Resource values:
+
+  Below are the available Resources (with Gene's default values).  Unlike
+most standard X programs, the geometry resource specifies the size of
+the Image Window, not the borders of the entire window.  Valid values
+for the colormap are: greyscale, grayscale (photonegative), -greyscale,
+-grayscale (photopositive), Puns, GoBears (buff 'n blue colormap),
+Rainbow (a rainbow map).  
+
+  kii*Foreground:			white
+  kii*Background:			maroon
+  kii*Colormap:				greyscale
+  kii*geometry:				540x540+10+10
+  
+
+  See Also: tv, cursor
+

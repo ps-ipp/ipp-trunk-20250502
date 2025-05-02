@@ -1,0 +1,43 @@
+#!/bin/csh -f
+
+# this script performs the detrending operation using mana
+# for image arithmetic.  detrending images are stored in the
+# detrend database.  flats are defined so that the science image
+# is divided by the flatfield image, and the normalization is such 
+# that the entire mosaic is normalized by this process
+
+if ($#argv < 2) then
+ echo "USAGE: flatten (in) (out)"
+ exit 2
+endif
+
+set temp=`mktemp /tmp/flatten.XXXXXX`
+
+# create mana script
+echo "fixing the astrometry keywords"
+
+echo "macro go"                    > $temp
+echo "rd a $1"                    >> $temp
+echo "keyword a PC001001 -wf 1.0" >> $temp
+echo "keyword a PC001002 -wf 0.0" >> $temp
+echo "keyword a PC002001 -wf 0.0" >> $temp
+echo "keyword a PC002002 -wf 1.0" >> $temp
+echo "wd a $2"                    >> $temp
+echo "exit 0"                     >> $temp
+echo "end"                        >> $temp
+
+echo "go"                         >> $temp
+echo "exit 1"                     >> $temp
+
+mana --only $temp
+set mana=$status
+rm -f $temp
+
+if ($mana) then
+ echo "ERROR: flatten failed"
+else
+ echo "SUCCESS: flatten succeeded"
+endif
+
+exit $mana
+

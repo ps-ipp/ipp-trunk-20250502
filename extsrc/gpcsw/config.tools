@@ -1,0 +1,47 @@
+#!/bin/csh -f
+
+if ($#argv == 0) then
+  echo "USAGE: config.tools [fixpath | fixconf]"
+  exit 2
+endif
+
+if ("$argv[1]" == "fixpath") goto fixpath
+if ("$argv[1]" == "fixconf") goto fixconf
+
+echo "unknown option $argv[1]"
+exit 1
+
+#######
+fixpath:
+
+if ($#argv != 2) then
+  echo "USAGE: config.tools fixpath (path)"
+  exit 2
+endif
+
+set indir = $argv[2]
+
+# convert // to / in pathnames
+echo $indir | grep "\/\/" > /dev/null
+set success = $status
+while ($success == 0) 
+  set indir = `echo $indir | sed 's|\/\/|\/|g'`
+  echo $indir | grep "\/\/" > /dev/null
+  set success = $status
+end
+
+set indir = `echo $indir | sed 's|\/$||'`
+echo $indir
+exit 0
+
+#######
+fixconf:
+
+if ($#argv != 3) then
+  echo "USAGE: config.tools fixconf (NAME) (value)"
+  exit 2
+endif
+
+cat Makefile | sed "s|$argv[2]|$argv[3]|" > Makefile.tmp
+mv -f Makefile.tmp Makefile
+exit 0;

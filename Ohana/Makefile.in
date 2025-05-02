@@ -1,0 +1,167 @@
+# --------------------------------------------------------------------------- #
+# --------------------------------------------------------------------------- #
+#									      #
+#                 OOO    HH   HH    AAA    NN   NN    AAA		      #
+#               OO   OO  HH   HH  AA   AA  NNN  NN  AA   AA		      #
+#               OO   OO  HHHHHHH  AAAAAAA  NN N NN  AAAAAAA		      #
+#               OO   OO  HH   HH  AA   AA  NN  NNN  AA   AA		      #
+#                 OOO    HH   HH  AA   AA  NN   NN  AA   AA		      #
+#      								              #
+# --------------------------------------------------------------------------- #
+# --------------------------------------------------------------------------- #
+
+# This makefile compiles all Ohana package programs in the Elixir
+# system, and their libraries.  Most of the components in this
+# directory were created for Ohana, but there are a few libraries
+# which are from external sources: libjpeg, libpng, zlib, and
+# readline.  Extra care should be taken in compiling those libraries. 
+
+# Edit Configure to reflect the location of your installation 
+# or use the script 'configure'
+
+include Makefile.System
+
+# .SILENT:								       
+default: all
+
+# The collection of Ohana programs.  Other components in the src
+# directory may be compiled by going to those directories. 
+PROGRAM =   \
+addstar     \
+delstar     \
+dvolens	    \
+dvosplit    \
+dvomerge    \
+dvopsps     \
+elixir      \
+fakeastro   \
+gastro      \
+gastro2     \
+getstar     \
+gcompare    \
+imclean     \
+imregister  \
+kapa2       \
+misc        \
+mosastro    \
+nightd      \
+opihi       \
+perl        \
+photdbc     \
+relphot     \
+relastro    \
+skycalc     \
+shell       \
+tools       \
+tcl         \
+uniphot
+
+# any of these programs can be built with 'make (name)' 
+EXTRAS =     \
+opihi.v1    \
+fixcat      \
+gophot      \
+getusno     \
+lightcurve  \
+markrock    \
+markstar    \
+mosastro.v1 \
+mosastro.v2
+
+OLD = mana status addusno addrefs addspphot
+
+LIBS = libtap libohana libfits libdvo libkapa
+
+# general build targets:
+libs:
+	@if [ "$(ARCH)" = "" ]; then echo ""; echo " *** please define ARCH ***"; echo; exit 1; fi
+	mkdir -p $(DESTINC)
+	mkdir -p $(DESTLIB)
+	mkdir -p $(DESTBIN)
+	for i in $(LIBS); do $(MAKE) $$i.install || exit 1; done
+	chmod +x ohana-config
+	cp -f ohana-config $(DESTBIN)/
+
+bins: 
+	for i in $(PROGRAM); do $(MAKE) $$i; done
+
+all:
+	$(MAKE) libs || exit 1
+	for i in $(PROGRAM); do $(MAKE) $$i || exit 1; done
+
+extras:
+	for i in $(EXTRAS); do $(MAKE) $$i || exit 1; done
+
+pantasks:
+	$(MAKE) libs || exit 1
+	cd src/opihi; $(MAKE) pclient.install && exit 1
+	cd src/opihi; $(MAKE) pcontrol.install && exit 1
+	cd src/opihi; $(MAKE) pantasks.install && exit 1
+
+mana:
+	$(MAKE) libs
+	$(MAKE) kapa2.install
+	cd src/opihi; $(MAKE) mana.install && exit 1
+
+dvoshell:
+	$(MAKE) libs
+	$(MAKE) kapa2.install
+	cd src/opihi; $(MAKE) dvo.install && exit 1
+
+test:
+	for i in $(LIBS); do $(MAKE) $$i.test || exit 1; done
+
+clean:
+	@if [ "$(ARCH)" = "" ]; then echo ""; echo " *** please define ARCH ***"; echo; exit 1; fi
+	for i in $(LIBS); do $(MAKE) $$i.clean || exit 1; done
+	for i in $(PROGRAM); do $(MAKE) $$i.clean || exit 1; done
+	for i in $(EXTRAS); do $(MAKE) $$i.clean || exit 1; done
+	@rm -f `find . -name .mana`
+	@rm -f `find . -name .dvo`
+	@echo -n -e "\0033]0; *** Ohana: done $@ *** \0007" \
+
+dist:
+	@if [ "$(ARCH)" = "" ]; then echo ""; echo " *** please define ARCH ***"; echo; exit 1; fi
+	for i in $(LIBS); do $(MAKE) $$i.dist || exit 1; done
+	for i in $(PROGRAM); do $(MAKE) $$i.dist || exit 1; done
+	@echo -n -e "\0033]0; *** Ohana: done $@ *** \0007" \
+
+install: | clean
+	@if [ "$(ARCH)" = "" ]; then echo ""; echo " *** please define ARCH ***"; echo; exit 1; fi
+	for i in $(LIBS); do $(MAKE) $$i.install || exit 1; done
+	for i in $(PROGRAM); do $(MAKE) $$i.install || exit 1; done
+	@echo -n -e "\0033]0; *** Ohana: done $@ *** \0007" \
+
+install.extras:
+	for i in $(EXTRAS); do $(MAKE) $$i.install || exit 1; done
+	@echo -n -e "\0033]0; *** Ohana: done $@ *** \0007" \
+
+rebuild:
+	@date 
+	$(MAKE) clean
+	$(MAKE) install
+	@date 
+
+# standard rules: targets are foo, foo.clean, foo.install, foo.dist
+$(PROGRAM) $(LIBS) $(EXTRAS): 
+	@if [ -d "src/$@" ]; then \
+	  echo -n -e "\0033]0; *** Ohana: $@ *** \0007"; \
+	  (cd src/$@ && $(MAKE)); \
+	fi
+	@echo -n -e "\0033]0; *** Ohana: done $@ *** \0007" \
+
+%.install:
+	@echo -n -e "\0033]0; *** Ohana: $@ *** \0007" \
+	mkdir -p bin/$(ARCH)
+	if [ -d "src/$*" ]; then (cd src/$* && $(MAKE) install); fi
+
+%.clean:
+	if [ -d "src/$*" ]; then (cd src/$* && $(MAKE) clean); fi
+
+%.dist:
+	(cd src/$* && $(MAKE) dist)
+
+%.test:
+	if [ -d "src/$*" ]; then (cd src/$* && $(MAKE) test); fi
+
+.PHONY: test

@@ -1,0 +1,10 @@
+
+  break [-auto on/off]
+
+  halts macro, if, or for processes and returns to the basic prompt.
+
+  -auto: enables or disables DVO from automatically breaking
+   when it encounters an error
+
+  See also: macro, if, for
+

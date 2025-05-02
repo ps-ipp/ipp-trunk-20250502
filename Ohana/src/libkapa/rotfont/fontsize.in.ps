@@ -1,0 +1,47 @@
+%!PS-Adobe-2.0
+
+/@FONTNAME@ findfont @FONTSIZE@ scalefont setfont
+gsave
+
+/LM 72 def
+/newline { currentpoint @FONTSIZE@ sub exch pop LM exch moveto } def
+
+/char 1 string def
+
+%% input: decimal values of ascii character
+%% print the ascii code, the ascii character, the character width
+/pchar {
+ dup
+ 20 string cvs show
+ (  ) show
+ char 0 3 -1 roll put
+ char dup show
+ (  ) show
+ stringwidth pop
+%% 20 string cvs show
+%% (  ) show
+ 20 string cvs show} def
+
+%% input: decimal values of ascii character
+%% print the ascii code, the ascii character, the character width
+/vchar {
+ dup
+ 20 string cvs show
+ (,) show
+ char 0 3 -1 roll put char
+ stringwidth pop
+ 20 string cvs show
+ (,) show} def
+
+LM 800 moveto
+
+%% for a test, include the character in the output : cannot be parsed to the c structures
+
+%% 33 4 126 {dup pchar (   ) show 1 add dup pchar (   ) show 1 add dup pchar (   ) show 1 add pchar newline } for
+%% 33 1 126 {pchar newline} for
+
+33 1 126 {vchar newline} for
+
+stroke
+grestore % end of picture
+showpage

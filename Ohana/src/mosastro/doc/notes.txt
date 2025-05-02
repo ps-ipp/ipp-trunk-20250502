@@ -1,0 +1,59 @@
+
+- need to update header astrometry 
+  - determine higher-order polynomial terms from fit?
+  - insert all distortion & warping terms into header?
+
+- better input parameters:
+  - use camera to define chips we expect to find
+  - camera -> default warp
+  - add dispersion stats to header in output (CERROR, CPRECISE)
+
+- allow chips to have full linear terms (after warp)
+
+- load 2mass, USNO SA data
+
+-----------------------------------------
+- load *.smp / *.cmp : 
+  chip[i].pt[j].x
+  chip[i].pt[j].y
+  chip[i].coords
+  (global Ro, Do = RA_DEG, DEC_DEG)
+
+- load usno in region
+  stars[i].r, stars[i].d
+
+- match usno:smp:
+  chip[i].pt[j].r, chip[i].pt[j].d
+
+- project ra,dec to p,q (arcsec on sky relative to Ro, Do)
+  chip[i].pt[j].p, chip[i].pt[j].q
+
+- init chip paramters:
+  chip[i].Px, chip[i].Py - parities
+  chip[i].Po, chip[i].Qo, chip[i].To
+
+  * p' = Px*(p - Po), q' = Py*(q - Qo)
+  * x = cos(To) p' + sin(To) q'
+  * y = cos(To) p' + sin(To) q'
+
+- other parameter:
+  * field.Ro, field.Do - not fitted
+  field.A[0] - field.A[5]
+  field.D[0] - field.D[5]
+
+
+  (r,d) -> field.coords -> (p,q) [arcsec from field center]
+  (p,q) -> field.A,D    -> (L,M) [pixels from field center]
+  (L,M) -> Px,Py,Po,Qo  -> (P,Q) [pixels from chip corner]
+  (P,Q) -> To		-> (x,y) [pixels on chip]
+
+  L = A[0] + A[1]*p + A[2]*q + A[3]*p^2 + A[4]*q^2 + A[5]*p*q
+  M = D[0] + D[1]*p + D[2]*q + D[3]*p^2 + D[4]*q^2 + D[5]*p*q
+
+  p' = Px*(L - Po)
+  q' = Py*(M - Qo)
+
+  x = cos(To) p' + sin(To) q'
+  y = cos(To) p' + sin(To) q'
+
+  

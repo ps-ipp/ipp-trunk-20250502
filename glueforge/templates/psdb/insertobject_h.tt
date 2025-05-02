@@ -1,0 +1,13 @@
+[% USE format -%]
+[% indented = format('%-15s %-20s') -%]
+/** Insert a single [% table.object_name %] object into a table
+ *
+ * This function constructs and inserts a single row based on it's parameters.
+ *
+ * @return true on success
+ */
+
+bool [% table.namespace %]InsertObject(
+    psDB            *dbh,               ///< Database handle
+    [% indented(table.object_name, "*object") %]///< [% table.object_name %] object
+);

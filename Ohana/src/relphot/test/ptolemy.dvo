@@ -1,0 +1,63 @@
+
+macro mkptolemy.rc
+  # generate a fake ptolemy.rc (to make this a contained test)
+  exec rm -f ptolemy.rc
+  output ptolemy.rc
+    echo "\#"
+    echo PHOTCODE_FILE           dvo.photcodes
+    echo GSCFILE                 GSCregions.tbl
+    echo ZERO_PT                 25.0
+    echo ADDSTAR_RADIUS          1.0
+    echo CATMODE                 SPLIT
+    echo CATFORMAT               PS1_V5
+    echo SKY_DEPTH               4
+    echo CAMERA                  gpc1
+    echo MOSAICNAME              GPC1
+    echo CAMERA_CONFIG           dvo.layout
+    echo JD-KEYWORD		 NONE
+    echo MJD-KEYWORD		 MJD-OBS
+    echo CCDNUM-KEYWORD          EXTNAME
+    echo EXPTIME-KEYWORD         EXPTIME
+    echo AIRMASS-KEYWORD         AIRMASS
+    echo "input dvo.config"
+  output stdout
+
+  # we need to define a photcode table consistent with the fake construction
+  $zpt_nominal:g = 24.0
+  $zpt_nominal:r = 24.5
+
+  # klam is negative, so klam*(airmass - 1) increases the zero point
+  $klam_nominal:g = -0.15
+  $klam_nominal:r = -0.10
+
+  local found
+  file GSCregions.tbl found
+  if (not($found))
+    file GSCregions.tbl.gz found
+    if (not($found))
+      echo "missing GSCregions.tbl file or gzipped version"
+      break
+    end
+    exec gunzip -c GSCregions.tbl.gz > GSCregions.tbl
+  end
+
+  # generate a fake dvo.photcode
+  exec rm -f dvo.photcodes
+  output dvo.photcodes
+    echo "\# code  name              type    zero  slope offset c1    c2   slope   zero  equiv  sys scale   scale  sys     poor   bad     poor   bad"
+    echo "1     g                    sec   0.000  0.000 0.000     1     3 0.0000     0  1051   0.000 0.000 0.000  0.000   0x0000 0x0000  0x0000 0x0000"
+    echo "2     r                    sec   0.000  0.000 0.000     2     3 0.0000     0  1052   0.000 0.000 0.000  0.000   0x0000 0x0000  0x0000 0x0000"
+    echo "10000 GPC1.g.XY00          dep  $zpt_nominal:g $klam_nominal:g 0.000     -     - 0.0000     0     1   0.015 0.000 1.000  0.000   0x0000 0x0000  0xe0440130 0x1003bc88"
+    echo "10001 GPC1.g.XY01          dep  $zpt_nominal:g $klam_nominal:g 0.000     -     - 0.0000     0     1   0.015 0.000 1.000  0.000   0x0000 0x0000  0xe0440130 0x1003bc88"
+    echo "10010 GPC1.g.XY10          dep  $zpt_nominal:g $klam_nominal:g 0.000     -     - 0.0000     0     1   0.015 0.000 1.000  0.000   0x0000 0x0000  0xe0440130 0x1003bc88"
+    echo "10011 GPC1.g.XY11          dep  $zpt_nominal:g $klam_nominal:g 0.000     -     - 0.0000     0     1   0.015 0.000 1.000  0.000   0x0000 0x0000  0xe0440130 0x1003bc88"
+    echo "10100 GPC1.r.XY00          dep  $zpt_nominal:r $klam_nominal:r 0.000     -     - 0.0000     0     2   0.015 0.000 1.000  0.000   0x0000 0x0000  0xe0440130 0x1003bc88"
+    echo "10101 GPC1.r.XY01          dep  $zpt_nominal:r $klam_nominal:r 0.000     -     - 0.0000     0     2   0.015 0.000 1.000  0.000   0x0000 0x0000  0xe0440130 0x1003bc88"
+    echo "10110 GPC1.r.XY10          dep  $zpt_nominal:r $klam_nominal:r 0.000     -     - 0.0000     0     2   0.015 0.000 1.000  0.000   0x0000 0x0000  0xe0440130 0x1003bc88"
+    echo "10111 GPC1.r.XY11          dep  $zpt_nominal:r $klam_nominal:r 0.000     -     - 0.0000     0     2   0.015 0.000 1.000  0.000   0x0000 0x0000  0xe0440130 0x1003bc88"
+    echo "2011  2MASS_J              ref   0.000  0.000 0.000     -     - 0.0000     0     6   0.080 0.000 2.000  0.000   0x0000 0x0000  0x0000 0x0000"
+    echo "3001  SYNTH.g              ref   0.000  0.000 0.000     -     - 0.0000     0     1     nan 0.000 2.000  100.0   0x0000 0x0000  0x0000 0x0000"
+    echo "3002  SYNTH.r              ref   0.000  0.000 0.000     -     - 0.0000     0     1     nan 0.000 2.000   50.0   0x0000 0x0000  0x0000 0x0000"
+    echo "2020  TYCHO_B              ref   0.000  0.000 0.000     -     - 0.0000     0     -   0.000 0.000 0.000  0.000   0x0000 0x0000  0x0000 0x0000"
+  output stdout      
+end

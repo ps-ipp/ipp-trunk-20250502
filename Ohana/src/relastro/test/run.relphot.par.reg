@@ -1,0 +1,36 @@
+#!/bin/csh -f
+
+set REALRUN = 1
+
+if ($REALRUN) then
+  alias GO 'echo === \!* ===; \!*; if ($status) exit 2'
+else
+  alias GO 'echo === \!* ==='
+endif
+
+set catdir = "`pwd`/catdir.par.i0"
+
+set myHost = `hostname`
+cat RegionHosts.dat.in | sed s/HOSTNAME/$myHost/ > $catdir/RegionHosts.dat
+
+set region = "-parallel-regions -region-hosts RegionHosts.dat"
+
+set threads = "-threads 4"
+set threads = ""
+
+set options = ""
+set options = "$options -v"
+set options = "$options -parallel"
+set options = "$options -update"
+set options = "$options -threads 4"
+
+if (1) then
+  set mode = "g,r,i,z,y"
+  GO relphot -D CATDIR $catdir $region $options $mode
+endif
+
+if (0) then
+  set mode = "-images g,r,i,z,y -apply-offsets"
+  GO relphot -D CATDIR $catdir $region $options $mode
+endif
+

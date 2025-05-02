@@ -1,0 +1,110 @@
+
+20120809
+
+more on failsafe
+
+I need to improve the technique I'm using for failsafe ops / rerun.
+
+ * Image.dat PHU keywords:
+   DVO_DB_ID : %s : hex string with 32 byte "unique" string for DB
+   DM_NMERGE : %d : number of databases merged into this onea
+   DM_nnnnnn : %s : DVO_DB_ID of merge (nnnnn)
+
+   Note: nnnnnn may be greater than NMERGE if entries are skipped
+     (only a total of NMERGE nnnnnn values are allowed)
+
+ * region.cpt PHU keywords:
+   DM_NMERGE : %d : number of databases merged into this one (needed?)
+   MS_nnnnnn : %d : size of merged db entry nnnnnn
+   MT_nnnnnn : %s : date/time of merged db entry nnnnnn
+   
+ Is there a reason for the image entries?  (additional record keeping)
+
+ 
+
+
+201206??
+
+we have a problem with dvomerge and flaky hosts.  the problem is that
+an I/O glitch can prevent a table from being written.  although we can
+(and do?) catch the failure, we do not have a good recovery method.
+recovery would involve 2 things:
+
+1) we should revert the failed table to the original state
+2) we should be able to re-run the merge correctly
+
+point (1) implies that we need a solid copy of the original file before
+writing the new output tables.  
+
+point (2) implies that we need to know which tables have been
+successfully merged.  
+
+For point (1), since we are writing out the entire table, we can
+*move* the original file to a temporary name, and unlink it when the
+output is successful.
+
+For point (2), we should write an ID to the output header that comes
+from the input catalog file.  then a second attempt will skip any
+tables for which the IDs already match.  
+
+Problems & Questions for (2):
+
+* do we need to have the ID in each input db table?  
+* we do not have an ID already in existing tables -- I'll need a tool
+  to write the ID
+OR
+* can we use something like the name & date of the file to check the
+* identity?
+
+(name, date, size can be determined without reading the file, so that
+is quite tempting...)
+
+I'll still need to do 2 passes, on where I determine which output
+tables match the given input table, then check those output tables for
+the merge data.
+
+---
+
+Proposal:
+
+1) Add the following data to the output catalogs:
+
+OBJID   =                  675 /                                               
+LMRG_DB = 'catdir.2mass'       / name of last merged database
+LMRG_ST = 80640                / size of last merged cpt file
+LMRG_SS = 118080               / size of last merged cps file
+LMRG_SM = 331200               / size of last merged cpm file
+LMRG_DT = '2012-04-27 16:42:45' / mod-date of last merged cpm file
+
+This allows us to tell if the current catalog has been merged in yet,
+but it does not require us to track any database IDs.  If a file has
+been merged, we skip it; otherwise, we merge it.
+
+The proposal may do the wrong thing in the following case:
+
+dvomerge db1 into db2
+(failure part way through)
+
+addstar file -D CATDIR db1
+
+dvomerge db1 into db2
+
+If 'file' overlaps the already-merged sections of db1, they will be
+re-ingested.  In fact, the first pass need not have failed -- it will
+still double merge some data.  
+
+However, it does mean the following does the right thing:
+
+dvomerge db1 into db2
+
+dvomerge db1 into db2
+
+(no merge should happen on the second pass)
+
+dvomerge db1 into db2
+(failure)
+
+dvomerge db1 into db2
+
+(only unmerged entries should be merged on the second pass)
+

@@ -1,0 +1,17 @@
+
+absphot
+
+  we have relphot to determine the relative photometry on small spatial scales
+  we have uniphot to determine the zero point trend with time.
+  the result of these two should be a single, consistent photometry system in the internal filter system
+
+  the goal of absphot is to determine the relationships between the
+  internal magnitude system and an external reference
+
+usage:
+
+  absphot -target (photcode) -ref (photcode) [-region RA RA DEC DEC]
+
+  - determine the fit M_ref = M_target + \Sum_i A_i * color^i
+
+    

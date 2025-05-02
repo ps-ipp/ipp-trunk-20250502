@@ -1,0 +1,8 @@
+    psMetadata *md = psMetadataAlloc();
+[% FOREACH item = table.columns -%]
+    if (!psMetadataAdd(md, PS_LIST_TAIL, "[% item.name %]", [% item.mtype %], NULL, [% item.name %])) {
+        psError(PS_ERR_UNKNOWN, false, "failed to add item [% item.name %]");
+        psFree(md);
+        return false;
+    }
+[% END -%]

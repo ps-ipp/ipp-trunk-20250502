@@ -1,0 +1,3 @@
+UPDATE remoteRun SET last_poll = CURRENT_TIMESTAMP 
+WHERE
+%s

@@ -1,0 +1,127 @@
+/** @mainpage psModules Image Processing Library
+
+
+@section intro Introduction
+This library contains the Pan-STARRS Image Processing Pipeline (IPP) modules (psModules). These modules
+use the functionality of the Pan-STARRS Library (psLib) to perform more complex tasks associated with image
+processing. Modules were constructed to support each of the required processing stages and are listed according
+to the particular processing stage for which they will primarily be used. To preserve namespace, globally-visible
+structures and functions are prefixed with pm, an abbreviation for Pan-STARRS Modules.
+
+The capabilities provided by psModules are grouped into the following areas which are
+also reflected in the file system directory structure:
+ - Configuration
+ - Astrometry, Focal Plane
+ - Photometry
+ - Basic Image Detrending
+ - Object Detection and Classification
+ - Image Combination
+ - Image Subtraction
+
+The installed code for psModules consists of header files and a binary library.
+
+@section extinstall Required external Libraries
+
+Before building psLib from source, several external software libraries must
+be installed. These include:
+ - Pan-STARRS Library (psLib)
+     - Available from the Maui High Performance Computiong Center (MHPCC) at https://mhpcc.pan-starrs.org/code/releases
+     - Compatibility tested with rel5
+     - Note, psLib itself has many external library dependencies.
+ - Doxygen Documentation System
+     - Only needed if code documentation is to be made
+     - Available at http://www.doxygen.org
+     - Compatibility tested with version 1.3.6
+     - The optional companion package, GraphViz (a.k.a., the 'dot' command), is recommended to enable header-file dependency diagrams
+
+We recommend using the particular versions listed as compatibility tested, as
+that is the only versions of the external libraries tested to work well with psLib
+and psModules.  Though it is quite possible that later versions of the libraries
+listed will also work, care must be taken when upgrading these libraries to verify
+that its functionality is compatible with the tested version.
+
+@section install How to Build from Source
+
+Tested versions of psModules are put into a tar file and can be downloaded from:
+
+https://mhpcc.pan-starrs.org/code/releases
+
+If one has a login account on mhpcc.pan-starrs.org, direct CVS access is
+possible.  Example of the commands required for direct CVS retrieval are
+as follows:
+<pre>
+$ cvs -d:ext:USERNAME@mhpcc.pan-starrs.org:/data/panstarrs/cvsroot co -r RELEASEBRANCH psModule
+</pre>
+where:
+  - USERNAME is your login name on the server
+  - RELEASEBRANCH is the desired release branch, e.g. rel7.
+
+
+@section build How to Build and Test the psModules Library.
+
+The psModules library and associated tests are made via the GNU autoconf/automake system.
+
+The source should build using the configure script in the psModules directory.  The
+recommended steps are:
+<pre>
+$ cd psmodules
+$ ./configure
+$ make
+$ make check
+$ make install
+</pre>
+<i>Unless otherwise specified, the library is installed with PREFIX of the current directory.</i>
+
+If the code was retrieved from CVS, you will need to substitute 'autogen.sh' for 'configure' in
+above example.
+
+Other configuration options, such as location of external libraries, are also available.
+To get a list of options, type the following in the top psModules directory.
+<pre>
+$ configure --help
+</pre>
+A likely option needed is '--with-pslib-config', which specifies the location of
+the configuration script for psLib.  By default, configure searches for it using PATH, but that
+is not always sufficient.
+
+@section install How to Install
+
+To install the library using the prefix given in the configure step, execute in
+the top build directory:
+<pre>
+$ make install
+</pre>
+
+
+@section usage Building and Linking your code to the psModules library
+
+To assist the use of the library with your own code, a configuration tool is part
+of the psModules library package.  This tool, psmodules-config, is installed in the BIN
+directory, according to the options given to the configure script.
+
+The required CFLAG options for the compiler stage of code that uses psModules can be
+obtained via 'psmodules-config --cflags'.  This outputs the cc options that supplies
+include path(s) required to find the psModules headers.
+
+The required linking options, can be obtained via 'psmodules-config --libs'.  This
+outputs the ld options that supplies the library paths and files required to
+link to the psModules library.
+
+Note: psmodules-config usage above refers to the install locations of the library.  
+
+@section doc How to Create Code Documentation
+
+Both HTML and man page documentation may be generated from the inline
+documentation embedded in the code using the following commands:
+<pre>
+$ cd psmodules
+$ make docs
+</pre>
+<i>This places documentation in PREFIX/docs.</i>
+
+Also, a prebuilt set of code documentation for both the releases and last
+CVS snapshot can be found at:
+
+https://mhpcc.pan-starrs.org/docs/
+
+*/

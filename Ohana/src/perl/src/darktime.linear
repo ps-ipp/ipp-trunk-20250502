@@ -1,0 +1,26 @@
+#!/usr/bin/env perl
+
+sub vsystem {
+    print STDERR "@_\n";
+    $status = system ("@_");
+    $status;
+}
+
+sub goodbye {
+    die "@_\n";
+}
+
+if (@ARGV != 2) { die "USAGE: darktime.linear (image.exptime) (dark.exptime)\n" }
+
+
+$t1 = $ARGV[0];
+$t2 = $ARGV[1];
+
+$r = $t1 / $t2;
+
+# no dark correction for exptime < 60 sec
+if ($t1 < 60) { $r = 0.0; }
+
+print STDOUT "$r\n";
+
+exit 0;

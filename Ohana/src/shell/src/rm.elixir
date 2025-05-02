@@ -1,0 +1,12 @@
+#!/bin/csh -f 
+
+# USAGE: rm.elixir *
+# deletes files in arg list
+# echo "SUCCESS" at end (or ERROR if failure)
+
+while ("$1" != "") 
+ /bin/rm $1
+ shift
+end
+
+echo SUCCESS

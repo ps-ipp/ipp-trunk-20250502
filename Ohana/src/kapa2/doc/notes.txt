@@ -1,0 +1,17 @@
+
+2010.10.14
+
+  * dX,dY = window size, Xs, Ys = corner of image
+
+  * PAD1 = 3 (gap between elements)
+  * PAD2 = 5 (alternate gap)
+  * COLORPAD = 10 (thickness of colorbar)
+  * WdY = MAX (ZOOM_Y, textdY + 2*BUTTON_HEIGHT + PAD1) : height of zoom box or text box + buttons
+
+2010.04.14
+
+  * one font per frame
+  * user-settable box padding
+  * user-settable label & axis-label padding
+
+  

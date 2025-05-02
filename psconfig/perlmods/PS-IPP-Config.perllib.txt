@@ -1,0 +1,15 @@
+      3 base
+      3 Carp
+      1 Data::Dumper
+      1 DBI
+      1 File::Basename
+      1 File::Spec
+      1 File::Temp
+      1 Getopt::Long
+      1 IPC::Cmd
+      1 POSIX
+      1 PS::IPP::Config
+      1 PS::IPP::Metadata::Config
+      1 Statistics::Descriptive
+      3 strict
+      3 warnings

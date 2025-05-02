@@ -1,0 +1,15 @@
+AT_SETUP([[% table.namespace %]InsertFits()])
+AT_KEYWORDS([[% table.namespace %]InsertFits])
+
+AT_CHECK([dbsetup])
+# run insert so there is a row in the table
+AT_CHECK([insert])
+# run popfis so there is afits file to read
+AT_CHECK([selectrowsfits])
+AT_CHECK([insertfits])
+AT_CHECK([dbcleanup])
+if [ test -f "blargh" ] ; then
+    rm -f "blargh"
+fi
+
+AT_CLEANUP

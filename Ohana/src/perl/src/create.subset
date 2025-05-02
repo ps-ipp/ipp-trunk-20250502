@@ -1,0 +1,28 @@
+#!/usr/bin/env perl
+
+sub vsystem {
+    print STDERR "@_\n";
+    $status = system ("@_");
+    $status;
+}
+
+sub goodbye {
+    die "@_\n";
+}
+
+if (@ARGV != 2) { die "ERROR: USAGE: create.subset (master) (subset)\n" }
+
+# load in stats lines
+open (IN,  $ARGV[0]);
+open (OUT, ">$ARGV[1]");
+while ($line = <IN>) {
+    chop ($line);
+    @words = split (" ", $line);
+    if ($words[1]) {
+       print OUT "$words[0]\n";
+   }      
+}    
+close (IN);
+close (OUT);
+
+print STDERR "SUCCESS\n";

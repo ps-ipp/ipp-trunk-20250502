@@ -1,0 +1,25 @@
+# .ptolemyrc
+ 
+REFDIR ../../refs
+
+# asca camera settings
+UT-KEYWORD              UTSHUT
+DATE-KEYWORD            DATE
+DATE-MODE               yyyy-mm-dd
+
+# matching radius (arcseconds)
+# RADIUS  1.0  (old name, deprecated)
+ADDSTAR_RADIUS  1.0
+
+GSCFILE $REFDIR/GSCregions.tbl
+CATDIR catdir
+PHOTCODE_FILE photcode.txt
+
+USNO_A_DIR /data/elixir/srcdir/refs/usno
+USNO_B_DIR /data/elixir/srcdir/refs/usnob
+
+ZERO_PT 25.0
+
+GSCDIR         /data/elixir/srcdir/refs/gsc
+2MASS_DIR_AS   /data/elixir/srcdir/refs/2mass.allsky
+2MASS_DIR_DR2  /data/elixir/srcdir/refs/2mass.dr2

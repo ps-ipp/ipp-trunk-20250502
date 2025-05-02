@@ -1,0 +1,101 @@
+#!/usr/bin/env perl
+
+$version = 1.0;
+if (@ARGV != 2) { die "USAGE: cmp.header (cmpfile) (hdrfile)\n" ; }
+
+$cmpfile   = $ARGV[0];
+$hdrfile = $ARGV[1];
+
+&ckpathname ("$hdrfile");
+
+if (! -e $cmpfile) { die "ERROR: source cmpfile $cmpfile not found\n"; }
+
+# grab astrometry keywords from $cmpfile:
+@header = &load_header ($cmpfile);
+
+# convert stripped header to valid FITS file: NAXIS -> 0
+$found = 0;
+for ($i = 0; ($i < 16) && ($i < @header); $i++) {
+    if ($header[$i] =~ /^NAXIS   =/) { 
+	$header[$i] = sprintf "NAXIS   = %20d / %-47s", 0, "Header without Pixels";
+	$found = 1;
+	last;
+    }
+}
+if (!$found) { print STDERR "header is missing NAXIS\n"; }
+
+# write output to file
+open (FILE, ">$hdrfile");
+foreach $line (@header) {
+    print FILE "$line";
+}
+for ($i = 0; $i < $Nextra; $i++) {
+    for ($j = 0; $j < 80; $j++) {
+	print FILE " ";
+    }
+}
+close (FILE);
+
+print "SUCCESS: done with cmp.header\n";
+exit 0;
+
+###################################################################################
+
+sub vsystem {
+    print STDERR "@_\n";
+    $status = system ("@_");
+    $status;
+}
+
+sub goodbye {
+    die "@_\n";
+}
+
+sub load_header {
+
+    my ($file) = $_[0];
+    my ($ID, $buffer, $done, @buffer, $line);
+
+    open (FILE, "$file");
+    read FILE, $ID, 8;
+    if ($ID eq "SIMPLE  ") { goto valid; }
+    if ($ID eq "XTENSION") { goto valid; }
+    close (FILE);
+    die "SUCCESS: $file is not a valid header file\n";
+    
+valid:
+    seek FILE, 0, "SEEK_SET";
+    $done = 0;
+    @buffer = ();
+
+    while (! $done) {
+	read FILE, $buffer, 2880;
+	for ($i = 0; $i < 2880; $i+=80) {
+	    $line = substr ($buffer, $i, 80);
+	    @buffer = (@buffer, $line);
+	    if ($line =~ /^END     /) { $done = 1; }
+	}
+    }
+    close (FILE);
+    return (@buffer);
+}
+
+# given a filename, check that its path exists, create it if not
+sub ckpathname {
+    my ($file) = $_[0];
+    my (@words, $dir);
+
+    @words = split ("/", $file);
+    pop (@words);
+    $dir = join ("/", @words);
+
+    if ($dir eq "") { $dir = "."; }
+
+    if (! -d $dir) {
+	system ("mkdir -p $dir");
+	if ($?) {
+	    print STDERR "ERROR: can't make directory component for $file\n";
+	    exit 1;
+	}
+    }
+}

@@ -1,0 +1,16 @@
+
+these scripts use the following library functions to work with the IPP Config system:
+
+$ipprc->convert_filename_absolute( $tess_dir );
+$ipprc->convert_filename_relative( $absfile );
+$ipprc->define_camera($camera);
+$ipprc->extname_rule("CMF.HEAD", $class_id); # MEF psastro output
+$ipprc->file_create_append( $logName );
+$ipprc->file_exists( $skyfile );
+$ipprc->file_prepare( "$exp_tag/$exp_tag.detproc.$det_id", $workdir, $input_uri );
+$ipprc->file_resolve ($path_base);
+$ipprc->filename( "PPIMAGE.BIN1", $file->{path_base}, $file->{class_id} ) . "\n");
+$ipprc->outroot_prepare($outroot);
+$ipprc->reduction($reduction, 'JPEG_BIN1_IMAGE_' . uc($det_type)); # Recipe to use
+$ipprc->rejection( $name, $det_type, $filter );
+$ipprc->tessellation_catdir( $tess_id ); # Tessellation catdir for DVO

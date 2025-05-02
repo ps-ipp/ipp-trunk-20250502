@@ -1,0 +1,43 @@
+# this script sets the PS IPP build environment for BASH shell users
+
+if [ -z $PSCONFDIR ]; then
+  PSCONFDIR=@PSCONFDIR@
+fi
+
+if (( $# == 0 )); then
+  /bin/csh -f $PSCONFDIR/psconfig.csh
+  return 0
+fi
+
+if [[ "$1" == "--help" ]]; then
+  echo "USAGE: psconfig (version) : set configuration to specified version"
+  return 0
+fi
+
+if [[ "$1" == "--list" ]]; then
+  /bin/csh -f $PSCONFDIR/psconfig.csh --list
+  return 0
+fi
+
+version=$1
+psconfigure=`/bin/csh -f $PSCONFDIR/psconfig.csh --psconfigure $version`
+psautogen=`/bin/csh -f $PSCONFDIR/psconfig.csh --psautogen $version`
+psperlbuild=`/bin/csh -f $PSCONFDIR/psconfig.csh --psperlbuild $version`
+alias psconfigure=$psconfigure
+alias psautogen=$psautogen
+alias psperlbuild=$psperlbuild
+
+# psconfig env variables
+export PSCONFDIR=`/bin/csh -f $PSCONFDIR/psconfig.csh --psconfdir $version`
+export PSCONFIG=`/bin/csh -f $PSCONFDIR/psconfig.csh --psconfig $version`
+export PSVERSION=`/bin/csh -f $PSCONFDIR/psconfig.csh --psversion $version`
+
+# environment variables
+export PATH=`/bin/csh -f $PSCONFDIR/psconfig.csh --path $version`
+export CPATH=`/bin/csh -f $PSCONFDIR/psconfig.csh --cpath $version`
+export ARCH=`/bin/csh -f $PSCONFDIR/psconfig.csh --arch $version`
+export LIBRARY_PATH=`/bin/csh -f $PSCONFDIR/psconfig.csh --library_path $version`
+export LD_LIBRARY_PATH=`/bin/csh -f $PSCONFDIR/psconfig.csh --ld_library_path $version`
+export PKG_CONFIG_PATH=`/bin/csh -f $PSCONFDIR/psconfig.csh --pkg_config_path $version`
+export ACLOCAL_FLAGS=`/bin/csh -f $PSCONFDIR/psconfig.csh --aclocal_flags $version`
+export PERL5LIB=`/bin/csh -f $PSCONFDIR/psconfig.csh --perl5lib $version`

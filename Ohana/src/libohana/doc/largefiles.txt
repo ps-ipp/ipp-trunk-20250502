@@ -1,0 +1,24 @@
+
+2010.03.15 : converting libohana / libfits to handle large files:
+
+  * need to change all file I/O operations to be largefile safe:
+    * fseek -> fseeko + offset -> off_t
+    * read / fread -> size & nmemb -> off_t
+    * write / fwrite -> size & nmemb -> off_t
+    * ftell -> ftello + offset -> off_t
+
+  * I am changing FILE not IO interactions (thus CommOps.c & IOBuffers.c do not change)
+
+  * in Ohana : Fread, Fwrite, Fseek, ByteSwap 
+
+  * in libfits:
+    * added lld, llu, Ld, Lu support for gfits_scan, gfits_print, gfits_modify
+    * Header, Matrix, FTable, VTable : 
+      * size -> datasize (off_t)
+      * Naxis[i] -> off_t
+      * row, Nrow, pad -> off_t
+
+  * need to search for NAXIS1,2,3 etc
+  * need to search for tables
+  * need to search for fseek, read, write functions
+

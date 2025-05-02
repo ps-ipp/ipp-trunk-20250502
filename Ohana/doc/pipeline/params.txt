@@ -1,0 +1,125 @@
+# Configuration file for Loneos analysis pipeline 
+
+# important files and directories
+IN_DIR			/pallas
+OUT_DIR			/irene/d11/workspace
+#
+CATDIR			/hebe/d27/database
+IMAGE_CATALOG		/hebe/d27/database/Images.dat
+IMAGE_CATALOG_TEMPLATE	/hebe/d27/database/template.cat
+CATALOG_TEMPLATE	/hebe/d27/database/template.cat
+ROCK_CATALOG		/hebe/d27/database/Rocks.dat
+#
+GSCFILE			/metis/d11/references/GSC/GSCregions.tbl
+GSC_DIR			/metis/d11/references/GSC
+USNO_CDROM		/metis/d11/references/USNO
+DOPHOT_PARAMS		/metis/d11/references/config/default_parameters
+FLATTEN_SCRIPT		/metis/d11/references/config/flatten.pro
+LONEOS_REGIONS		/metis/d11/references/config/regions.map
+
+# parameters for "fstat"
+# instrumental mag zero point
+ZERO_PT			24.5
+DOPHOT_CHAR_LINE	129
+DOPHOT_TYPE_FIELD	5
+DOPHOT_AP_FIELD		91
+DOPHOT_PSF_FIELD	52
+MIN_SN_FSTAT		6.0
+
+# parameters for "gastro"
+DEFAULT_RADIUS   32.0
+MINIMUM_RADIUS   1.5
+MIN_ERROR	 0.6
+MIN_PRECISE	 0.12
+CCD_PC1_1	 1
+CCD_PC2_2	 -1    # for loneos
+CCD_PC1_2	 0
+CCD_PC2_1	 0
+ASEC_PIX	 2.82
+NFIELD		 3.0
+MMIN		 6.0
+ROT_ZERO	 0
+dROT		 1.0
+NROT		 2
+POLAR_AXIS_RA	 -90.0
+POLAR_AXIS_DEC   89.88
+RA_OFFSET        -90.0
+DEC_OFFSET        0.0
+
+# parameters for "addstar"
+# airmass extinction coefficient (in mag / airmass)
+NSIGMA			3.0
+ALPHA			0.03
+XOVERSCAN		60
+YOVERSCAN		50
+
+# parameters for "controller"
+NEW_IMAGES		images.dat
+USERNAME		gene
+PASSWORD		gene
+
+# here we list all available machines
+NMACHINES		6
+MACHINE0		metis
+MACHINE1		hebe
+MACHINE2		iris
+MACHINE3		irene
+#MACHINE4		juno
+MACHINE4		ceres
+MACHINE5		vesta
+
+# here we define which machines which are always free
+fMACHINE0		1
+fMACHINE1		1
+fMACHINE2		1
+fMACHINE3		1
+fMACHINE4		0
+fMACHINE5		0
+fMACHINE6		0
+
+LOCAL_MACHINE		1  # machine with catalog on local disk
+
+# parameters for "status"
+TIME_REFERENCE		90/01/01 00:00:00
+
+# parameters for "nrphot"
+# make this one small to boost change of getting an early region 
+TAU			3.0  		
+SCATTER_LIM		15.0
+MAG_LIM			17.0
+IMAGE_SCATTER		0.075
+NIMAGE_SCATTER		1.5
+STAR_SCATTER		0.05
+
+### parameters for "markstar"
+SEARCH_RADIUS		360   # region for initial trail hunt, in arcsec 
+TRAIL_WIDTH		5.0   # expected trail width, in arcsec
+NANGLE_BINS		180   # Number of angular bins in 180 degrees
+NPTSINLINE		5     # minimum points needed for trail
+MIN_DENSITY		0.025 # minimum linear density in star/arcsec
+SPACE_SIGMA		10.0  # how much denser than average for trail?
+# parameters defining bright star exclusion regions
+BRIGHT_XTRAIL_WIDTH	  5.0 # faintest sat. star
+BRIGHT_XTRAIL_MAG	  9.5 # faintest sat. star
+BRIGHT_XTRAIL_SLOPE	-80.0 # exclusion radius = BRIGHT_SLOPE * (mag - BRIGHT_MAG)
+BRIGHT_YTRAIL_WIDTH	  5.0 # faintest sat. star
+BRIGHT_YTRAIL_MAG	 11.0 # faintest sat. star
+BRIGHT_YTRAIL_SLOPE    -400.0 # exclusion radius = BRIGHT_SLOPE * (mag - BRIGHT_MAG)
+BRIGHT_HALO_MAG		  8.5 # faintest sat. star
+BRIGHT_HALO_SLOPE	-28.0 # exclusion radius = BRIGHT_SLOPE * (mag - BRIGHT_MAG)
+# parameters which define the ghosts
+GHOST_MAG		7.5
+GHOST_RADIUS		200   # in arcsec
+OPTICAL_AXIS1		2154.0
+OPTICAL_AXIS2		2193.0
+
+# parameters for "addusno"
+USNO_RADIUS		5.0   # in arcsec
+USNO_PROPER		20.0   # in arcsec
+USNO_RED		1000  # code for USNO Red data
+USNO_BLUE		1001  # code for USNO Blue data
+
+# parameters for "markrock"
+ROCK_RADIUS		2.0   # in arcsec
+ROCK_MAX_RADIUS		20.0  # in arcsec
+ROCK_MAX_SPEED          0.1   # in arcsec / sec

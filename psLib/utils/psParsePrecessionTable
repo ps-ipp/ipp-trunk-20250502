@@ -1,0 +1,149 @@
+#!/usr/bin/env perl
+
+# Provides functions for handling long command line options
+use Getopt::Long;
+
+# Assign variables based on the presence of command line options to the script
+GetOptions(
+    "verbose" => \$verbose,
+    "help"    => \$help
+);
+
+if ($help) {
+    print "Usage: psParsePrecessionTable ",
+        "[--help] ",
+        "[--verbose] ",
+        "tableFile.txt";
+    exit(0);
+}
+
+# Loop through the arguements passed to the script
+foreach (@ARGV) {
+    chomp;
+    $tableFile = $_;
+    s/\.txt$//;
+    $outputFile = $_ . ".dat";
+    $coeffFile = $_ . ".coeff";
+    print "Table output file is $outputFile\n",
+          "Coefficient output file is $coeffFile\n" if $verbose;
+
+    unless ( open( TABLEFILE, "<", $tableFile ) ) {
+        die "Can not open table file $tableFile.";
+    }
+
+    unless ( open( OUTPUTFILE, ">", $outputFile ) ) {
+        die "Can not create output file $outputFile.";
+    }
+
+    unless ( open( COEFFFILE, ">", $coeffFile ) ) {
+        die "Can not create coeff file $coeffFile.";
+    }
+
+    # Read Header and tranfer it to the output files
+    $found = 0;
+    while ($found < 2 && ($line=<TABLEFILE>)) {
+        print "# $line" if $verbose;
+        print COEFFFILE "# $line";
+        print OUTPUTFILE "# $line";
+        if ($line =~ /^----/) {
+            $found++;
+        }
+    }
+
+
+    die "Failed to parse the polynomials in $tableFile."
+        if &parsePolynomialCoefficients;
+
+    &parseTable;
+
+    close(TABLEFILE);
+    close(OUTPUTFILE);
+    close(COEFFFILE);
+}
+
+
+exit(0);
+
+sub parsePolynomialCoefficients {
+
+
+    print "Parsing table for polynomial values\n" if $verbose;
+
+    # find the polynomial part header
+    local $found = 0;
+    while (! $found && ($line=<TABLEFILE>)) {
+        if ($line =~ /^Polynomial part/) {
+            print COEFFFILE "# $line";
+            $found = 1;
+        }
+    }
+
+     if (! $found) {
+        print "Failed to find the coefficient section" if $verbose;
+        return 1;
+    }
+
+    print "Found proper polynomials section\n" if $verbose;
+
+    # find the line of coefficients
+    $found = 0;
+    while (! $found && ($line=<TABLEFILE>)) {
+        if ($line =~ /^\s*(\S+)\s+([\+-])\s*(\S+)\s+t\s+([\+-])\s*(\S+)\s+t\^2\s+([\+-])\s*(\S+)\s+t\^3\s+([\+-])\s*(\S+)\s+t\^4\s+([\+-])\s*(\S+)\s+t\^5/) {
+            $found = 1;
+            print COEFFFILE "$1 $2$3 $4$5 $6$7 $8$9 $10$11\n";
+            print "Coeff: $1 $2$3 $4$5 $6$7 $8$9 $10$11\n" if $verbose;
+        }
+        if ($line =~ /^\-\-\-\-\-\-\-/) {
+            $found = 2;
+        }
+    }
+
+    if ($found != 1) {
+        print "Failed to find the coefficients" if $verbose;
+        return 1;
+    }
+
+    return 0;
+}
+
+ sub parseTable {
+
+    print "Parsing table for non-polynomial values\n" if $verbose;
+
+    # find the non-polynomial part header
+    local $found = 0;
+    local $j = 0;
+    while (! $found && ($line=<TABLEFILE>)) {
+        if ($line =~ /^\s*j\s*=\s*(\d+)/) {
+            $j = $1;
+            print "Found data for j=$j\n" if $verbose;
+            $found = 1;
+        } else {
+            print OUTPUTFILE "# $line";
+        }
+    }
+
+     if (! $found) {
+        print "Failed to find the non-polynomial data" if $verbose;
+        return 1;
+    }
+
+    # find the line of coefficients
+    local $items = 0;
+    while ($line=<TABLEFILE>) {
+        if ($line =~ /^\s*j\s*=\s*(\d+)/) {
+            $j = $1;
+            print "Found data for j=$j\n" if $verbose;
+        } elsif ($line =~ /^\s*\d+\s(.+)/) {
+            print OUTPUTFILE "$j $1\n";
+            $items++;
+        }
+    }
+
+    print "Found $items data lines.\n" if $verbose;
+
+    return 0;
+}
+
+
+

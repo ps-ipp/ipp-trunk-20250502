@@ -1,0 +1,42 @@
+#!/bin/sh
+
+# strip out CC, CFLAGS, CPPFLAGS, LDFLAGS and set env vars
+while ( test $# -gt 0 ); do
+
+  skip=0
+
+  # strip out CC, set as env variable
+  echo $1 | grep "^CC=" > /dev/null
+  if ( test $? -eq 0 ) ; then
+    val=`echo $1 | sed "s|^CC=||"`
+    export CC=$val
+    skip=1
+  fi
+  # strip out CFLAGS, set as env variable
+  echo $1 | grep "^CFLAGS=" > /dev/null
+  if ( test $? -eq 0 ) ; then
+    val=`echo $1 | sed "s|^CFLAGS=||"`
+    export CFLAGS=$val
+    skip=1
+  fi
+  # strip out CPPFLAGS, set as env variable
+  echo $1 | grep "^CPPFLAGS=" > /dev/null
+  if ( test $? -eq 0 ) ; then
+    val=`echo $1 | sed "s|^CPPFLAGS=||"`
+    export CPPFLAGS=$val
+    skip=1
+  fi
+  # strip out LDFLAGS, set as env variable
+  echo $1 | grep "^LDFLAGS=" > /dev/null
+  if ( test $? -eq 0 ) ; then
+    val=`echo $1 | sed "s|^LDFLAGS=||"`
+    export LDFLAGS=$val
+    skip=1
+  fi
+  if ( test $skip -eq 0 ) ; then
+    args="$args $1"
+  fi
+  shift
+done
+
+./configure.tcsh $args

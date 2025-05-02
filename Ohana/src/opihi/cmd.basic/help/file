@@ -1,0 +1,9 @@
+
+   file (filename) (variable)
+
+   Checks to see if a file exists
+
+   If a variable is specified, then it is set to 1 if the file is present
+    and set to 0 if it is not.
+
+   Default: output printed to the window

@@ -1,0 +1,369 @@
+.nf
+NAME:
+	burntool - repair saturation trails and burns; extract PSF stamps
+
+SYNOPSIS:
+	burntool MEF_image [options]
+
+DESCRIPTION: 
+	Burntool reads an OTA's MEF, cell by cell, looking for and correcting
+	trails left above saturated stars and persistence burns below stars
+	from previous images.  It rewrites the MEF in place.  In addition,
+	burntool identifies bright stars which are not saturated and can write
+	a concatenated or 3D FITS image of postage stamps and a median of 
+	the scaled star images.  Burntool also writes a table of the fits to
+	trails and persistence burns which can serve as input for the next
+	image to be corrected.
+	
+	Because the profile of saturated stars can be complex, burntool
+	identifies objects by noting when the images passes a threshold
+	(BURN_THRESH, default 30000 ADU) and then pushing out a bounding box
+	which encompasses all adjoining pixels which exceed a lower
+	TRAIL_THRESH (default 10000 ADU).  The pixels comprising the octagon
+	exceeding TRAIL_THRESH on this bounding box are noted, as is the pixel
+	and value of the maximum.
+	
+	In addition, burntool performs the same action on pixels which pass a
+	(much lower) STAR_THRESH above sky (default 1000 ADU) and which are
+	also the local maximum over all pixels within STAR_RADIUS (default 4)
+	distance.  These pixels are boxed down to a fraction STAR_FRAC
+	(default 0.3) of this maximum above sky.
+	
+	Once all objects are boxed, all saturated and non-saturated stars
+	whose maximum exceeds MAX_THRESH (default 20000 ADU) are tested for
+	trailing by comparing the flux beyond the bounding box above and below
+	the star.  Those whose median difference exceeds 0.3 times the rms of
+	the sky are designated as "trailed" and are nominated for a trail fit.
+	
+	The list of boxes is used to create a mask and it is expanded by a
+	factor of RMASK_GROW (default 3.0) in diameter and BMASK_GROW (default
+	5) pixels in the bounding box "burns" and "stars".  This mask is used
+	to veto pixels from participating in fits and is also used to select
+	isolated objects for postage stamps.
+	
+	Burntool also can read an input file which lists burns which may exist
+	because of readout of saturated stares from previous exposures.  This
+	forms the third category of boxes that burntool processes: "burns".
+	
+	Burntool proceeds to fit and remove each trail and burn, by forming a
+	median across the box's width in x to create an average profile in y,
+	fitting this profile either as an exponential or a power law,
+	refitting in each column for an individual scale factor and starting
+	point, and then subtracting the fit.  Upward trails are fitted as
+	power laws; downward burns as exponentials.
+	
+	The fit to downward, persistence burns may have an unreasonable "slope"
+	(meaning exponential sign), increasing away from the burn origin.
+	These are discarded unless "persist=t" is invoked.  It is possible
+	for the fit to be fooled by uncataloged stars, so the persistence
+	can be kept in the output file with "persist=t" (although no fit
+	correction is applied) and they will propagate from input to output
+	until they finally achieve a legal fit with negligible amplitude.
+	Note that if burntool decides that a fit had a bad slope but was 
+	non-negligible it writes a function type "BURN_POSSLOPE" = 4 so
+	the box is available for masking if desired, and can be refitted
+	on subsequent images.
+
+	Burntool also identifies really blasted areas which are saturated from
+	top to bottom.  These cannot be fitted, but are carried along for
+	EXPIRE_TRAIL_TIME seconds (default 2000) in the persistence list.  The
+	idea is to give IPP a clue that something bad happened, and of course
+	the persistence info tells when it happened.  This expiration time
+	for carrying the region can be set with "expire=N".
+
+	Burntool finishes by rewriting the modified MEF and all of the fits in
+	an output file ("out=file_name").  If desired, burntool can be run
+	with "restore=t" and this output table as input ("in=file_name") to
+	restore the MEF to its pre-subtraction state.  Burntool can also be
+	inhibited from subtracting the fits by "update=f".
+	
+	Two other modes can be invoked using "tableonly=t" and "apply=t".
+	The first mode is just like "update=t", except that it does not write
+	the modified images, only the FITS table and/or tabulated fit data.
+	The second mode is like "restore=t", except that it subtracts the
+	tabulated fits instead of adding them back in.  Note that this requires
+	slightly different specifications for the "in=" file:
+
+		update or tableonly:    in=previous_file_for_persistence
+		restore or apply:	in=this_file_for_burn_and_persistence
+
+	Thus a sequence of images could be processed (leaving off usual
+	arguments such as mask=, etc) to immediately fit and subtract:
+
+	   burntool o4991g0001o24.fits \
+	                           out=o4991g0001o24.burn \
+	     psfstat=o4991g0001o24.stat psf=o4991g0001o24.psf
+
+	   burntool o4991g0002o24.fits \
+	     in=o4991g0001o24.burn out=o4991g0002o24.burn \
+	     psfstat=o4991g0002o24.stat psf=o4991g0002o24.psf
+
+	   burntool o4991g0003o24.fits \
+	     in=o4991g0002o24.burn out=o4991g0003o24.burn \
+	     psfstat=o4991g0003o24.stat psf=o4991g0003o24.psf
+
+	or as a two step process of generating tables:
+
+	   burntool o4991g0001o24.fits tableonly=t \
+	                           out=o4991g0001o24.burn \
+	     psfstat=o4991g0001o24.stat psf=o4991g0001o24.psf
+
+	   burntool o4991g0002o24.fits tableonly=t \
+	     in=o4991g0001o24.burn out=o4991g0002o24.burn \
+	     psfstat=o4991g0002o24.stat psf=o4991g0002o24.psf
+
+	   burntool o4991g0003o24.fits tableonly=t \
+	     in=o4991g0002o24.burn out=o4991g0003o24.burn \
+	     psfstat=o4991g0003o24.stat psf=o4991g0003o24.psf
+
+	and then later on carrying out the subtractions of the fits:
+
+	   burntool o4991g0001o24.fits apply=t
+	   burntool o4991g0002o24.fits apply=t
+	   burntool o4991g0003o24.fits apply=t
+
+	The identification of significant (but unsaturated) stars is an
+	important component of burntool's mask generation, and if requested
+	burntool can assemble a gallery of postage stamps of suitable stars.
+	This does not work with "restore=t" or "apply=t" of course, since
+	these work only on previous tables and do not examine the images.
+	
+	Any star whose maximum exceeds PSF_THRESH above sky but is not deemed
+	to be saturated or trailed can contribute if its box does not overlap
+	the mask (other than its own contribution) or impinge on the edge of
+	the cell.  If the maximum pixel is less than PSF_CTR_TOL (default 8)
+	pixels from the center of its box, the stamp is centered on that
+	pixel; otherwise the stamp is centered on the bounding box. If the box
+	is smaller than MIN_PSF_SIZE (default 3) the star is not used for a
+	stamp.  The maximum number of stars which can be so designated as
+	PSF stars from a single cell is MAX_PSF_PER_CELL (default 20).  The
+	selection proceeds from bottom to top, so the lowest 20 are used.
+	(Note that it is extremely uncommon for any 2.5 arcmin cell to have
+	as many as 20 stars bright enough for PSF consideration.)
+	
+	This gallery is written as a concatenated or 3D FITS file whose name
+	is designated by "psf=file_name" and the size of the stamps is
+	governed by "psfsize=N" (default 32).  The first entry in the 3D FITS
+	file is the median of all the individual stamps, scaled to bring the
+	peak to approximately 10000 ADU.  The stamps all have sky subtracted
+	and an artificial bias of USHORT_BIAS (default 1000) added back in.
+
+	Note that the first two pixels in the individual stamps might be the 
+	OTA coordinates of the origin of the stamp, not flux data.
+
+	If PSF stamp output is requested, burntool will measure statistics
+	of the median PSF image and report a single line on stdout.  The
+	entries in this line are (for example):
+
+	   N= 199	   Number of PSF stars (median means N+1 are written)
+	   PSFmaj= 6.93	   Major axis FWHM [pix] (0.0 if fit fails)
+	   min= 3.96	   Minor axis FWHM [pix] (0.0 if fit fails)
+	   theta= 5.3	   Angle of FWHM from x [deg] (0.0 if fit fails)
+	   m2= 12.11	   Second moment of distribution [pix^2]
+	   q+= 5.577	   Plus quadrupole qxx-qyy [pix^2]
+	   qx= 0.710	   Cross quadrupole 2*qxy [pix^2]
+	   qt= -5.562      Tangential quadrupole [pix^2] 
+				q+ * cos(2*phi) + qx * sin(2*phi)
+
+	The argument "psfstat=file_name" requests burntool to assemble the
+	PSF stamps and calculate statistics on them on a cell-by-cell basis.
+	While noisier than the median PSF for the entire OTA, it provides
+	intra-OTA resolution of PSF changes.  This entries in this file
+	are (for example):
+
+	   ext=xy13        Cell xy ID
+	   bias=7940       Cell bias level [ADU]
+	   sky=206         Cell sky level [ADU]
+	   rmssky=15       Cell sky RMS [ADU]
+	   npsf=3          Number of contributing PSF stars
+	   fwhm=5.38       PSF FWHM [pix] (0.0 if fit fails)
+	   fmed=5.76       FWHM averaged over psfavg (0.0 if fit fails)
+	   m2=11.08        Second moment of distribution [pix^2] (-99.99 if fails)
+	   qp=5.154        Plus quadrupole qxx-qyy [pix^2] (-99.99 if fails)
+	   qc=0.560        Cross quadrupole 2*qxy [pix^2] (-99.99 if fails)
+	   qt=-5.201       Tangential quadrupole [pix^2] (-99.99 if fails)
+			   	q+ * cos(2*phi) + qx * sin(2*phi)
+	   q3c=-1.193      Cosine trefoil measure [pix^2] (-99.99 if fails)
+	   q3s=-0.038      Sine trefoil measure [pix^2] (-99.99 if fails)
+	   qpm=5.154       Plus quadrupole averaged over psfavg
+	   qcm=0.560       Cross quadrupole averaged over psfavg
+	   qtm=-5.201      Tangential averaged over psfavg
+	   q3cm=-1.230     Cosine trefoil averaged over psfavg
+	   q3sm=-0.079     Sine trefoil averaged over psfavg
+
+	The net, polar coordinate quadrupole can be assembled from
+
+	   Qmagnitude = sqrt(qpm^2+qcm^2)
+	   Qtheta     = 0.5 * atan2(qcm, qpm)
+
+	Helpful utilities include:
+
+	  Make a mosaic out of the cells of the MEF
+
+	    fitstile \!o4803g0054o30.mos +0-0:o4803g0054o30.fits
+	    fitstile \!o4881g0049o44.mos -0+0:o4881g0049o44.fits
+
+	  Make a mosaic of the 3D FITS postage stamp file
+
+	    optic_fitstile test54.psf test54.tile
+
+OPTIONS:
+	xy=xy          
+		Work on just one cell?  xy ID mode.
+
+	cell=N         
+		Work on just one cell?  Cell count [0:63] mode.
+
+	mask=0101...
+		64 digits to designate which cells [0:63] to work on.
+
+	update={t|f}   
+		Calculate fits and modify the input MEF images by subtracting 
+		the trail fits and writing a FITS table (default t).  If
+		false the MEF is not altered, although PSF can be calculated.
+
+	restore={t|f}  
+		Restore the input MEF by adding input fits (default f)
+
+	apply={t|f}
+		Use previously calculated fits to modify the input MEF image
+		by subtraction (default f)
+
+	tableonly={t|f}
+		Calculate fits but do *not* modify the input MEF pixels, 
+		only write the fit data as a FITS and/or text table (default f)
+
+	in=fname       
+		Input file for previous burn persistence streaks
+
+	infits=fname       
+		Input FITS file for previous burn persistence streaks
+                (burn streaks stored in table extensions). If both
+                this and the 'in' input file option are specified, then
+                'in' takes precedence.
+
+	persist={t|f}
+		Retain persistence streaks whose fit slope turned out to be
+		unreasonable.
+
+	out=fname      
+		Output file for burn streaks
+
+        deltables=fname
+                Copy mef_file to new FITS file 'fname' with burn streak 
+                tables removed. NOTE: if specified, all other options 
+                will be ignored!
+
+	psf=fname      
+		Output file for PSF gallery of postage stamps
+
+	psfsize=size   
+		How big a box to use for PSF extraction?
+
+	psfmin=size   
+		How big must a box be to use for PSF extraction? (PSF_MIN_SIZE)
+
+	psfctr=N
+		Max distance of peak from box center for peak centering
+		(PSF_CTR_TOL)
+
+	psfmaxn=N   
+		Maximum number of PSF stars allowed per cell (MAX_PSF_PER_CELL)
+
+	psf3dfits={t|f}
+		Write 3D FITS for PSF instead of (default) concatenated FITS?
+
+	psfstat=fname      
+		Output file for PSF statistics listing
+
+	psfavg=N
+		List PSF statistics averaged over 2^N cells (N=0:3)
+
+	thrburn=X      
+		Threshold for onset of burning (BURN_THRESH)
+
+	thrtrail=X     
+		Trailing might result from fluxes this low (TRAIL_THRESH)
+
+	thrmax=X       
+		Stars at this peak level might trail (MAX_THRESH)
+
+	thrstar=X      
+		Threshold above sky for star designation (STAR_THRESH)
+
+	fracstar=X     
+		Fraction of peak to follow star profile (STAR_FRAC)
+
+	thrpsf=X       
+		Threshold above sky for a star to be a PSF (PSF_THRESH)
+
+	rmask=X        
+		Diameter growth factor of burned spots (RMASK_GROW)
+
+	bmask=X        
+		Box size growth of burn/star (BMASK_GROW)
+
+	expire=N
+		Retire a blasted burn after N seconds
+
+	EADU=x
+		Set the minimum e/ADU for acceptable cell sky noise 
+		(default 0.3).  Should not normally be changed!
+	RN=x
+		Set the maximum read noise for acceptable cell sky noise 
+		(default 20).  Should not normally be changed!
+
+		Any cell whose noise variance in the sky is greater than
+		  sky/EADU+RN*RN  is rejected out of hand, and skipped for
+		further processing.
+
+	quiet={t|f}    
+		Quiet?
+
+	verbose=N
+		Set verbosity level bitmask:
+		   0x0001   Normal, verbose output
+		   0x0002   Dump detection process
+		   0x0004   Dump out PSF selection process
+		   0x0008   Dump fit progress
+		   0x0010   Dump fit profiles
+		   0x0020   Write Vista marker procedure to /tmp/markem.pro
+		   0x0040   Dump box growth diagnostics
+		   0x0080   Write mask in place of corrected image
+
+
+EXAMPLES:
+	Normal usage:
+
+		burntool o4803g0054o30.fits out=burn.54
+		burntool o4803g0055o30.fits in=burn.54 out=burn.55
+		burntool o4803g0056o30.fits in=burn.55 out=burn.56
+
+	Normal usage and write a PSF file:
+
+		burntool o4803g0054o30.fits out=burn.54 psf=o4803g0054o30.psf
+
+	Just generate a PSF file but don't change the original:
+
+		burntool o4803g0054o30.fits update=f psf=o4803g0054o30.psf
+
+	Restore the subtracted fits:
+
+		burntool o4803g0055o30.fits in=burn.55 restore=t
+
+	Process an out of focus image to get donut stamps:
+
+		burntool o4881g0049q44.fits update=f thrpsf=1000 rmask=0 \
+		psfsize=128 psf=o4881g0049q44_psf.fits
+
+BUGS:
+	090224: Still in development
+	090810: Squished a few memory bugs
+
+SEE ALSO:
+	biastool
+
+AUTHORS:
+	John Tonry
+
+VERSION:

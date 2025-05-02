@@ -1,0 +1,146 @@
+#!/usr/bin/env perl
+
+# list the filesets in a data store product
+
+use strict;
+use warnings;
+
+use DBI;
+use dsdbh;
+
+my $PS_EXIT_CONFIG_ERROR = 3;
+my $PS_EXIT_DATA_ERROR = 5;
+my $product = shift;
+die("must specify product to list") unless defined $product;
+
+# optional fileset name. Ignore filesets up to and including $after_fileset
+my $after_fileset = shift;
+
+my $dbh = getDBHandle();
+
+my $prod_stmt = $dbh->prepare("SELECT * FROM dsProduct WHERE prod_name = '$product'");
+$prod_stmt->execute();
+my $prod = $prod_stmt->fetchrow_hashref();
+if (! defined $prod) {
+    print STDERR "failed to find $product in product list\n";
+    exit ($PS_EXIT_DATA_ERROR);
+}
+
+# first get the column names
+
+# we have at least 3 columns
+my @header_col = ("# filesetID", "time registered", "type");
+my $numCols = 3;
+
+# now add any product specific columns that are defined. Note if there is no header value
+# then any values in the rows will be ignored
+my $last_prod_col = -1;
+for (my $i = 0; $i < 8; $i++) {
+    my $col_key = "prod_col_$i";
+    my $col_name = $prod->{$col_key};
+
+    last if ! defined $col_name;
+
+    $header_col[$numCols++] = $col_name;
+    $last_prod_col = $i;
+}
+
+# now set up arrays for the values for each column. 
+my @column;
+for (my $i = 0; $i < $numCols; $i++) {
+
+    my @col = ($header_col[$i]);
+
+    $column[$i] = \@col;
+}
+    
+
+my $prod_id = $prod->{prod_id};
+
+my $stmt;
+my $after_clause = "";
+if ($after_fileset) {
+    # client wants only filesets registered after $after_fileset
+    # Since fileset_id is auto increment the desired filesets will have a larger fileset_id than
+    # the target. Look up it's fileset_id
+
+    $stmt = $dbh->prepare("SELECT fileset_id FROM dsFileset " .
+                            "WHERE prod_id = $prod_id AND fileset_name = \'$after_fileset\'");
+    $stmt->execute();
+    my $fs = $stmt->fetchrow_hashref();
+    if ($fs) {
+        $after_clause = " AND fileset_id > $fs->{fileset_id}";
+    } else {
+        # $after_fileset not found
+        #
+        # XXX: the spec doesn't say what should happen in this case.
+        # We used to follow the conductor implementation and return the whole list.
+        # but that is definitely not the right thing to do in our context.
+        # Exit with an error
+        exit 404;
+    }
+}
+        
+$stmt = $dbh->prepare("SELECT * FROM dsFileset WHERE prod_id = $prod_id AND hide = 0  $after_clause ORDER BY fileset_id");
+$stmt->execute();
+
+# we at least have the header row to output
+my $numRows = 1;
+while( my $row = $stmt->fetchrow_hashref()) {
+
+    $numRows++;
+    my $daytime = $row->{reg_time};
+    (my $date, my $time) = split " ", $daytime;
+
+    my $reg_time = $date . "T" . $time . "Z";
+
+    my $line = sprintf "%-11s|%-20s|%-9s|", $row->{fileset_name}, $reg_time, $row->{type};
+
+    # this probably would have been simpler had I used fetchrow array
+    push @{$column[0]}, $row->{fileset_name};
+    push @{$column[1]}, $reg_time;
+    push @{$column[2]}, $row->{type};
+    
+    for (my $i = 0; $i <= $last_prod_col; $i++) {
+        my $col_key = "prod_col_$i";
+        my $col_val = $row->{$col_key};
+
+        if (!defined($col_val)) {
+            $col_val = "null";
+        }
+        push @{$column[$i+3]}, $col_val;
+    }
+}
+
+# find the largest value width in each column
+my @col_widths;
+for (my $c = 0; $c < $numCols; $c++) {
+    $col_widths[$c] = 0;
+    my $col = $column[$c];
+    for (my $i = 0; $i < $numRows; $i++) {
+        my $val = $col->[$i];
+        if (!defined($val)) {
+            die "value for column $c in row $i is null";
+            next;
+        }
+        my $len = length($val);
+        if ($len > $col_widths[$c]) {
+            $col_widths[$c] = $len;
+        }
+    }
+}
+
+# print out the results
+for (my $r = 0; $r < $numRows; $r++) {
+    for (my $c = 0; $c < $numCols; $c++) {
+        my $val = $column[$c]->[$r];
+        my $width = $col_widths[$c];
+        if (defined($val)) {
+            printf "%-*s|", $width, $val;
+        } else {
+            die "value for column $c in row $r is null";
+        }
+    }
+    print "\n";
+}
+    

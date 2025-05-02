@@ -1,0 +1,9 @@
+
+   cut buffer <X vector> <Y vector> <X|Y> sx sy nx ny
+
+   take a cut from an image and place it in a pair of vectors.
+   the <X vector> gets the pixel coordinate in the given direction,
+   the <Y vector> gets the pixel values.  <X|Y> specifies the 
+   direction of the cut.  the region sx, sy, nx, ny specifies the
+   region for the cut, with summation in the cross-direction.
+

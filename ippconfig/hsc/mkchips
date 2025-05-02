@@ -1,0 +1,4 @@
+kukui: ls biases/HSCA90264[01]??.fits | fields DET-ID CRVAL1 CRVAL2 CRPIX1 CRPIX2 CD1_1 CD1_2 CD2_1 CD2_2 | awk '($8 < 0.0){dx = 1}($8 > 0.0){dx = -1}{printf "x%03d S32 %+2d\n", $2, dx}' | sort -k 1 > chip.dx
+kukui: ls biases/HSCA90264[01]??.fits | fields DET-ID CRVAL1 CRVAL2 CRPIX1 CRPIX2 CD1_1 CD1_2 CD2_1 CD2_2 | awk '($8 < 0.0){dx = 1}($8 > 0.0){dx = -1}{printf "x%03d S32 %+2d\n", $2, dx}' | sort -k 1 > chip.dy
+kukui: ls biases/HSCA90264[01]??.fits | fields DET-ID CRVAL1 CRVAL2 CRPIX1 CRPIX2 CD1_1 CD1_2 CD2_1 CD2_2 | awk '($8 < 0.0){y0 = 18000-$6}($8 > 0.0){y0 = 18000+$6}{printf "x%03d S32 %5d\n", $2, y0}' | sort -k 1 > chip.y0
+kukui: ls biases/HSCA90264[01]??.fits | fields DET-ID CRVAL1 CRVAL2 CRPIX1 CRPIX2 CD1_1 CD1_2 CD2_1 CD2_2 | awk '($8 < 0.0){x0 = 18000-$5}($8 > 0.0){x0 = 18000+$5}{printf "x%03d S32 %5d\n", $2, x0}' | sort -k 1 > chip.x0

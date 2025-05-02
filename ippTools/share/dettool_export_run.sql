@@ -1,0 +1,3 @@
+SELECT
+    detRun.*
+FROM detRun

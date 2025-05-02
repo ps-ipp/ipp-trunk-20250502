@@ -1,0 +1,261 @@
+<meta name=file  content=index>
+<meta name=title content=PCONTROL.SUMMARY>
+<meta name=page  content=pcontrol.summary>
+
+<tt>pcontrol</tt> is the IPP parallel process controller.
+
+<h3>Overview</h3>
+
+<p>
+The IPP uses a group of computers to store and process images and to
+manipulate collections of detections.  These computers perform any of
+a large number of analysis stages or other processing tasks without
+significant interprocess communication.  It is necessary to have a
+mechanism which initiates computing tasks on the different computers,
+which monitors the tasks as they are executed, which handles the
+output and the errors from these tasks, and which reacts to the
+failure of any of the computing nodes.  The system responsible for the
+tasks in the IPP is <tt>pcontrol</tt>.
+
+<h3>Host States</h3>
+
+<p>
+<tt>pcontrol</tt> maintains a table of available processing computers
+(<em>hosts</em>) and tracks their status.  Hosts managed by
+<tt>pcontrol</tt> are allowed to be in one of several states:
+<tt>off</tt>, <tt>down</tt>, <tt>idle</tt>, <tt>busy</tt>, and
+<tt>done</tt>.  These states have the following meanings:
+
+<p>
+If the host is <tt>off</tt>, it is known to pcontrol, but pcontrol
+does not have an active connection to the machine.  Hosts which are
+<tt>off</tt> are not available for jobs, and pcontrol does not attempt
+to initiate a connection to them.
+
+<p>
+When pcontrol is told to consider a machine on, the machine is moved
+from the <tt>off</tt> state to the <tt>down</tt> state.  Pcontrol
+attempts to initiate a connection to the host.  Connections are made
+by running a remote client on the host, using the specified connection
+method.  The connection method may be <tt>ssh</tt>, <tt>rsh</tt>, or
+an equivalent remote shell connection. The choice is specified by the
+COMMAND Opihi variable.  The remote connection starts a dedicated
+remote client which must accept the pcontrol client commands and
+respond appropriately.  The provided remote client is called
+<tt>pclient</tt>, though in principal other equivalent programs could
+be used by setting the Opihi variable SHELL (this feature more
+generally allows a user to specify a path to the remote client, if it
+is not in the user's path).  A pcontrol user may force a host to
+transition to the <tt>off</tt> state with the command <tt>host off
+(hostname)</tt>.  (<em> Note that this command will set only one of
+the connections to the named host to <tt>off</tt>.  If multiple
+connections to a machine have been defined, multiple <tt>off</tt>
+commands must be sent</em>).
+
+<p>
+If the remote connection is successful, the connected host is moved by
+pcontrol from the <tt>down</tt> state to the <tt>idle</tt> state.  If
+the connection is unsuccessful, pcontrol will try again after a
+certain period of time.  If the connection continues to be
+unsuccessful, the retry period is doubled for each successiver
+connection attempt.  If the user wants to force pcontrol to retry the
+connection to a machine (if, for example, the timeout is now very
+long, but the user knows the machine's ethernet cable has been
+re-inserted...), this can be achieved with the command <tt>host retry
+(hostname)</tt>.  A host which is <tt>down</tt> is in the limbo state
+between <tt>off</tt> and <tt>idle</tt>.  
+
+<p>
+Once pcontrol has made a successful connection to the host, the host
+is in the <tt>idle</tt> state.  At this point, it is ready to accept
+jobs from pcontrol for execution.  Pcontrol repeatedly queries the
+hosts to check that they are still alive.  If a host is discovered to
+be unresponsive, and particularly if the remote pipe connection has
+closed, then the machine is moved back to the <tt>down</tt> state.  
+
+<p>
+Hosts which are <tt>idle</tt> may accept a job from pcontrol.  A job simply
+consists of a bare UNIX command, without redirection of standard input
+or standard output.  The host will initiate the job, and pcontrol will
+place the host into the <tt>busy</tt> state.  The remote client, pclient,
+runs the job in the background and will continue to accept input from
+pcontrol.  pcontrol will continue to check the status of the host, and
+now also the status of the specific job.  As before, if the connection
+breaks, pcontrol will migrate the host to the <tt>down</tt> state.  Any job
+already initiated on a host which goes down will be returned for later
+processing, so the job will not be lost. 
+
+<p>
+When the job exits, pclient tells pcontrol that the job is completed,
+and specifies the exit status.  At this point, pcontrol will move the
+host from <tt>busy</tt> to <tt>done</tt> state.  It will stay in this
+state until pcontrol can determine the ending conditions and reset the
+remote client.  pcontrol requests the standard error and standard
+output from the job from pclient.  pcontrol stores this data with its
+information about the completed job, and send a reset command to the
+remote client.  Once these cleanup tasks are successfully completed,
+pcontrol will move the host to the <tt>idle</tt> state, ready for
+further jobs.
+
+<p>
+Each physical computer may have multiple processors.
+<tt>pcontrol</tt> treats each processor independently.  It is up to
+the system configuration if each computer needs to reserve one of its
+CPUs to manage background tasks or if <tt>pcontrol</tt> should attempt
+to send one task per CPU and let the operating system handle the I/O
+load.  <em>some of this behavior will probably be eventually more
+intelligent.  For example, the commands which turn a host on or off
+should be able to do the same operation to all host connections for
+the same machine name.</em>
+
+<p>
+A machine may be completely removed from pcontrol's host tables with
+the command <tt>host delete (hostname)</tt>.  
+
+<h3>Jobs</h3>
+
+<p>
+The <tt>pcontrol</tt> accepts new jobs with the command <tt>job
+...</tt>, in which the ellipsis represents the command and arguments
+of a valid UNIX command.  The commands are run under <tt>sh</tt>, and
+are executed in the user's home directory.  (<em>If it is desired, we
+can easily add a command to tell pclient to perform <tt>cd</tt></em>).
+Users should be wary of the conditions under which the remote jobs are
+run.  If the nodes in question all cross-mount the same home
+directories, multiple jobs which interact with the same named file may
+produce unexpected results.  The controller cannot enforce good
+behavior on the part of the remote jobs; it is the responsibility of
+the user to ensure that conflicts do not arise by, eg, always using
+unique output file names.
+
+<p>
+Other issues may arise from the fact that pcontrol may be choosing any
+of the hosts to run the job.  Typical failures arise if the user does
+not realize that specific jobs do not behave the same on all machines,
+or if a necessary resource (eg, some input data file) is only
+available or accessible from some of the hosts.  It is the
+responsibility of the task to wait for network lags (ie, NFS delays).
+
+<p>
+<tt>pcontrol</tt> gives each task a unique internal identifier (Job
+ID) equivalent to the process ID used in UNIX.  When a job is
+submitted to pcontrol, the command echoes back the Job ID.  This ID
+may be used by other pcontrol commands to obtain information about or
+interact with the job.
+
+<p>
+A job may specify a specific host for the task execution.  The host
+specified for a job may be <b>required</b>, or <b>desired</b>.  In the
+first case, pcontrol, will only run the job on the specified host,
+waiting until it is available before attempting the job.  In the
+second case, pcontrol will attempt to send the job to the specified
+host, but if the host is unavailable (<em>how long? what
+conditions?</em>), pcontrol will allow the job to be sent to an
+alternative host.  <tt>pcontrol</tt> attempts to honor the requests
+for required and desired hosts, giving priority first to required-host
+jobs, then to the desired-host jobs, and finally to all other jobs.
+To specify a host for a job, the following commands are used:
+
+<pre>
+job -host (command and arguments...)
+job +host (command and arguments...)
+</pre>
+
+The first case specifies a desired host, while the second specifies a
+required host.  It is also possible to specify the special host name
+<tt>anyhost</tt>, which is equivalent to not specifying a host at all.
+
+<p>
+<em>Job priority / urgency levels are not implemented at this time.</em>
+
+<p>
+<em>I/O vs CPU tasks are not currently distinguished by pcontrol</em>
+
+<p>
+<tt>pcontrol</tt> stores the stdout and stderr for each completed job.
+To retrieve these data from these streams, the user issues the
+commands <tt>stdout (JobID)</tt> and <tt>stderr (JobID)</tt>.  The
+result is a single line specifying the number of bytes to expect,
+followed by a dump of the buffers, followed by the prompt. It is the
+user's responsibility to relieve pcontrol of this data load by
+deleting jobs once they are no longer needed.  Job deletion is
+performed with the command <tt>delete (JobID)</tt>.
+
+<p>
+Jobs are moved between the following states by pcontrol:
+<ul>
+<li> pending: the job has not yet been executed.
+<li> busy: the job is currently being executed.
+<li> done: the job has completed, but the stdout/stderr has not been processed by
+     pcontrol.
+<li> exit: the job has completed with a valid exit status
+<li>crash: the job has completed with a crash status (exit on signal).
+</ul>
+
+<h3>Miscellaneous Commands</h3>
+
+<p>
+It is possible to check the status of a single host or job with the
+user command <tt>check</tt>.
+
+<p>
+pcontrol continuously examines the stack of jobs, adjusting their
+state as needed and extracting their output when it is ready.  These
+checks are performed in the background, with pcontrol ready to accept
+further commands from the user in the foreground.  These checks are
+performed after every keystroke, and also after an inactivity timeout.
+The interrupt interval defaults to 1 second, but may be adjusted with
+the <tt>pulse</tt> command, which takes as an argument, the number of
+microseconds for the timeout.
+
+<p>
+the pcontrol system status may be examined with the command
+<tt>status</tt>.  This provides a dump of the job stacks and the host
+stacks.  
+
+<p>
+It is possible to list the jobs currently in a specific stack,
+corresponding to the list of jobs with a given state.  This is done
+with the command <tt>jobstack (stackname)</tt>.  The valid stack names are
+pending, busy, exit, crash, and done.  The result is a list of all
+jobs on the specified stack.  This is useful to determine quickly
+which jobs have exited or crashed.  
+
+<p>
+A specific job may be killed with the command <tt>kill (JobID)</tt>.
+This command is only valid for a job in the <tt>busy</tt> state.  Any
+job in the <tt>pending</tt>, <tt>exit</tt>, or <tt>crash</tt> state
+may be deleted with the <tt>delete (JobID)</tt> command.  This is
+necessary to free the memory associated with the job and its output
+streams.
+
+<p>
+The command <tt>verbose (mode)</tt> turns the verbosity of the
+pcontrol operations on or off.
+
+<p>
+The <tt>pcontrol</tt> and the IPP Image Server have related needs for
+information from the combined storage-and-processing nodes regarding
+which nodes are available.  It is not yet clear if this information is
+best stored in a single location (either <tt>pcontrol</tt> or IPP
+Image Server), which provides the information to other systems on
+demand, or if both systems should maintain the information.  Also, it
+may be necessary to distinguish nodes which are available for
+processing from those that are available to serve data as part of the
+IPP Image Server.
+
+<h3>Command Summary</h3>
+
+<pre>
+check                -- get job or host status
+delete               -- delete job
+host                 -- add / delete / modify host
+job                  -- add job
+jobstack             -- list jobs for a single stack
+kill                 -- kill job
+pulse                -- set system pulse
+status               -- get system status
+stderr               -- get stderr buffer for job
+stdout               -- get stdout buffer for job
+verbose              -- set the verbose mode for job
+</pre>

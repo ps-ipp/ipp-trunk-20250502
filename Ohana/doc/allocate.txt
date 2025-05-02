@@ -1,0 +1,40 @@
+
+# define MIN(X,Y) ((X) < (Y) ? (X) : (Y))
+# define MAX(X,Y) ((X) > (Y) ? (X) : (Y))
+
+# ifndef ALLOCATE
+# define ALLOCATE(X,T,S)  \
+  X=(T *)malloc((unsigned) ((S)*sizeof(T)));\
+  if(X==NULL) \
+    { \
+      fprintf(stderr,"failed to malloc\n");\
+        exit(0);\
+    } 
+# define REALLOCATE(X,T,S) \
+  X=(T *)realloc(X,(unsigned) ((S)*sizeof(T))); \
+  if(X==NULL) \
+    { \
+       fprintf(stderr,"failed to realloc\n"); \
+       exit(0); \
+    }
+# endif /* ALLOCATE */
+
+example () {
+
+  float *fred;
+  int Nfred, NFRED, i;
+
+  NFRED = 100;
+  ALLOCATE (fred, float, NFRED);
+
+  for (i = 0; fscanf (stdin, "%f", &fred[i]) != EOF; i++) {
+    if (i == NFRED - 1) {
+      NFRED += 100;
+      REALLOCATE (fred, float, NFRED);
+    }
+  }
+  Nfred = i;
+  REALLOCATE (fred, float, MAX (Nfred, 1));
+
+}
+

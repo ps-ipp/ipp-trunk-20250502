@@ -1,0 +1,15 @@
+.deps
+Makefile
+Makefile.in
+.libs
+test
+test.c.out
+test.pl.out
+.libs
+test
+test.c.out
+test.pl.out
+*.bb
+*.bbg
+*.da
+gmon.out

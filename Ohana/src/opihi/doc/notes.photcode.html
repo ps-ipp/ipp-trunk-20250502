@@ -1,0 +1,221 @@
+
+<h2> A Primer on DVO Photcodes and Magnitude Representation </h2>
+
+<p>
+There are two types of DVO table which store magnitude data.  The
+Average table stores magnitudes which represent averages of multiple
+measurements.  The Measure table stores magnitudes which represent
+single measurements.  
+
+<p>
+Each type of entry is defined by a Photcode.  The individual Measure
+entries have their photcodes stored as part of the structure.  The
+Average entries have photcodes which are determined externally by
+their sequence.  For historical reasons, the Average photcode are
+divided into the Primary photcode (of which there may only be one) and
+Secondary (of which there may be several).  The average magnitude
+associated with the Primary photcode is stored with the Average
+structure while the Secondary photcodes are stored in a separate,
+associated table called Secfilt.  The layout of the Average and
+Secfilt tables, and the photcodes assigned to them, are defined when
+the database is created based on the layout of the photcode table.
+This table is defined with a single Primary and a number of Secondary
+photcodes.  When the database tables are created, primary photcode is
+automatically associated with the Average entry while the sequence of
+Secondary photcodes defines the sequence of the entries in the Secfilt
+table.  This is very fragile, but very fast for making the
+association.  Thus, changing the number or sequence of secondary
+photcodes would cause an existing database table to be
+mis-interpretted.  
+
+<p>
+The Measure entries are broken into two photcode types as well:
+internal and external measurements.  Internal measurements are those
+for which the data source is well understood; the instrumental
+magnitudes are available and the instrumental parameters which are
+required to determine a calibrated magnitude.  External measurements
+are provided by external sources: published catalogs, reference
+sources, etc.  For these measurements, there is no control over the
+instrumental parameters which determined the measurement, and in many
+cases the measurement represents an average of an ensemble.
+
+<p>
+The photcode table defines relationships between photcodes,
+representing different photometry systems.  Each photcode entry
+defines the target of the calibration (the equivalence), and it may
+potentially define the zero-point (Co), the airmass slope (Ko), the
+appropriate color terms (C1, C2), the reference color term (Color),
+and the polynomial coefficients of the color equation (starting with
+the 1st order term).  
+
+<p>
+I need to include operations to handle varying color terms between
+CCDs.  I have measured color terms between CCDs in the range +/- 0.1
+mag/mag.  This is an appropriate time to clean up some of the code
+that handles the photcodes, etc.  In particular, the photcode table
+should provide the relationship beween relate between filter systems.
+
+For all of the functions below, a REF photcode simply returns the
+stored magnitude without transformation.  
+
+PhotInst (measure)
+  returns the instrumental magnitude of the given Measure
+  Minst = measure[0].M - measure[0].dt - iZERO_POINT;
+
+PhotCat (measure)
+  returns the 'catalog' magnitude of the given Measure (best guess
+  given no other information like color):
+  Mcat = measure[0].M - iZERO_POINT + Klam*(measure[0].airmass - 1000) + photcodes[0].code[Np].C;
+
+PhotSys (measure, average, secfilt)
+  returns the 'system' magnitude of the given Measure (best guess
+  using existing color information, but without application of
+  relative photometry offsets):
+  Msys = Mcat + f(color)
+  color is derived from measure.photcode.c1,c2  (measure.source.c1,c2)
+
+PhotRel (measure, average, secfilt)
+  returns the 'relative' magnitude of the given Measure (best guess
+  using existing color information and current relative photometry
+  measurment for this image).  This is the same photometry system as
+  the Average (PRI/SEC) measurement equivalent to this measurement
+  photcode:
+  Mrel = Msys + measure[0].Mcal;
+  color is derived from measure.photcode.c1,c2  (measure.source.c1,c2)
+
+PhotCal (measure, average, secfilt, allmeasures, code)
+  returns the 'calibrated' magnitude of the given Measure (best guess
+  using existing color information and current relative photometry
+  measurment for this image transformed to the appropriate reference
+  photometry system):
+  Mcal = Mref + f(color)
+  color is derived from code.c1,c2
+  the provided code must be either the measure.photcode.equiv or an
+  alternate for that code.
+
+<p>
+consider two filters, B & V, and two CCDs 00 & 01.  also, reference
+data in B_L92, V_L92
+
+<pre>
+    N  photcode     type  Co      Ko       X    C1    C2    Ao     Color  Equivalent
+  100  CFH12K.B.00  dep   26.000 -0.15     -    B     V     0.1    -      B
+  101  CFH12K.B.01  dep   26.000 -0.15     -    B     V     0.0    -      B
+
+  200  CFH12K.V.00  dep   26.100 -0.15     -    B     V     0.0    -      V
+  201  CFH12K.V.01  dep   26.100 -0.15     -    B     V     0.1    -      V
+
+    1  B            pri    0.000  -        -    B_L92 V_L92 0.016  -      B_L92
+    2  V            sec    0.000  -        -    B_L92 V_L92 0.008  -      V_L92
+
+  1003 B_L92        ref    -      -        -    -     -     -      -      -
+  1004 V_L92        ref    -      -        -    -     -     -      -      -
+  
+  B = m + Co + Ko*(secz - 1) + Ao*(B - V)
+  B_L92 = B + Co + color*A0 + color^2*A1 + color^3*A2
+</pre>
+
+<b>changes I'd like to make related to photcodes</b>
+
+<li> use structure value 'photcode', not 'source' everywhere
+<li> better abstraction / conceptualization of PhotMode values (Inst, Rel, Abs, Sys)
+<li> N-order polynomial for color-fits
+
+<b> relevant programs </b>
+
+<table>
+<tr><td>* addrefs    </td><td> minor fixes, no conversions are used </td></tr> 
+<tr><td>* addspphot  </td><td> minor fixes, no conversions are used </td></tr> 
+<tr><td>* addstar    </td><td> minor fixes, no conversions are used </td></tr> 
+<tr><td>* delstar    </td><td> minor fixes, no conversions are used </td></tr> 
+<tr><td>* photcode   </td><td> probably ok, check is consistent with new (?) photcode structs </td></tr> 
+<tr><td>* photreg    </td><td> check consistency </td></tr> 
+<tr><td>* photsearch </td><td> check consistency, use photcode table to get Equivalent </td></tr> 
+<tr><td>* relphot    </td><td> signficant changes to handle new structures </td></tr>
+<tr><td>libohana     </td><td> update LoadPhotcodes funcs, check consistency, use photcode table to get Equivalent </td></tr> 
+<tr><td>photdbc      </td><td> signficant changes to handle new structures </td></tr>
+<tr><td>status       </td><td> signficant changes to handle new structures </td></tr>
+<tr><td>dvo          </td><td> repeat fixes in status </td></tr> 
+
+<tr><td>lightcurve </td><td> unused? </td></tr>
+</table>
+
+<b> basic photcode APIs </b>
+
+int LoadPhotcodes (char *filename);
+void SetZeroPoint (double ZP);
+
+PhotCode *GetPhotcodebyName (name);
+int       GetPhotcodeCodebyName (name);
+PhotCode *GetPhotEquivbyName (name);
+int       GetPhotEquivCodebyName (name);
+
+PhotCode *GetPhotcodebyCode (code);
+char     *GetPhotcodeNamebyCode (code);
+
+PhotCode *GetPhotEquivbyCode (code);
+int       GetPhotEquivCodebyCode (code);
+
+double PhotInst (Measure *measure);
+double PhotAbs (Measure *measure);
+double PhotCat (Measure *measure);
+double PhotSys (Measure *measure, Average *average, SecFilt *secfilt);
+double PhotRel (Measure *measure, Average *average, SecFilt *secfilt);
+double PhotAve (PhotCode *code, Average *average, SecFilt *secfilt);
+double PhotRef (PhotCode *code, Average *average, SecFilt *secfilt, Measure *measure);
+
+<b> examples </b>
+find measures which are of photcode equivalent to X
+if (GetPhotEquivCodebyCode (measure[0].source) == N1) { } 
+
+<b> code, entry, hashcode, hashNsec </b>
+entry = 1;
+photcode[entry].code = 100 
+photcode[entry].name = B
+hashcode[100] = 1;
+
+hashNsec is only valid for type PHOT_SEC:
+hashNsec[code] = Nsec entry in SecFilt table
+
+<b> note recursion relationships </b>
+hashcode[photcode[entry].code] = entry;
+photcode[hashcode[entry]].code = entry
+
+<b> outstanding questions / issues </b>
+
+<ul>
+<li> PhotSys needs to handle missing color values
+<li> define valid range for color?
+<li> double PhotFoo functions return what on NO_MAG?
+<li> PhotFoo functions need to check for valid input types:
+  <ul> 
+  <li> PhotInst - PHOT_DEP
+  <li> PhotAbs  - PHOT_DEP, PHOT_REF
+  <li> PhotCat  - PHOT_DEP, PHOT_REF
+  <li> PhotSys  - PHOT_DEP, PHOT_REF
+  <li> PhotRel  - PHOT_DEP, PHOT_REF
+  <li> PhotAve  - PHOT_PRI, PHOT_SEC
+  <li> PhotRef  - PHOT_PRI, PHOT_SEC
+  </ul>
+</ul>
+
+<b> phot definitions </b>
+PhotInst = Measure.M - dt - ZP 
+PhotCat  = Measure.M + K*(airmass-1) + C - ZP
+PhotSys  = Measure.M + K*(airmass-1) + C - ZP + X*color
+PhotRel  = Measure.M + K*(airmass-1) + C - ZP + X*color - Mcal  -> average.m
+PhotRef  = average.M + C + X*color 
+
+C: def ~ 26.0, pri ~ 0.0
+
+PhotAbs  = deprecate (measure.M + K*(airmass-1) + C - ZP
+
+<b> alt photcodes </b>
+
+photcodes of type ALT provide alternate calibration terms for a given
+photcode.  these codes are equivalent to primary/secondary codes, but
+no data is ever saved with this type.  There are only lookups between
+the photcode name and the photcode structure, never the photcode.code
+value, since that defines the photcode for which the given structure
+is an alternate relationship.
+

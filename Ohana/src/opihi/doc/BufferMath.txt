@@ -1,0 +1,46 @@
+
+Opihi has the main data types: scalar, vector, buffer.  these are all
+handled somewhat different, with different internal structures.  
+
+In most places, the buffer is essentially an image or a 2D matrix.
+However, it is not really restricted as such.  I recently (2015.01.16)
+updated dvomath operations to handle 3D images as well as 2D images.  
+
+Here are some of the places where the difference matters:
+
+* stack_math.c & vector OP matrix and matrix OP vector: these
+  operations are explicitly only valid for 2D matrices (and order
+  determines if the vector is applied to a row (vector first) or a
+  column (vector last).
+
+* stack_math.c & xramp(a) or yramp(a) : these only are applied to the
+  1st 2D plane of an N-D matrix
+
+* check_stack only tests Nx,Ny,Nz.  it probably ignores higher
+  dimensions, but probably does not disallow them.
+
+* concepts like A[x][y] only work for 2D buffers
+
+* lots of the functions which operate on buffers assume the buffer is
+  an image.  Most of the functions in cmd.astro would not be
+  well-defined for a higher-dimension object.  these should probably
+  at least test for 2D and exit / warn if the selected buffer is not
+  2D
+
+* for some of the functions in cmd.data, a higher-dimension object
+  could make sense, but is currently not allowed.  for example, tv A
+  could be extended to display a given slice.  
+
+* rd and wd should really be extended to allow read/write to/from a 3D
+  file.  actually, rd already can read a plane and wd used to be able
+  to write to a plane.  
+
+* some of the subset-like operations should be extended:
+
+  * mget, mset -- i've added mget3d, but a better abstraction would be
+    good
+   
+  * extract is a problem anyway
+
+  * dimendown and dimenup have similar issues
+

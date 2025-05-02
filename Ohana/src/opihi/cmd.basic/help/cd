@@ -1,0 +1,9 @@
+
+   cd (path)
+
+   change current working directory. 
+
+   Note that Kii or Kapa will be launched in the original 
+   directory, which means PS files created by Kii or Kapa 
+   will land in that directory (perhaps an unexpected result).
+

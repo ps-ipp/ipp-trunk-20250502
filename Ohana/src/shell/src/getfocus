@@ -1,0 +1,195 @@
+#!/bin/csh -f
+# load the file, determine bias and sky, then extract a subraster
+# write out the subraster 
+
+setenv PATH /bin:/usr/bin:/usr/local/bin:/usr/bin/X11:/apps/elixir/bin
+
+set tmpout=""
+set args=""
+while ("$1" != "") 
+ switch ($1)
+  case -output: 
+   shift
+   set tmpout=$1
+   breaksw;
+  case -*: 
+   goto usage
+   breaksw;
+  default:
+   set args=($args $1);
+   breaksw;
+ endsw
+ shift
+end
+
+if ($#args != 3) goto usage
+
+# kill off other processes with this name, and their children
+set procname=getfocus
+set list=`/bin/ps -eo pid,user,comm | awk -v n=$procname -v m=$$ '($3==n)&&($1!=m){print $1}'`
+foreach pid ($list)
+ echo "kill $pid"
+ set children=`/bin/ps -eo pid,ppid | awk -v p=$pid '($2==p){print $1}'`
+ kill $pid
+ foreach child ($children)
+   echo "kill $child"
+   kill $child
+ end
+end
+
+set fdir=$args[1]
+set name=$args[2]
+set mode=$args[3]
+
+# set script=/apps/elixir/config/mana/focus.pro
+set datdir  = `gconfig DATDIR`
+set confdir = `gconfig CONFDIR`
+set ccds    = `gconfig FOCUS-CCDS-LIST`
+set ccdn    = `gconfig FOCUS-CCDN-LIST`
+
+# sextractor needs full paths to:
+set sexconf = "$confdir/sextract/focus.sex"
+set sexpars = "$confdir/sextract/focus.param"
+set sexfilt = "$confdir/sextract/default.conv"
+set sexnnw  = "$confdir/sextract/default.nnw"
+
+set script  = "$confdir/mana/focus.pro"
+set output1 = "$datdir/plots/focus.unit.gif"
+set output2 = "$datdir/plots/$name.focus.gif"
+if ("$tmpout" != "") then 
+ set output1=$tmpout.ppm
+ set output2=$tmpout.gif
+endif
+
+# test named Xserver, or start vnc on specified machine
+set xhost = `gconfig XHOST.SUMMIT`
+set xdisp = `gconfig XDISP.SUMMIT`
+xdpyinfo -display $xdisp >& /dev/null
+if ($status) then
+  # X server is not running. start it now
+  echo "X server is not running. start it now"
+  exit 1;
+endif
+setenv DISPLAY $xdisp
+
+set temp=`mktemp /tmp/focus.XXXXXX`
+rm -f $temp
+
+if ("$mode" == "on") goto mef
+if ("$mode" == "off") goto split
+goto usage
+
+### SPLIT mode
+split:
+
+# make sure all four files exist
+foreach ccd ($ccdn)
+ block $fdir/$name/$name$ccd.fits -t 60 || goto failure;
+end
+
+# run sextractor on each chip
+foreach ccd ($ccdn)
+ sex $fdir/$name/$name$ccd.fits \
+    -c $sexconf \
+    -PARAMETERS_NAME $sexpars \
+    -FILTER_NAME     $sexfilt \
+    -STARNNW_NAME    $sexnnw \
+    -CATALOG_NAME    $temp.$ccd; \
+    mv $temp.$ccd $temp.sdat.$ccd &
+end
+
+# wait for results, extract stellar objects
+foreach ccd ($ccdn)
+ block $temp.sdat.$ccd -t 60 || goto failure;
+ awk '($6 > -14) && ($6 < -8) && ($4== 0){print $0}' $temp.sdat.$ccd | sort -k 6n | head -500 | sort -k 2n > $temp.$ccd.sdat
+ rm -f $temp.sdat.$ccd
+end
+# result i in $temp.$ccd.sdat ($ccd from $ccdn)
+
+# create mana script & run it
+rm -f $temp.pro
+set ccd = $ccdn[1]
+echo "input $script" >> $temp.pro
+echo "plotfocus $temp $temp.ppm $name $fdir/$name/$name$ccd.fits" >> $temp.pro
+mana --norc --only $temp.pro
+if ($status) goto failure
+
+# save resulting image for posterity
+ppmtogif < $temp.ppm > $output1
+cp $output1 $output2
+
+# cleanup temp files
+rm -f $temp $temp.sdat $temp.pro $temp.ppm
+foreach ccd ($ccdn)
+ rm -f $temp.$ccd.sdat $temp.$ccd.fits
+end
+exit 0;
+
+### MEF mode
+mef:
+ 
+# wait for file to appear
+block $fdir/$name.fits -t 60 || goto failure;
+
+# extract section of each image to $temp.$ccd.fits ($ccd in $ccdn)
+rm -f $temp.pro
+set i = 1
+while ($i <= $#ccds)
+ echo $i $ccds
+ set ccdnum = $ccdn[$i]
+ set ccdnam = $ccds[$i]
+ echo "input $script" >> $temp.pro
+ echo "split $fdir/$name.fits $ccdnam $temp.$ccdnum.fits" >> $temp.pro
+ @ i++
+end
+mana --norc --only $temp.pro
+
+# run sextractor on each chip
+foreach ccd ($ccdn)
+ sex $temp.$ccd.fits \
+    -c $sexconf \
+    -PARAMETERS_NAME $sexpars \
+    -FILTER_NAME     $sexfilt \
+    -STARNNW_NAME    $sexnnw \
+    -CATALOG_NAME    $temp.$ccd; \
+    mv $temp.$ccd $temp.sdat.$ccd &
+end
+
+# wait for results, extract stellar objects
+foreach ccd ($ccdn)
+ block $temp.sdat.$ccd -t 60 || goto failure;
+ awk '($6 > -14) && ($6 < -8) && ($4 == 0){print $0}' $temp.sdat.$ccd | sort -k 6n | head -500 | sort -k 2n > $temp.$ccd.sdat
+ rm -f $temp.sdat.$ccd
+end
+
+# create mana script & run it
+rm -f $temp.pro
+set ccd = $ccdn[1]
+echo "input $script" >> $temp.pro
+echo "plotfocus $temp $temp.ppm $name $temp.$ccd.fits" >> $temp.pro
+mana --norc --only $temp.pro
+if ($status) goto failure
+
+# save resulting image for posterity
+ppmtogif < $temp.ppm > $output1
+cp $output1 $output2
+
+# cleanup temp files
+rm -f $temp $temp.sdat $temp.pro $temp.ppm
+foreach ccd ($ccdn)
+ rm -f $temp.$ccd.sdat $temp.$ccd.fits
+end
+exit 0;
+
+failure: 
+ echo "****** error with focus ******"
+ rm -f $temp $temp.sdat $temp.pro
+ foreach ccd ($ccdn)
+  rm -f $temp.$ccd.sdat $temp.$ccd.fits
+ end
+ exit 1;
+
+usage:
+ echo "USAGE: getfocus (fdir) (file) (mode)"
+ echo "(mode) may be 'on' for mef, 'off' for split"
+ exit 2;

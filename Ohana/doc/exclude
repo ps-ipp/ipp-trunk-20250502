@@ -1,0 +1,4 @@
+find ohana -name "*.o" -print > exclude.files 
+find ohana -name "bin" -print >> exclude.files
+find ohana -name "*.a" -print >> exclude.files
+tar cvfX - exclude.files ohana | gzip > ohana.tgz.8.97 

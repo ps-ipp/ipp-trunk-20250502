@@ -1,0 +1,72 @@
+#!/usr/bin/env perl
+
+# warning: this function currently uses a fixed temporary name 'fix.NN.fits' 
+# for the intermediate product.  If we add this to elixir, convert to mktemp
+
+# need to assimilate the -c -C -D cmd line options -> env
+
+# check the usage
+if ($ARGV[0] eq "-h") { &usage (); }
+if ($ARGV[0] eq "-help") { &usage (); }
+if (@ARGV != 5) { &usage (); }
+
+# find the appropriate script file
+$confdir = `gconfig -q CONFDIR`; chop ($confdir);
+$script  = "$confdir/mana/scatter.pro";
+
+# run mana script:
+open (MANA, "|mana --norc");
+print MANA "input $script\n";
+print MANA "mkscat $ARGV[0] $ARGV[1] $ARGV[2] $ARGV[3] $ARGV[4]\n";
+print MANA "exit 1\n";
+close (MANA);
+print STDERR "exit statue: $?\n";
+if ($? == 2 * 256) { 
+    print STDERR "no scattered light term available\n"; 
+    exit 2;
+}
+if ($?) { die "ERROR problem with mkscat\n"; }
+
+print STDOUT "SUCCESS: finished with mkscat\n";
+exit 0;
+
+sub vsystem {
+    print STDERR "@_\n";
+    $status = system ("@_");
+    $status;
+}
+
+sub goodbye {
+    die "@_\n";
+}
+
+sub usage {
+    print "USAGE: mkscat (mosiac) (start) (stop) (filter) (ID)\n";
+    exit 1;
+}
+
+# mana within perl:  we embed the mana functions within a macro to trap the 
+# exit status.  If mana has an error with one of the steps, it will exit the macros and 
+# the second exit will be called. Otherwise, the "go" macro will perform the exit 0
+# and mana will exit with status 0
+
+# there are two possible flat-field photometric corrections: additive
+# and multiplicative:  
+# The correction images constructed by examining
+# the *difference* between dome-flats with and without the petals
+# covered is additive:  FLAT_new = (FLAT_old - SCAT) * A
+# (A is set to maintain the original normalization of chip 04)
+# 
+# The correction images constructed by examining stellar magnitude
+# difference is multiplicative: FLAT_new = (FLAT_old * SCAT) * A
+# (A is set to maintain the original normalization of chip 04)
+
+# there is a different scattered light image for each filter.
+# (these images are the same file for the additive version)
+
+# there should be no arbitrary normalization in the scattered frames
+# in the database. (we used to multiply the scattered light image by a
+# value of 10.0).  
+
+# images of the first class will be identified with the label scatter-A.0
+# images of the second class will be identified with the label scatter-B.0

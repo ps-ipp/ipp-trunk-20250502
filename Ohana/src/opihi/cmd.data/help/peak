@@ -1,0 +1,12 @@
+
+   peak [-q] (x) (y) [startx endx]
+
+   Determines the peak of the y vector between starx and endx
+    or between the extrema of the x vector (default)
+
+   -q: quiets the script (no output to the window)
+
+   Outputs:
+    $peakval: Value of the peak
+    $peakpos: X value corresponding to the peak value
+    $peaknum: Index of the peak value

@@ -1,0 +1,13 @@
+
+Here are the expected totals for PV1_V5 (LAP PV2):
+
+Camera detections : 122G [measured from gpc1 database directly, removing factor of 2 error]
+Stack objects: 2.5G [measured from a random sample of skycells]
+Total objects: 5.0G [generous guess]
+
+average: 168 byte / object * 5G = 840G
+secfilt: 152 byte / object / photcode * 9 (grizywJHK) * 5G = 6840G
+measure: 232 byte / detect * 122G det [camera] = 28304G
+         232 byte / detect * 2.5G obj * 85 det [warp] = 49300G
+lensing: 128 byte / detect * 2.5G obj * 85 det [warp] = 27200G
+lensobj: 136 byte / object / photcode * 2.5G obj * 5 (grizy) = 1700G

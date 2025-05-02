@@ -1,0 +1,24 @@
+
+2010.11.08 : DVO repairs
+
+  * I have made a dvorepair program that reconstructs cpt files from a valid cpm file
+
+  * the ThreePi.V1 database got busted; I think we have the following issues:
+
+    * cpt files which are short (and can be fixed with the command above)
+
+    * Image.dat has many image that have no matching detections (repeated dvomerge runs after the failure)
+
+    * a number of cpm files which are short : in this case, I believe
+      these files have all detections before the failure, but are
+      missing some of the detections from the failure. 
+
+  * repair step 1 : scan image IDs on the database : count the number
+    of detections for each image ID and find those image IDs which are
+    missing detections
+
+  * remove images that are missing their detections
+
+  * create repaired cpm files excluding the now-orphaned detections
+
+

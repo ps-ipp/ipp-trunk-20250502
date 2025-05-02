@@ -1,0 +1,98 @@
+#!/usr/bin/env perl
+
+# check the usage
+if (@ARGV != 2) { die "USAGE: fl.split2mef (file.master) (splitdir)\n" }
+
+# assign the command line arguments
+$master = $ARGV[0];
+$splitdir = $ARGV[1];
+
+open (FILE, "$master");
+@master = <FILE>;
+close (FILE);
+
+# master contains lines from both split and mef.  
+# convert all to split format, and write to root.mef
+# empty the split file, re-write the master file with new names.
+# when the new mef list is run through split.mef, only un-split entries 
+# will get split
+
+# /data/koa/cfh12k/01Ak05/587554f/587554f04.fits
+# /data/elixir2/cfh12k/detrend/01Ak04/split/582967f00.fits 1
+
+foreach $line (@master) {
+    
+    ($name, $mode) = split (" ", $line);
+
+    # test filename:
+    unless ($name =~ m|/\d\d\d\d\d\d\w\d\d.fits\Z|) {
+	print STDERR "Error with $name: not in split-name format\n";
+	next;
+    }
+
+    ($path, $root1, $root2, $ccd) = $name =~ m|(\S+)/(\d\d\d\d\d\d\w)/(\d\d\d\d\d\d\w)(\d\d).fits\Z|;
+    
+    # test for originally SPLIT image:
+    if ($root1 eq $root2) {
+	# check for existence of mef version file:
+	$new = sprintf "%s/%s.fits", $path, $root1;
+	if (! -e $new)  {
+	    print STDERR "Error, file $new is missing\n";
+	    exit 1;
+	}
+	@newmef = (@newmef, $new);
+
+	# create split version name:
+	$new = sprintf "%s/%s%02d.fits", $splitdir, $root1, $ccd;
+	@split = (@split, $new);
+	@splitmode = (@splitmode, $mode);
+	next;
+    }
+
+    # test for previously MEF -> SPLIT images: 
+    if ($root1 eq "split") {
+	@mef = (@mef, $name);
+	@mefmode = (@mefmode, $mode);
+	next; 
+    }
+    
+    print STDERR "Error with $name - neither split nor mef\n";
+}
+
+# empty *.split file
+$splitname = $master;
+$splitname =~ s/master\Z/split/;
+open (FILE, ">$splitname");
+close (FILE);
+
+# create *.mef file with new mefs (to be split)
+$mefname = $master;
+$mefname =~ s/master\Z/mef/;
+print STDERR "mefname: $mefname\n";
+open (FILE, ">$mefname");
+foreach $name (@newmef) {
+    print FILE "$name\n";
+}
+close (FILE);
+
+# save *.master file
+vsystem ("cp $master $master~");
+
+# re-create *.master file
+open (FILE, ">$master");
+@all = (@mef, @split);
+@allmode = (@mefmode, @splitmode);
+for ($i = 0; $i < @all; $i++) {
+    print FILE "$all[$i] $allmode[$i]\n";
+}
+close (FILE);
+
+sub vsystem {
+    print STDERR "@_\n";
+    $status = system ("@_");
+    $status;
+}
+
+sub goodbye {
+    die "@_\n";
+}

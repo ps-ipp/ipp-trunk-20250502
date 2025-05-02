@@ -1,0 +1,25 @@
+#!/usr/bin/env perl
+
+# Copyright (C) 2007  Joshua Hoblitt
+#
+# $Id: fakemagic,v 1.1 2007-11-05 23:29:54 jhoblitt Exp $
+
+use strict;
+use warnings FATAL => qw( all );
+
+use vars qw( $VERSION );
+$VERSION = '0.01';
+
+use Getopt::Long qw( GetOptions :config auto_help auto_version pass_through );
+use Pod::Usage qw( pod2usage );
+
+my ($output);
+GetOptions(
+    'output|o=s'    => \$output,
+) || pod2usage( 2 );
+
+pod2usage( -msg => "Required options: --output <filepath>", -exitval => 2 )
+        unless defined $output;
+
+open(my $fh, ">$output") or die "can't open file $output: $!";
+close($fh) or die "can't close file $output: $!";

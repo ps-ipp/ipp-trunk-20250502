@@ -1,0 +1,269 @@
+#!/usr/bin/env perl
+
+# grab the command line options
+$use_fringe = 0;
+$use_mask = 1;
+$fast = 0;
+$quiet = 0;
+$close = "";
+@tARGV = ();
+for (; @ARGV > 0; ) {
+    if ($ARGV[0] eq "-fast") {
+        $fast = 1;
+        shift; next;
+    }
+    if ($ARGV[0] eq "-quiet") {
+	$quiet = 1;
+        shift; next;
+    }
+    if ($ARGV[0] eq "-close") {
+	$close = "-close";
+        shift; next;
+    }
+    if ($ARGV[0] eq "-defringe") {
+	$use_fringe = 1;
+        shift; next;
+    }
+    if ($ARGV[0] eq "-nomask") {
+	$use_mask = 0;
+        shift; next;
+    }
+    @tARGV = (@tARGV, $ARGV[0]);
+    shift;
+}
+@ARGV = @tARGV;
+
+if (@ARGV != 4) { &usage; }
+
+# command line arguments
+$input  = $ARGV[0];
+$output = $ARGV[1];
+$ccd    = $ARGV[2];
+$mode   = uppercase ($ARGV[3]);
+
+ckpathname ($output);
+
+if ($fast) { &fast; } else { &complete; }
+exit 1;
+
+sub complete {
+    # find the appropriate flat-field image
+    $flat=`detsearch -quiet -image $input $ccd $mode -type flat $close`; chop ($flat);
+    if ($?) {
+	print STDERR "ERROR: can't get flat for image\n";
+	exit 1;
+    }
+    # find the appropriate bias image
+    $bias=`detsearch -quiet -image $input $ccd $mode -type bias $close`; chop ($bias);
+    if ($?) {
+	print STDERR "ERROR: can't get bias for image\n";
+	exit 1;
+    }
+    # find the appropriate dark image
+    $dark=`detsearch -quiet -image $input $ccd $mode -type dark $close`; chop ($dark);
+    if ($?) {
+	print STDERR "ERROR: can't get dark for image\n";
+	exit 1;
+    }
+
+    # find the appropriate mask image
+    $mask = "none";
+    if ($use_mask) {
+	$mask=`detsearch -quiet -image $input $ccd $mode -type mask $close`; chop ($mask);
+	if ($?) {
+	    print STDERR "ERROR: can't get mask for image\n";
+	    exit 1;
+	}
+    }
+
+    # abstracted keywords
+    $ccdkeyword  = `gconfig -q CCDNUM-KEYWORD`; chop ($ccdkeyword);
+    $darkword    = `gconfig -q DARKTIME-FUNCTION`; chop ($darkword);
+
+    # find the appropriate fringe frame & coords file
+    $fringe = "none";
+    $coordfile = "none";
+    if ($use_fringe) {
+	$exptimeword = `gconfig -q EXPTIME-KEYWORD`; chop ($exptimeword);
+	$filterword  = `gconfig -q FILTER-KEYWORD`; chop ($filterword);
+	$cameraword  = `gconfig -q CAMERA-KEYWORD`; chop ($cameraword);
+	$coordpath   = `gconfig -q FRINGE_COORD_PATH`; chop ($coordpath);
+
+	$ccdnum = `cameraconfig -N $ccd`;
+
+	# check the FILTER and EXPTIME, include fringe correction?:
+	$answer = `echo $input | fields $exptimeword $filterword $cameraword`;
+	($junk, $exptime, $filter, $camera) = split (" ", $answer);
+	# i need to do a look-up on the valid filter filternames (filtname)
+	$filter = uppercase ($filter);
+
+	$use_fringe = 0; 
+	# abstract this a bit: recipe gives guidance
+        # set defringe based on filter & exptime
+	if (($filter eq "I")     && ($exptime > 60)) { $use_fringe = 1; }
+	if (($filter eq "Z")     && ($exptime > 60)) { $use_fringe = 1; }
+	if (($filter eq "NB920") && ($exptime > 60)) { $use_fringe = 1; }
+
+	if ($use_fringe) {
+	    $fringe = `detsearch -quiet -image $input $ccd $mode -type fringe $close`; chop ($fringe);
+	    if ($?) {
+		print STDERR "ERROR: can't get fringe for image\n";
+		exit 1;
+	    }
+	    $coordfile = sprintf "%s/%s-%s-CCD%02d-FringeCoord.reg", $coordpath, $camera, $filter, $ccd;
+	}
+    }
+
+    # determine scale factor for dark image
+    $answer = `echo $input | fields $exptimeword`;
+    ($name, $t1) = split (" ", $answer);
+    $answer = `echo $dark | fields $exptimeword`;
+    ($name, $t2) = split (" ", $answer);
+    $darkfactor = `darktime.$darkword $t1 $t2`; chop ($darkfactor);
+
+    # find the appropriate script file
+    $confdir = `gconfig -q CONFDIR`; chop ($confdir);
+    $script  = "$confdir/mana/flatten.pro";
+    
+    # run mana, call script
+    open (MANA, "|mana --norc");
+    print MANA "input $script\n";
+    print MANA "\$CCDKEYWORD = $ccdkeyword\n";
+    print MANA "\$bias       = $bias\n";
+    print MANA "\$dark       = $dark\n";
+    print MANA "\$flat       = $flat\n";
+    print MANA "\$mask       = $mask\n";
+    print MANA "\$fringe     = $fringe\n";
+    print MANA "\$use:mask   = $use_mask\n";
+    print MANA "\$use:fringe = $use_fringe\n";
+    print MANA "\$darkfactor = $darkfactor\n";
+    print MANA "\$coordfile  = $coordfile\n";
+    print MANA "flatten.complete $input $output $ccd $mode\n";
+    print MANA "exit 1\n";
+    close (MANA);
+    if ($?) {
+	print STDERR "ERROR problem with imstats\n";
+	exit 1;
+    }
+    print STDOUT "SUCCESS: finished with imstats\n";
+    exit 0;
+}
+    
+sub fast {
+    # find the appropriate flat-field image
+    $flat=`detsearch -quiet -image $input $ccd $mode -type flat -close`; chop ($flat);
+    if ($?) {
+	print STDERR "ERROR: can't get flat for image\n";
+	exit 1;
+    }
+
+    # find the appropriate mask image
+    $mask = "none";
+    if ($use_mask) {
+	$mask=`detsearch -quiet -image $input $ccd $mode -type mask -close`; chop ($mask);
+	if ($?) {
+	    print STDERR "ERROR: can't get mask for image\n";
+	    exit 1;
+	}
+    }
+
+    # abstracted keywords
+    $ccdkeyword  = `gconfig -q CCDNUM-KEYWORD`; chop ($ccdkeyword);
+
+    # find the appropriate fringe frame & coords file
+    $fringe = "none";
+    $coordfile = "none";
+    if ($use_fringe) {
+	$exptimeword = `gconfig -q EXPTIME-KEYWORD`; chop ($exptimeword);
+	$filterword  = `gconfig -q FILTER-KEYWORD`; chop ($filterword);
+	$cameraword  = `gconfig -q CAMERA-KEYWORD`; chop ($cameraword);
+	$coordpath   = `gconfig -q FRINGE_COORD_PATH`; chop ($coordpath);
+
+	$ccdnum = `cameraconfig -N $ccd`;
+
+	# check the FILTER and EXPTIME, include fringe correction?:
+	$answer = `echo $input | fields $exptimeword $filterword $cameraword`;
+	($junk, $exptime, $filter, $camera) = split (" ", $answer);
+	# i need to do a look-up on the valid filter filternames (filtname)
+	$filter = uppercase ($filter);
+
+	$use_fringe = 0; 
+        # set defringe based on filter & exptime
+	if (($filter eq "I")     && ($exptime > 60)) { $use_fringe = 1; }
+	if (($filter eq "Z")     && ($exptime > 60)) { $use_fringe = 1; }
+	if (($filter eq "NB920") && ($exptime > 60)) { $use_fringe = 1; }
+
+	if ($use_fringe) {
+	    $fringe = `detsearch -quiet -image $input $ccd $mode -type fringe -close`; chop ($fringe);
+	    if ($?) {
+		print STDERR "ERROR: can't get fringe for image\n";
+		exit 1;
+	    }
+	    $coordfile = sprintf "%s/%s-%s-CCD%02d-FringeCoord.reg", $coordpath, $camera, $filter, $ccd;
+	}
+    }
+
+    # find the appropriate script file
+    $confdir = `gconfig -q CONFDIR`; chop ($confdir);
+    $script  = "$confdir/mana/flatten.pro";
+    
+    # run mana, call script
+    open (MANA, "|mana --norc");
+    print MANA "input $script\n";
+    print MANA "\$CCDKEYWORD = $ccdkeyword\n";
+    print MANA "\$flat       = $flat\n";
+    print MANA "\$mask       = $mask\n";
+    print MANA "\$fringe     = $fringe\n";
+    print MANA "\$use:mask   = $use_mask\n";
+    print MANA "\$use:fringe = $use_fringe\n";
+    print MANA "\$coordfile  = $coordfile\n";
+    print MANA "flatten.fast $input $output $ccd $mode\n";
+    print MANA "exit 1\n";
+    close (MANA);
+    if ($?) {
+	print STDERR "ERROR problem with imstats\n";
+	exit 1;
+    }
+    print STDOUT "SUCCESS: finished with imstats\n";
+    exit 0;
+}
+    
+sub vsystem {
+    print STDERR "@_\n";
+    $status = system ("@_");
+    $status;
+}
+
+sub goodbye {
+    die "@_\n";
+}
+
+sub usage {
+    print STDERR "USAGE: flatten.mana (input) (output) CCD MODE [-fast] [-close] [-quiet]\n";
+    exit 2;
+}
+
+sub uppercase {
+    return "\U$_[0]\E";
+}
+
+# given a filename, check that its path exists, create it if not
+sub ckpathname {
+    my ($file) = $_[0];
+    my (@words, $dir);
+
+    @words = split ("/", $file);
+    pop (@words);
+    $dir = join ("/", @words);
+
+    if ($dir eq "") { $dir = "."; }
+
+    if (! -d $dir) {
+	system ("mkdir -p $dir");
+	if ($?) {
+	    print STDERR "ERROR: can't make directory component for $file\n";
+	    exit 1;
+	}
+    }
+}
+

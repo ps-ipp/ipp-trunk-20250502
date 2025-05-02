@@ -1,0 +1,20 @@
+<pre>
+  list_astro
+
+  read a series of lines consisting of 4 columns.  the columns
+  represent the X,Y coordinate of a series of objects in first one
+  coordinate frame, then in a second coordinate frame.  list_astro
+  will return the linear transformation (and errors) from the first
+  frame to the second frame in the form:
+
+  X0 X1 X2 dX
+  Y0 Y1 Y2 dY
+
+  where
+
+  X = X0 + X1*x + X2*y
+  Y = Y0 + Y1*x + Y2*y
+
+  and dX and dY are the errors in the output coordinate frame.
+
+</pre>

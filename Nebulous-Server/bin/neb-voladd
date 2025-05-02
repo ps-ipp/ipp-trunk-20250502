@@ -1,0 +1,213 @@
+#!/usr/bin/env perl
+
+# Copyright (C) 2005-2008  Joshua Hoblitt
+#
+# $Id: neb-voladd,v 1.2 2008-10-01 21:05:57 jhoblitt Exp $
+
+use strict;
+use warnings FATAL => qw( all );
+
+use vars qw( $VERSION );
+$VERSION = '0.02';
+
+use DBI;
+use Nebulous::Server::SQL;
+use URI::file;
+use URI;
+
+use Getopt::Long qw( GetOptions :config auto_help auto_version );
+use Pod::Usage qw( pod2usage );
+
+my ($db, $dbhost, $dbuser, $dbpass, $mountpoint, $vname, $vhost, $uri, $note);
+
+$db     = $ENV{'NEB_DB'} unless $db;
+$dbhost = $ENV{'NEB_DBHOST'} || 'localhost';
+$dbuser = $ENV{'NEB_USER'} unless $dbuser;
+$dbpass = $ENV{'NEB_PASS'} unless $dbpass;
+
+GetOptions(
+    'db|d=s'            => \$db,
+    'host=s'            => \$dbhost,
+    'mountpoint|m=s'    => \$mountpoint,
+    'pass|p=s'          => \$dbpass,
+    'uri|u=s'           => \$uri,
+    'user|u=s'          => \$dbuser,
+    'vhost=s'           => \$vhost,
+    'vname|n=s'         => \$vname,
+    'note=s'            => \$note,
+) || pod2usage( 2 );
+
+pod2usage( -msg => "Unknown option: @ARGV", -exitval => 2 ) if @ARGV;
+pod2usage( -msg => "Required options: --db --user --pass --mountpoint --vname --vhost --uri", -exitval => 2 )
+    unless $db && $dbuser && $dbpass && $mountpoint && $vname && $vhost && $uri;
+
+my $dbh = DBI->connect(
+    # if you want to work with the localhost database but get socket path errors,
+    # you should set the server host as 127.0.0.1 (not localhost)
+
+    # the following tells DBI to read the mysql/my.cnf files
+    #  "DBI:mysql:database=$db:host=$dbhost:mysql_read_default_group=dbd_mysql",
+
+    "DBI:mysql:database=$db:host=$dbhost",
+    $dbuser,
+    $dbpass,
+    {
+        RaiseError => 1,
+        PrintError => 0,
+        AutoCommit => 1,
+    },
+);
+
+my $sql = Nebulous::Server::SQL->new();
+
+print "Checking URI...";
+
+my $path = URI->new($uri)->path;
+unless (-d $path) {
+    die "path: $path dirived from URI: $uri does not exist";
+}
+unless (-d $mountpoint) {
+    die "path: $mountpoint does not exist";
+}
+
+print " OK\n";
+
+print "Adding volume...";
+
+my $query = $dbh->prepare( $sql->new_volume );
+$query->execute( $vname, $vhost, $path, $mountpoint, $note);
+
+print " OK\n";
+
+__END__
+
+=pod
+
+=head1 NAME
+
+neb-voladd - add a storage volume to a Nebulous server
+
+=head1 SYNOPSIS
+
+    neb-voladd --vname <volume name> --vhost <host name> --uri <volume uri>
+    [--db <database>] [--user <username>] [--pass <password>] [--host <hostname]
+
+=head1 DESCRIPTION
+
+This program initialize a database for use by L<Nebulous::Server> by creating
+the appropriate set of tables.  Any pre-existing tables with conflicting names
+are first removed.
+
+=head1 OPTIONS
+
+=over 4
+
+=item * --vname <volume name>
+
+Symbolic name of volume being added.
+
+=item * --vhost <host name>
+
+Name of the host that containes the C<URI> of the volume being added. 
+
+=item * --uri|-u <volume uri>
+
+URI to the volume being added.
+
+=item * --db|-d <database>
+
+Name of database (C<namespace>) to create tables in.
+
+Optional if the appropriate environment variable is set.
+
+=item * --user|-u <username>
+
+Username to authenticate with.
+
+Optional if the appropriate environment variable is set.
+
+=item * --pass|-p <password>
+
+Password to authenticate with.
+
+Optional if the appropriate environment variable is set.
+
+=item * --host <database host>
+
+Name of host on which the database resides.
+
+Optional.  Defaults to C<localhost>.
+
+=item * --note <note>
+
+Add a note for this volume.
+
+=item * --mountpoint <path>
+
+Path to the mountpoint of the filesystem on which C<--uri> resides.
+
+=back
+
+=head1 ENVIRONMENT
+
+These environment variables may be used in place of the specified command line
+options.  All command line option will override the corresponding environment
+value.
+
+=over 4
+
+=item * C<NEB_DB>
+
+Equivalent to --db|-d
+
+=item * C<NEB_HOST>
+
+Equivalent to --host
+
+=item * C<NEB_USER>
+
+Equivalent to --user|-u
+
+=item * C<NEB_PASS>
+
+Equivalent to --pass|-p 
+
+=back
+
+=head1 CREDITS
+
+Just me, myself, and I.
+
+=head1 SUPPORT
+
+Please contact the author directly via e-mail.
+
+=head1 AUTHOR
+
+Joshua Hoblitt <jhoblitt@cpan.org>
+
+=head1 COPYRIGHT
+
+Copyright (C) 2005-2008  Joshua Hoblitt.  All rights reserved.
+
+This program is free software; you can redistribute it and/or modify it under
+the terms of the GNU General Public License as published by the Free Software
+Foundation; either version 2 of the License, or (at your option) any later
+version.
+
+This program is distributed in the hope that it will be useful, but WITHOUT ANY
+WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A
+PARTICULAR PURPOSE.  See the GNU General Public License for more details.
+
+You should have received a copy of the GNU General Public License along with
+this program; if not, write to the Free Software Foundation, Inc., 59 Temple
+Place - Suite 330, Boston, MA  02111-1307, USA.
+
+The full text of the license can be found in the L<perlgpl> Pod as supplied
+with Perl 5.8.1 and later.
+
+=head1 SEE ALSO
+
+L<Nebulous::Server>, L<neb-initdb>, L<neb-df>, L<nebdiskd>
+
+=cut

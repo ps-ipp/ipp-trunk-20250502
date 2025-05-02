@@ -1,0 +1,90 @@
+#
+# Good lines
+#
+
+item1            BOOL      T                # I am a boolean
+item2            S32       55               # I am int
+item3            F32       3.14
+item4            F64       6.28             # I am float
+item5            STR       GNIRTS           # I am a string
+item7            S64       555
+item8            S8        3
+itemu1           U16       2
+itemu2           U32       55
+itemu3           U8        1
+itemu4           U64       1634
+item9            BOOL      F                # I am a boolean2
+item10           S16       16
+@vector1  S8  1 2 3 4 5   # I am a vector
+@vector2  S16 1 2 3 4 5
+@vector3  S32 1 2 3 4 5
+@vector4  S64 1 2 3 4 5
+@vector5  U8  1 2 3 4 5   # I am a vector
+@vector6  U16 1 2 3 4 5
+@vector7  U32 1 2 3 4 5
+@vector8  U64 1 1
+@vector9  F32 1.0 2.3 3.1 4.5 5.0   # I am a vector
+@vector10 F64 1.0 2.0 3.0 4.0 5.0
+time01           TT        1970-01-01T00:16:39Z  # I am time
+time02           UTC       NULL     # I am time2
+
+f32 MULTI
+f32              S32       666              # f32_1
+f32              S32       665              # f32_2
+
+f32 METADATA
+    newi S32 151
+END
+
+metanew MULTI
+meta1 METADATA
+    itemS32   S32       666              # f32_1
+END
+
+metadata7  METADATA
+   ITEM01           S32       666
+   META_NEW  METADATA
+      @VECTORNEW S32 1 2 3 4 5   # Newest VECTOR
+      cell             STR       pStArRs          # I am a p-Star
+   END  # I am a metadata
+   ITEM02           F32       666.6            # I AM FLOAT
+   ITEM03           F64       666.666          # I AM DOUBLE
+END
+#item11           C32       16+2i            # I am Complex
+
+TYPE PS_TYPE_DD D
+DD2     PS_TYPE_DD   ""
+     TYPE  C32  3
+newC32      C32 7i+5
+
+#
+# Bad lines : 28 (-1 for the GOOD line in meta1) & 3 valid duplicates
+#
+item1            BOOL      F                # duplicate
+item8            S8        5                # duplicate
+item4-1          F64       6.28 1           # I am float
+item6            S32       10 1
+item6-1          S32       ~
+item7-1          S64       555 x
+item8-1          S8        5 1
+itemu1-1         U16       2 1
+itemu2-1         U32       55 1
+itemu3-1         U8        1 2
+itemu4-1         U64       1634 1
+item10-1         S16       16 16
+@vector1-1 S8 % #
+@@@vector12 F64 1.0 2.0 3.0 4.0 5.0
+@vector11 C64 1.0 2.0 3.0 4.0 5.0
+meta1 METADATA                              # duplicate
+    M2   S32       666  # this line is "GOOD" but parsed in the top level
+END
+newDD   PS_TYPE_DD
+TYPE            1
+TYPE
+TYPE         #  # 1
+     TYPE  C32  3
+     TYPE PS_TYPE_C32 2                 #
+newC32      PS_TYPE_C32 7i+5        # duplicate but with borken type
+ps1  S32  NAN
+f32 MULTI
+\n

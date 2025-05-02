@@ -1,0 +1,40 @@
+
+
+typedef struct {
+  char *buffer;
+  int   Nalloc;
+  int   Nmaxread;
+  int   Nextra;
+  int   Nlast;
+  int   Nbuffer;
+} Fifo;
+
+typedef struct {
+  int argc; char **argv; /* a list of words that define this object */
+  struct timeval start, accum, timer;
+  int   status;
+  char *logfile;
+  char *lastproc;
+} Object;
+
+typedef struct {
+  Object **object;
+  int    Nobject;
+  int    NOBJECT;
+} Queue;
+
+typedef struct {
+  char   *hostname;
+  int     rsock, wsock;
+  int     status; /* idle, busy, etc... */
+  struct  timeval start, accum, timer;
+  Fifo    fifo;
+  int     code;
+  Object *object;
+} Machine;
+
+
+currently, the transport is /usr/bin/rsh, defined in InitMachines.c 
+
+the shell on the remote machines is /bin/tcsh, defined by rconnect.c
+

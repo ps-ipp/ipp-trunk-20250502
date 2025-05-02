@@ -1,0 +1,41 @@
+
+  set (buffer) = expression..
+
+  perform math operations on images.  there are several allowed
+  operators.  the standard math functions are + - * /.  Exponentiation
+  is performed with ^ (set c = a ^ b).  There are several "logic"
+  operators which need some explanation.
+
+  set c = a < b  -- c is 1 if a < b, 0 otherwise
+  set c = a > b  -- c is 1 if a > b, 0 otherwise
+  set c = m1 & m1 - c is 1 if m1 AND m2 true (non-zero is true)
+  set c = m1 | m1 - c is 1 if m1 OR m2 true (non-zero is true)
+  set c = a << b -- c is the minimum of a and b
+  set c = a >> b -- c is maximum of a and b
+
+  complex operations may be performed:
+
+  set c = a*(a < b) + c*((a < c) | (c < d))
+
+  unary operators also exist:
+
+  exp(a) - e to the power of a
+  ten(a) - 10 to the power of a
+  ln(a) - log base e of a
+  log(a) - log base 10 of a
+  sqrt(a) - square root of a
+  sin(a) - sin of a
+  cos(a) - sin of a
+  tan(a) - sin of a
+  not(a) - logical inverse of a
+  abs(a) - absolute value of a
+  int(a) - integer value of a
+
+  Examples:
+  
+  set a = b + 10  (add 10 to every pixel in b and put the answer in a)
+  set a = a / b   (divide every pixel in a by the corresponding pixel
+                     b and put the answer in a)
+  set b = 10 / a  (divide 10 by every pixel in a and put the answer
+                     in b)
+

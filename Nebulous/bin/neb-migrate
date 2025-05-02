@@ -1,0 +1,182 @@
+#!/usr/bin/env perl
+
+# Copyright (C) 2007-2010  Joshua Hoblitt/Chris Waters
+
+use strict;
+use warnings FATAL => qw( all );
+
+use vars qw( $VERSION );
+$VERSION = '0.03';
+
+use Nebulous::Client;
+
+use Getopt::Long qw( GetOptions :config auto_help auto_version );
+use Pod::Usage qw( pod2usage );
+
+my (
+    $server,
+    $limit,
+    $dest_volume,
+    $no_pretend,
+#    $recursive,
+);
+
+$server = $ENV{'NEB_SERVER'} unless $server;
+
+die "this tool is probably too inefficient unless used very carefully";
+
+GetOptions(
+    'server|s=s'    => \$server,
+    'limit|l=s'     => \$limit,
+    'destination|d=s' => \$dest_volume,
+    'no_pretend'    => \$no_pretend,
+) || pod2usage( 2 );
+
+if ($limit && $limit <= 0) {
+    die "Limit must be positive.";
+}
+
+
+my $host = shift;
+
+pod2usage( -msg => "Unknown option: @ARGV", -exitval => 2 ) if @ARGV;
+pod2usage( -msg => "Required options: --server", -exitval => 2 )
+    unless $server;
+
+my $neb = Nebulous::Client->new(
+    proxy => "$server",
+);
+
+die "can't connected to Nebulous Server: $server"
+    unless defined $neb;
+
+# Find the keys on this volume.
+my $keys;
+if ($limit) {
+    $keys = $neb->find_ext_id_by_volume($host,$limit);
+}
+else {
+    $keys = $neb->find_ext_id_by_volume($host);
+}
+
+# Print the keys on this volume, and if we're not pretending, do the neb-shift code to move them off it.
+if ($keys) {
+    foreach my $src (@{ $keys }) {
+	print "$src";
+	if ($no_pretend) {
+	    print "\t";
+	    my $uris = $neb->find_instances($src, "~$host");
+	    unless (defined $uris) {
+		die "No copy of $src exists on $host";
+	    }
+	    
+	    my $status;
+	    if ($dest_volume) {
+		$status = $neb->replicate( $src, $dest_volume);
+	    }
+	    else {
+		$status = $neb->replicate($src);
+	    }
+	    die "Replicate phase failed for $src ($host) ($dest_volume)" unless $status;
+	    
+	    $status = $neb->cull($src,$host);
+	    
+	    warn "Cull phase failed for $src from $host" unless $status;
+	    
+	    print "Success!";
+	}
+	print "\n";
+    }
+}
+
+__END__
+
+=pod
+
+=head1 NAME
+
+neb-migrate - list Nebulous keys on a specific volume and move them off it
+
+=head1 SYNOPSIS
+
+    neb-migrate [--server <URL>] [--limit <N>] [--no_pretend] <volume>
+
+=head1 DESCRIPTION
+
+This program list Nebulous keys found on volume <<volume>>, and will move them 
+to another volume if requested to do so.  
+
+=head1 OPTIONS
+
+=over 4
+
+Optional
+
+=item * --limit
+
+Limit the number of results.
+
+=item * --no_pretend
+
+Actually move the files off of the specified host.
+
+=item * --destination|-d <dest_volume>
+
+Specify the destination volume for the keys moved.
+
+=item * --server|-s <URL>
+
+URL of the Nebulous server to connect to.
+
+Optional if the appropriate environment variable is set.
+
+=back
+
+=head1 ENVIRONMENT
+
+These environment variables may be used in place of the specified command line
+options.  All command line option will override the corresponding environment
+value.
+
+=over 4
+
+=item * C<NEB_SERVER>
+
+Equivalent to --server|-s
+
+=back
+
+=head1 SUPPORT
+
+Please contact the author directly via e-mail.
+
+=head1 AUTHOR
+
+Chris Waters <watersc1@ifa.hawaii.edu>
+
+=head1 COPYRIGHT
+
+Copyright (C) 2007-2010 Josh Hoblitt / Chris Waters.  All rights reserved.
+
+This program is free software; you can redistribute it and/or modify it under
+the terms of the GNU General Public License as published by the Free Software
+Foundation; either version 2 of the License, or (at your option) any later
+version.
+
+This program is distributed in the hope that it will be useful, but WITHOUT ANY
+WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A
+PARTICULAR PURPOSE.  See the GNU General Public License for more details.
+
+You should have received a copy of the GNU General Public License along with
+this program; if not, write to the Free Software Foundation, Inc., 59 Temple
+Place - Suite 330, Boston, MA  02111-1307, USA.
+
+The full text of the license can be found in the L<perlgpl> Pod as supplied
+with Perl 5.8.1 and later.
+
+=head1 SEE ALSO
+
+L<Nebulous::Server>, L<neb-initdb>, L<neb-addvol>, L<nebdiskd>, L<neb-df>,
+L<neb-touch>, C<regex(7)>
+
+=cut

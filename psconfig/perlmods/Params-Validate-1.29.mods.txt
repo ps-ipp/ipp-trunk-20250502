@@ -1,0 +1,15 @@
+      1 5.008001
+      1 Carp
+      1 Exporter
+      1 feature
+      1 Module::Implementation
+      1 Moose
+     12 Params::Validate
+      2 Params::Validate::Constants
+      5 PVTests
+      1 Scalar::Util
+     11 strict
+      6 Test::More
+      1 vars
+     11 warnings
+      1 XSLoader

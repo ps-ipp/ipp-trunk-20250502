@@ -1,0 +1,69 @@
+
+2008.06.11
+
+  Upgrade: add a virtual stack of the jobs and hosts so that the user
+  status queries do not need to block until the processing thread is
+  caught up.
+
+  
+
+2008.04.21 
+
+  I am having trouble with pcontrol managing the clients.  The
+  functions which call PclientCommand expect to see a complete
+  response in the same call.  However, latency in the client means, if
+  the client is super busy, that this interaction will either result
+  in dropped messages (which look like HUNG machines) or in long
+  blocks against the pantasks/pcontrol interface.  
+
+  A possible solution may be to break the functions which call
+  PclientCommand into a PclientCommand and a PclientResponse call.
+  The PclientCommand would send the command and report any comms
+  errors in that interaction (pipe closed, interrupts, etc).  It would
+  return immediately, pushing the 
+
+-- pcontrol / pclient interactions
+
+StartJob:
+xmt: job argv[0] argv[1] ...
+rcv: 
+ STATUS (PID)
+ pclient:
+
+CheckBusyJob:
+xmt: status
+rcv: 
+ EXITST N
+ STDOUT N
+ STDERR N
+ STATUS (value)
+ pclient:
+
+CheckDoneHost:
+xmt: reset
+rcv: 
+ STATUS (status)
+ pclient:
+
+CheckHost:
+xmt: echo OK
+rcv:
+ OK
+ pclient:
+
+KillJob:
+xmt: reset
+rcv: 
+ STATUS (status)
+ pclient:
+
+ResetJob:
+xmt: reset
+rcv: 
+ STATUS (status)
+ pclient:
+
+StopHost:
+xmt: ext
+rcv: 
+ Goodbye

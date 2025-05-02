@@ -1,0 +1,6 @@
+AT_SETUP([[% table.namespace %]Cleanup()])
+AT_KEYWORDS([[% table.namespace %]Cleanup])
+
+AT_CHECK([cleanup])
+
+AT_CLEANUP

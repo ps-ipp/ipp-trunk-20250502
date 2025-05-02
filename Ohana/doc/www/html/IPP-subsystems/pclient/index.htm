@@ -1,0 +1,50 @@
+<meta name=file  content=index>
+<meta name=title content=PCLIENT SUMMARY>
+<meta name=page  content=pclient summary>
+
+<tt>pclient</tt> is the remote process monitor for pcontrol, the parallel
+process controller.
+
+<h3>Overview</h3>
+
+<p>
+The program <tt>pclient</tt> is used to support the remote jobs which are
+run on the remote hosts by <tt>pcontrol</tt>.  The concept of pclient is to
+act as a buffer between the job running on the remote host and
+pcontrol.  The pcontrol design uses (by default) ssh connections
+initiated by pcontrol to the remote hosts.  These connections execute
+the remote program of pclient.  The use of a remote login process lets
+the UNIX system take care of the user authentication issues.  In this
+case, the recommended practice is to set up ssh to allow the
+connection to the remote host without additional authentication using
+the appropriate authorized keys (see <a href=ssh-issues>this
+article<a> on ssh issues).  
+
+<p>
+It is convenient to keep a continuous connection to the remote hosts.
+This avoids incurring the overhead of authentication for each command
+which is executed, while keeping a high-quality user authentication
+process in place.  
+
+<p>
+pclient acts as a buffer between pcontrol and the remote background
+process, allowing the continuous connection to remain viable without
+samping pcontrol with output from the jobs.  
+
+<h3>Command Summary</h3>
+
+<p>
+pclient has a very limited command set, as follows:
+
+<pre>
+job           : start the job (UNIX command) in the background.
+check         : return the current job status
+status        : return the current job status (?)
+stdout        : dump the stdout stream accumulated from the job
+                back to the calling program.
+stderr        : dump the stderr stream accumulated from the job
+                back to the calling program.
+reset         : kill (if needed) the job and reset to accept
+                another job.
+</pre>
+

@@ -1,0 +1,84 @@
+
+                                                         -- threadable?
+                                                         |
+  0.000673 sec NPEAK      0.00 msec / item (505)       - ? Find SatStars
+  0.231828 sec NPIX       0.00 msec / item (PIX)       - ? Replace Background
+  0.349591 sec NPIX       0.00 msec / item (2048*4096) - ? Background Model
+  0.609246 sec NPIX       0.00 msec / item (2048*4096) - ? Find Peaks
+  0.733840 sec NPIX       0.00 msec / item (2048*4096) - ? Find Peaks
+  6.076478 sec NPIX       0.00 msec / item (2048*4096) - ? Smooth Images
+  7.683749 sec NPIX       0.00 msec / item (2048*4096) - ? Smooth Image
+  0.003003 sec NPEAK      0.01 msec / item (505)       - ? Source Size
+  0.003934 sec NPEAK      0.01 msec / item (??)        - ? Source Sizes
+  0.019364 sec NPEAK      0.04 msec / item (505)       - ? Find Blends
+  0.045397 sec NPEAK      0.09 msec / item (??)        - ? Replaced Flux
+  0.046370 sec NPEAK      0.09 msec / item (505)       - ? Add Noise
+  0.046680 sec NPEAK      0.09 msec / item (505)       - ? Sub Noise
+  0.050980 sec NPEAK      0.10 msec / item (505)       - ? Replaced Flux
+  2.785612 sec NFOOT      0.27 msec / item (10455)     - ? Find Footprints
+  0.322163 sec NPEAK      0.64 msec / item (505)       - ? Rough Class
+  0.163793 sec NPEAK      0.66 msec / item (??)        - ? Rough Class
+  0.820221 sec NFOOT      1.40 msec / item (587)       - ? Find Footprints
+  2.311492 sec NPEAK      4.58 msec / item (??)        - ? Built Models
+  2.413531 sec NPEAK      4.78 msec / item (505)       - ? Build Models
+  1.635674 sec NPEAK      6.54 msec / item (??)        - ? Measure Moments
+  3.547435 sec NPEAK      7.02 msec / item (505)       - ? Measure Moments
+  8.118224 sec NSRCS      7.81 msec / item (1040)      - ? ApTrend
+  4.165990 sec NPEAK      8.25 msec / item (505)       - ? Fit PSF (linear)
+  4.294968 sec NPEAK      8.50 msec / item (505)       - ? Fit PSF (linear)
+  4.638916 sec NPEAK      9.19 msec / item (??)        - ? Fit PSF (linear)
+154.599482 sec NFOOT     14.79 msec / item (10455)     - ? Cull Footprints
+  1.259951 sec NPSF      17.75 msec / item (71)        - ? Fit PSF (non-linear)
+ 22.009468 sec NFOOT     37.49 msec / item (587)       - ? Cull Footprints: 
+ 15.069461 sec NPEAK     38.34 msec / item (393)       - ? Fit PSF (non-linear) + EXT (27) 
+  2.938324 sec NPSF      41.38 msec / item (71)        - ? Fit EXT (non-linear)
+  2.723019 sec NPSF      53.39 msec / item (51)        - ? PSF Residuals
+
+244.837692 sec    complete psphot run: 
+
+Note:
+
+* PSF Residuals is the most expensive per item, but will always be
+  performed on a limited number of items (typically < 300 PSF stars).
+  The maximum impact is thus limited.
+
+* The non-linear fitting is (not surprisingly) very expensive per
+  item, but again will only be performed on a limited subset (S/N >
+  20?).
+
+* The Cull Footprints is quite expensive per item, and has the serious
+  problem that it must be performed on all peaks.  This will dominate
+  all processing time unless we can address it.
+
+* The linear fitting in this example seems to surprisingly expensive
+  per item, but I think it is not quite accurate.  
+
+* ApTrend is only measured on a subset of the sources (S/N > XX, max
+  total number)
+
+* Measure Moments and Build Models are potentially a substantial drain
+  since these (probably) should be applied to all objects.  Moments is
+  currently being limited to brighter objects.  
+
+Thread strategies:
+
+
+* tests with wbb4.031117_0154.052.fits test -chip 7 : 
+
+* baseline: 
+    grow   : 18.313876 sec
+    merged : 18.772070 sec
+    total  : 26.958080 sec (dt = 8.18)
+
+* upgrade to remove psArrayRemove:
+    grow   : 18.327212 sec
+    merged : 18.778043 sec
+    total  : 25.553486 sec (dt = 6.78; ddt = 1.4)
+
+* recycle idImage:
+    grow   : 18.383393 sec
+    merged : 18.848875 sec 
+    total  : 24.721451 sec (dt = 5.88; ddt = 2.3)
+
+(no real difference??)
+

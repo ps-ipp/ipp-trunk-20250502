@@ -1,0 +1,529 @@
+#!/usr/bin/env perl
+
+if (@ARGV < 1) {
+    print STDERR "USAGE: fr.mklists -mode [args]\n";
+    &escape;
+}
+
+if ($ARGV[0] eq "help") {
+
+    print STDERR "fr.mklists -initial  CONFIG.split CONFIG.mef CONFIG.master\n";
+    print STDERR "fr.mklists -detrend  CONFIG.master CONFIG.detrend\n";
+    print STDERR "fr.mklists -defringe CONFIG.master CONFIG.defringe\n";
+    print STDERR "fr.mklists -imlist   TEMPLATE CONFIG.statlist [Nccd?]\n";
+    print STDERR "fr.mklists -mosaic   CONFIG.master proc name\n";
+    print STDERR "fr.mklists -master   CONFIG.detrend CONFIG.master\n";
+    print STDERR "fr.mklists -inlist   CONFIG.master 00 proc CONF-CCD.inlist\n";
+    print STDERR "fr.mklists -imstats  CONFIG.master 00 proc CONF-CCD.imstats\n";
+    print STDERR "fr.mklists -frstats  CONFIG.master proc CONF-CCD.imstats\n";
+    &escape;
+}
+
+@ccds = split (" ", `cameraconfig -ccdn`);
+if ($?) { die "error in config\n"; }
+
+$STAT_XCLD = 0;
+$STAT_KEEP = 1;
+$STAT_XDET = 2;
+$STAT_DETR = 3;
+
+# merge CONFIG.mef & CONFIG.split to CONFIG.master [starting status = 3]
+if ($ARGV[0] eq "-initial") {
+
+    if (@ARGV != 4) {
+	print STDERR "fr.mklists -initial CONFIG.split CONFIG.mef CONFIG.master\n";
+	&escape;
+    }
+
+    open (FILE, "$ARGV[1]");
+    @list1 = <FILE>;
+    close (FILE);
+
+    open (FILE, "$ARGV[2]");
+    @list2 = <FILE>;
+    close (FILE);
+
+    open (FILE, ">$ARGV[3]");
+    foreach $line (@list1) {
+	chop $line;
+	print FILE "$line $STAT_DETR\n";
+    }
+    foreach $line (@list2) {
+	chop $line;
+	print FILE "$line $STAT_DETR\n";
+    }
+    close (FILE);
+
+    if ((@list1 == 0) && (@list2 == 0)) {
+	print STDERR "no images available\n";
+	&escape;
+    }
+
+    &goodbye;
+}
+
+# convert CONFIG.master to CONFIG.detrend (status == XDET || DETR, strip status)
+if ($ARGV[0] eq "-detrend") {
+
+    if (@ARGV != 3) {
+	print STDERR "fr.mklists -detrend CONFIG.master CONFIG.detrend\n";
+	&escape;
+    }
+
+    open (FILE, "$ARGV[1]");
+    @list = <FILE>;
+    close (FILE);
+
+    open (FILE, ">$ARGV[2]");
+    foreach $line (@list) {
+	@words = split (" ", $line);
+	if (($words[3] == $STAT_XDET) || ($words[3] == $STAT_DETR)) {
+	    print FILE "$words[0] $words[1] $words[2]\n";
+	}
+    }
+    close (FILE);
+    &goodbye;
+}
+
+# convert CONFIG.master to CONFIG.defringe, used to generate input list to mode.fringe3
+if ($ARGV[0] eq "-defringe") {
+
+    if (@ARGV != 5) {
+	print STDERR "@ARGV\n";
+	print STDERR "fr.mklists -detrend CONFIG.master CONFIG TMPPATH CONFIG.defringe\n";
+	&escape;
+    }
+
+    $infile   = $ARGV[1];
+    $confline = $ARGV[2];
+    $tmppath  = $ARGV[3];
+    $outfile  = $ARGV[4];
+
+    open (FILE, "$infile");
+    @list = <FILE>;
+    close (FILE);
+
+    open (FILE, ">$outfile");
+    foreach $line (@list) {
+	($path, $root, $mode, $status) = split (" ", $line);
+	print FILE "$tmppath/$root $confline\n";
+    }
+    close (FILE);
+    &goodbye;
+}
+
+# use TEMPLATE to create a list with NCCD entries replacing CCDNUM
+if ($ARGV[0] eq "-imlist") {
+
+    if (@ARGV != 3) {
+	print STDERR "fr.mklists -detrend TEMPLATE CONFIG.defringe\n";
+	&escape;
+    }
+
+    open (FILE, ">$ARGV[2]");
+    foreach $ccd (@ccds) {
+	$name = $ARGV[1];
+	$name =~ s/CCDNUM/$ccd/;
+	print FILE "$name\n";
+    }
+    close (FILE);
+    &goodbye;
+}
+
+# use CONFIG.master to create Nimage lists, each called OUTDIR/root.WORDlist with
+# NCCD entries OUTDIR/root.WORD/rootNN.fits
+if ($ARGV[0] eq "-mosaic") {
+
+    if (@ARGV != 4) {
+	print STDERR "fr.mklists -mosaic CONFIG.master OUTDIR WORD\n";
+	&escape;
+    }
+
+    $infile = $ARGV[1];
+    $outpath = $ARGV[2];
+    $word = $ARGV[3];
+
+    open (FILE, $infile);
+    @inlist = <FILE>;
+    close (FILE);
+
+    foreach $name (@inlist) { 
+	($path, $root, $mode) = split (" ", $name);
+
+	$outfile = sprintf "%s/%s.%slist", $outpath, $root, $word;
+	
+	open (FILE, ">$outfile");
+	foreach $ccd (@ccds) {
+	    printf FILE "$outpath/$root.$word/$root$ccd.fits\n";
+	}
+	close (FILE);
+    }
+    &goodbye;
+}
+
+# use CONFIG.master to create OUTPUT list with Nimage lines: OUTDIR/root.WORD
+if ($ARGV[0] eq "-mlist") {
+
+    if (@ARGV != 5) { &escape ("USAGE: fr.mklists -mlist CONFIG.master OUTDIR WORD OUTPUT"); }
+
+    $infile   = $ARGV[1];
+    $outpath  = $ARGV[2];
+    $word     = $ARGV[3];
+    $outfile  = $ARGV[4];
+
+    open (FILE, $infile);
+    @inlist = <FILE>;
+    close (FILE);
+
+    open (FILE, ">$outfile");
+    foreach $name (@inlist) { 
+	($path, $root, $mode) = split (" ", $name);
+	$file = sprintf "%s/%s.%s", $outpath, $root, $word;
+	printf FILE "$file\n";
+    }
+    close (FILE);
+
+    &goodbye;
+}
+
+# merge data from master, med.imstats, def.imstats, datlist into a single file for the html scripts
+if ($ARGV[0] eq "-imstats") {
+
+    if (@ARGV != 6) {
+	print STDERR "fr.mklists -imstats CONFIG.master CONFIG.med.imstats CONFIG.def.imstats CONFIG.datlist CONFIG.imstats\n";
+	&escape;
+    }
+
+    $master  = $ARGV[1];
+    $medstat = $ARGV[2];
+    $defstat = $ARGV[3];
+    $datlist = $ARGV[4];
+    $output  = $ARGV[5];
+
+    open (FILE, "$master");
+    @master = <FILE>;
+    close (FILE);
+
+    open (FILE, "$medstat");
+    @medstat = <FILE>;
+    close (FILE);
+    if (@master != @medstat) { &escape ("mismatch in master & medstat lists"); }
+
+    open (FILE, "$defstat");
+    @defstat = <FILE>;
+    close (FILE);
+    if (@master != @defstat) { print STDERR "NOTE: no data in $defstat\n"; }
+
+    open (FILE, "$datlist");
+    @datlist = <FILE>;
+    close (FILE);
+    if (@master != @datlist) { &escape ("mismatch in master & datlist lists"); }
+
+    open (FILE, ">$output");
+    for ($i = 0; $i < @master; $i++) {
+	($path, $root, $mode, $status) = split (" ", $master[$i]);
+	
+	open (LIST, "$datlist[$i]");
+	$line = <LIST>;
+	close (LIST);
+	($obsid, $date, $time, $exptime) = split (" ", $line);
+
+	($S1, $F1, $dF1) = split (" ", $medstat[$i]);
+	if (@defstat) {
+	    ($S2, $F2, $dF2) = split (" ", $defstat[$i]);
+	}
+	$flux = $S1 / $exptime;
+
+	if (@defstat) {
+	    printf FILE "%8s %11s %12s %7.1f %6.2f %6.1f %6.1f %6.1f %6.1f %2d %2d\n", $obsid, $date, $time, $S1, $flux, $F1, $dF1, $F2, $dF2, $status, $status;
+	} else {
+	    printf FILE "%8s %11s %12s %7.1f %6.2f %6.1f %6.1f   N/A    N/A  %2d %2d\n", $obsid, $date, $time, $S1, $flux, $F1, $dF1, $status, $status;
+	}
+    }
+    close (FILE);
+    &goodbye;
+}
+
+# use CONFIG.master to create a subset of INPUT in OUTPUT
+if ($ARGV[0] eq "-subset") {
+
+    if (@ARGV != 4) { &escape ("USAGE: fr.mklists -subset CONFIG.master INPUT OUTPUT"); }
+
+    $master = $ARGV[1];
+    $input  = $ARGV[2];
+    $output = $ARGV[3];
+
+    open (FILE, $master);
+    @master = <FILE>;
+    close (FILE);
+
+    open (FILE, $input);
+    @input = <FILE>;
+    close (FILE);
+
+    if (@master != @input) { &escape ("mismatch in input & master file lengths"); }
+
+    open (FILE, ">$output");
+
+    for ($i = 0; $i < @master; $i++) {
+	$line = $master[$i]; chop $line;
+	($path, $root, $mode, $status) = split (" ", $line);
+	if ($status != $STAT_KEEP) { next; }
+
+	$file = $input[$i]; chop $file;
+	printf FILE "$file\n";
+    }
+    close (FILE);
+
+    &goodbye;
+}
+
+# use master, med.imstats, and statlist to create input list for fr.mkrough (file sky fringe 0 0)
+if ($ARGV[0] eq "-ccdstats") {
+
+    if (@ARGV != 6) { &escape ("USAGE: fr.mklists -ccdstats CONFIG.master CONFIG.med.imstats CONFIG.med.statlist CCD CONFIG.CCD.ccdstats"); }
+
+    $master   = $ARGV[1];
+    $imstats  = $ARGV[2]; # list of basic image stats
+    $statlist = $ARGV[3]; # list of image stat files (1 line per frame)
+    $ccd      = $ARGV[4];
+    $output   = $ARGV[5];
+
+    # $ccd = `cameraconfig -N $ccdid`;
+    # if ($ccd eq "") { &escape ("error in CCD ID"); }
+
+    open (FILE, $master);
+    @master = <FILE>;
+    close (FILE);
+
+    open (FILE, $imstats);
+    @imstats = <FILE>;
+    close (FILE);
+    if (@master != @imstats) { &escape ("mismatch in master & imstats file lengths"); }
+
+    open (FILE, $statlist);
+    @statlist = <FILE>;
+    close (FILE);
+    if (@master != @statlist) { &escape ("mismatch in master & statlist file lengths"); }
+
+    # find image with strongest fringe amplitude
+    $fringemax = "";
+    for ($i = 0; $i < @imstats; $i++) {
+	$line = $master[$i]; chop $line;
+	($path, $root, $mode, $status) = split (" ", $line);
+	if ($status != $STAT_KEEP) { next; }
+	
+	$line = $imstats[$i]; chop $line;
+	($SKY, $fringe, $dfringe) = split (" ", $line);
+	if ($fringemax eq "") { $fringemax = $fringe; }
+	if ($fringemax < $fringe) { $fringemax = $fringe; }
+    }
+    print "fringemax: $fringemax\n";
+
+    open (FILE, ">$output");
+    for ($i = 0; $i < @master; $i++) {
+	$line = $master[$i]; chop $line;
+	($path, $root, $mode, $status) = split (" ", $line);
+	if ($status != $STAT_KEEP) { next; }
+
+	$line = $imstats[$i]; chop $line;
+	($SKY, $fringe, $dfringe) = split (" ", $line);
+	$frnorm = $fringe / $fringemax;
+	# imcombred is not renormalizing: this will force fringe amplitude to a useful level
+
+	# file is list of fringe stats (1 line per chip)
+	$file = $statlist[$i]; chop $file;
+	open (STAT, "$file");
+	@stats = <STAT>;
+	close (STAT);
+
+	$line = $stats[$ccd];
+	($name, $sky) = split (" ", $line);
+	
+	# compare $sky with average sky $SKY?
+	$dsky = $sky - $SKY;
+	print FILE "$name $sky $frnorm\n";
+    }
+    close (FILE);
+
+    &goodbye;
+}
+
+# re-create master list, applying changes from detrend list 
+if ($ARGV[0] eq "-master") {
+
+    if (@ARGV != 3) {
+	print STDERR "fr.mklists -master CONFIG.master CONFIG.detrend\n";
+	&escape;
+    }
+
+    $master = $ARGV[1];
+    $detrend = $ARGV[2];
+
+    open (FILE, $master);
+    @master = <FILE>;
+    close (FILE);
+    foreach $name (@master) { chop ($name); }
+
+    open (FILE, $detrend);
+    @detrend = <FILE>;
+    close (FILE);
+    foreach $name (@detrend) { chop ($name); }
+
+    @remaster = ();
+  MASTER:
+    foreach $name (@master) {
+	($path, $root, $mode, $status) = split (" ", $name);
+	
+	if (($status == $STAT_XDET) || ($status == $STAT_DETR)) {
+	    # find entry in detrend list.  if it exists, set status to status - 2
+	  DETREND:
+	    foreach $dname (@detrend) {
+		($dpath, $droot, $dmode) = split (" ", $name);
+		if ($droot eq $root) {
+		    if ($status == $STAT_XDET) { $status = $STAT_XCLD; }
+		    if ($status == $STAT_DETR) { $status = $STAT_KEEP; }
+		    last DETREND;
+		}
+	    }
+	}
+
+	$new = "$path $root $mode $status";
+	@remaster = (@remaster, $new);
+    }
+
+    open (FILE, ">$master");
+    foreach $name (@remaster) { 
+	print FILE "$name\n";
+    }
+    close (FILE);
+    &goodbye;
+}
+
+# create list of input (detrended) frames for a single CCD for mkstats (status == 1)
+if ($ARGV[0] eq "-inlist") {
+
+    if (@ARGV != 5) {
+	print STDERR "fr.mklists -inlist CONFIG.master CCD TMPPATH CONF-CCD.inlist\n";
+	&escape;
+    }
+
+    $infile  = $ARGV[1];
+    $ccd     = $ARGV[2];
+    $tmppath = $ARGV[3];
+    $outfile = $ARGV[4];
+
+    open (FILE, "$infile");
+    @inlist = <FILE>;
+    close (FILE);
+
+    open (FILE, ">$outfile");
+    foreach $name (@inlist) { 
+	($path, $root, $mode, $status) = split (" ", $name);
+	if ($status != $STAT_KEEP) { next; }
+	
+	printf FILE "%s/%s.med/%s%s.fits\n", $tmppath, $root, $root, $ccd;
+    }
+    close (FILE);
+    &goodbye;
+}
+
+### this old -imstats will be replaced.
+# create list of input (detrended) frames for a single CCD for mkstats (status == 1)
+if ($ARGV[0] eq "-imstats") {
+
+    if (@ARGV != 5) {
+	print STDERR "fr.mklists -inlist CONFIG.master CCD TMPPATH CONF-CCD.imstats\n";
+	&escape;
+    }
+
+    $infile  = $ARGV[1];
+    $ccd     = $ARGV[2];
+    $tmppath = $ARGV[3];
+    $outfile = $ARGV[4];
+
+    open (FILE, "$infile");
+    @inlist = <FILE>;
+    close (FILE);
+
+    open (FILE, ">$outfile");
+    foreach $name (@inlist) { 
+	($path, $root, $mode, $status) = split (" ", $name);
+	if ($status != $STAT_KEEP) { next; }
+	
+	printf FILE "%s/%s.imstats\n", $tmppath, $root;
+    }
+    close (FILE);
+    &goodbye;
+}
+
+# create list of input stats files 
+if ($ARGV[0] eq "-frstats") {
+
+    if (@ARGV != 4) {
+	print STDERR "fr.mklists -frstats CONFIG.master TMPPATH CONF-CCD.imstats\n";
+	&escape;
+    }
+
+    $infile  = $ARGV[1];
+    $tmppath = $ARGV[2];
+    $outfile = $ARGV[3];
+
+    open (FILE, "$infile");
+    @inlist = <FILE>;
+    close (FILE);
+
+    open (FILE, ">$outfile");
+    foreach $name (@inlist) { 
+	($path, $root, $mode, $status) = split (" ", $name);
+	printf FILE "%s/%s.imstats\n", $tmppath, $root;
+    }
+    close (FILE);
+    &goodbye;
+}
+
+# create list of input stats files 
+if ($ARGV[0] eq "-maplist") {
+
+    if (@ARGV != 4) {
+	print STDERR "fr.mklists -maplist CONFIG.master TMPPATH CONFIG.maplists\n";
+	&escape;
+    }
+
+    $infile  = $ARGV[1];
+    $tmppath = $ARGV[2];
+    $outfile = $ARGV[3];
+
+    open (FILE, "$infile");
+    @inlist = <FILE>;
+    close (FILE);
+
+    open (FILE, ">$outfile");
+    foreach $name (@inlist) { 
+	($path, $root, $mode, $status) = split (" ", $name);
+	printf FILE "%s/%s.maplist 1\n", $tmppath, $root;
+    }
+    close (FILE);
+    &goodbye;
+}
+
+&escape ("unknown mode $ARGV[0]");
+
+###########################################################################
+
+sub vsystem {
+    print STDERR "@_\n";
+    $status = system ("@_");
+    $status;
+}
+
+sub escape {
+    print STDERR "ERROR: @_\n";
+    exit 1;
+}
+
+sub goodbye {
+    print STDERR "SUCCESS @_\n";
+    exit 0;
+}
+

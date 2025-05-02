@@ -1,0 +1,90 @@
+
+2012.01.18
+
+I have updated libdvo to define a flatcorr table, and have the APIs to
+read and write the table.  I have also updated setphot to load the
+ubercal measurements and to define the flatcorr table and links (from
+image -> flatcorr).  Now I need to understand where to include this in
+relphot.
+
+One option would be to include it as part of the function 'getMcal'.
+This function goes from (cat,meas) -> (image) to find the image zero
+point (Mcal).  It could also check for a photom_map_id value for that
+image, and include that in the calculation (if it exists).
+
+
+Another option would be to add a new function (getMmap or something)
+and to include this essentially everywhere getMcal is called.  
+
+2012.01.13
+
+Thinking it over, I've decided that the easiest way to move forward on
+the implementation is to define a second grid-like correction to
+represent the flat-field, and defer unifying the two (conceptually
+similar) things to the future.
+
+So, we start with infrastructure:
+
+* APIs to read and write the flat-field corrections
+
+  * how to represent the flat-field correction?
+    * each pixel as a row in a table?
+      * easy to do the file I/O (one table for all corrections)
+      * need to unwrap the values into correction[photcode][x][y]
+      * 
+    * each photcode as a FITS image extention?
+      * 
+    * each camera as a full image (like Grid)?
+    
+
+2012.01.12
+
+The Ubercal analysis gives me zero points along with flat-field
+corrections defined for certain time ranges as a function of
+fractional cell location.  I need to include equivalent information
+into the DVO tables, both to apply the ubercal values and to do
+equivalent fits.  This needs to be done in both relphot and setphot.
+(Other programs refer to the value of Mcal for each detection; only
+relphot and setphot modify or apply the image Mcal to the detection
+value).
+
+In setphot, the needed modification is in update_catalog_setphot,
+where the value of Mcal is set from the image.  This function needs to
+also look up the corresponding flat-correction and include it in that
+calculation.  It is also necessary to load the externally-defined
+description of the flat-correction and to determine which images go
+which which corrections.
+
+In relphot, we would like to be able to fit for the value of interest,
+as well as to apply the values loaded from the database.  
+
+In relphot:
+
+The survey-wide flat-field correction information is similar to the
+Grid that is currently used to calculate the flat-field correction
+terms, though there are some subtleties.  
+
+Currently, the grid analysis is a bit complicated by the way we relate
+the chip coordinates to the camera coordinates.  The main problem is
+that we do not do a good job of tracking which chip a detection comes
+from.
+
+GridOps loads a configuration table which describes the layout of the
+camera.  This means the relative orientations of each of the chips.
+Each chip is define by its ccdnum value and by its ccdname.  
+
+The code assigns the Grid bin by using the camera layout information
+to relate the chip X,Y position to the camera X,Y coordinate.  The
+grid cells are then defined as a function of camera coordinate. 
+
+This is not a terrible solution, but it conflates two things: the chip
+and position in the chip with the layout of the focal plane.  To solve
+or apply a flat-field term, we don't actually need to know anything
+about the location of the chip in the camera.  
+
+In other words, Grid[Xbin][Ybin] is currently a single array assuming
+a monotonic relationship between Xbin and Xchip, etc.  We could have
+Grid[chip][Xbin][Ybin], where Xbin and Ybin come directl from
+Xchip,Ychip and have a different function which converts the resulting
+image to a camera-coordinate system image.
+

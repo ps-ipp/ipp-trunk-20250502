@@ -1,0 +1,45 @@
+#!/bin/csh -f
+
+# check command-line arguments
+while ("$1" != "") 
+ switch ($1)
+  case -h:
+  case -help:
+  default:  
+   echo "USAGE: gettemps"
+   exit 1
+   breaksw;
+ endsw
+ shift
+end
+
+# find the appropriate script file
+set file=`gconfig TEMPERATURE_LOG`
+if ($status) then 
+ echo "configuration error: TEMPERATURE_LOG"
+ exit 1;
+endif
+
+set temp=`mktemp /tmp/teltemps.XXXXXX`
+set date=`date +%Y/%m/%d`
+cfhtlog -f $date -t "$date 23:59" -p 2,36,43,45 > $temp
+
+# mv is atomic - other processes won't miss the file
+mv -f $temp $file
+chmod 666 $file
+
+exit 0;
+
+# using dl_query gives a consistent output format regardless of 
+# whether it is recent or old DataLogger data
+
+# dl_now -p 4  | awk '(NR==2){print $0}' >  /tmp/teltemps.$$
+
+# data logger probe choices:
+#  2 surface temp, primary mirror west (silver)           deg celsius
+# 36 air temp, dome top ws side                           deg celsius
+# 43 air temp, 6' above 5th floor                         deg celsius
+# 45 air temp, 2" above 5th floor                         deg celsius
+
+# the complete list of data logger probes is found in:
+# /data/logger/www/probe.list

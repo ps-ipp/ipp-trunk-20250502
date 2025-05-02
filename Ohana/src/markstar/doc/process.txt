@@ -1,0 +1,69 @@
+
+hi chad,
+
+the process i use is a bit complex, but makes some reasonable
+comprimises about distance between points in a line and processing
+time.  
+
+First, the process I am about to describe is run on every "star" in
+the image.  However, the whole process gets speeded up in part because
+entries which are known stars can be ignored and entries which are
+already identified as part of a line associated with an earlier entry
+get ignored as well.  In fact, this step is done for a new part of the
+sky before the USNO stars are identified without much reduction in the
+processing speed, so the fact that you don't identify fixed stars in
+your data should not really be an issue.
+
+In the following, I use the term "star" to mean any detected object
+in the image frame.
+
+So, let me now discuss the process for a given test star, call it
+S(0).  
+
+The first step is to find likely directions with trails.  I first look
+at all other stars within a specific radius (say 100") around that
+star, call them S(i).  For each star S(i), I find the angle between
+S(i) and S(0).  I accumulate a histogram of these angles, a bin size
+of say a degree. (Note, both the Radius and the BinSize should be
+parameters that might change depending on the density of stars).  If
+any of the angle bins have a significant number of entries, then this
+is the likely direction of a trail.  There are three things to note
+about this process.  First, it makes processing the lists much quicker
+if you have the stars sorted by X or Y (or RA or DEC) and use that
+information in your search for the stars within 100".  Second, I
+define a significance cutoff for an angle bin based on the density of
+stars in the field (this is a useful parameter for all of the
+comparisons I discuss).  Once any of the angle bins surpasses the
+significance criterion, I stop searching around this test star and
+just work on the identified angle.  I assume that if the test star
+just happens to lie at the intersection of two lines, the other line
+will be identified by another test star.  Finally, the angle histogram
+only needs to run from 0 to 180, and angles in the range 180 to 360
+should be reflected back into the first half to increase the number
+statistics.  In general, your test star will be somewhere in the
+middle of a line.
+
+Once an angle of interest is found, I fit a line to all of the points
+in that angle bin, then narrow down improve the fit by refitting to
+all points within a fixed distance of the line.  You can itereate on
+the second step if the line is not well determined the first time
+around.  One point of interest:  for the line fits, if the angle of
+the line is 0 - 45 deg, I fit the line Y = mX + b, but if the angle is
+45 - 90 deg, I fit the line X = mY + b, to keep the slope near 1.  
+
+Once I have a good fit to a line, I try to decide if the line is
+really a trail or if it is just a coincidence of points.  I demand 
+both a minimum linear density of points in the line (related to the
+density of stars in the frame) and a minimum number of points in the
+line.  Another thing to watch out for is including points well beyond
+the end of the line which just happen to lie along the line.  I demand
+that the distance between points be less than some distance related to
+the linear density.  
+
+I hope this is a helpful description.  The routine I run is quite
+quick.  It takes about 10 seconds for a 1 degree region (about 10,000
+real stars) to do the line search, the bright star wings, and the
+search for ghosts on a 300 MHz Pentium II.  
+
+good luck
+gene

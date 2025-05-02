@@ -1,0 +1,12 @@
+
+addstar : all GSCRegion entries removed / moved to old
+delstar : all GSCRegion entries removed / moved to old
+markrock : needs a re-write, keep this program?  (is mini-mops)
+markstar : needs a major re-write.  does this have a future?
+opihi : all dropped / moved to old 
+	(used by some deprecated functions, re-write if these are reserrected)
+relphot : all GSCRegion entries removed / moved to old
+relastro : no real work has been done; take from relphot
+
+photdbc : needs re-write, what is the purpose?
+fixcat : needs re-write, what is the purpose?

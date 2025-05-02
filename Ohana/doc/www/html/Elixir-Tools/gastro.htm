@@ -1,0 +1,69 @@
+<meta name=file  content=gastro>
+<meta name=title content=gastro>
+<meta name=page  content=gastro>
+
+<p>
+The gastro program determines the astrometric transformation for an
+image based on the cmp/smp file.  This file contains both the table of
+object data and the complete image FITS header.  Using the header
+astrometric information as a starting point, gastro loads the
+reference astrometry objects appropriate for the region and determines
+the matching objects between the image and the reference.  These
+objects are used, with iteration to improve the sample, to determine
+the astrometric transformation with up to 3rd order polynomials.  
+
+<pre>
+gastro filtname.cmp
+options:
+  -h
+  -help
+  -v
+  -p (photcode)
+  -plot
+  -maglims
+  -nstars
+  -fx
+  -fy
+  -coords (ra) (dec)
+  -dump
+  -mdmp
+  -cdmp
+  -loneos
+
+gastro configuration variables:
+OFFSET_RADIUS     - max allowed offset in gcenter
+MIN_MATCHES       - min number of matched stars for linear fit
+MINIMUM_RADIUS    - target matching radius in gfit iterations
+MAX_ERROR         - maximum allowed error in solution
+MAX_NONLINEAR     - maximum angle between axes
+MAX_PRECISE       - unused?
+DEFAULT_RADIUS    - unused?
+
+ROUGH_ASTROMETRY  - source of initial astrometry terms
+
+CCD_PC1_1         - initial guess pc1_1
+CCD_PC2_2         - initial guess pc2_2
+CCD_PC1_2         - initial guess pc1_2
+CCD_PC2_1         - initial guess pc2_1
+ASEC_PIX          - initial guess arcsec / pix
+
+POLAR_ALIGNMENT   - provide polar alignment of telescope mount?
+POLAR_AXIS_RA     - RA of telescope polar axis
+POLAR_AXIS_DEC    - DEC of telescope polar axis
+RA_OFFSET         - RA offset
+DEC_OFFSET        - DEC offset (degenerate?)
+
+NFIELD            - select stars from region NFIELD x detector size
+NPOLYTERMS	  - number of orders to allow
+MMIN              - minimum magnitude of allowed star 
+ROT_ZERO          - zero of tested rotation range
+dROT              - rotation step size
+NROT              - number of rotation tests = 2NROT + 1
+GSCFILE           - name of HST GSC table file
+GSCDIR            - name of HST GSC data directory
+LONEOS_REGIONS    - table of location coordinates
+USNO_CDROM        - name of USNO data directory
+ASTRO_REFCAT      - reference catalog format to read
+CATDIR            - name of ptolemy database
+PHOTCODE_FILE     - table of photcodes 
+</pre>

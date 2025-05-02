@@ -1,0 +1,294 @@
+#!/usr/bin/env perl
+#
+# Data Store product  create and delete
+#
+
+use strict;
+use warnings;
+
+use Getopt::Long qw( GetOptions );
+use Pod::Usage qw( pod2usage );
+use DBI;
+use PS::IPP::Metadata::Config;
+use File::Copy;
+
+use Term::ReadKey;
+
+use PS::IPP::Config qw($PS_EXIT_SUCCESS
+		       $PS_EXIT_UNKNOWN_ERROR
+		       $PS_EXIT_SYS_ERROR
+		       $PS_EXIT_CONFIG_ERROR
+		       $PS_EXIT_PROG_ERROR
+		       $PS_EXIT_DATA_ERROR
+		       $PS_EXIT_TIMEOUT_ERROR
+		       metadataLookupStr
+		       metadataLookupBool
+		       caturi
+		       );
+my $product;
+
+# XXX allow group write permission. TODO: set group to something restrictive
+umask 2;
+
+my $ptype;
+my $description;
+
+my ($ps0, $ps1, $ps2, $ps3, $ps4, $ps5, $ps6, $ps7);
+
+my $dsroot;
+my $dbname;
+my $dbserver;
+my $dbpass;
+
+my $add;
+my $del;
+my $remove;
+
+my $we_created_dir = 0;
+
+GetOptions(
+        'add=s'         =>      \$add,
+        'del=s'         =>      \$del,
+	'type=s'	=>	\$ptype,
+        'description=s' =>      \$description,
+        'rm'            =>      \$remove,
+	'ps0=s'		=>	\$ps0,          # product specific columns 0 - 7
+	'ps1=s'		=>	\$ps1,
+	'ps2=s'		=>	\$ps2,
+	'ps3=s'		=>	\$ps3,
+	'ps4=s'		=>	\$ps4,
+	'ps5=s'		=>	\$ps5,
+	'ps6=s'		=>	\$ps6,
+	'ps7=s'		=>	\$ps7,
+        'dbname=s'      =>      \$dbname,
+        'dbserver=s'    =>      \$dbserver,
+        'dsroot=s'      =>      \$dsroot,
+) or pod2usage(2);
+
+my $err = "";
+
+# will exit if neither or both -add and -del were specified
+show_usage( "Must specify either --add or --del.")
+    unless $add xor $del;
+
+if ($add) {
+    $product = $add;
+    if (!$ptype) {
+        $err .= "need to specify Product type to add\n";
+    }
+    if (!$description) {
+        $err .= "need to specify Product description\n";
+    }
+
+} elsif ($del) {
+    $product = $del;
+    if (! -t STDIN) {
+        die "cannot delete product from script\n";
+    }
+    print "*** Delete the Data Store Product $product? ***\n";
+    print "*** to delete $product answer YES, and give password ***\n";
+    print "*** WARNING this action is permanant *** \n";
+    print "Delete? (YES/[n]): ";
+
+    my $line = ReadLine(0);
+    chomp $line;
+    exit 1 if !$line or ($line ne "YES");
+
+    print "password: ";
+    ReadMode('noecho');
+    $line = ReadLine(0);
+    ReadMode('normal');
+    print "\n";
+    chomp $line;
+    $dbpass = $line;
+}
+
+#
+# lookup the location of the Data Store
+#
+
+my $ipprc =  PS::IPP::Config->new(); # IPP Configuration
+my $siteConfig = $ipprc->{_siteConfig};
+if (!$dsroot) {
+    $dsroot = metadataLookupStr($ipprc->{_siteConfig}, 'DATA_STORE_ROOT');
+    if (!$dsroot) {
+        die("Data Store root directory not set");
+    }
+}
+
+my $root_index_script = "$dsroot/index.txt.template";
+if (!stat($root_index_script)) {
+    $err .= "Data Store not found at '$dsroot'.\n"
+}
+
+# bail if any of the above args were improper
+show_usage($err)
+    if ($err);
+
+$dbserver = metadataLookupStr($siteConfig, 'DS_DBSERVER') 
+    unless defined $dbserver;
+$dbname      = metadataLookupStr($siteConfig, 'DS_DBNAME')
+    unless defined $dbname;
+my $dbuser   = metadataLookupStr($siteConfig, 'DS_DBUSER');
+$dbpass   = metadataLookupStr($siteConfig, 'DS_DBPASSWORD') if !$dbpass;
+exit ($PS_EXIT_CONFIG_ERROR) unless defined $dbserver and $dbname and $dbuser and $dbpass;
+
+my $dsn = "DBI:mysql:host=$dbserver;database=$dbname";
+
+my $product_dir = "$dsroot/$product";
+my $index_script_name = "$product_dir/index.txt";
+
+if ($del) {
+    my $dbh = DBI->connect($dsn, $dbuser, $dbpass) or die "Cannot connect to server\n";
+    #
+    # delete product
+    #
+    my $stmt = $dbh->prepare("SELECT prod_id, last_fs FROM dsProduct WHERE prod_name = \'$product\'");
+    $stmt->execute();
+    my $prod_row = $stmt->fetchrow_hashref();
+
+    if (!$prod_row) {
+        die("product $product not found");
+    }
+    my $prod_id = $prod_row->{prod_id};
+
+
+    # loop over filesets in the product and delete them
+    $stmt = $dbh->prepare("SELECT fileset_id FROM dsFileset WHERE prod_id = $prod_id");
+    $stmt->execute();
+    my $fs_row;
+    while ($fs_row = $stmt->fetchrow_hashref()) {
+        my $fileset_id = $fs_row->{fileset_id};
+        $dbh->do("DELETE from dsFile where fileset_id = $fileset_id");
+        $dbh->do("DELETE from dsFileset where fileset_id = $fileset_id");
+    }
+    $dbh->do("DELETE from dsProduct where prod_id = $prod_id");
+
+    print "Product $product deleted.\n";
+
+    # if requested, remove the product directory
+    if ($remove) {
+        print "Removing files from $product.\n";
+        if (system "rm -r $product_dir") {
+            die("failed to remove $product_dir");
+        }
+    } else  {
+        # otherwise just zap the index script
+        unlink("$index_script_name");
+    }
+
+    exit 0;
+
+} else {
+    #
+    # add a new product
+    #
+    my $dbh = DBI->connect($dsn, $dbuser, $dbpass) or die "Cannot connect to server\n";
+
+    my $stmt = $dbh->prepare("SELECT prod_id FROM dsProduct WHERE prod_name = \'$product\'");
+    $stmt->execute();
+    my $row = $stmt->fetchrow_hashref();
+
+    if ($row) {
+        die("product $product already exists");
+    }
+
+    # set up the product directory
+    # if there is an old index file delete it
+    if (-e $index_script_name ) {
+        if (!unlink($index_script_name)) {
+            die("failed trying to remove old $index_script_name");
+        }
+    }
+    if (! -e $product_dir) {
+        $we_created_dir = 1;
+        if (!mkdir $product_dir) {
+            die("failed trying to make product directory $product_dir");
+        }
+    } else {
+        # directory alrady exists make sure that it's empty
+        my @dirlist = glob("$product_dir/*");
+        die ("existing product directory $product_dir is not empty") if scalar @dirlist;
+    }
+
+    if (!copy($root_index_script, $index_script_name)) {
+        print STDERR "failed trying to copy($root_index_script, $index_script_name)";
+        cleanup();
+        exit 1;
+    }
+
+    my $prodcolstr = make_prodcol_str($ps0, $ps1, $ps2, $ps3, $ps4, $ps5, $ps6, $ps7);
+
+    my $query = "INSERT INTO dsProduct (prod_name, last_update, type, description, " .
+                " prod_col_0, prod_col_1, prod_col_2, prod_col_3, prod_col_4, prod_col_5, prod_col_6, prod_col_7)" .
+                "VALUES('$product', UTC_TIMESTAMP(), '$ptype', '$description' $prodcolstr)"; 
+
+    my $count = $dbh->do($query);
+    if ($count == 0E0) {
+        print STDERR "failed to insert Product $product in database";
+        cleanup();
+        exit 1;
+    }
+
+
+
+    exit 0;
+}
+
+
+sub show_usage {
+    my $str = shift;
+
+    chomp $str;
+
+    my @tmp = split(/\//, $0);
+
+    pod2usage(
+        -msg => 
+"usage: $tmp[$#tmp] [--add prod_name |--del prod_name ] --type prod_type [options]
+
+Commands:
+
+    --add           Add a new Product
+    --del           Remove a Product.
+
+Options:
+    --type          Product type (required)
+    --description   Product Description (required)
+    --ps0 - ps7     Optional product specific data
+    --rm            with --del remove the Product directory from the Data Store
+    --dbname        select the Data Store's database name
+                    (usually required depending on configuration)
+
+
+    
+$str",
+        -exitval => 2
+    );
+}
+
+sub make_prodcol_str {
+
+    my @list = @_;
+    my $string = "";
+
+    foreach my $s (@list) {
+        if ($s) {
+            $string .= ", \'$s\'";
+        } else {
+            $string .= ", NULL";
+        }
+    }
+
+    return $string;
+}
+
+sub cleanup {
+    # don't delete the product directory unless we made it
+    if (!$we_created_dir) {
+        return 0;
+    }
+    if (system "rm -r $product_dir") {
+            print STDERR "failed to remove $product_dir";
+    }
+}

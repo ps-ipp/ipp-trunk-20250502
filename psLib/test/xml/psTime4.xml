@@ -1,0 +1,22 @@
+<?xml version="1.0"?>
+
+<!-- This configuration file specifies values required for time calculations by psLib -->
+<meta>
+
+    <!-- Directory for time tables -->
+    <item name = "psLib.time.S32.value" psType = "S32" value = "20" />
+    <item name = "psLib.time.F32.value" psType = "F32" value = "50324.42145" />
+    <item name = "psLib.time.F64.value" psType = "F64" value = "80112.48952" />
+    <item name = "psLib.time.BOOL.value" psType = "BOOL" value = "TRUE" />
+    <item name = "psLib.time.BOOL.value2" psType = "BOOL" value = "false" />
+    <item name = "psLib.time.BOOL.value3" psType = "BOOL" value = "t" />
+    <item name = "psLib.time.BOOL.value4" psType = "BOOL" value = "F" />
+    <vector name = "psLib.time.Vector.S32" psType = "S32" value = "-4, -2, 506"/>
+    <vector name = "psLib.time.Vector.F32" psType = "F32" value = "-0.4944, -0.00023, 53262.0"/>
+    <vector name = "psLib.time.Vector.F64" psType = "F64" value = "-0.4944, -0.00023, 53262.0"/>
+    <metadata name ="cell" psType="METADATA">
+      <item name = "EXTNAME" psType="STR" value = "CCD00" />
+      <item name = "BIASSEC" psType="STR" value = "BSEC-00" />
+    </metadata>
+    <item name = "psLib.time.tables.dir" psType = "STR" value = "../../data" />
+</meta>

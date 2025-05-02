@@ -1,0 +1,84 @@
+<meta name=file  content=detrend>
+<meta name=title content=detrend.db tools>
+<meta name=page  content=detrend>
+
+<table>
+<tr><td><b><tt> detregister (filename) [elixir options] </tt></b></td></tr>
+
+<tr><td> 
+
+Register a detrend image in the detrend database.  The image
+parameters are automatically loaded from the image header, but can be
+forced with command-line options if needed.  The database consists of
+a database table and a hierarchy of directories.  The registered image
+is copied to the directory structure, assigned an appropriate name
+based on the data type, and an entry added to the database table.
+Below, the command-line options are listed. The matched keyword define
+the header keywords used to automatically identify the values.
+Keywords starting with $ represent the configuration variables which
+provide abstract names to define the real keywords.  The idiosyncratic
+header filter name is converted to the Elixir internal filter name
+based on the filter name table $FILTER_LIST.
+
+<table>
+<tr><th> option               </th><th> equivalent keyword </th><th> description </th></tr>
+<tr><td> -time (start) (stop) </td><td> TV_START, TV_STOP  </td><td>
+<tr><td> -label (label)	      </td><td>	N/A		   </td><td>
+<tr><td> -ID (ID)	      </td><td>	N/A		   </td><td>
+<tr><td> -order (N)	      </td><td>	N/A		   </td><td>
+<tr><td> -type (type)	      </td><td>	$IMAGETYPE-KEYWORD </td><td>
+<tr><td> -ccd (ccdID)	      </td><td>	$CCDNUM-KEYWORD    </td><td>
+<tr><td> -exptime (seconds)   </td><td>	$EXPTIME-KEYWORD   </td><td>
+<tr><td> -filter (name)       </td><td>	$FILTER-KEYWORD	   </td><td>
+</table>
+</tr></td> 
+
+<tr><td><b><tt> detsearch [search options] [elixir options] </tt></b></td></tr>
+
+<tr><td> 
+
+Examine the contents of the detrend database, with options to filter
+the output.  
+
+<table>
+<tr><th colspan=2> options which limit the image selection </th></tr>
+<tr><td> -label (label)	       </td><td> select images by label </td><td>
+<tr><td> -ID (ID)	       </td><td> select images by ID    </td><td>
+<tr><td> -order (N)	       </td><td> select images by order </td><td>
+<tr><td> -type (type)	       </td><td> select images by type (FLAT, etc) </td><td>
+<tr><td> -mode (mode)	       </td><td> select images by mode (MEF, etc)  </td><td>
+<tr><td> -ccd (ccdID)	       </td><td> select images by CCD ID </td><td>
+<tr><td> -exptime (seconds)    </td><td> select images by exposure time </td><td>
+<tr><td> -filter (name)        </td><td> select images by filter </td><td>
+<tr><td> -time (time)          </td><td> select images for given point in time </td><td>
+<tr><td> -trange (start) (stop)</td><td> select images for given time range  </td><td>
+<tr><td> -entry (entry)        </td><td> select images by entry number </td><td>
+<tr><td> -match (number)       </td><td> select images by match number </td><td>
+<tr><td> -name (name)          </td><td> select images by name </td><td>
+<tr><td> -mosaic (filename)    </td><td> select images appropriate to given mosaic </td><td>                
+<tr><td> -image (file) (ccd) (mode)</td><td> select images appropriate to given CCD image </td><td>
+
+<tr><th colspan=2> options which modify the output format </th></tr>
+<tr><td> -tstop                </td><td> print stop time, not start time </td><td>
+<tr><td> -treg                 </td><td> print registration time, not start time </td><td>
+<tr><td> -ve                   </td><td> print SUCCESS / FAILURE on exit </td><td>
+<tr><td> -quiet                </td><td> do not print SUCCESS / FAILURE on exit </td><td>
+<tr><td> -fits (output)        </td><td> write ASCII FITS table (appropriate for CFHT-LS) </td><td>
+<tr><td> -binfits(output)      </td><td> write binary FITS table (can be used as database table) </td><td>
+<tr><td> -chipname             </td><td> provide chip-specific name for MEF entry (ie flat.fits[ccd00]) </td><td>
+
+<tr><th colspan=2> options which modify the behavior </th></tr>
+<tr><td> -select               </td><td> select 'best' detrend image, include complete path </td><td>
+<tr><td> -recipe               </td><td> select all detrend images in recipe for this filter </td><td>
+<tr><td> -h, --help            </td><td> list help information </td><td>
+<tr><td> -criteria             </td><td> list input criteria, not database entries </td><td>
+
+<tr><th colspan=2> options which modify the database table </th></tr>
+<tr><td> -delete, -del         </td><td> delete the selected images </td><td>
+<tr><td> -altpath add          </td><td> add selected images to altpath </td><td>
+<tr><td> -altpath del          </td><td> remove selected images from altpath </td><td>
+<tr><td> -altpath update       </td><td> update altpath value based on file existence </td><td>
+<tr><td> -modify               </td><td> modify selected database fields </td><td>
+</table>
+</tr></td> 
+

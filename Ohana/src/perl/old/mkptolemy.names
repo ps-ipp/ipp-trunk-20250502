@@ -1,0 +1,71 @@
+#!/usr/bin/env perl
+
+$Nccd = 12;
+
+if (@ARGV != 3) { die "USAGE: mkptolemy.names (name) (mode) (dir)\n" ;}
+
+$name = $ARGV[0];
+$mode = "\U$ARGV[1]\E";
+$dir = $ARGV[2];
+
+unless ($name =~ /^\d\d\d\d\d\d\w$/) {
+    print STDERR "name does not match the expected format 555555o\n";
+    exit 1;
+}
+
+for ($ccd = 0; $ccd < $Nccd; $ccd++) {
+
+    if ($mode eq "MEF") {
+	printf "%s/%s.fits %s/%s%02d %02d MEF\n", $dir, $name, $name, $name, $ccd, $ccd;
+    }
+
+    if ($mode eq "SPLIT") {
+	printf "%s/%s/%s%02d.fits %s/%s%02d %02d MEF\n", $dir, $name, $name, $ccd, $name, $name, $ccd, $ccd;
+    }
+
+}
+
+exit 0;
+
+###################################################################################
+
+sub vsystem {
+    print STDERR "@_\n";
+    $status = system ("@_");
+    $status;
+}
+
+sub goodbye {
+    die "@_\n";
+}
+
+sub get_jd {
+
+    my($year) = $_[0];
+    my($month) = $_[1];
+    my($day) = $_[2];
+
+    my($jd) = $day - 32075 + int (1461*($year + 4800 + int (($month - 14)/12))/4)
+	+ int(367*($month - 2 - int(($month - 14)/12)*12)/12)
+	    - int(3*int(($year + 4900 + int(($month - 14)/12))/100)/4) - 0.5;
+    
+
+    return ($jd);
+
+}
+
+sub get_mjd {
+
+    my($year) = $_[0];
+    my($month) = $_[1];
+    my($day) = $_[2];
+
+    my($jd) = $day - 32075 + int (1461*($year + 4800 + int (($month - 14)/12))/4)
+	+ int(367*($month - 2 - int(($month - 14)/12)*12)/12)
+	    - int(3*int(($year + 4900 + int(($month - 14)/12))/100)/4) - 0.5 - 2400000.5;
+    
+
+    return ($jd);
+
+}
+

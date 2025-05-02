@@ -1,0 +1,278 @@
+<meta name=title content=libohana API reference>
+<meta name=page  content=libohana API reference>
+
+<h2> generic ohana functions </h2>
+
+<h3> basic macros </h3>
+
+<pre>
+TRUE
+FALSE
+SIGN(X)  
+ROUND(X) 
+SQR(X)   
+SQ(X)    
+MIN(X,Y) 
+MAX(X,Y) 
+SWAP(X,Y) 
+whitespace (char c)
+</pre>
+
+<h3> ohana memory management functions </h3>
+
+<pre> 
+ALLOCATE (void *ptr, type, int Nalloc);
+REALLOCATE (void *ptr, type, int Nalloc);
+CHECK_REALLOCATE (void *ptr, type, int Nalloc, int Nused, int Ndelta);
+free (void *ptr); 
+
+void  ohana_memregister (void *ptr);
+void  ohana_memdump (int mode);
+void  ohana_memcheck (int mode);
+</pre>
+
+<h3> string manipulation functions (string.c) </h3>
+
+<pre> 
+int   get_argument (int argc, char **argv, char *arg);
+int   remove_argument (int Narg, int *argc, char **argv);
+char *strcreate (char *string);
+char *strncreate (char *string, int Nbytes);
+int   strnumcmp (char *str1, char *str2);
+int   stripwhite (char *string);
+int   scan_line (FILE *f, char *line);
+int   dparse (double *value, int Nentry, char *line);
+int   fparse (double *value, int Nentry, char *line);
+char *_parse_nextword (char *string);
+</pre>
+
+<pre> int get_argument (int argc, char **argv, char *arg); </pre>
+
+search argv, argc list (starting at argv[1]) for desired argument.
+returns entry number if found, 0 otherwise. 
+<hr>
+
+<pre> int remove_argument (int Narg, int *argc, char **argv); </pre>
+
+remove the given entry Narg from the argv list, adjusting argc
+appropriately. 
+<hr>
+
+<pre> int stripwhite (char *string); </pre>
+
+strip whitespace (space or tab) from start and end of string.
+<hr>
+
+<pre> int strnumcmp (char *str1, char *str2); </pre>
+
+compare str1 and str2 as strings, or as numbers if both are pure
+numeric values (base 10 only).  returns TRUE / FALSE.
+<hr>
+
+<h3> file system functions (findexec.c) </h3>
+
+<pre> 
+char *pathname (char *file);
+char *filerootname (char *file);
+char *fileextname (char *file);
+char *filebasename (char *file);
+char *findexec (int argc, char **argv);
+int   mkdirhier (char *path);
+char *getcwd_cfht (char *path, int size);
+void  make_backup (char *filename);
+int   Fseek (FILE *f, long offset, int whence);
+</pre>
+
+<h3> lockfile functions (glockfile.c) </h3>
+
+<pre> 
+FILE *fsetlockfile (char *filename, double timeout, int type, int *state);
+int   fclearlockfile (char *filename, FILE *f, int type, int *state);
+</pre>
+
+associated constants:
+
+<pre>
+LCK_SOFT - block writing
+LCK_XCLD - block reading and writing
+LCK_HARD - block reading and writing, persistent
+
+LCK_UNLOCK   - file is unlocked 
+LCK_ACCESS   - can't get access to file 
+LCK_TIMEOUT  - timeout setting lock 
+LCK_HARDLCK  - error setting hard lockfile 
+LCK_HUNLOCK  - error clearing hard lockfile 
+            
+LCK_EMPTY    - locked file is empty 
+LCK_FULL     - locked file is not empty 
+LCK_UNKNOWN  - can't stat file to get size 
+</pre>
+
+<h3> time / radec manipulation functions (time.c) </h3>
+
+<pre>
+int    dms_to_ddd (double *Value, char *string);
+int    str_to_radec (double *ra, double *dec, char *str1, char *str2);
+int    chk_time (char *line);
+int    str_to_time (char *line, time_t *second);
+int    str_to_dtime (char *line, double *second);
+double sec_to_jd (time_t second);
+time_t jd_to_sec (double jd);
+double sec_to_mjd (time_t second);
+time_t mjd_to_sec (double mjd);
+char  *sec_to_date (time_t second);
+time_t date_to_sec (char *date);
+time_t short_date_to_sec (char *date);
+int    hstgsc_hms_to_deg (double *h0, double *h1, double *d0, double *d1, char *string);
+</pre>
+
+<h3> functions in config.c </h3>
+
+<pre> 
+char *SelectConfigFile (int *argc, char **argv, char *progname);
+char *LoadConfigFile (char *filename);
+char *ScanConfig (char *config, char *field, char *mode, int Nentry, ...);
+char *expandline (char *line, char *config);
+char *LoadRawConfigFile (char *filename, int options);
+</pre>
+
+<h3> miscellaneous functions </h3>
+
+<pre> char *ohana_version (); </pre>
+
+<h2> DVO data structures and catalog I/O functions </h2>
+
+<h3> read/write (Fread.c) </h3>
+
+<pre> 
+int Fread (char ptr, int size, int nitems, FILE *f, char *type);
+int Fwrite (char ptr, int size, int nitems, FILE *f, char *type);
+int ByteSwap (char *ptr, int size, int nitems, char *type);
+int ConvertStruct (char *buffer, int size, int nitems, char *type);
+</pre>
+
+Several of these functions are used to perform byte-swapping for
+structures in the pre-autocode days.  They should be deprecated and
+dropped, but the autocoding must superceed the hard-wired structure
+first.
+
+<h3> coordinate structure manipulations (coordops.c) </h3>
+
+<pre> 
+int XY_to_RD (double *ra, double *dec, double x,  double y,   Coords *coords);
+int RD_to_XY (double *x,  double *y,   double ra, double dec, Coords *coords);
+int fXY_to_RD (float *ra, float *dec, float x,  float y,   Coords *coords);
+int fRD_to_XY (float *x,  float *y,   float ra, float dec, Coords *coords);
+int GetCoords (Coords *coords, Header *header);
+int coords_precess (double *ra, double *dec, double in_epoch, double out_epoch);
+</pre>
+
+<h3> photcode manipulations (LoadPhotcodes.c) </h3>
+
+<pre>
+int     LoadPhotcodes (char *filename, PhotCodeData *photcodes);
+int     FreePhotcodes (PhotCodeData *photcodes);
+
+PhotCode *GetPhotcodebyName (char *name);
+PhotCode *GetPhotcodeEquivbyName (char *name);
+PhotCode *GetPhotcodebyCode (int code);
+PhotCode *GetPhotcodeEquivbyCode (int code);
+PhotCode *GetPhotcodebyNsec (int Nsec);
+char     *GetPhotcodeNamebyCode (int code);
+
+int     GetPhotcodeCodebyName (char *name);
+int     GetPhotcodeEquivCodebyName (char *name);
+int     GetPhotcodeEquivCodebyCode (int code);
+int     GetPhotcodeNsec (int code);
+int     GetPhotcodeNsecfilt ();
+int      *GetPhotcodeEquivList (int code, int *nlist);
+
+void    SetZeroPoint (double ZP);
+void    ParseColorTerms (char *terms, float *X, int *N);
+
+int       PhotColor (Average *average, SecFilt *secfilt, Measure *measure, int c1, int c2, double *color);
+short   iPhotColor (Average *average, SecFilt *secfilt, Measure *measure, PhotCode *code);
+
+double  PhotInst (Measure *measure);
+double  PhotCat (Measure *measure);
+double  PhotSys (Measure *measure, Average *average, SecFilt *secfilt);
+double  PhotRel (Measure *measure, Average *average, SecFilt *secfilt);
+double  PhotCal (Measure *thisone, Average *average, SecFilt *secfilt, Measure *measure, PhotCode *code);
+double  PhotAve (PhotCode *code, Average *average, SecFilt *secfilt);
+double  PhotRef (PhotCode *code, Average *average, SecFilt *secfilt, Measure *measure);
+double  PhotdM (PhotCode *code, Average *average, SecFilt *secfilt);
+double  PhotXm (PhotCode *code, Average *average, SecFilt *secfilt);
+
+short   iPhotInst (Measure *measure);
+short   iPhotCat (Measure *measure);
+short   iPhotSys (Measure *measure, Average *average, SecFilt *secfilt);
+short   iPhotRel (Measure *measure, Average *average, SecFilt *secfilt);
+short   iPhotCal (Measure *thisone, Average *average, SecFilt *secfilt, Measure *measure, PhotCode *code);
+short   iPhotAve (PhotCode *code, Average *average, SecFilt *secfilt);
+short   iPhotRef (PhotCode *code, Average *average, SecFilt *secfilt, Measure *measure);
+short   iPhotdM (PhotCode *code, Average *average, SecFilt *secfilt);
+short   iPhotXm (PhotCode *code, Average *average, SecFilt *secfilt);
+</pre>
+
+<h3> photometry catalog I/O functions (phot_catalog.c) </h3>
+
+<pre>
+int lock_catalog (Catalog *catalog, int lockmode);
+int unlock_catalog (Catalog *catalog);
+int load_catalog (Catalog *catalog, char mode, int VERBOSE);
+int save_catalog (Catalog *catalog, char VERBOSE);
+</pre>
+
+<h3> DVO format conversions (dvo_convert.c) </h3>
+
+<pre>
+Measure *FixOldMeasure (OldMeasure *in, int Nvalues); 
+Average *FixOldAverage (OldAverage *in, int Nvalues); 
+SecFilt *FixOldSecFilt (OldSecFilt *in, int Nvalues); 
+</pre>
+
+<h3> image type / mode lookups (imreg_datatypes.c) </h3>
+
+<pre>
+int   get_image_type (char *name); 
+char *get_type_name (int type); 
+int   get_image_mode (char *name); 
+char *get_mode_name (int mode); 
+</pre>
+
+<h3> mosaic astrometry functions (mosaic_astrom.c) </h3>
+
+<pre>
+int FindMosaicForImage (Image *images, int Nimages, int entry); 
+int FindMosaicForImage_TableSearch (Image *images, int Nimages, int entry); 
+int FindMosaicForImage_MatchSearch (Image *images, int Nimages, int entry); 
+int BuildChipMatch (Image *images, int Nimages); 
+</pre>
+
+<h3> FITS DB I/O functions (fits_db.c) </h3>
+
+<pre>
+int fits_db_init (FITS_DB *db); 
+int fits_db_create (FITS_DB *db); 
+int fits_db_lock (FITS_DB *db, char *filename); 
+int fits_db_load (FITS_DB *db); 
+int fits_db_save (FITS_DB *db); 
+int fits_db_update (FITS_DB *db, VTable *vtable); 
+int fits_db_free (FITS_DB *db); 
+int fits_db_close (FITS_DB *db); 
+</pre>
+
+<h3> functions in photfits.c </h3>
+
+<pre>
+short int putMi (double value); 
+double getMi (short int value); 
+void returnMcal (Image *image, double *c); 
+void assignMcal (Image *image, double *c, int order); 
+double applyMcal (Image *image, double x, double y); 
+double findscatter (double *X, double *Y, double *M, double *dM, int N, double *c, int order); 
+</pre>
+
+These functions manipulate the high-order polynomial fit of magnitude
+offset as a function of image position for the Image structure.
+

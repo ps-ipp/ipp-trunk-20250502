@@ -1,0 +1,20 @@
+bool [% table.namespace %]SelectRowsFits(psDB *dbh, psFits *fits, const psMetadata *where, unsigned long long limit)
+{
+    psArray         *rowSet;
+
+    rowSet = psDBSelectRows(dbh, [% table.namespace FILTER upper %]_TABLE_NAME, where, limit);
+    if (!rowSet) {
+        return false;
+    }
+
+    // output to fits
+    if (!psFitsWriteTable(fits, NULL, rowSet, [% table.namespace FILTER upper %]_TABLE_NAME)) {
+        psError(PS_ERR_UNKNOWN, false, "FITS table write failed");
+        psFree(rowSet);
+        return false;
+    }
+
+    psFree(rowSet);
+
+    return true;
+}

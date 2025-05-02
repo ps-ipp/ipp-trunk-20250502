@@ -1,0 +1,12 @@
+
+# example of running dvomerge:
+# RADIUS : set the correlation radius in arcsec
+# SKY_DEPTH : set the subdivision depth for the output database sky partitioning
+# CATFORMAT : set the output database format (PS1_REF is a minimal format, not appropriate for observation data)
+dvomerge catdir.2mass and catdir.grizy to catdir.test -D RADIUS 1.0 -D SKY_DEPTH 3 -D CATFORMAT PS1_REF
+
+# the merged db is not sorted : resort before doing other work
+addstar -resort -D CATDIR catdir.test -v
+
+# the averages are carried from the first database: recalculate:
+relphot -D CATDIR catdir.test -averages -update -statmode MEAN

@@ -1,0 +1,7 @@
+
+  simage (filename)
+
+  plot the positions of stars in a CMP file.  This function is a
+  useful test for image comparisons, and astrometry must be determined
+  before the function is run.
+

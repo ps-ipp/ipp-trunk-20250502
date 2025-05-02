@@ -1,0 +1,10 @@
+[% USE format -%]
+[% indented = format('%-15s %-20s') -%]
+/** Convert a [% table.object_name %] into an equivalent psMetadata
+ *
+ * @return A psMetadata pointer or NULL on error
+ */
+
+psMetadata *[% table.namespace %]MetadataFromObject(
+    [% indented("const $table.object_name", "*object") %]///< fooRow to convert into a psMetadata
+);

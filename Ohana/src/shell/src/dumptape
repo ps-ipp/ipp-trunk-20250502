@@ -1,0 +1,81 @@
+#!/bin/csh
+
+# possible machines:
+# druid /dev/dlt
+
+# set dumpdir=/data/elixir2/eugene/archive/raw
+set dumpdir=.
+set host=`hostname | awk -F. '{print $1}'`
+set tape=""
+
+if ("$host" == "druid") then
+ set tape=/dev/dlt
+endif
+if ("$host" == "hoku") then
+ set tape=/dev/rmt/0mn
+endif
+if ("$host" == "kapu") then
+ set tape=/dev/rmt/0mn
+endif
+
+if ("$tape" == "") then
+ echo "ERROR: must use dumptape on druid, hoku, or kapu"
+ exit 1
+endif
+
+mt -f $tape stat
+
+echo "type 'y' to continue"
+
+set n=$<
+
+if ("$n" == "y") then
+ echo "continuing"
+else
+ echo "stopping"
+ exit 
+endif
+
+cd $dumpdir
+set dname=`date +%m%d%H`
+echo $dname
+
+set temp1=/tmp/dumptape.1.$$
+set temp2=extracted.$host.$dname.list
+set temp3=deleted.$host.$dname.list
+
+rm -f temp1
+
+set i=1
+
+while ($i < 32)
+ echo $i
+ tar xvf $tape >>& $temp1
+ if ($status) goto finish
+ mt -f $tape fsf
+ if ($status) goto finish
+ @ i++
+end
+
+finish:
+
+mt -f $tape rewind
+mt -f $tape offline
+
+mail eugene << END
+ done with tape on $host
+END
+ 
+grep fits $temp1 | awk '{s=index($0,"fits")}{n=substr($0,s-8,7)}{printf "%s.fits\n", n}' | fields INSTRUME | awk '($2=="CFH12K"){print $0}' > $temp2
+grep fits $temp1 | awk '{s=index($0,"fits")}{n=substr($0,s-8,7)}{printf "%s.fits\n", n}' | fields INSTRUME | awk '($2!="CFH12K"){print $0}' > $temp3
+
+foreach f (`awk '{print $1}' $temp3`) 
+ rm -f $f
+end
+
+# foreach f (`awk '{print $1}' $temp2`) 
+#  imsort $f -C config info here on this line
+# end
+
+rm -f $temp1
+

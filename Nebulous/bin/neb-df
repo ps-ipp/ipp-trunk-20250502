@@ -1,0 +1,230 @@
+#!/usr/bin/env perl
+
+# Copyright (C) 2007  Joshua Hoblitt
+#
+# $Id: neb-df,v 1.6 2008-05-07 00:33:18 jhoblitt Exp $
+
+use strict;
+use warnings FATAL => qw( all );
+
+use vars qw( $VERSION );
+$VERSION = '0.01';
+
+use Nebulous::Client;
+
+use Getopt::Long qw( GetOptions :config auto_help auto_version );
+use Pod::Usage qw( pod2usage );
+
+my ($server,$names);
+
+$server = $ENV{'NEB_SERVER'} unless $server;
+
+GetOptions(
+    'server|s=s'    => \$server,
+    'names'         => \$names,
+) || pod2usage( 2 );
+
+my $pattern = shift;
+
+pod2usage( -msg => "Unknown option: @ARGV", -exitval => 2 ) if @ARGV;
+pod2usage( -msg => "Required options: --server", -exitval => 2 )
+    unless $server;
+
+my $neb = Nebulous::Client->new(
+    proxy => "$server",
+);
+
+die "can't connected to Nebulous Server: $server"
+    unless defined $neb;
+
+my $stats = $neb->mounts();
+
+# output a summary of the information in a vaguely POSIX df like format
+print "Filesystem           1K-blocks      Used Available Use% Mounted on\n";
+
+my $total_total = 0;
+my $total_used  = 0;
+my $allocated_total = 0;
+my $allocated_used = 0;
+foreach my $row (@$stats) {
+    my %vol;
+    @vol{qw(mountpoint total used vol_id name host path allocate available xattr)}
+        = @$row;
+    my $path        = $vol{host};
+    if ($names) {
+        $path = $vol{name};
+    }
+
+    my $total       = $vol{total};
+    $total_total    += $total;
+    my $used        = $vol{used};
+    $total_used     += $used;
+    my $available   = $total - $used;
+    my $usedper     = ($used / ($total+1)) * 100;
+    my $mountpoint  = $vol{mountpoint};
+
+    if ($vol{allocate} == 1) {
+        $allocated_total += $total;
+        $allocated_used += $used;
+    }
+    # indicated the part of the nebulous volume name that matches up with a
+    # local volume (mountpoint)
+    #$path =~ s/$mountpoint/[$mountpoint]/;
+
+    # printf formats taken from df.c in coreutils-6.7
+    # Copyright (C) 91, 1995-2006 Free Software Foundation, Inc.
+
+    if (length $path > 20) {
+        printf ("%s\n%20s", $path, "");
+    } else {
+        printf ("%-20s", $path);
+    }
+
+    printf(" %*s %*s %*s %*.0f%% %s\n",
+            9,
+            $total,
+            9,
+            $used,
+            9,
+            $available,
+            3,
+            $usedper,
+            $mountpoint,
+        );
+}
+
+my $total_available   = $total_total - $total_used;
+my $total_usedper     = ($total_used / $total_total) * 100;
+
+# summary
+printf ("%s\n%20s", "/summmary_of_all_volumes", "");
+printf(" %*s %*s %*s %*.0f%% %s\n",
+        9,
+        $total_total,
+        9,
+        $total_used,
+        9,
+        $total_available,
+        3,
+        $total_usedper,
+        "/total",
+    );
+
+my $allocated_available   = $allocated_total - $allocated_used;
+my $allocated_usedper     = ($allocated_used / $allocated_total) * 100;
+
+# summary
+printf ("%s\n%20s", "/summmary_of_allocated_volumes", "");
+printf(" %*s %*s %*s %*.0f%% %s\n",
+        9,
+        $allocated_total,
+        9,
+        $allocated_used,
+        9,
+        $allocated_available,
+        3,
+        $allocated_usedper,
+        "/allocated",
+    );
+
+__END__
+
+=pod
+
+=head1 NAME
+
+neb-df - provide a `df` like summary of nebulous volumes
+
+=head1 SYNOPSIS
+
+    neb-df [--db <database>] [--user <username>] [--pass <password>]
+
+=head1 DESCRIPTION
+
+This program outputs a list of Nebulous volumes and various metadata about
+them.  It attempts to conform to the format of data output by the GNU version
+of C<df> when passed the C<-k> flag. E.g. C<df -k>
+
+=head1 OPTIONS
+
+=over 4
+
+=item * --db|-d <database>
+
+Name of database (C<namespace>) to retreive metadata from.
+
+Optional if the appropriate environment variable is set.
+
+=item * --user|-u <username>
+
+Username to authenticate with.
+
+Optional if the appropriate environment variable is set.
+
+=item * --pass|-p <password>
+
+Password to authenticate with.
+
+Optional if the appropriate environment variable is set.
+
+=back
+
+=head1 ENVIRONMENT
+
+These environment variables may be used in place of the specified command line
+options.  All command line option will override the corresponding environment
+value.
+
+=over 4
+
+=item * C<NEB_DB>
+
+Equivalent to --db|-d
+
+=item * C<NEB_USER>
+
+Equivalent to --user|-u
+
+=item * C<NEB_PASS>
+
+Equivalent to --pass|-p
+
+=back
+
+=head1 CREDITS
+
+Just me, myself, and I.
+
+=head1 SUPPORT
+
+Please contact the author directly via e-mail.
+
+=head1 AUTHOR
+
+Joshua Hoblitt <jhoblitt@cpan.org>
+
+=head1 COPYRIGHT
+
+Copyright (C) 2007  Joshua Hoblitt.  All rights reserved.
+
+This program is free software; you can redistribute it and/or modify it under
+the terms of the GNU General Public License as published by the Free Software
+Foundation; either version 2 of the License, or (at your option) any later
+version.
+
+This program is distributed in the hope that it will be useful, but WITHOUT ANY
+WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A
+PARTICULAR PURPOSE.  See the GNU General Public License for more details.
+
+You should have received a copy of the GNU General Public License along with
+this program; if not, write to the Free Software Foundation, Inc., 59 Temple
+Place - Suite 330, Boston, MA  02111-1307, USA.
+
+The full text of the license can be found in the L<perlgpl> Pod as supplied
+with Perl 5.8.1 and later.
+
+=head1 SEE ALSO
+
+L<Nebulous::Server>, L<neb-initdb>, L<neb-addvol>, L<nebdiskd>
+
+=cut

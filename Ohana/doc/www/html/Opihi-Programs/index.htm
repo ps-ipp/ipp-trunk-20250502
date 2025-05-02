@@ -1,0 +1,563 @@
+<meta name=file  content=opihi>
+<meta name=title content=opihi user's guide>
+<meta name=page  content=opihi>
+
+<h3> Introduction </h3>
+
+<p>
+Opihi is a generic command-line interpreter which has been used as the
+front-end for Mana, DVO, and other high-level programs in the Elixir
+system.  The interpreter has a variety of features of shell-scripting
+languages: if statements, for loops, macros with command-line
+arguments, and so forth.  The shell also allows for variables,
+arithmetic on variables, input from source files, and a variety of
+other useful tools.  Opihi has a simple command-line interaction that
+resembles the UNIX <tt>tcsh</tt>, but with many additional useful
+features.  It can also be used as a scripting language much like
+<tt>sh</tt> or perl.
+
+<p>
+Opihi includes tools to manipulate and display 1-D (vector) and 2-D
+(image) data.  Two external programs are used for graphical display:
+the image display tool (Kii) and the graphing tool (Kapa).  Various
+functions are available to perform math, statistical, and other
+operations on vectors and images.
+
+<h3> User Interface </h3>
+
+<p>
+The command-line interaction is based on the readline libraries and
+behaves like <tt>tcsh</tt>.  Arrows can be used for editing.  There is both
+command and file completion with the TAB key.  You can also use
+emacs-like commands such as ctrl-a to reach the beginning of the line
+and ctrl-e to reach the end.  It is also possible to type just a
+fraction of a command, as long as it is unique.  An ambiguous command
+will list the possible alternatives.  For example:
+
+<pre>
+opihi: c
+ambiguous command: c ( catalog cgrid clear create cursor )
+</pre>
+
+Multiple commands can generally be placed on one line with semi-colons
+as separators.
+
+<h3> Data Representations</h3>
+
+<h4> Simple Scalar Variables </h4>
+
+<p>
+Scalar variables in Opihi are prepended with a dollar sign ($).  A
+variable may be created and the value assigned by a line which looks
+like:
+
+<p class=eq>
+$var = (expression)
+</p>
+
+where (expression) is some math expression.  The math expression may
+consist of the standard math operators (+,-,*,/) as well as any
+already-defined variables and the functions log(), ln(), sqrt(),
+exp(), ten() (10<sup>x</sup>), sin(), cos(), etc.  Other special
+operators are the carret (^) for exponetiation (eg, 2^3 is 8) and the
+@ symbol as a binary arc-tangent (eg, 1@3 is 18.43 degrees).  In
+addition, the operator <tt><<</tt> returns the minimum of the two
+surrounding values, and <tt>>></tt> returns the maximum.  Variables
+can be numeric or character strings.  If the shell does not understand
+the syntax of the line as a math expression, it is assumed to be a
+string.
+
+<em>local variables</em>
+
+<p>
+If there is a pair of curly brackets {} anywhere on a command line,
+whatever is inside is assumed to be a math expression and evaluated
+before the line is executed.  This later feature allows functions of
+variables to be passed as arguments to Opihi functions.  (see also the
+discussion below about temporary vectors and images).
+For example:
+
+<pre>
+echo {$fred*dcos(45)}
+</pre>
+
+would give the response 7.07107 if $fred had the value of 10.0.  There
+are math functions <tt>cos</tt>, <tt>sin</tt>, and <tt>tan</tt>, which operate on radian
+expressions, and also <tt>dcos</tt>, <tt>dsin</tt>, <tt>dtan</tt>, which operate on
+degree expressions.  There are also the equivalent inverse functions:
+eg., <tt>asin</tt> and <tt>dasin</tt> return radians and degrees, respectively.
+The help section on Math defines all of the available math functions.
+
+<h4> Lists </h4>
+
+Opihi lists are grouped sets of scalar variables (which may be
+strings).  A list consists of N variables with names of the form
+<tt>name:i</tt>, where the value of i ranges from 0 to N-1.  In addition,
+the list length is defined as the value <tt>name:n</tt>.  Since these are
+just informally grouped, a list may be defined by hand (ie, by
+defining each element and the length).  There is also the command
+<tt>list</tt> which builds a list from the following lines until reaching
+a line consisting of the single word <tt>end</tt>:
+
+<pre>
+list sample
+ value 0
+ value 1
+ test line
+end
+</pre>
+
+will define the variables <tt>$sample:0 - $sample:2</tt>, and <tt>$sample:n</tt>,
+with value of 3.
+
+<p>
+The list command may also construct a list from the output of a UNIX
+command:
+
+<pre>
+list sample -x "ls /tmp"
+</pre>
+
+will result in a list consisting of one entry for each file in the
+listing.  
+
+<p>
+The list command may also be used to split a string by whitespace:
+
+<pre>
+list sample -split this is a test
+</pre>
+will result in a list with 4 elements, one for each word. 
+
+<h4> queues </h4>
+
+<pre>
+queuelist                 -- list existing queues
+queuesize                 -- return the length of the given queue
+queueinit                 -- create a zero-length queues
+queuedelete               -- delete a queues
+queuepush                 -- add an item to the end of the queue
+queuepop                  -- remove and return the first item in the queue
+</pre>
+
+A queue is a data construct consisting of a sequence of lines from
+which simple selections can be made.  Data items are added and removed
+from the queue with <tt>queuepush</tt> and <tt>queuepop</tt> commands which push
+entries on the end of the queue and pop them off the beginning.  The
+available queues may be obtained with the command <tt>queuelist</tt>, and
+the length of a specific queue may be determined with the <tt>queuesize</tt>
+command.  The contents of a queue may be printed with <tt>queueprint</tt>.
+Pushing data onto a non-existent queue will create the queue.  An
+empty queue may be created with the command <tt>queueinit</tt> and a queue
+may be deleted with <tt>queuedelete</tt>.  
+
+<p>
+The <tt>queuepush</tt> commands allows for additional options which modify
+how the data is pushed on the queue.  The <tt>-uniq</tt> flag specifies that
+the queue should be search for an existing match and not add the new
+data item if a matching item already exists.  The <tt>-replace</tt> flag is
+similar to the <tt>-uniq</tt> flag, but instead the new item will replace
+the existing match, if a match is found.  These two options have
+identical results if the match is made based on the entire line.
+However, they may be more usefully distinguished by specifying a
+restriction on the match with the <tt>-key</tt> flag.  This flag specified
+which whitespace-separated element of the line to use for the match,
+with the first element being element 0.  
+
+<p>
+Numerical vectors and images (matrices) are discussed later in this
+document.
+
+<h3> Opihi Shell Programing and Flow-control</h3>
+
+<pre>
+input                     -- read command lines from a file 
+macro                     -- deal with the macros 
+for                       -- for loop 
+if                        -- logical cases 
+while                     -- while loop
+break                     -- escape from function 
+continue                  -- next loop iteration
+</pre>
+
+<p>
+There are several options for programming in the opihi shell.  First,
+a file which contains a series of commands can be executed with
+<tt>input (filename)</tt>.  When an opihi-based program is started, it
+loads a file from the user's home directory, with a name of the form
+<tt>~/.programrc</tt>.  This resource file may contain any commands,
+and allows a user to customize his or her environment.
+
+<p>
+It is also possible to define macros which will behave much like
+regular commands.  A macro is defined by typing <tt>macro name</tt> or
+<tt>macro create name</tt> followed by the commands.  Arguments to the
+macro are assigned to the variables $1 .. $N and the number of
+arguments is given by $0.  Macros may be defined in <tt>input</tt>
+files.  The following is a sample macro:
+
+<pre>
+macro test
+ echo "this is a macro"
+ echo "number of arguments $0"
+ echo "first argument $1"
+ if ($1 = 10) 
+   echo first argument is 10
+ end
+end
+</pre>
+
+<p>
+Opihi has several types of flow-control features.  These include
+for-loops, while-loops, if-else blocks.  These blocks are defined by
+the corresponding command (<tt>for</tt>, <tt>while</tt>, <tt>if</tt>) and are terminated
+with by a line with the single word <tt>end</tt>.  
+
+<p>
+The for-loop syntax is simplistic.  The <tt>for</tt> command specifies
+the loop variable, the starting value, the ending value, and
+optionally the delta for each loop.  The implicit loop test is always
+to check if the loop variable is still less than the end value (or
+greater than if the delta value is negative).  The definitions of this
+loop syntax and the value of the list length (<tt>$list:n</tt>) and
+the vector length (<tt>vector[]</tt>) make for natural loops over all
+elements of a list or vector.  Below are a few examples:
+
+<pre>
+for i 1 10 0.1
+ echo $i
+end
+</pre>
+This runs the loop with the variable <tt>$i</tt> running from 1.0, 1.1, up to 9.9
+ (inclusive).
+
+<pre>
+for i 0 $list:n
+ echo $list:$i
+end
+</pre>
+This would print all the elements of the list.
+
+<pre>
+for i 0 vector[]
+ echo vector[$i]
+end
+</pre>
+This would print all the elements of the vector.
+
+<p>
+The if-block begins with a line of the form: <tt>if (condition)</tt> and
+ends with a single <tt>end</tt>.  A line with a single <tt>else</tt> specifies the
+optional else portion of the block.  The conditional expression is a
+valid math inequality with approximately C-syntax: 
+
+<pre>
+(($i < 10) && ($i > 4))
+</pre>
+
+The elements of the inequality may also be string comparisons.  The
+only valid string comparisons are <tt>==</tt> and <tt>!=</tt>.  
+
+<p>
+The while loop begins with a line of the form <tt>while (condition)</tt> and
+ends with a single <tt>end</tt>.  The conditions follow the same rules as
+the if conditional statements.
+
+<em>continue, break, auto-break concepts</em>
+
+
+<h3> Miscellaneous Commands </h3>
+
+<pre>
+!                         -- system call
+?                         -- list commands 
+??                        -- list variables 
+echo                      -- type this line 
+exec                      -- system call
+exit                      -- exit program 
+help                      -- get help on a function 
+config                    -- reload configuration information
+exit                      -- exit program 
+quit                      -- exit program 
+wait                      -- wait until return is typed
+sleep                     -- sleep for N seconds
+usleep                    -- sleep for N microseconds
+which                     -- show command 
+cd                        -- change current working directory
+pwd                       -- report current working directory
+date                      -- return the current date
+file                      -- test file existence
+memory                    -- long listing of the allocated memory
+version                   -- list version information
+</pre>
+
+Most of these commands should be clear from the simple descriptions
+above, or from the online help.  The command ?? prints the system
+variables.  The <tt>help</tt> command will provide help on a single
+command or, without any arguments, will list all available help files
+(this includes general help not associated with a specific command).
+
+<h3> String Manipulation and other data commands </h3>
+
+<pre>
+local                     -- define local variables
+output                    -- redirect output to file
+scan                      -- scan line from keyboard or file to variable 
+sprintf                   -- formatted print to a variable
+fprintf                   -- formatted print to standard output
+getchr                    -- find character in string
+strlen                    -- string length
+substr                    -- substring
+</pre>
+
+These commands provide a few tools to manipulate data in opihi
+variables.  The #local/# command specifies that the given variable is
+local to its macro.  The #output/# command changes the default output
+destination for functions which print results to the screen.  This
+function does not zero the file length; new output is appended to the
+file.  The command #scan/# reads specific lines from a file, an
+optionally places them in an opihi variable (EOF is returned at the
+end of a file).  The group of commands #getchr/#, #strlen/#, and
+#substr/# provide the ability to manipulate the elements of a string.
+Finally, #sprintf/# and #fprintf/# perform formatted output to a
+variable and to the screen, respectively.  
+
+<h3> Vectors</h3>
+
+<h4>Vector Manipulation Functions</h4>
+
+<pre>
+create                    -- create a new vector
+hist                      -- create histogram from a vector
+print                     -- write vectors to file
+vectors                   -- list vectors
+accum                     -- accumulate vector values in another vector
+applyfit                  -- apply fit to new vector
+applyfit2d                -- apply 2-d fit to new vector
+circstats                 -- circular statistics
+concat                    -- reduce vector dimension
+datafile                  -- define file to read vectors
+delete                    -- delete vectors or matrices
+fft1d                     -- fft on the pixel-stream in an image
+fit                       -- fit polynomial to vector pair
+gaussdev                  -- generate a gaussian deviate vector
+gaussint                  -- return the integrated gaussian vector
+histogram                 -- generate histogram from vector
+integrate                 -- integrate a vector
+interpolate               -- interpolate between vector pairs
+vectors                   -- list vectors
+medacc                    -- accumulate vector values in another vector
+peak                      -- find vector peak in range
+read                      -- read vectors from datafile
+set                       -- image and vector math
+sort                      -- sort list of vectors
+subset                    -- expand vector dimension
+uniq                      -- create a uniq vector subset from a vector
+vbin                      -- bin values in a vector to be within a range
+vclip                     -- clip values in a vector to be within a range
+select                    -- selective vector assignment
+vgauss         
+vgrid          
+vload                     -- load vectors on Kii
+vstat                     -- get info from imreg database
+vsmooth                   -- gaussian smooth of a vector
+vroll                     -- roll vector elements
+vpop                      -- remove first element
+write                     -- write vectors to datafile
+</pre>
+
+<h4>The Graphing Window (Kapa)</h4>
+
+<pre>
+box                       -- draw a box on the plot
+clear                     -- erase plot
+cursor                    -- get coords from cursor
+grid                      -- plot cartesian grid
+labels                    -- define labels for plot
+limits                    -- define plot limits
+plot                      -- plot a pair of vectors
+ps                        -- define labels for plot
+style                     -- set the style for graph plots
+zplot                     -- plot scaled points 
+device                    -- set / get current graphics device
+jpeg                      -- write text line on graph
+line                      -- plot line
+dot                       -- plot a single point
+resize                    -- set graphics/image window size
+section                   -- define section of graph
+textline                  -- write text line on graph
+zplot                     -- plot x y with size scaled by z
+</pre>
+
+<p>
+Opihi has a variety of commands to manipulate 1-D data (vectors).
+Vectors can be loaded from a data file or created with uniform
+spacing.  New vectors can be defined as the arithmetical combinations
+of other vectors.  For example, we could create a sine wave with the
+following two lines:
+
+<p>
+A vector can be created based on a number sequence with the command
+<tt>create name Nelements start delta</tt>.  The resulting vector has
+#Nelements/# entries, starting at a value of #start/# and running
+until #start + delta*Nelements/#.  If #delta/# is 0.0, all elements
+will have the value of #start/#.  A histogram of a vector may be made
+with the command <tt>hist</tt>, which creates a new vector containing
+the histogram of the first vector.  The data range and bin size of the
+histogram are defined in same way as with create.  This makes it easy
+to create the index vector that goes with a histogram vector:
+
+<pre>
+hist y Ny 1 100 0.1
+create dx 1 100 0.1
+</pre>
+
+<p>
+The above will create a histogram of y in Ny and the index in dx.
+Plotting this with <tt>plot dx Ny</tt> will show the histogram.
+
+<p>
+Vector math is performed with a command of the form <tt>set new =
+  (expression)</tt>.  The expression is some math function employing
+  vectors and scalars.  A complete listing of the math operators
+  available in <tt>set</tt> can be found in the help for <tt>set</tt>.
+
+<p>
+Once vectors are defined, they may be plotted.  A pair of vectors can
+be plotted against each other if they have the same number of entries.
+The plotting is performed on the graphics window, Kapa.  There are
+actually several graphics windows available to <tt>status</tt>, any of
+which may be used to plot at any time.  Some of the more complex
+operations default to either graphics window 0 or 1, depending on the
+context.  Except for those functions with a pre-defined window, all
+plotting functions apply to the current graphics window unless an
+option <tt>-n N</tt> is given to specify a different window.  The
+plotting style is determined by the command <tt>style</tt> which can set
+the line width, the line type (solid, dashed, dotted, etc), the point
+type (box, cross, etc), the point size, the color, and whether a pair
+of vectors is plotted as a sequence of points, a set of connected
+lines, or a histogram.  Some functions which make plots use their own
+styles, as discussed below.  The function <tt>limits</tt> lets the user
+set the range of the plot axes, or check the current setting.  The
+command <tt>plot</tt> will plot a pair of vectors on the current graphics
+window using the current plotting style for that window.  The command
+<tt>zplot</tt> will plot a pair of vectors with the point size scaled by
+a third vector, with maximum and minimum point sizes representing
+specified values.  The <tt>cursor</tt> command goes the other way: this
+command puts the Kapa window in cursor mode and waits for input from
+Kapa.  The user can then type any alphanumeric key on the graphics
+windows and will be told both the pointer location (in the graphics
+coordinates) and will have the coordinates stored in <tt>status</tt>
+variables.  For example, by typing ``1'' in the sky display window,
+the RA and DEC of the pointer are stored in the variables <tt>$R1</tt>
+and <tt>$D1</tt>.  This command can be used to let the user define
+locations or regions of interest on the Kapa window. (Future addition:
+<tt>button</tt>, which does the same with the mouse buttons).  
+
+<pre>
+create x 1 20 0.01
+set y = sin(x)
+</pre>
+
+We can plot this pair of vectors on the Kapa graphing window:
+
+<pre>
+limit x y
+plot x y
+box
+</pre>
+
+The Kapa window has a variety of style options to change the plotting
+type (line, histogram, point), point type, line color, weight and
+style, and the errorbar style (if errorbars are plotted).
+
+<h3> 2D Data and the Image Display Window </h3>
+
+<p>
+Opihi has many commands to manipulate 2-D data (images).  Images can be
+loaded from FITS files and mathematical operations applied to them.
+Various other operations, such as rebinning, shifting, rotating, and
+so forth are also available.  Images can be displayed using the Kii
+image window.  In an 8-bit visual, the image window has a dynamic
+colormap to allow the user to change the relationship between pixel
+value and the displayed color.  There are three colormaps which can be
+selected by pressing the middle three buttons on the bottom row.  The
+PS button produces a PostScript file from the image.  The user can
+change the magnification and the position of the image with the mouse
+(left - recenter at cursor; middle - zoom out; right - zoom in).
+There are four color overlays which the user can draw objects of
+different shapes (circles, boxes, lines) or draw a contour.  The four
+buttons labeled R, G, B, Y turn on or off the display of the red,
+green, blue, and yellow overlays.
+
+<h4>Image Manipulation Functions</h4>
+
+<pre>
+clip                      -- clip values in a buffer to be within a range
+contour                   -- create contour from image
+cut                       -- extract a cut across an image
+extract                   -- extract a portion of a buffer into another buffer
+fft2d                     -- fft on an image
+fit2d                     -- fit 2-d polynomial to vector triplet
+header                    -- print buffer header
+imcut                     -- linear image cut between arbitrary coords
+imhist                    -- histogram of an image region
+imsmooth                  -- circular gaussian smoothing
+kern                      -- convolve with 3x3 kernel
+keyword                   -- extract a FITS keyword from buffer header
+buffers                   -- list the currently allocated buffers
+mcreate                   -- create a matrix
+minterp                   -- interpolate image pixels
+rd                        -- load fits image
+rdseg                     -- read a segment of an image from a file
+rebin                     -- rebin data by factor of N
+roll                      -- roll image to new start point
+rotate                    -- rotate image
+set                       -- image and vector math
+shift                     -- shift data in an image
+spline.apply              -- apply spline fit to generate an image
+spline.const              -- create spline 2nd deriv. terms
+stats                     -- give statistics on a portion of a buffer
+subraster                 -- subraster of fits image
+unsign                    -- toggle the UNSIGN status
+wd                        -- write an image to a file
+zap                       -- delete pixels
+</pre>
+
+<h4>The Image Display Window (Kii)</h4>
+
+<pre>
+ps                        -- define labels for plot
+center                    -- center image on coords
+device                    -- set / get current graphics device
+erase                     -- erase objects on an overlay
+jpeg                      -- write text line on graph
+load                      -- load an SAOimage style overlay
+point                     -- load overlay with single point
+save                      -- save an SAOimage style overlay
+resize                    -- set graphics/image window size
+tv                        -- display an image on the Kii window
+tvcontour                 -- send contour to overlay
+tvgrid                    -- wait until return is typed
+</pre>
+
+
+<h4>Other data functions</h4>
+
+<pre>
+gaussj                    -- solve Ax = B (N-D)
+gridify                   -- convert vector triplet to buffer
+ungridify                 -- convert buffer region to vector triplet
+dimendown                 -- convert matrix to vector
+dimenup                   -- convert vector to matrix
+mget                      -- extract a vector from a matrix
+mset                      -- insert a vector in a matrix
+svd                       -- singular value decomposition of a matrix
+swapbytes                 -- byte swap thing
+</pre>
+
+
+
+<h3> Programming Considerations </h3>
+The programming structure of the Opihi front-end
+makes it very easy to add commands to the package.

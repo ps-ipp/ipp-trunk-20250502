@@ -1,0 +1,607 @@
+#/bin/csh -f
+# this file is sourced using the command 'psconfig'
+
+# list the defined psconfig versions
+set show_prefix = 0
+set show_libs = 0
+set show_bin = 0
+set show_man = 0
+set show_arch = 0
+set show_path = 0
+set show_cpath = 0
+set show_include = 0
+set show_configure = 0
+set show_autogen = 0
+set show_perlbuild = 0
+set show_perldir = 0
+set show_perl5lib = 0
+set show_psversion = 0
+set show_psconfdir = 0
+set show_psconfig = 0
+set show_library_path = 0
+set show_ld_library_path = 0
+set show_pkg_config_path = 0
+set show_aclocal_flags = 0
+set use_fink = 0
+set args = ""
+while ($#argv) 
+  switch ($argv[1])
+    case --help:
+      goto help;
+    case --list:
+      echo "PSCONFDIR : $PSCONFDIR"
+      /bin/ls $PSCONFDIR | grep -v "\<man\>" | grep -v "\<share\>" | awk -F. '{printf "  %-10s : ", $NF}{for (i = 1; i < NF-1; i++){printf "%s.", $i}}{printf "%s\n", $(NF-1)}'
+      exit 0
+    case --prefix:
+      set show_prefix = 1
+      breaksw
+    case --libs:
+      set show_libs = 1
+      breaksw
+    case --bin
+      set show_bin = 1
+      breaksw
+    case --man
+      set show_man = 1
+      breaksw
+    case --include
+      set show_include = 1
+      breaksw
+    case --psconfigure:
+      set show_configure = 1
+      breaksw;   
+    case --psautogen:
+      set show_autogen = 1
+      breaksw;
+    case --psperlbuild:
+      set show_perlbuild = 1
+      breaksw;
+    case --perldir:
+      set show_perldir = 1
+      breaksw;
+    case --perl5lib:
+      set show_perl5lib = 1
+      breaksw;
+    case --psversion
+      set show_psversion = 1
+      breaksw;
+    case --psconfdir
+      set show_psconfdir = 1
+      breaksw;
+    case --psconfig
+      set show_psconfig = 1
+      breaksw;
+    case --ld_library_path
+      set show_ld_library_path = 1
+      breaksw;
+    case --library_path
+      set show_library_path = 1
+      breaksw;
+    case --pkg_config_path
+      set show_pkg_config_path = 1
+      breaksw;
+    case --arch
+      set show_arch = 1
+      breaksw;
+    case --path
+      set show_path = 1
+      breaksw;
+    case --cpath
+      set show_cpath = 1
+      breaksw;
+    case --aclocal_flags
+      set show_aclocal_flags = 1
+      breaksw;
+    case --use-fink
+      set use_fink = 1
+      breaksw;
+    case -*:
+      echo "unknown option $1"
+      goto help;
+    default:
+      set args=($args $1);
+      breaksw;
+  endsw
+  shift
+end
+if ($#args != 1) goto usage
+if ("$args" == "") goto usage
+
+# make this configurable by the user
+if (! $?PSCONFDIR) then
+  setenv PSCONFDIR @PSCONFDIR@
+endif
+
+if (! $?PSVERSION) then
+  setenv PSVERSION default
+endif
+
+if (-e $HOME/.psconfigrc) then
+  source $HOME/.psconfigrc
+endif
+
+setenv PSVERSION $args[1]
+
+if ($?CPATH == 0) setenv CPATH
+if ($?LIBRARY_PATH == 0) setenv LIBRARY_PATH
+if ($?LD_LIBRARY_PATH == 0) setenv LD_LIBRARY_PATH
+if ($?PKG_CONFIG_PATH == 0) setenv PKG_CONFIG_PATH
+if ($?PERL5LIB == 0) setenv PERL5LIB
+if ($?MANPATH == 0) setenv MANPATH
+if ($?LDFLAGS == 0) setenv LDFLAGS
+
+# identify system architecture
+set sys=`uname -s` 
+if ("$sys" == "SunOS") then
+ set ver = `uname -r | awk '{print substr($1,1,1)}'`;
+ if ($ver > 4) then 
+   set sys = "Solaris"
+ endif
+endif
+if ("$sys" == "Linux") then
+ grep "Sidious" /etc/issue > /dev/null
+ if ($status == 0) then 
+  set sys = Sidious
+ endif
+ grep "Red Hat Enterprise" /etc/issue > /dev/null
+ if ($status == 0) then 
+  set sys = RedHat
+ endif
+endif
+
+# determine architecture-dependent paths & variables for all shells
+switch ($sys)
+ case IRIX64:
+   setenv ARCH irix;
+   breaksw;
+
+ case Solaris:
+   setenv ARCH sol
+   breaksw;
+
+ case SunOs:
+   setenv ARCH sun4
+   breaksw;
+
+ case Linux:
+   setenv ARCH linux;
+   set mach=`uname -m`
+   if ("$mach" == "x86_64") setenv ARCH lin64
+   breaksw;
+
+ case Darwin:
+   setenv ARCH darwin;
+   set mach=`uname -m`
+   if ("$mach" == "i386") setenv ARCH darwin_x86
+   breaksw;
+
+ case Sidious:
+   setenv ARCH sid;
+   breaksw;
+
+ case RedHat:
+   setenv ARCH linrh;
+   set mach=`uname -m`
+   if ("$mach" == "x86_64") setenv ARCH linrh64
+   breaksw;
+
+ case HP-UX:
+    setenv ARCH hp;
+    breaksw;
+
+ default:
+   echo "unknown architecture";
+   setenv ARCH unknown;
+   breaksw;
+endsw
+ 
+setenv PSCONFIG $PSVERSION.$ARCH
+
+set newpath = ""
+set pathlist = `echo $PATH | tr ':' '\n'`
+foreach name ($pathlist)
+  echo $name | grep $PSCONFDIR > /dev/null
+  if ($status == 0) continue
+  if ($newpath == "") then
+    set newpath = {$name}:
+  else
+    set newpath = {$newpath}{$name}:
+  endif
+end
+set bindir = {$PSCONFDIR}/{$PSCONFIG}/bin
+if ("$PSCONFIG" == "none") then
+  setenv PATH {$newpath}
+else
+  setenv PATH {$bindir}:{$newpath}
+endif
+
+set mandir  = {$PSCONFDIR}/{$PSCONFIG}/man
+set newpath = ""
+set pathlist = `echo $MANPATH | tr ':' '\n'`
+foreach name ($pathlist)
+  echo $name | grep $PSCONFDIR > /dev/null
+  if ($status == 0) continue
+  if ($newpath == "") then
+    set newpath = {$name}:
+  else
+    set newpath = {$newpath}{$name}:
+  endif
+end
+if ("$PSCONFIG" == "none") then
+  if ("$newpath" == "") then
+    unsetenv MANPATH
+  else
+    setenv MANPATH {$newpath}
+  endif 
+else
+  if ("$newpath" == "") then
+    setenv MANPATH {$mandir}:
+  else
+    setenv MANPATH {$mandir}:{$newpath}
+  endif 
+endif 
+
+# set CPATH, used to find include files
+set incdir  = {$PSCONFDIR}/{$PSCONFIG}/include
+set newpath = ""
+set pathlist = `echo $CPATH | tr ':' '\n'`
+foreach name ($pathlist)
+  echo $name | grep $PSCONFDIR > /dev/null
+  if ($status == 0) continue
+  if ($newpath == "") then
+    set newpath = {$name}:
+  else
+    set newpath = {$newpath}{$name}:
+  endif
+end
+
+## XXX mysql (and others?) are not installed in the correct location: they go into
+## prefix/lib/mysql regardless of configure options
+if ("$PSCONFIG" == "none") then
+  if ("$newpath" == "") then
+    unsetenv CPATH
+  else
+    setenv CPATH {$newpath}:
+  endif 
+else
+  if ("$newpath" == "") then
+    setenv CPATH {$incdir}:{$PSCONFDIR}/{$PSCONFIG}/include/mysql:
+  else
+    setenv CPATH {$incdir}:{$PSCONFDIR}/{$PSCONFIG}/include/mysql:{$newpath}:
+  endif 
+endif 
+
+# set LIBRARY_PATH and LD_LIBRARY_PATH, used to find libraries
+set libdir  = {$PSCONFDIR}/{$PSCONFIG}/lib
+set newpath = ""
+set pathlist = `echo $LD_LIBRARY_PATH | tr ':' '\n'`
+foreach name ($pathlist)
+  echo $name | grep $PSCONFDIR > /dev/null
+  if ($status == 0) continue
+  if ($newpath == "") then
+    set newpath = {$name}:
+  else
+    set newpath = {$newpath}{$name}:
+  endif
+end
+
+## XXX mysql (and others?) are not installed in the correct location: they go into
+## prefix/lib/mysql regardless of configure options
+if ("$PSCONFIG" == "none") then
+  if ("$newpath" == "") then
+    unsetenv LD_LIBRARY_PATH
+    unsetenv LIBRARY_PATH
+  else
+    setenv LD_LIBRARY_PATH {$newpath}:
+    setenv LIBRARY_PATH {$newpath}:
+  endif 
+else
+  if ("$newpath" == "") then
+    setenv LD_LIBRARY_PATH {$libdir}:{$PSCONFDIR}/{$PSCONFIG}/lib/mysql:
+    setenv LIBRARY_PATH {$libdir}:{$PSCONFDIR}/{$PSCONFIG}/lib/mysql:
+  else
+    setenv LD_LIBRARY_PATH {$libdir}:{$PSCONFDIR}/{$PSCONFIG}/lib/mysql:{$newpath}:
+    setenv LIBRARY_PATH {$libdir}:{$PSCONFDIR}/{$PSCONFIG}/lib/mysql:{$newpath}:
+  endif 
+endif 
+
+# supplement CPATH, LIBRARY_PATH and LD_LIBRARY_PATH with a few extra common locations
+# we probably can drop the system libraries here
+set xtralibs = ( "/usr/local/lib" "/usr/lib" "/usr/X11R6/lib" "/lib" )
+set xtrapath = ( "/usr/local/include" "/usr/include" "/usr/X11R6/include" )
+
+# add architecture-dependent paths
+switch ($ARCH)
+   breaksw;
+
+ case sol:
+ case sun4:
+   set xtralibs = ( $xtralibs "/usr/openwin/lib" )
+   set xtrapath = ( $xtrapath "/usr/openwin/include")
+   breaksw;
+
+ case linux:
+ case linrh:
+   # old test to see if we need no-as-needed
+   # gcc --version | grep -e 4.8 -e 4.6 -e 4.5 | grep Ubuntu >& /dev/null
+
+   # check that we need to add --no-as-needed (gcc version >= 4.5)
+   # https://lists.ubuntu.com/archives/ubuntu-devel-announce/2010-October/000772.html
+   # https://lists.ubuntu.com/archives/ubuntu-devel-announce/2010-November/000783.html
+   # gcc --version | awk '{split($0,value,/\(.+\)/)}(NR == 1){print value[2]}'
+   # gcc --version | awk '{split($0,value,/\(.+\)/)}(NR == 1){print value[2]}' | awk -F. '{printf "%s.%s\n", $1, $2}'
+   # gcc --version | awk '{split($0,value,/\(.+\)/)}(NR == 1){print value[2]}' | awk -F. '{printf "%s.%s\n", $1, $2}' | awk '{n=0}($1 >= 4.5){n=1}{print n}'
+   set use_no_as_needed = `gcc --version | awk '{split($0,value,/\(.+\)/)}(NR == 1){print value[2]}' | awk -F. '{printf "%s.%s\n", $1, $2}' | awk '{n=0}($1 >= 4.5){n=1}{print n}'`
+   if ($use_no_as_needed == 1) then
+    set xtraflags = "-Wl,--no-as-needed"
+    echo $LDFLAGS | grep -- $xtraflags >& /dev/null
+    if ($status) then
+      setenv LDFLAGS "$LDFLAGS $xtraflags"
+    endif
+   endif  
+   breaksw;
+
+ case lin64:
+ case linrh64:
+   # old test to see if we need no-as-needed
+   # gcc --version | grep -e 4.8 -e 4.6 -e 4.5 | grep Ubuntu >& /dev/null
+
+   # check that we need to add --no-as-needed (gcc version >= 4.5)
+   # https://lists.ubuntu.com/archives/ubuntu-devel-announce/2010-October/000772.html
+   # https://lists.ubuntu.com/archives/ubuntu-devel-announce/2010-November/000783.html
+   # gcc --version | awk '{split($0,value,/\(.+\)/)}(NR == 1){print value[2]}'
+   # gcc --version | awk '{split($0,value,/\(.+\)/)}(NR == 1){print value[2]}' | awk -F. '{printf "%s.%s\n", $1, $2}'
+   # gcc --version | awk '{split($0,value,/\(.+\)/)}(NR == 1){print value[2]}' | awk -F. '{printf "%s.%s\n", $1, $2}' | awk '{n=0}($1 >= 4.5){n=1}{print n}'
+   set use_no_as_needed = `gcc --version | awk '{split($0,value,/\(.+\)/)}(NR == 1){print value[2]}' | awk -F. '{printf "%s.%s\n", $1, $2}' | awk '{n=0}($1 >= 4.5){n=1}{print n}'`
+   if ($use_no_as_needed == 1) then
+    set xtraflags = "-Wl,--no-as-needed"
+    echo $LDFLAGS | grep -- $xtraflags >& /dev/null
+    if ($status) then
+      setenv LDFLAGS "$LDFLAGS $xtraflags"
+    endif
+   endif  
+   set xtralibs = ( $xtralibs "/usr/lib64" "/usr/X11R6/lib64" "/lib64" )
+   breaksw;
+
+ case darwin:
+ case darwin_x86:
+   if ($use_fink) then
+     set xtralibs = ( $xtralibs "/sw/lib" )
+     set xtrapath = ( $xtrapath "/sw/include" )
+   endif
+   breaksw;
+
+ case sid:
+ case hp:
+ case irix:
+
+ default:
+   echo "unknown architecture";
+   breaksw;
+endsw
+
+# add to LD_LIBRARY_PATH if not found
+foreach name ($xtralibs)
+  echo $LD_LIBRARY_PATH | grep $name> /dev/null
+  if ($status == 0) continue
+  setenv LD_LIBRARY_PATH {$LD_LIBRARY_PATH}{$name}:
+end
+# add to LIBRARY_PATH if not found
+foreach name ($xtralibs)
+  echo $LIBRARY_PATH | grep $name > /dev/null
+  if ($status == 0) continue
+  setenv LIBRARY_PATH {$LIBRARY_PATH}{$name}:
+end
+# add to CPATH if not found
+foreach name ($xtrapath)
+  echo $CPATH | grep $name > /dev/null
+  if ($status == 0) continue
+  setenv CPATH {$CPATH}{$name}:
+end
+
+# Build wants to put things in prefix/*, MakeMaker wants to put them in prefix/perl5/*
+set plibdir  = {$PSCONFDIR}/{$PSCONFIG}/lib
+set plib5dir = {$PSCONFDIR}/{$PSCONFIG}/lib/perl5
+set plibsite = {$PSCONFDIR}/{$PSCONFIG}/lib/perl5/site_perl
+set newpath = ""
+set pathlist = `echo $PERL5LIB | tr ':' '\n'`
+# build newpath with contents of PERL5LIB excluding PSCONFDIR entries
+foreach name ($pathlist)
+  echo $name | grep $PSCONFDIR > /dev/null
+  if ($status == 0) continue
+  if ($newpath == "") then
+    set newpath = {$name}:
+  else
+    set newpath = {$newpath}{$name}:
+  endif
+end
+if ("$PSCONFIG" == "none") then
+  if ("$newpath" == "") then
+    unsetenv PERL5LIB
+  else
+    setenv PERL5LIB {$newpath}
+  endif 
+else
+  if ("$newpath" == "") then
+    setenv PERL5LIB {$plibdir}:{$plib5dir}:{$plibsite}
+  else
+    setenv PERL5LIB {$plibdir}:{$plib5dir}:{$plibsite}:{$newpath}
+  endif 
+endif 
+
+set newpath = ""
+set pathlist = `echo $PKG_CONFIG_PATH | tr ':' '\n'`
+foreach name ($pathlist)
+  echo $name | grep $PSCONFDIR > /dev/null
+  if ($status == 0) continue
+  if ($newpath == "") then
+    set newpath = {$name}:
+  else
+    set newpath = {$newpath}{$name}:
+  endif
+end
+if ("$PSCONFIG" == "none") then
+  if ("$newpath" == "") then
+    unsetenv PKG_CONFIG_PATH
+  else
+    setenv PKG_CONFIG_PATH {$newpath}
+  endif
+else
+  if ("$newpath" == "") then
+    setenv PKG_CONFIG_PATH {$PSCONFDIR}/{$PSCONFIG}/lib/pkgconfig:
+  else
+    setenv PKG_CONFIG_PATH {$PSCONFDIR}/{$PSCONFIG}/lib/pkgconfig:{$newpath}
+  endif
+endif
+
+if ("$PSCONFIG" == "none") then
+  alias  psconfigure ./configure
+  alias  psautogen ./autogen.sh
+  alias  psperlbuild perl Build.PL
+else
+  alias  psconfigure ./configure --prefix={$PSCONFDIR}/{$PSCONFIG} --bindir=$bindir --libdir=$libdir --mandir=$mandir --includedir=$incdir --sysconfdir={$PSCONFDIR}/{$PSCONFIG}/etc --datadir={$PSCONFDIR}/{$PSCONFIG}/share
+  alias  psautogen ./autogen.sh  --prefix={$PSCONFDIR}/{$PSCONFIG} --bindir=$bindir --libdir=$libdir --mandir=$mandir --includedir=$incdir --sysconfdir={$PSCONFDIR}/{$PSCONFIG}/etc --datadir={$PSCONFDIR}/{$PSCONFIG}/share
+  alias  psperlbuild perl ./Build.PL --prefix {$PSCONFDIR}/{$PSCONFIG} --install_path script=$bindir --install_path arch=$bindir --install_path bin=$bindir --install_path lib=$libdir --install_path bindoc={$PSCONFDIR}/{$PSCONFIG}/man/man1 --install_path libdoc={$PSCONFDIR}/{$PSCONFIG}/man/man3
+  setenv ACLOCAL_FLAGS "-I $PSCONFDIR/$PSCONFIG/share/aclocal"
+endif
+
+# list selected environment variables
+if ($show_prefix) then
+  echo $PSCONFDIR/$PSCONFIG
+  exit 0
+endif
+if ($show_libs) then
+  echo $libdir
+  exit 0
+endif
+if ($show_bin) then
+  echo $bindir
+  exit 0
+endif
+if ($show_man) then
+  echo $mandir
+  exit 0
+endif
+if ($show_include) then
+  echo $incdir
+  exit 0
+endif
+
+# list the defined psconfig versions
+if ($show_configure) then
+  alias psconfigure 
+  exit 0
+endif
+
+# list the defined psconfig versions
+if ($show_autogen) then
+  alias psautogen
+  exit 0
+endif
+
+# list the defined psconfig versions
+if ($show_perlbuild) then
+  alias psperlbuild
+  exit 0
+endif
+
+if ($show_perldir) then
+  echo $plibdir
+  exit 0
+endif
+
+if ($show_perl5lib) then
+  echo $PERL5LIB
+  exit 0
+endif
+
+if ($show_psversion) then
+  echo $PSVERSION
+  exit 0
+endif
+
+if ($show_psconfdir) then
+  echo $PSCONFDIR
+  exit 0
+endif
+
+if ($show_psconfig) then
+  echo $PSCONFIG
+  exit 0
+endif
+
+if ($show_ld_library_path) then
+  echo $LD_LIBRARY_PATH
+  exit 0
+endif
+
+if ($show_library_path) then
+  echo $LIBRARY_PATH
+  exit 0
+endif
+
+if ($show_pkg_config_path) then
+  echo $PKG_CONFIG_PATH
+  exit 0
+endif
+
+if ($show_arch) then
+  echo $ARCH
+  exit 0
+endif
+
+if ($show_path) then
+  echo $PATH
+  exit 0
+endif
+
+if ($show_cpath) then
+  echo $CPATH
+  exit 0
+endif
+
+if ($show_aclocal_flags) then
+  echo $ACLOCAL_FLAGS
+  exit 0
+endif
+
+
+
+exit 0
+
+usage:
+  if (! $?PSCONFDIR) echo "PSCONFDIR is not set : run psconfig with an argument to setup"
+  if (! $?PSVERSION) echo "PSVERSION is not set : run psconfig with an argument to setup"
+  if (! $?ARCH)      echo "ARCH is not set : run psconfig with an argument to setup"
+  echo $PSCONFDIR : $PSVERSION : $ARCH 
+  echo "psconfig --help for additional info"
+  exit 2
+
+help:
+  echo "psconfig: set or show the current pslib configuration information"
+  echo "USAGE: psconfig (version) : set configuration to specified version"
+  echo "       psconfig --bin     : return the current path"
+  echo "       psconfig --libs    : return the current library path"
+  echo "       psconfig --include"
+  echo 
+  echo "       psconfig --prefix  : show prefix directory"
+  echo "       psconfig --psconfigure"
+  echo "       psconfig --psautogen"
+  echo "       psconfig --psperlbuild"
+  echo "       psconfig --perldir"
+  echo "       psconfig --perl5lib"
+  echo "       psconfig --psversion"
+  echo "       psconfig --psconfdir"
+  echo "       psconfig --library_path"
+  echo "       psconfig --ld_library_path"
+  echo "       psconfig --pkg_config_path"
+  echo "       psconfig --arch"
+  echo "       psconfig --path"
+  echo "       psconfig --cpath"
+  echo "       psconfig --aclocal_flags"
+  echo "       psconfig --use-fink"
+  echo
+  echo "       psconfig --list    : list currently availabe configuration versions"
+  echo "       psconfig --help    : this listing"
+  echo " use ~/.psconfigrc to set PSCONFDIR as desired"
+  exit 1

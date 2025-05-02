@@ -1,0 +1,3 @@
+SELECT
+    fullForceSummary.*
+FROM fullForceSummary

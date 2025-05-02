@@ -1,0 +1,94 @@
+
+Adding a new dvo catalog format.  Assume the new format name is 'foo'.
+
+1) create the autocode definition files for average, measure, secfilt,
+   image, and photcode.  these files must be a subset of the internal
+   versions of these same tables.  if you intend to add fields which
+   don't exist in the internal tables, you must update the internal
+   tables as well.  the naming convention is: average-foo.d, etc.
+
+2) add the new definition files to libautocode/Makefile.Targets (both
+   .o and .h lists).
+
+3) set the STRUCT and EXTNAME for these definitions files to have a
+   unique value. the naming convention for EXTNAME is DVO_AVERAGE_FOO
+   and for STRUCT is AverageFoo (add version info with underscores and
+   uppercase, eg: AveragePanstarrs_DEV_0, AveragePanstarrs_PS1_2).
+
+4) create a DVOCatFormat entry for the new format
+   (libdvo/include/dvo.h).  the naming convention is DVO_FORMAT_FOO.
+
+5) add an entry for the new format in dvo_catalog_catformat
+ (libdvo/src/dvo_catalog.c).  The name should be "FOO".
+
+6) in libdvo/src/dvo_catalog_raw.c, update the FORMAT_CASE lists to
+   include the new STRUCT name.
+
+7) create a new conversion file libdvo/src/dvo_convert_foo.c and define the
+   internal to Foo conversions.
+
+8a) add the new dvo_convert_foo.c to libdvo/Makefile
+
+8b) add the new format to the list of FORMAT conversion in dvo_convert.c.
+
+9) any changes to the internal format need to be reflected in the
+   functions in the dvo_convert_*.c files.  These files are defined so
+   that changed fields are sequential in the functions.  This should
+   make is easy to identify the new changes needed.
+
+10a) if the Image structure must be changed, this is done in libdvo/include/libdvo_astro.h, not autocode
+10b) add the new format to the section at the end of dvo_image.c
+10c) update gfits_table_mkheader_Image in dvo_image.c to match modifications to Image (if any)
+
+11) add the new format to the dvo_image_raw.c
+
+12) add the photcode format conversions to libdvo/src/LoadPhotcodesFITS.c
+
+12) switch the output photcode format conversion ina libdvo/src/SavePhotcodesFITS.c
+
+13) Add the conversion functions to the header file libdvo/include/foo_defs.h
+
+14) Add the above foo_defs.h to libdvo/include/dvo.h
+
+14) Add the above foo_defs.h to libdvo/Makefile
+
+* Note some esoteric format issues:  
+
+  - LONEOS and ELIXIR lack chip coordinates, and must apply an
+    on-the-fly conversion, implemented in dvo_catalog_chipcoords. 
+
+  - LONEOS and ELIXIR use the old primary/secondary photcode concept,
+    and must have one photcode dataset extracted from the average
+    table on read and resupplied on write.  this happens in
+    dvo_catalog_save_mef, dvo_catalog_save_raw,
+    dvo_catalog_save_split, dvo_catalog_update_split
+
+  - LONEOS and ELIXIR have old versions where the header does not
+    specify the type explicitly.  the functions dvo_catalog_load_raw
+    and dvo_image_load_raw identify these types based on special
+    keywords.
+
+----
+
+20090207 : adding PS1_V1
+
+measure: 
+ new fields : t_msec, extID, Mxx, Mxy, Myy, dTccd; deprecated dophot
+ dbFlags, photFlags : uint16_t to uint64_t
+
+average:
+ new fields : ChiSq, Npos, flags (was code, uint16_t), extID
+
+secfilt:
+ new fields : M_20, M_80; dropped dummy
+
+image:
+ new fields : parentID, flags (was code char), changed name to 121 bytes.
+
+photcode:
+ new fields : NONE
+
+** parentID was added to enable easy lookups from chip->fpa for mosaic
+   astrometry.  In old databases, this conversion was done by making
+   the match via the time and photcode.  This conversion needs to be
+   done on load...

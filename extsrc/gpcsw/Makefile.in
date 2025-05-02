@@ -1,0 +1,78 @@
+
+default: all
+
+all: burntool tiltystreak
+
+install: all
+	cp -f bin/* @BINDIR@/
+	cp -f man/man1/* @MANDIR@/man1/
+
+clean:
+	cd gpcsrc && make -C fits/libfh clean
+	cd gpcsrc && make -C fits/libfhreg clean
+	cd gpcsrc && make -C analysis/libpscoords clean
+	cd gpcsrc && make -C fits/burntool clean
+	cd gpcsrc && make -C fits/tiltystreak clean
+
+update:
+	mkdir -p gpcsrc
+# top-level files:
+	svn export https://svn.ifa.hawaii.edu/gpc/repos/sw/trunk/Makefile gpcsrc/Makefile
+	svn export https://svn.ifa.hawaii.edu/gpc/repos/sw/trunk/Make.Common gpcsrc/Make.Common
+	svn export https://svn.ifa.hawaii.edu/gpc/repos/sw/trunk/ThisIsTopLevel gpcsrc/ThisIsTopLevel
+	svn export https://svn.ifa.hawaii.edu/gpc/repos/sw/trunk/missing_protos.h gpcsrc/missing_protos.h
+# required subdirs
+	svn export https://svn.ifa.hawaii.edu/gpc/repos/sw/trunk/analysis/libpscoords gpcsrc/analysis/libpscoords.new
+	svn export https://svn.ifa.hawaii.edu/gpc/repos/sw/trunk/analysis/libpsf gpcsrc/analysis/libpsf.new
+	svn export https://svn.ifa.hawaii.edu/gpc/repos/sw/trunk/fits/libfh gpcsrc/fits/libfh.new
+	svn export https://svn.ifa.hawaii.edu/gpc/repos/sw/trunk/fits/libfhreg gpcsrc/fits/libfhreg.new
+	svn export https://svn.ifa.hawaii.edu/gpc/repos/sw/trunk/fits/burntool gpcsrc/fits/burntool.new
+	svn export https://svn.ifa.hawaii.edu/gpc/repos/sw/trunk/fits/tiltystreak gpcsrc/fits/tiltystreak.new
+# ensure the target directory exists
+	mkdir -p gpcsrc/analysis/libpscoords
+	mkdir -p gpcsrc/analysis/libpsf
+	mkdir -p gpcsrc/fits/libfh
+	mkdir -p gpcsrc/fits/libfhreg
+	mkdir -p gpcsrc/fits/burntool
+	mkdir -p gpcsrc/fits/tiltystreak
+# replace new files with those from the imported directories
+	cp -rf gpcsrc/analysis/libpscoords.new/* gpcsrc/analysis/libpscoords
+	cp -rf gpcsrc/analysis/libpsf.new/* gpcsrc/analysis/libpsf
+	cp -rf gpcsrc/fits/libfh.new/* gpcsrc/fits/libfh
+	cp -rf gpcsrc/fits/libfhreg.new/* gpcsrc/fits/libfhreg
+	cp -rf gpcsrc/fits/burntool.new/* gpcsrc/fits/burntool
+	cp -rf gpcsrc/fits/tiltystreak.new/* gpcsrc/fits/tiltystreak
+# remove the temp directory
+	rm -rf gpcsrc/analysis/libpscoords.new
+	rm -rf gpcsrc/analysis/libpsf.new
+	rm -rf gpcsrc/fits/libfh.new
+	rm -rf gpcsrc/fits/libfhreg.new
+	rm -rf gpcsrc/fits/burntool.new
+	rm -rf gpcsrc/fits/tiltystreak.new
+# modify burntool to avoid libpsf (which requires fortran)
+	cp -f burntool.nopsf/Makefile gpcsrc/fits/burntool
+	cp -f burntool.nopsf/psfstats.c gpcsrc/fits/burntool
+
+# replace master Make.Common with the modified Make.Common.fixed
+	cp -f Make.Common.fixed gpcsrc/Make.Common
+
+# set up links
+	ln -sf ../Make.Common gpcsrc/analysis/Make.Common
+	ln -sf ../Make.Common gpcsrc/analysis/libpscoords/Make.Common
+	ln -sf ../Make.Common gpcsrc/analysis/libpsf/Make.Common
+	ln -sf ../Make.Common gpcsrc/fits/Make.Common
+	ln -sf ../Make.Common gpcsrc/fits/libfh/Make.Common
+	ln -sf ../Make.Common gpcsrc/fits/libfhreg/Make.Common
+	ln -sf ../Make.Common gpcsrc/fits/burntool/Make.Common
+	ln -sf ../Make.Common gpcsrc/fits/tiltystreak/Make.Common
+
+libs:
+	cd gpcsrc && make -C fits/libfh install
+	cd gpcsrc && make -C fits/libfhreg install
+
+burntool: libs
+	cd gpcsrc && make -C analysis/libpscoords install
+	cd gpcsrc && make -C fits/burntool install
+
+tiltystreak: libs
+	cd gpcsrc && make -C fits/tiltystreak install

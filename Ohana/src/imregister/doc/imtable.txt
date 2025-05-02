@@ -1,0 +1,22 @@
+
+Image Table: run @ 6 AM in ert
+
+- for given time period:
+
+* are all images in database? (compare archive db & elixir db)
+* have all images passed imstats?
+
+- complete images should be extracted into a table, sent to CADC
+- missing images should be registered or a warning sent on failure
+  (relink on /data/kapu/elixir/cfh12k)
+
+- nostat images should be sent to imstats
+  (launch imstats to process)
+ 
+* imsearch output format CADC: 
+
+  fits_define_table_column (&theader, "A64",   "FILE",       "filename in db",        "",                              1.0, 0.0);
+  fits_define_table_column (&theader, "F7.1",  "SKY",        "background level",     "counts / pixel",                 1.0, 0.0); 
+  fits_define_table_column (&theader, "F6.1",  "BIAS",       "bias level",           "counts / pixel",                 1.0, 0.0); 
+  fits_define_table_column (&theader, "F5.2",  "FWHM",       "image quality",        "pixels",                         1.0, 0.0); 
+

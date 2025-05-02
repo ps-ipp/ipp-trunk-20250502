@@ -1,0 +1,9 @@
+
+  images 
+
+  plot the outlines of images in the photometry database and list
+  along with relevant information.  An example of relevant data is the
+  image time, which can be used in other functions to define a specific
+  image or a range of images relevant for the function.
+
+  See also: Database, lcat, pcat

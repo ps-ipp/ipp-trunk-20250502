@@ -1,0 +1,41 @@
+
+Elixir uses several databases to store a variety of information.
+One of these databases is the photometry database, with several
+interface tools (status, nrphot, addstar, etc).  The other databases
+are manipulated with the tools found in this directory.  In addition,
+tools used to abstract the camera description, photcodes, and filters
+are included here.
+
+imregister   : add images to the image registration database (imreg.db)
+
+imsearch     : find images in imreg.db
+
+imsort       : add images to imreg.db and pass to elixir systems
+
+imstatreg    : update stats to imreg.db (fwhm, flux, bias)
+
+detregister  : add images to the detrend database
+
+detsearch    : find images in the detrend database
+
+photreg      : add photometry datapoints to zeropoint db (phot.db)
+
+photsearch   : search phot.db
+
+transreg     : add transparency points to database (trans.db)
+
+transsearch  : search trans.db
+
+photcode     : find photcode for given image
+
+filtnames    : filter name lookups
+
+cameraconfig : get configuration information for camera
+
+As in all Elixir programs, a reference to a specific CCD in a MEF
+image can be done with (file) (ccd) MEF, where the value of 'ccd' is
+one of the valid extension names, associated in the header with the
+keyword defined by CCDNUM-KEYWORD.  In addition, searches (imsearch,
+detsearch) may be restricted to specific ccds with the -ccd flag,
+which also takes the extension name ID.
+

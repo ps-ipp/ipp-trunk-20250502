@@ -1,0 +1,112 @@
+#!/bin/csh -f
+
+# this script is called by the CFH12K 'go' command and is run on the
+# acquisition machine.  It is run as user cfh12k, or who ever else
+# might be running the camera.  It assumes the user does not have any
+# the elixir path (/apps/elixir/bin at CFHT) define.
+
+# all needed elixir functions should be in the path of cfh12k (and megacam)
+setenv PATH /bin:/usr/bin:/apps/elixir/bin
+umask 0
+
+# file must exist when elixir.fork is called
+if ($#argv != 1) then
+ echo "USAGE: elixir.fork (filename)"
+ echo "(filename) must be the file for MEF, the top directory for SPLIT"
+ exit;
+endif
+
+# convert filename to (dir) (base) (mode):
+set answer=`/apps/elixir/bin/cfht.names $1`
+if ($status) exit 1
+
+set list=($answer)
+set fdir=$list[1]
+set name=$list[2]
+set mode=$list[3]
+
+# set logdir for various logging
+# set logdir=`gconfig LOGDIR`
+# if ($status) then 
+#  echo "error with elixir configurations: missing LOGDIR, using /tmp" 
+# endif
+
+set logdir = "$HOME/elixir"
+if (! -e $logdir) then 
+  mkdir $logdir
+  if ($status) then 
+    echo "error with elixir configurations: missing LOGDIR, using /tmp" 
+    set logdir = "/tmp"
+  endif
+endif
+
+# get name for a specific image, get image type
+# the definition of the name is system dependent
+if ("$mode" == "on") then
+ set file=$fdir/$name.fits
+else 
+ set file=$fdir/$name/$name\00.fits
+endif
+
+# abstract the OBSTYPE keyword? 
+set type=`echo $file | fields OBSTYPE | awk '{print $2}' | tr '[:lower:]' '[:upper:]'`
+
+# name for summit processing machine
+set remote=wekiu
+
+# realtime functions to perform
+set focus=0
+set seeing=0
+set jpeg=0
+switch ($type)
+    case FOCUS:
+	set focus=1
+	breaksw;
+    case DARK:
+    case BIAS:
+    case FLAT:
+	breaksw;
+    case OBJECT:
+	set jpeg=1
+	set seeing=1
+	# send to the seeing stats
+	breaksw;
+    default:
+	breaksw;
+endsw
+
+if (-r ~/.elixir.override) then
+ echo "NOTE: using values from .elixir.override" >> $logdir/fork.log
+ source ~/.elixir.override
+endif
+
+set comp = ""
+if ($focus) set comp = "getfocus $comp"
+if ($seeing) set comp = "getseeing $comp"
+if ($jpeg) set comp = "mkjpeg $comp"
+if ("$comp" == "") set comp = "nothing" 
+
+echo "$fdir $name $mode : type $type : running $comp" >> $logdir/fork.log
+# echo "$fdir $name $mode : type $type : running $comp"
+
+if ($seeing) then 
+    # getseeing - measure seeing stats for image
+    rsh -n $remote /apps/elixir/bin/getseeing $fdir $name $mode >>& $logdir/getseeing.log &
+endif
+
+if ($focus) then 
+    # getfocus - measure focus frame
+    rsh -n $remote /apps/elixir/bin/getfocus $fdir $name $mode >>& $logdir/getfocus.log &
+endif
+
+if ($jpeg) then 
+    # mkjpeg - create binned images
+    rsh -n $remote /apps/elixir/bin/mkjpeg $fdir $name $mode >>& $logdir/mkjpeg.log &
+endif
+
+exit 0;
+
+# note on script launches:
+# script >>& logfile.log &
+# launches the script immediately, ignores the exit status,
+# saves all output into logfile.log

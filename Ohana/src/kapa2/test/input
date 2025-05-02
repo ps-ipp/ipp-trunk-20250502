@@ -1,0 +1,38 @@
+
+macro test1
+  mcreate a 512 512
+  set x = xramp(a)
+  tv x 0 512
+end
+
+macro go
+  mcreate a 512 512
+  set x = xramp(a)
+  set y = yramp(a)
+  set z = sqrt((x-256)^2 + (y-256)^2)
+  tvchannel 1
+  tv x 0 512
+  tvchannel 2
+  tv y 0 512
+  tvchannel 3
+  tv z 0 512
+end
+
+macro test
+  rd r dub.red.fits
+  rd g dub.green.fits
+  rd b dub.blue.fits
+  set R = r*(r >= 0) + (r + 256)*(r < 0)
+  set G = g*(g >= 0) + (g + 256)*(g < 0)
+  set B = b*(b >= 0) + (b + 256)*(b < 0)
+  tvchannel 1
+  tv R 0 256
+  tvchannel 2
+  tv G 0 256
+  tvchannel 3
+  tv B 0 256
+
+  tvcolor ruffcolor
+  sleep 1
+  tvcolor fullcolor
+end

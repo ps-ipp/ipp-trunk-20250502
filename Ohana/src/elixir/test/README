@@ -1,0 +1,149 @@
+
+This directory includes a very simple elixir script, test.pro, to test
+that elixir is working correctly.  
+
+To run it, create an input list with one element per line.  The
+elements can be any word; an example is provided in test.list.
+
+Make sure the machines listed above represent valid machine names in
+your cluster.  Also, be certain that you can rsh to these machines
+without a password.
+
+Run the test by exectuting:
+
+elixir -c test.pro test.list
+
+the result of this test will be several files in your home directory:
+
+elixir-test.log
+elixir-test.end
+elixir-test.success
+
+elixir-test.log:
+
+The first file, elixir-test.log, shows the output from all of the
+processing steps.  In this test example, the log file is defined to be
+a single file, but it is also possible to use the &0 style
+command-line arguments to create a different file for each input line.
+All output from each of the processes goes into this file in the order
+received by the elixir program.  The resulting lines may look a bit
+confusing sometime as a result.  In addition, elixir adds some extra
+information to aid in debugging.  Here are a few example lines:
+
+foo @ kiawe: ls foo ; echo SUCCESS 
+bar @ milo: ls bar ; echo SUCCESS 
+foo @ kiawe:ls: foo: No such file or directory
+SUCCESS
+PROCESS DONE
+foo @ kiawe is done
+bar @ milo:ls: bar: No such file or directory
+SUCCESS
+PROCESS DONE
+bar @ milo is done
+
+Every output line from the processes are prepended with:
+
+(&0) @ (machine): 
+
+In this example, I used the two machines, kiawe & milo.  The first two
+lines show the first two commands being executed: 
+
+ls foo ; echo SUCCESS
+
+The next three lines show the output from the process executing on foo:
+
+ls: foo: No such file or directory 
+SUCCESS
+PROCESS DONE
+
+The 'ls' command did not find a file 'foo' in the home directory -
+note that all commands, since they are run remotely, execute in the
+user's home directory.  The word "SUCCESS" comes from the 'echo
+SUCCESS' portion of the command.  Currently, elixir uses the words
+SUCCESS, ERROR, and PROCESS DONE for process monitoring.  Ideally, the
+program called by elixir should check its output state and echo either
+SUCCESS or ERROR as appropriate.  In this test example, we simply
+force all processes to claim they succeeded with the 'echo SUCCESS'
+command.  The PROCESS DONE is added by elixir when it creates the
+command.  This lets elixir detect programs which crash and thereby
+fail to send either SUCCESS or ERROR.
+
+Side Note: this SUCCESS / ERROR flow control construct will soon be
+replaced by tests of the actual process exit status.  This will make
+elixir able to more cleanly support unix commnands.  
+
+The 6th line in the example above is the output from elixir noting
+that the process for 'foo' ended.  The next few lines show the output
+for the process on 'bar'.
+
+elixir-test.end:
+
+This file is created at the end of the elixir run and provides
+information about the run.  This same status information can be
+retrieved from elixir while it is running by using the 'status'
+program.  Here is the output from the above example:
+
+##################################################################
+               .   test1            test2            test3         
+           kiawe   0.120 3          5.056 2          0.130 1        
+            milo   0.110 1          5.062 2          0.109 3        
+processes status:
+            name   pending  success  failure  total
+----------------------------------------------------------------
+          global         0        4        0      4
+           test1         0
+           test2         0
+           test3         0
+
+machine status:
+          name  process  status
+----------------------------------------------------------------
+         kiawe   (none)       0
+          milo   (none)       0
+
+objects loaded so far: 4
+
+NOT accepting input from FIFO
+DONE
+##################################################################
+
+The first section shows a grid with processes across the top and
+machines in the left column.  The entries for each pair of machine &
+process are the average execution time and the number of instances of
+the given process which was run on the given machine.  So, in this
+example, the process 'test1' (which is the 'ls') was run on 'kiawe' 3
+times for an average of 0.120 sec and on 'milo' for an average of
+0.110 sec.  
+
+The second section shows the state of the different queues when the
+elixir process ended.  The left hand column shows the possible queues
+(global, test1, test2, test3).  For all nodes except the global node,
+the success and failure queues are always linked to a queue of another
+node.  Jobs which land in the success or failure queue of a node are
+instantly moved to the pending queue of another job.  Therefore, we
+only show the pending queue for the nodes except for 'global'.  Each
+number represents the number of jobs waiting in the given queue.
+(note: the global.pending queue is identical to one of the other
+pending queues and therefore represents a duplication).  The 'total'
+entry is the sum of jobs in each of the global queues.  Note that this
+table does not show the processes which are actually being executed,
+as these are considered to be 'in' a node, not on the queue of a node.
+They are represented in the next section.  
+
+The third section lists the status of all machines available.  The
+first column is the machine name; the second is the name of the
+process being executed, or '(none)' if the machine is idle; the third
+is a numerical status indication (which is generally ignored).  
+
+The next line shows the number of objects loaded by elixir.  Since
+elixir has the capability of loading new objects dynamically, this
+value on this line may increment as time goes by.  The next line shows
+whether elixir is accepting input during runtime or not.
+
+elixir-test.success:
+
+This file lists the processes which elixir successfully finished.  (An
+equivalent file, elixir-test.failure, would include jobs which did not
+succeed).  Entries are added to this file as the jobs complete.  In
+this way, it can be used to monitor the process of an elixir run.  
+

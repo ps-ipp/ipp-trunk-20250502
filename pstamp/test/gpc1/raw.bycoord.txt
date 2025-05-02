@@ -1,0 +1,8 @@
+#  TEST: bycoord raw. 3 different releases (should get the same results)
+#
+#  REQ_NAME EXTVER ACTION EMAIL
+CHANGEME 2 PROCESS null
+#  ROWNUM CENTER_X CENTER_Y WIDTH HEIGHT COORD_MASK JOB_TYPE OPTION_MASK PROJECT SURVEY_NAME IPP_RELEASE REQ_TYPE IMG_TYPE ID TESS_ID COMPONENT DATA_GROUP REQFILT MJD_MIN MJD_MAX RUN_TYPE FWHM_MIN FWHM_MAX | COMMENT
+0         241.54949 55.4273 1500  1500   2      stamp         65         gpc1      3PI         null        bycoord  raw  null null     null      null       i%     0        0      null      0    0    | norelease
+0         241.54949 55.4273 1500  1500   2      stamp         65         gpc1      3PI         3PI.PV1     bycoord  raw  null null     null      null       i%     0        0      null      0    0    | GR1
+0         241.54949 55.4273 1500  1500   2      stamp         65         gpc1      3PI         3PI.nightly bycoord  raw  null null     null      null       i%     0        0      null      0    0    | nightly

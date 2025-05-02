@@ -1,0 +1,143 @@
+
+mextract from value [options]
+avextract from value [options]
+
+imextract value [options]
+
+dmags F1 - F2 : F3 [options]
+dmagmeas F1 - F2 : value [options]
+dmagaves F1 - F2 : value [options]
+
+cmd F1 - F2 : F3 [options]
+ccd F1 - F2 : F3 - F4 [options]
+
+calextract F1 - F2 [options]
+calmextract F1 - F2 [options]
+
+options:
+
+ -photcode value
+  for avextract and dmagaves, -photcode defines the which code is used
+  to calculate certain values (mag, dmag, etc).  objects which lack a 
+  photcode return a logical NaN for that value.
+
+ -magrange min max
+
+this can apply to any photcode
+
+ -imaglim min 
+ -flag value
+ -time start stop
+ -fwhm (value)
+ -type (value)
+
+these naturally apply to the REF and DEP photcodes, but cannot apply to 
+to PRI and SEC.  (note that -type is interpretted a bit differently here
+from below. 
+
+ -chisq max
+ -errorlim max
+ -type (value)
+ -typefrac (type) (frac)
+ -nphot (value)
+ -ncode (value)
+ -fwhmfrac (value) (frac)
+
+these naturally apply to PRI and SEC photcodes, but cannot apply to
+REF.  For DEP, they could apply to the equivalent photcode.  eg
+
+  ccd I - 2MASS_J : 2MASS_J - 2MASS_K -chisq 2.0
+
+  this will exclude on chisq for the I value, and ignore the limit
+  for the 2MASS values
+
+  ccd I - CFH12K.R.00 : 2MASS_J - 2MASS_K -chisq 2.0
+
+  this will exclude on chisq for the I value, and ignore the limit
+  for the 2MASS values, and exclude on R (equiv to CFH12K.R.00).
+
+  ccd I - CFH12K.R.00 : 2MASS_J - 2MASS_K -time start stop
+
+  by default, this will filter the CFH12K.R.00 and 2MASS measurements 
+  based on
+
+we need to be able to restrict the selections to a subset of the
+extraction values.  We can use a flag like: -apply YYNN:
+
+  ccd I - CFH12K.R.00 : 2MASS_J - 2MASS_K -time start stop -apply NYNN
+
+to restrict the application to only the CFH12K.R.00 entry.
+
+measure values:
+  ra
+  dec
+  mag
+  dmag
+  airmass
+  exptime
+  photcode
+  time
+  dR
+  dD
+  fwhm
+  dophot
+  FLAGS
+  XCCD
+  YCCD
+  XMOSAIC
+  YMOSAIC
+
+average values:
+  ra
+  dec
+  dmag
+  Nmeas
+  Nmiss
+  Xp
+  Xm
+  flag
+  type
+  typefrac
+  Nphot
+  Ncode
+
+
+
+- ExtractDMag
+  - ExtractMeasuresDMag
+    - TestAverage
+  - ExtractMagnitudes
+    - ExtractAverages
+    - ExtractMeasures
+
+mextract
+ - ExtractMeasures
+avextract
+ - ExtractAverages
+dmags
+ - ExtractDMag
+ - ExtractMagnitudes
+ddmags
+ - ExtractDMag
+ - ExtractDMag
+dmagmeas
+ - ExtractDMag
+ - ExtractMeasures
+dmagaves
+ - ExtractDMag
+ - ExtractAverages
+cmd
+ - ExtractDMag
+ - ExtractMagnitudes
+ccd
+ - ExtractDMag
+calextract
+ - ExtractAverages
+calmextract
+ - ExtractMeasures
+
+
+cmd B - V : B
+dmagmeas B - V : ra
+dmagmeas B - V : time
+

@@ -1,0 +1,23 @@
+
+2007.02.12 
+
+I am trying to build ohana on a solaris box:
+
+panstarrs / SunOS panstarrs 5.8 Generic_117350-26 sun4u sparc SUNW,Sun-Fire-V240 Solaris
+
+I have encountered a few issues:
+
+* configure.tcsh
+** I have added /usr/local/lib and /usr/local/include to the library search path
+** configure.tcsh now skips directories it does not find
+** I now list explicitly all of the external include files required
+
+* includes: 
+** netinet/ip.h does not work (though it exists), we need to use:
+
+# include <sys/socket.h>
+# include <netinet/in.h>
+
+* linking:
+** the vscanf family of functions are missing from solaris. 
+

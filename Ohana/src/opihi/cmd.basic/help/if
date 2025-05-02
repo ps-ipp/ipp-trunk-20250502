@@ -1,0 +1,22 @@
+
+   if (logic)
+     (commands)
+   end
+
+   or:
+
+   if (logic)
+     (commands)
+   else 
+     (commnds)
+   end
+
+   logical block.  The commands are performed subject to the logical
+   condition.  The syntax is simplified C:  
+   examples: (x = 6), (x < 6) , (x ! 6), ((x = 6) | (x > 10))
+
+   there are no delimiter characters.
+
+   See also: for, macro
+
+   

@@ -1,0 +1,82 @@
+
+<p>
+This <a href=../download/dvo.sample.tgz>tarball</a> contains a
+collection of data from 6 Megacam standard star image obtained in
+September, 2003.  There are two sets of three images, taken two weeks
+apart (03 Sep and 21 Sep).  In each set, there is one each of g', r',
+and i' images, all short exposures of 3.0 seconds.  This dataset makes
+a useful demonstration of the DVO system.
+
+<p>
+The tarball contains 6 directories, one for each image.  The images
+have been processed with the Elixir system and the photflat-corrected
+flat-field images for each filter, though no fringe correction has
+been applied.  Sextractor has been run on all of the images, and only
+the sextractor-derived photometry is available in the tarballs.  No
+image pixel data is kept.  The directories are named after the
+exposure odometer numbers, eg 718688o.
+
+<p>
+Within each directory, the data is separated into a number of files
+for each of the 36 detector, with names created by appending the chip
+number to the odometer number of the image, eg 718688o00.  For each
+detector, the directory contains:
+
+<ul>
+<li> the Elixir processing log file: *.log
+<li> the raw sextractor output: *.sx
+<li> the photometry data in Elixir cmp format: *.smp
+<li> the photometry data in FITS table format: *.smf
+<li> the photometry data with mosaic astromtry: *.xmf
+</ul>
+
+<p>
+The raw sextrator output consists of a fixed-format ASCII table with
+columns defined by the Elixir processing system.  The Elixir cmp
+format merges the sextractor photometry table with the image header to
+form a pseudo-FITS table.  The smf format contains essentially the
+same information as the smp format, but the table portion of the data
+is written as a FITS table in the first extension, with appropriate
+table description in the table header unit.  The primary header of
+this file consists of the original image header, with the value of
+NAXIS set to 0.  This has the effect of making the file a valid FITS
+file, while keeping the information of NAXIS1 and NAXIS2 (the original
+image dimensions), while eliminated the data taken by the image array.
+
+<p>
+Both the .smp and .smf files include the astrometric solution in the
+form of WCS header entries.  In the case of these files, the
+astrometry requires a linear solution across the chip.  The linear
+solution provides a robust solution, but results in systematic errors
+which are substantial, roughly 0.5-1.0 arcsec, due to the optical
+system distortion.  A better solution can be obtained by fitting
+higher order polynomials.  We use a two-layer solution, with one set
+of third-order polynomials to represent the warping of each detector,
+and a second third-order polynomial to represent the telescope optical
+distortion.  The .xmf files represent the same data as the .smf files,
+also in the FITS table format, but with the two-layer mosaic
+astrometric solutions in their headers.  In addition, these files
+require the single .phu file which represents the full-mosaic PHU and
+contains the top-level telescope distortion solution.
+
+It is possible to add any of these data to the DVO database using the
+addstar command.  To add any of the .smp files, simply use the
+command:
+
+<pre>
+addstar filename.smp
+</pre>
+
+To add any of the .smf files, it is necessary to specify the
+<tt>-fits</tt> flag:
+
+<pre>
+addstar -fits filename.smf
+</pre>
+
+To add any of the .xmf files, it is necessary to specify the
+<tt>-fits</tt> flag and to identify the mosaic astrometry file:
+
+<pre>
+addstar -mosaic root.phu -fits filename.smf
+</pre>

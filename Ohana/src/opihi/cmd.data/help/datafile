@@ -1,0 +1,6 @@
+
+   datafile (filename)
+
+   define a data file for subsequent vector reads.
+
+   See also: read

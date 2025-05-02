@@ -1,0 +1,6 @@
+AT_SETUP([[% table.namespace %]ObjectFromMetadata()])
+AT_KEYWORDS([[% table.namespace %]ObjectFromMetadata])
+
+AT_CHECK([objectfrommetadata])
+
+AT_CLEANUP

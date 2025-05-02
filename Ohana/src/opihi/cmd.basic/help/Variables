@@ -1,0 +1,17 @@
+
+  Opihi shell variables (scalars):
+
+  The Opihi shell can have variables which are designated by a word
+following a dollar sign: $foo.  Certain Mana function create and set
+variables (ie, stats, cursor).  You can also set a variable to the
+result of an arithmetic expression or just a number like this:
+
+  $foo = 10.0
+  $bar = 5*$foo + 0.6
+
+Mana will replace the variables on a line before executing a command.
+See also "Math" for more description of arithmetic operations.
+
+  See Also:  Math
+
+

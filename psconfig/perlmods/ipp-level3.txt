@@ -1,0 +1,67 @@
+  00  B::Hooks::EndOfScope          B-Hooks-EndOfScope-0.24.tar.gz           0              NONE      NONE
+  00  Canary::Stability             Canary-Stability-2012.tar.gz	     0              NONE      NONE
+  00  Class::Singleton              Class-Singleton-1.5.tar.gz		     0              NONE      NONE
+  00  Data::OptList                 Data-OptList-0.110.tar.gz		     0              NONE      NONE
+  00  Data::Section                 Data-Section-0.200007.tar.gz	     0              NONE      NONE
+  00  Date::Manip                   Date-Manip-6.76.tar.gz		     0              NONE      NONE
+  00  Devel::GlobalDestruction      Devel-GlobalDestruction-0.14.tar.gz	     0              NONE      NONE
+  00  Eval::Closure                 Eval-Closure-0.14.tar.gz		     0              NONE      NONE
+  00  Exception::Class              Exception-Class-1.44.tar.gz		     0              NONE      NONE
+  00  File::ShareDir::Install       File-ShareDir-Install-0.13.tar.gz	     0              NONE      NONE
+  00  IO::Pipely                    IO-Pipely-0.005.tar.gz		     0              NONE      NONE
+  00  IPC::Run3                     IPC-Run3-0.048.tar.gz		     0              NONE      NONE
+  00  MIME::Types                   MIME-Types-2.17.tar.gz		     0              NONE      NONE
+  00  NetAddr::IP                   NetAddr-IP-4.079.tar.gz		     0              NONE      NONE
+  00  Number::Compare               Number-Compare-0.03.tar.gz		     0              NONE      NONE
+  00  POE::Test::Loops              POE-Test-Loops-1.360.tar.gz		     0              NONE      NONE
+  00  Params::Util                  Params-Util-1.07.tar.gz		     0              NONE      NONE
+  00  Path::Tiny                    Path-Tiny-0.108.tar.gz		     0              NONE      NONE
+  00  Sub::Identify                  Sub-Identify-0.14.tar.gz		     0              NONE      NONE
+  00  Sub::Install                  Sub-Install-0.928.tar.gz		     0              NONE      NONE
+  00  Test2::Plugin::NoWarnings     Test2-Plugin-NoWarnings-0.06.tar.gz	     0              NONE      NONE
+  00  Test2::Require::Module        Test2-Suite-0.000119.tar.gz		     0              NONE      NONE
+  00  Test::Base                    Test-Base-0.89.tar.gz		     0              NONE      NONE
+  00  Test::Fatal                   Test-Fatal-0.014.tar.gz		     0              NONE      NONE
+  00  Test::Needs                   Test-Needs-0.002006.tar.gz		     0              NONE      NONE
+  00 Test::Requires                 Test-Requires-0.10.tar.gz		     0              NONE      NONE
+  00 Test::Warn                     Test-Warn-0.36.tar.gz		     0              NONE      NONE
+  00 Test::Without::Module          Test-Without-Module-0.20.tar.gz	     0              NONE      NONE
+  00 Text::Glob                     Text-Glob-0.11.tar.gz		     0              NONE      NONE
+  00 Text::Template                 Text-Template-1.55.tar.gz		     0              NONE      NONE
+  00 XML::Parser::PerlSAX           libxml-perl-0.08.tar.gz 		     0              NONE      NONE
+  00 XML::RegExp                    XML-RegExp-0.04.tar.gz		     0              NONE      NONE
+  00 namespace::clean               namespace-clean-0.27.tar.gz              0              NONE      NONE
+
+#GET https://cpan.metacpan.org/authors/id/E/ET/ETHER/B-Hooks-EndOfScope-0.24.tar.gz
+#GET https://cpan.metacpan.org/authors/id/M/ML/MLEHMANN/Canary-Stability-2012.tar.gz
+#GET https://cpan.metacpan.org/authors/id/S/SH/SHAY/Class-Singleton-1.5.tar.gz
+#GET https://cpan.metacpan.org/authors/id/R/RJ/RJBS/Data-OptList-0.110.tar.gz
+#GET https://cpan.metacpan.org/authors/id/R/RJ/RJBS/Data-Section-0.200007.tar.gz
+#GET https://cpan.metacpan.org/authors/id/S/SB/SBECK/Date-Manip-6.76.tar.gz
+#GET https://cpan.metacpan.org/authors/id/H/HA/HAARG/Devel-GlobalDestruction-0.14.tar.gz
+#GET https://cpan.metacpan.org/authors/id/D/DO/DOY/Eval-Closure-0.14.tar.gz
+#GET https://cpan.metacpan.org/authors/id/D/DR/DROLSKY/Exception-Class-1.44.tar.gz
+#GET https://cpan.metacpan.org/authors/id/E/ET/ETHER/File-ShareDir-Install-0.13.tar.gz
+#GET https://cpan.metacpan.org/authors/id/R/RC/RCAPUTO/IO-Pipely-0.005.tar.gz
+#GET https://cpan.metacpan.org/authors/id/R/RJ/RJBS/IPC-Run3-0.048.tar.gz
+#GET https://cpan.metacpan.org/authors/id/M/MA/MARKOV/MIME-Types-2.17.tar.gz
+#GET https://cpan.metacpan.org/authors/id/M/MI/MIKER/NetAddr-IP-4.079.tar.gz
+#GET https://cpan.metacpan.org/authors/id/R/RC/RCLAMP/Number-Compare-0.03.tar.gz
+#GET https://cpan.metacpan.org/authors/id/R/RC/RCAPUTO/POE-Test-Loops-1.360.tar.gz
+#GET https://cpan.metacpan.org/authors/id/A/AD/ADAMK/Params-Util-1.07.tar.gz
+#GET https://cpan.metacpan.org/authors/id/D/DA/DAGOLDEN/Path-Tiny-0.108.tar.gz
+#GET https://cpan.metacpan.org/authors/id/R/RG/RGARCIA/Sub-Identify-0.14.tar.gz
+#GET https://cpan.metacpan.org/authors/id/R/RJ/RJBS/Sub-Install-0.928.tar.gz
+#GET https://cpan.metacpan.org/authors/id/D/DR/DROLSKY/Test2-Plugin-NoWarnings-0.06.tar.gz
+#GET https://cpan.metacpan.org/authors/id/E/EX/EXODIST/Test2-Suite-0.000119.tar.gz
+#GET https://cpan.metacpan.org/authors/id/I/IN/INGY/Test-Base-0.89.tar.gz
+#GET https://cpan.metacpan.org/authors/id/R/RJ/RJBS/Test-Fatal-0.014.tar.gz
+#GET https://cpan.metacpan.org/authors/id/H/HA/HAARG/Test-Needs-0.002006.tar.gz
+#GET https://cpan.metacpan.org/authors/id/T/TO/TOKUHIROM/Test-Requires-0.10.tar.gz
+#GET https://cpan.metacpan.org/authors/id/B/BI/BIGJ/Test-Warn-0.36.tar.gz
+#GET https://cpan.metacpan.org/authors/id/C/CO/CORION/Test-Without-Module-0.20.tar.gz
+#GET https://cpan.metacpan.org/authors/id/R/RC/RCLAMP/Text-Glob-0.11.tar.gz
+#GET https://cpan.metacpan.org/authors/id/M/MS/MSCHOUT/Text-Template-1.55.tar.gz
+#GET https://cpan.metacpan.org/authors/id/K/KM/KMACLEOD/libxml-perl-0.08.tar.gz
+#GET https://cpan.metacpan.org/authors/id/T/TJ/TJMATHER/XML-RegExp-0.04.tar.gz
+#GET https://cpan.metacpan.org/authors/id/R/RI/RIBASUSHI/namespace-clean-0.27.tar.gz

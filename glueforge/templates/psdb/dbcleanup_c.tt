@@ -1,0 +1,20 @@
+#include <pslib.h>
+#include <stdlib.h>
+
+int main ()
+{
+    psDB            *dbh;
+
+    dbh = psDBInit("localhost", "test", NULL, "test", 0);
+    if (!dbh) {
+        exit(EXIT_FAILURE);
+    }
+
+[% FOREACH table = tables -%]
+    p_psDBRunQuery(dbh, "DROP TABLE IF EXISTS [% table.name %]");
+[% END -%]
+
+    psDBCleanup(dbh);
+
+    exit(EXIT_SUCCESS);
+}

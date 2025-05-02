@@ -1,0 +1,253 @@
+
+FITS(1.0)         MISC. REFERENCE MANUAL PAGES          FITS(1.0)
+
+NAME
+     _F_I_T_S _H_E_A_D_E_R _r_o_u_t_i_n_e_s:  fits_read_header, fits_write_header,
+     fits_header_field,  fits_scan, fits_print, fits_copy_header,
+     fits_create_header, fits_free_header.
+
+     _F_I_T_S _M_A_T_R_I_X _r_o_u_t_i_n_e_s:  fits_read_matrix, fits_write_matrix,
+     fits_get_matrix_value, fits_set_matrix_value,
+     fits_create_matrix, fits_free_matrix, fits_insert_array
+
+SYNOPSIS
+     (compile with -lFITS)
+     # include <fitsio.h>
+
+      _F_I_T_S _H_e_a_d_e_r _R_o_u_t_i_n_e_s
+          int   fits_read_header (filename, header)
+          char      *filename;
+          Header    *header;
+
+          int   fits_write_header (filename, header)
+          char      *filename;
+          Header    *header;
+
+          char *fits_header_field (header, field, N)
+          Header    *header;
+          char      *field;
+          int        N;
+
+          int   fits_scan   (header, field, mode, value, N)
+          int   fits_print  (header, field, mode, value, N)
+          int   fits_modify (header, field, mode, value, N)
+          Header    *header;
+          char      *field, *mode, *value;
+          int        N;
+
+          int   fits_create_header (header)
+          Header    *header;
+
+          int   fits_copy_header (header1, header2)
+          Header    *header1;
+          Header    *header2;
+
+          int   fits_free_header (header)
+          Header    *header;
+
+      _F_I_T_S _M_a_t_r_i_x _R_o_u_t_i_n_e_s
+          int   fits_read_matrix (filename, matrix)
+          char      *filename;
+          Matrix    *matrix;
+
+          int   fits_write_matrix (filename, matrix)
+
+Version 1.0        Last change: Sept 18, 1992                   1
+
+FITS(1.0)         MISC. REFERENCE MANUAL PAGES          FITS(1.0)
+
+          char      *filename;
+          Matrix    *matrix;
+
+          int   fits_get_matrix_value (matrix, x, y)
+          Matrix    *matrix;
+          int        x, y;
+
+          void  fits_set_matrix_value (matrix, x, y, value)
+          Matrix    *matrix;
+          int        x, y;
+          double     value;
+
+          int   fits_create_matrix (header, matrix)
+          Header    *header;
+          Matrix    *matrix;
+
+          int   fits_insert_array (matrix, array, x, y)
+          Matrix    *matrix;
+          Matrix    *array;
+          int        x, y;
+
+          int   fits_free_matrix (matrix)
+          Matrix    *matrix;
+
+DESCRIPTION
+     These functions allow for FITS I/O in a general C-like way.
+     There are several relavant structures defined in _f_i_t_s_i_o._h
+     (see STRUCTURES below).
+
+      _F_I_T_S _H_e_a_d_e_r _R_o_u_t_i_n_e_s
+
+          _f_i_t_s__r_e_a_d__h_e_a_d_e_r opens a file and reads the FITS header
+          into a Header structure.  No error checking, except
+          file existence is currently provided.
+
+          _f_i_t_s__w_r_i_t_e__h_e_a_d_e_r opens a file and write the Header
+          structure into the file in FITS format.  It also puts a
+          RETURN character (0x0a) into the N*80 bytes (the end of
+          every header line).  This is not FITS standard, but it
+          makes the header more readable.
+
+          _f_i_t_s__h_e_a_d_e_r__f_i_e_l_d returns a pointer to the start of the
+          Nth header line with the given keyword "field".  No
+          error check is provided, except to note the lack of
+          such a field (returns a NULL value).
+
+          _f_i_t_s__s_c_a_n, _f_i_t_s__p_r_i_n_t and _f_i_t_s__m_o_d_i_f_y are modeled on
+          _f_s_c_a_n_f and _f_p_r_i_n_t_f but act on a FITS header instead of
+          a stream.  _f_i_t_s__p_r_i_n_t write a new entry, while
+          _f_i_t_s__m_o_d_i_f_y alters the value of an existing entry
+
+Version 1.0        Last change: Sept 18, 1992                   2
+
+FITS(1.0)         MISC. REFERENCE MANUAL PAGES          FITS(1.0)
+
+          (wiping out the comment line).  The following modes are
+          supported:
+
+               %d   A signed decimal integer is expected.
+               %u   An unsigned decimal integer is expected.
+               %ld  A long decimal integer is expected.
+               %hd  A short decimal integer is expected.
+               %f   A float is expected.
+               %lf  A double is expected.
+               %t   A boolean is expected.  The pointer should be
+                    of type _b_o_o_l.
+               %s   A string is expected.  The pointer should be
+                    of type _c_h_a_r.
+                    should be of type _c_h_a_r.
+               %S A comment line string is expected.  The pointer
+
+          _f_i_t_s__c_r_e_a_t_e__h_e_a_d_e_r creates a Header structure based on
+          a partially filled Header structure.  The mandatory
+          structure values (simple, bitpix, Naxes, Naxis[N],
+          extend, unsign) must be set.  The buffer will be filled
+          in according to these values.
+
+          _f_i_t_s__c_o_p_y__h_e_a_d_e_r copies the header1 to header2;
+
+          _f_i_t_s__f_r_e_e__h_e_a_d_e_r frees the allocated pointers
+          associated with the header.
+
+      _F_I_T_S _M_a_t_r_i_x _R_o_u_t_i_n_e_s
+
+          _f_i_t_s__r_e_a_d__m_a_t_r_i_x opens the given file and reads the
+          matrix structure.  There is, of course, no decent error
+          checking.
+
+          _f_i_t_s__w_r_i_t_e__m_a_t_r_i_x opens the given file and writes the
+          matrix structure.  The matrix is written to the end of
+          the file, in the assumption that there is already a
+          Header written to the file. There is, of course, no
+          decent error checking.
+
+          _f_i_t_s__g_e_t__m_a_t_r_i_x__v_a_l_u_e returns the value of the pixel at
+          the given (2-D) coordinates.
+
+          _f_i_t_s__s_e_t__m_a_t_r_i_x__v_a_l_u_e sets the value of the pixel at
+          the given (2-D) coordinates.
+
+          _f_i_t_s__c_r_e_a_t_e__m_a_t_r_i_x creates a matrix which corresponds
+          to the format described in the Header structure.
+
+          _f_i_t_s__c_o_p_y__m_a_t_r_i_x makes a duplicate copy of header1 in
+          header2.
+
+          _f_i_t_s__f_r_e_e__m_a_t_r_i_x frees the allocated pointers
+
+Version 1.0        Last change: Sept 18, 1992                   3
+
+FITS(1.0)         MISC. REFERENCE MANUAL PAGES          FITS(1.0)
+
+          associated with the Matrix.
+
+          _f_i_t_s__i_n_s_e_r_t__a_r_r_a_y set the values of the Matrix to those
+          of the array (a small Matrix), using the x,y values as
+          a relative offset.
+
+STRUCTURES
+     There are several important structures defined in _f_i_t_s_i_o._h
+     which are described here.
+
+     # define bool char
+
+     # typedef struct {
+       bool                    simple;
+       bool                    unsign;
+       bool                    extend;
+       int                     bitpix;
+       int                     Naxes;
+       int                     Naxis[FT_MAX_NAXES];
+       int                     size;
+       double                  bzero, bscale;
+       char                   *buffer;
+      } Header;
+
+     typedef struct {
+       int                     Naxes;
+       int                     Naxis[FT_MAX_NAXES];
+       int                     bitpix;
+       bool                    unsign;
+       double                  bzero, bscale;
+       char                   *buffer;
+       int                     size;
+      } Matrix;
+
+     REMINDER: data = (byte value) * bscale + bzero
+
+     _b_o_o_l is defined to be a char.
+
+     _H_e_a_d_e_r is a structure for holding all header information.
+     It consists of values of the basic header fields required
+     for a FITS file (SIMPLE, EXTEND, BITPIX, NAXIS, NAXIS1,
+     NAXIS2...) as well as a pointer to the header data itself
+     (_b_u_f_f_e_r) and the number of bytes in the header buffer
+     (_s_i_z_e).
+
+     _M_a_t_r_i_x is a structure for holding the image matrix data.  It
+     consists of the _N_a_x_e_s, and _N_a_x_i_s[_1_0] entries as well as the
+     _b_u_f_f_e_r and the _s_i_z_e entries.
+
+COPYRIGHT
+     Copyright 1991 Eugene Magnier
+
+Version 1.0        Last change: Sept 18, 1992                   4
+
+FITS(1.0)         MISC. REFERENCE MANUAL PAGES          FITS(1.0)
+
+     Permission to use, copy, modify, distribute, and sell this
+     software and its documentation for any purpose is hereby
+     granted without fee, provided that the above copyright
+     notice appear in all copies and that both that copyright
+     notice and this permission notice appear in supporting
+     documentation, and that the name of MIT not be used in
+     advertising or publicity pertaining to distribution of the
+     software without specific, written prior permission.  MIT
+     and the authors make no representations about the
+     suitability of this software for any purpose.  It is
+     provided "as is" without express or implied warranty.
+     MIT and the authors disclaim all warranties with regard to
+     this software, including all implied warranties of
+     merchantability and fitness, in no event shall MIT or the
+     authors be liable for any special, indirect or consequential
+     damages or any damages whatsoever resulting from loss of
+     use, data or profits, whether in an action of contract,
+     negligence or other tortious action, arising out of or in
+     connection with the use or performance of this software.
+ACKNOWLEDGEMENTS
+     Walter H.G. Lewin for inspiration
+     NASA for lots of money
+AUTHOR
+     Eugene Magnier.  MIT - CSR
+
+Version 1.0        Last change: Sept 18, 1992                   5
+

@@ -1,0 +1,283 @@
+# Copyright (C) 2004-2005  Joshua Hoblitt
+#
+# $Id: design.txt,v 1.6 2005-11-05 01:13:35 jhoblitt Exp $
+
+Abstract
+--
+
+Nebulous is a user-space distributed object (file) storage system.  It is much
+more of a database of objects locations then a file system in the traditional
+sense.  Nebulous is considered distributed because of it's data storage model,
+where objects are stored across a number of storage volumes and may have one
+or more redundant copies.  While IPC is done in the traditional client/server
+model with a single[1] centralized server containing all storage object
+meta-data.  This system was designed, unlike most distributed storage system,
+specifically so that clients have the option of hosting one or more storage
+volumes and that data may be stored and accessed locally on a node.  This
+allows network I/O to be dramatically reduced if the end user does simple data
+locality optimizations.  Although, if you so choose, clients and storage
+volumes can reside on independent hardware.  Above all else, Nebulous is
+designed to make efficient use of both disk and network bandwidth.
+
+Data model
+--
+
+In Nebulous terminology a file is refereed to as a a resource.  Each resource
+is represented inside the Nebulous Server as a "Storage Object".  There is one
+Storage Object per resource (a file) that is being managed by the Nebulous
+Server.  A Storage Object maps an External Identifier (eg. filename) to a
+Storage ID.  In addition, creation time and comments may be stored in a
+Storage Object.  Storage Objects /do not/ contain the storage location of a
+resource as we need to allow for N copies of a resource to be stored.  The
+actual storage location of a resource is held in a Storage Object Instance,
+which maps to a Storage ID in a many-to-one relationship.
+
+A Storage Object Instance, or just Instance, represents a single copy of a
+resource being managed by the Nebulous Server. An Instance contains an
+Instance ID, the parent Storage ID, the location of the resource as a URI, and
+other assorted meta-data.
+
+Storage IDs are a signed 64-bit integer.  Negative values are considered
+reserved for future use.  Allocation should be incremental and, as we are
+unlikely to exceed 2^63 Storage Objects in the life time of the project, never
+reused. Instance IDs follow the same scheme as Storage IDs but exists in a
+unique namespace.
+
+Database record relationships
+--
+* All Storage Objects must have at least once associated Instance.
+
+* All Instances must be associated with a Storage Object.
+
+* All Instances must be associated with a valid URI (file exists).
+
+* All Storage Objects with locks set must have the correct number of
+corresponding Lock Records.
+
+* All Lock Records must be associated with a Storage Object.
+
+Data transport
+--
+XXX
+
+Data Storage
+--
+XXX
+
+
+Components
+--
+
+There are 4 principle components required for a working Nebulous system;
+server, client, data transport, and data storage.  The Nebulous software
+distribution provides only the server and the client software.  Data
+transport[2] and Data storage are left to 3rd party software packages.  As
+those functionalities are typically included with most operating systems.
+Nebulous build upon and benefits from advances made in those technologies.
+
+Server
+--
+
+The server is responsible for keeping track of storage objects, all instances
+of that object, and enforcing locking semantics.  Extensive logging and
+tracing support is provided for debug and to allow for statics generation and
+possible X<hotspot> optimization.
+
+Nebulous uses a centralized server model.  This model was choosen because it
+allows efficient X<pattern matching> of storage object names.  The current
+'best' technique for a distributed metadata store is with distributed hash
+tables.  Unfortunately, no widely available DHT implementation allows efficient
+I<pattern matching> of key names.
+
+
+[1] Multiple Nebulous servers should be possible via database replication.
+[2] A future version of Nebulous may include it's own data transport layer
+based on the WEB DAV protocol.
+
+Client <-> Server IPC
+--
+
+The Nebulous Server and clients communicate via the SOAP protocol.  Since SOAP
+is platform independent this allows native Nebulous clients to be written in a
+variety of languages.  With in the Nebulous Server itself the IPC mechanism is
+abstracted to allow ether multi-protocol support or complete replacement of
+SOAP by another protocol.
+
+XXX SOAP namespace
+
+
+Storage volume state tracking.
+
+Nebulous itself does not attempt to determine the state of storage volumes.
+Instead, it relies on some 3rd party to determine both the state
+(available/not) and capacity (total size + % utilized).  This information is
+then feed into Nebulous via either the administrative API or CLI management
+tools.
+
+XXX Storage Location determination
+
+
+Locking semantics
+--
+Nebulous uses 'advisory locking' where clients are excepted to check for the
+existence of locks but this policy is not enforced.  Locks are set on a
+Storage Object and apply to all Instances of that object.
+
+Two types of locks can be set; 'read' locks and 'write' locks.  Read locks are
+implemented as a semaphore while write locks use an exclusive mutex.
+
+    - Read lock
+In order to obtain a Read Lock on a Storage Object the Write Lock mutex must
+be in the state of 'free'.  When a Read Lock is acquire the Read semaphore is
+incremented by one.  When a Read Lock is released the Read semaphore is
+decremented by one.  This must happen atomically with the
+creation/destruction of a Lock Record.
+
+    - Write lock
+In order to obtain a Write lock on a Storage Object the Write Lock mutex must
+be in the state of 'free' and the Read lock semaphore must have a value of
+zero.  When a Write Lock is acquired the Write mutex is set to 'write'.  When a
+Write Lock is released the Write mutex is set to to 'free'.  This must happen
+atomically with the creation/destruction of a Lock Record.  As an extension, a
+sate of 'wait' may be implemented such that clients waiting on Read Locks to
+be released may prevent any additional Read Locks from being acquired.
+
+XXX Lock Records are currently unimplemented
+    - Lock Records A Lock Record is used to double check the indicated lock
+      state of a Storage Object and can be used to identify logical system
+errors.  A Lock Record contains the Storage ID of the object and the type of
+lock set.  eg, enum( 'read', 'write').
+
+    - Client best practices
+When attempting to acquire a lock a client should either "spin lock" with a
+reasonable pause between lock attempts or fail completely.  Aggressive "spin
+locking" is considered antisocial and may eventually require the Nebulous
+Server to identify and ignore such clients.
+
+
+House keeping
+--
+    - Lock sweeping
+In the event that a Storage Object operation fails to complete successfully
+stale locks will have to be identified and removed from the IPP Pixel Data
+Server Database.  This should be done periodically by comparing the entries
+in the Lock table to the list of active nodes maintained by the IPP
+Controller.  It should also happen as soon as possible after a node goes
+offline (triggered by the IPP Controller marking a node as offline?).  A sweep
+must be /completed/ before an offline node can be marked on-line.
+
+Once a node is determined to be offline all entries in the Lock table set by
+that node should be identified.   The locks on the Storage Object
+Instances pointed to by those entries should then be rolled back and Lock
+Record entries themselves must be removed from the lock table.
+
+    - Consistency sweeping
+Periodically the IPP Pixel Data Server meta-data and Storage Object will need
+to be checked for sanity.  This would be similar to running fsck on a modern
+filesystem.  Consistency sweeping should include Lock sweeping and should be
+considered a super-set.
+
+
+Server Operations
+--
+    - setup
+    - create_object
+    - rename_object
+        XXX unimplemented
+    - link_object
+        XXX unimplemented
+    - replicate object
+    - lock_object
+    - unlock_object
+    - find_objects
+        XXX unimplemented
+    - find_instances
+    - delete_instance
+    - fission_object
+        XXX unimplemented
+    - fuse_objects
+        XXX unimplemented
+    - stat_object
+    - stat_instance
+        XXX unimplemented
+
+Client Operations
+--
+    - create
+Creates and opens new Storage Object
+
+    - replicate
+Adds an Instance to a Storage Object
+
+    - cull
+Removes an Instance from a Storage Object
+
+This operation can not remove the last Instance of a Storage Object.
+
+    - lock
+Trys to acquire a lock on a storage object
+
+This operation times out after a default interval of 10s.
+
+    - unlock
+Trys to release a lock on a storage object
+    
+    - find_instances
+Find all instances of a storage object
+
+Only Instances on active storage volumes are found.
+
+    - find
+Find any instance of a storage object
+
+Only Instances on active storage volumes are found.
+
+    - open
+Open a storage object for read or write
+
+Opening a storage object as 'write' will remove all but one Instance to
+prevent Instances from becoming inconsistent.
+
+    - delete
+Delete a storage object and all of it's instances
+
+Removes a storage object and all of it's instances by sequentially deleting each
+Instance.  When a Storage Object has no more associated instances it is
+automatically removed by the Nebulous server.
+
+    - copy
+Copy a storage object
+
+The new storage object will be created with only one Instance.  Most properties
+of the source Storage Object will be preserved.
+
+    - move
+Rename a storage object
+
+Currently this operation will remove all but one instance of the storage
+object and may change it's storage location.
+
+    - delete_instance
+    
+Remove a storage object instance
+
+Removing the last Instance of a Storage Object will destroy the Storage
+Object.
+
+    - stat
+View the properties of a storage object
+
+
+    - import
+        XXX unimplemented
+Import a file into Nebulous
+
+Creates a new Storage Object with the specified External Identifier.  The
+source file will then be "copied" into the Nebulous system leaving the original
+file unmodified.
+
+    - fission
+        XXX unimplemented
+Create a new Storage Object from an existing one by either splitting off an
+Instance and re-parenting it or by cloning an existing Instance and associating
+it with the new Storage Object.

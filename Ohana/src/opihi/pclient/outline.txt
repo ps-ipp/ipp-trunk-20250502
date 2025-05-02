@@ -1,0 +1,12 @@
+
+init stage:
+
+  - set child 
+
+readline loop:
+
+  - wait for commands
+
+
+
+  

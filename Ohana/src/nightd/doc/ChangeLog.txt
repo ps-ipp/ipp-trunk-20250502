@@ -1,0 +1,10 @@
+
+- nightd 1.3 : 2006.08.23
+  - moved to ChangeLog.txt
+
+nightd-1-2:
+  - fixed minor compile warning
+
+nightd-1-1:
+  - minor cleanups for gcc -Wall
+  - nightd will be superceded eventually by sched/pcontrol?

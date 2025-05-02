@@ -1,0 +1,40 @@
+#include <pslib.h>
+#include <[% pkg_name %].h>
+#include <stdlib.h>
+#include <stdio.h>
+#include <unistd.h>
+
+#define TMP_FILENAME "./blargh"
+
+int main ()
+{
+[% FOREACH table = tables -%]
+    {
+        psDB            *dbh;
+        psFits          *fits;
+
+        dbh = psDBInit("localhost", "test", NULL, "test");
+        if (!dbh) {
+            exit(EXIT_FAILURE);
+        }
+
+        // open a temp
+        fits = psFitsOpen(TMP_FILENAME, "r");
+        if (!fits) {
+            exit(EXIT_FAILURE);
+        }
+
+        if (![% table.namespace %]InsertFits(dbh, fits)) {
+            exit(EXIT_FAILURE);
+        }
+
+        if (!psFitsClose(fits)) {
+            exit(EXIT_FAILURE);
+        }
+
+        psDBCleanup(dbh);
+    }
+
+[% END -%]
+    exit(EXIT_SUCCESS);
+}

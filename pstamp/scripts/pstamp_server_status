@@ -1,0 +1,204 @@
+#!/bin/env perl
+
+use strict;
+use warnings;
+
+use File::Temp qw( tempfile );
+
+#use DBI;
+use IPC::Cmd 0.36 qw( can_run run );
+#use PS::IPP::Metadata::Config;
+use PS::IPP::Config 1.01 qw( :standard );
+
+use Getopt::Long qw( GetOptions :config auto_help auto_version gnu_getopt );
+use Pod::Usage qw( pod2usage );
+
+
+my ($rundir, $workdir, $verbose, $save_temps);
+my $br = '<br />';
+
+GetOptions(
+    'rundir=s'      => \$rundir,
+    'workdir=s'     => \$workdir,
+    'verbose'       => \$verbose,
+    'save-temps'    => \$save_temps,
+) or pod2usage( 2 );
+
+pod2usage( -msg => "Unknown option: @ARGV", -exitval => 2 ) if @ARGV;
+
+# Look for programs we need
+my $missing_tools;
+my $pantasks_client   = can_run('pantasks_client') 
+    or (warn "Can't find pantasks_client" and $missing_tools = 1);
+if ($missing_tools) {
+    warn("Can't find required tools.");
+    exit($PS_EXIT_CONFIG_ERROR);
+}
+
+# XXX: Note under pantasks this will be the curent directory, so this
+# isn't necessary if the pstamp/web stuff is configured to point at the 
+# ipp build. But currently it's running out of Bill's build
+
+# EAM 2017.03.08 : need to point at temporary ITC location:
+# my $ipphome = "/home/panstarrs/ipp";
+my $ipphome = "/data/ippc64.1/ippitc";
+my $status_cmd = "psstatus";
+
+$rundir = "$ipphome/pstamp" if !$rundir;
+
+chdir $rundir or die "failed to cd to $rundir";
+
+# print "pantasks_client: $pantasks_client\n";
+
+my $now = `date -u`;
+
+print "<b>Status updated: &nbsp;&nbsp;&nbsp;</b> $now<br />\n";
+
+my $down = 0;
+if ($down) {
+    print "Postage Stamp Server will be down for maintenance it will back at approximately 00:00 2010-12-11 UTC\n";
+    # exit 0;
+} else {
+    # talk to pantasks_server and get the status
+
+    my ($pts, $pantasks_script) = tempfile ('/tmp/pts.XXXX', UNLINK => !$save_temps);
+
+    print $pts "status\n";
+    print $pts "quit\n";
+    close $pts;
+
+
+    my $serverRunning = 0;
+    my $command = "$pantasks_client < $pantasks_script";
+    my  ( $success, $error_code, $full_buf, $stdout_buf, $stderr_buf ) =
+        run(command => $command, verbose => $verbose);
+    if ($success) {
+        $serverRunning = 1;
+    } else {
+        $error_code = (($error_code >> 8) or 1);
+        if ($error_code == 12 || $error_code == 13) {
+            print "Postage Stamp Server is not running\n<br>";
+            #print "Postage Stamp Server will be down for maintenance it will back shortly.\n";
+#            exit 0;
+        } else {
+            warn("\nError: $command failed. exit status: $error_code\n");
+#            exit $error_code;
+        }
+    }
+
+    my $output = join "", @$stdout_buf;
+
+    print "$output" if $verbose;
+
+    my @lines = split "\n", $output;
+
+    my ($scheduler_state, $controller_state);
+    my $got_state = 0;
+    my %tasks;
+    foreach my $line (@lines) {
+        chomp $line;
+        next if !$line;
+        my ($first, $second, $third);
+
+        if ($line =~ /Scheduler is/) {
+            ($first, $second, $scheduler_state) = split " ", $line;
+            $got_state = 1;
+    #        print "$first $second $third $scheduler_state\n";
+        } elsif ($line =~ /Controller is/) {
+            ($first, $second, $controller_state) = split " ", $line;
+    #        print "$first $second $third $controller_state\n";
+        } elsif ($got_state == 1 and $line =~ /\+|\-/) {
+    #        print "$line\n";
+            my ($task_state, $task, $nrun, $njobs, $ngood, $nfail, $ntime, $cmd) = split " ", $line;
+    #        print "$task $task_state\n";
+            my %this_task = ( name => $task, nrun=> $nrun, njobs => $njobs, ngood => $ngood, nfail => $nfail, ntime => $ntime, cmd => $cmd ); 
+
+            # change '.' in task name to '_' so we have a valid hash key
+            $task =~ s/\./\_/g;
+            $tasks{$task} =  \%this_task;
+        }
+    }
+
+    if ($scheduler_state) {
+        print $br . "Pantasks Scheduler $scheduler_state.\n";
+        if ($controller_state) {
+            print $br . "Pantasks Controller $controller_state.\n";
+            # loading active labels
+            my $runlabels = `echo \"show.labels; quit\" \| pantasks_client -c ~ippitc/pstamp/ptolemy.rc \| tail -n +7`;
+            print $br . "Current Labels: \n" . $runlabels . "\n";
+        } else {
+            print STDERR "Controller state not found";
+#            exit 1;
+        }
+        print "$br$br\n";
+    } elsif ($serverRunning) {
+        print STDERR "Scheduler state not found";
+#        exit 1;
+    }
+
+    my $request_run = $tasks{'pstamp_request_run'};
+    my $request_fin = $tasks{'request_finish_run'};
+    my $job_run = $tasks{'pstamp_job_run'};
+
+
+    if ($request_run) {
+	# print "<br >\n";
+        print "<b>Parser Status:</b> $request_run->{nrun} running. $request_run->{ngood} parsed successfully.&nbsp; $request_run->{nfail} failed to parse.";
+        if ($request_fin) {
+            print "  $request_fin->{ngood} Requests finished.";
+        } else {
+            print "Task request.finish.run not found.\n";
+        }
+        print "\n";
+        print "\n";
+        if ($job_run) {
+            print "<br /><b>Job Status:</b> &nbsp;&nbsp; $job_run->{nrun} running. &nbsp; $job_run->{ngood} completed successfully. &nbsp; $job_run->{nfail} failed";
+            print "<br />\n";
+        } else {
+            print "Task pstamp.job.run not found.<br />\n";
+        }
+    } elsif ($serverRunning) {
+        print "Task pstamp.request.run not found.<br >\n";
+    }
+}
+if ($workdir) {
+    # get the space available in the working directory file system
+    my $df_output = `df -h $workdir`;
+    my @lines = split "\n", $df_output;
+    foreach my $line (@lines) {
+        next unless $line =~ /data/;
+        my ($total, $used, $free, $percent, $part) = split " ", $line;
+        print "<br><b>Server Working Directory:</b>&nbsp;&nbsp;$percent full. $free free out of $total total.<br>\n";
+    }
+
+}
+
+# now run the script psstatus to check the status of running requests and finished requests
+print "<br /><b>Unfinished Requests</b><br />\n";
+print "<pre>\n";
+system "$status_cmd --totals";
+print "</pre>\n";
+
+#print "<br />\n";
+
+
+# print "<br /><b>Unfinished Requests</b><br />\n";
+print "<pre>\n";
+system "$status_cmd --running";
+print "</pre>\n";
+
+if (0) {
+    # these are included in running requests above
+    print "<br /><b>Requests building results fileset</b><br/>\n";
+    print "<pre>\n";
+    system "$status_cmd --finishing";
+    print "</pre>\n";
+}
+
+print "<br /><b>Requests completed in last 24 hours (most recently completed first)</b><br />\n";
+print "<pre>\n";
+system "$status_cmd --finished";
+print "</pre>\n";
+
+
+exit 0;

@@ -1,0 +1,47 @@
+
+Running tap_psStatsTiming on alala (dual AMD Opteron, 64bit, 2.2GHz)
+yields the following timing results:
+
+# timing for sample mean (1000 loops of 10000 pts)
+ok 1 - sample mean 0.009719 (mask: 0, range: 0): 0.072 sec
+ok 3 - sample mean 0.011060 (mask: 1, range: 0): 0.119 sec
+ok 5 - sample mean 0.009719 (mask: 0, range: 1): 0.170 sec
+ok 7 - sample mean 0.011060 (mask: 1, range: 1): 0.198 sec
+
+# timing for sample median (1000 loops of 10000 pts)
+ok 9 - sample median 0.021781 (mask: 0, range: 0): 2.625 sec
+ok 11 - sample median 0.023795 (mask: 1, range: 0): 2.646 sec
+ok 13 - sample median 0.021781 (mask: 0, range: 1): 2.703 sec
+ok 15 - sample median 0.023795 (mask: 1, range: 1): 2.716 sec
+
+# timing for sample stdev (1000 loops of 10000 pts)
+ok 17 - sample stdev 0.964753 (mask: 0, range: 0): 0.193 sec
+ok 19 - sample stdev 0.965887 (mask: 1, range: 0): 0.257 sec
+ok 21 - sample stdev 0.964753 (mask: 0, range: 1): 0.353 sec
+ok 23 - sample stdev 0.965887 (mask: 1, range: 1): 0.401 sec
+
+# timing for sample min,max (1000 loops of 10000 pts)
+ok 25 - sample min,max -3.205688,2.706797 (mask: 0, range: 0): 0.125 sec
+ok 27 - sample min,max -3.205688,2.706797 (mask: 1, range: 0): 0.152 sec
+ok 29 - sample min,max -3.205688,2.706797 (mask: 0, range: 1): 0.201 sec
+ok 31 - sample min,max -3.205688,2.706797 (mask: 1, range: 1): 0.238 sec
+
+# timing for clipped stats
+not ok 33 - clipped mean -0.047714, stdev 0.991979 (mask: 0, range: 0): 0.369 sec (1000 pts / 1000 loops)
+not ok 35 - clipped mean 0.023963, stdev 0.972186 (mask: 0, range: 0): 1.219 sec (3000 pts / 1000 loops)
+not ok 37 - clipped mean -0.007020, stdev 0.985410 (mask: 0, range: 0): 4.883 sec (10000 pts / 1000 loops)
+
+NOTE: these fail because they are being compared to the 'robust' stats
+limits below.  The clipped mean algorithm should not be so slow (and
+apparently non-linear in npts).
+
+# timing for robust stats
+ok 39 - robust mean 0.123348, stdev 1.014896 (mask: 0, range: 0): 0.187 sec (1000 pts / 1000 loops)
+ok 41 - robust mean -0.006812, stdev 0.974468 (mask: 0, range: 0): 0.382 sec (3000 pts / 1000 loops)
+ok 43 - robust mean -0.013591, stdev 1.001539 (mask: 0, range: 0): 1.076 sec (10000 pts / 1000 loops)
+
+# timing for fitted stats
+ok 45 - fitted mean -0.029859, stdev 0.982947 (mask: 0, range: 0): 0.381 sec (1000 pts / 1000 loops)
+ok 47 - fitted mean 0.014660, stdev 0.956168 (mask: 0, range: 0): 0.727 sec (3000 pts / 1000 loops)
+ok 49 - fitted mean -0.008402, stdev 1.001366 (mask: 0, range: 0): 1.914 sec (10000 pts / 1000 loops)
+

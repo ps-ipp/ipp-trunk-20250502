@@ -1,0 +1,86 @@
+#!/bin/csh
+
+if ($#argv != 7) then
+ echo "USAGE: detstats (list) (detimage) (type) (medbin) (tenbin) (stats) (imbin)"
+ exit;
+endif
+
+set nline = `wc -l $1 | awk '{print $1}'`
+
+if ($nline == 0) then
+ echo "no files in source list, skipping"
+ echo "ERROR"
+ exit;
+endif
+
+# find the appropriate script file
+set confdir=`gconfig -q CONFDIR`
+set script="$confdir/mana/flips.pro"
+
+# set up temp files
+set temp=`mktemp /tmp/detstats.XXXXXX`
+rm -f $temp
+rm -f $4
+rm -f $5
+rm -f $6
+rm -f $7
+
+# choose appropriate operation
+switch ($3) 
+  case flat:
+  case FLAT:
+    goto doflat;
+    breaksw;
+  case dark:
+  case DARK:
+  case bias:
+  case BIAS:
+    goto dodark;
+    breaksw;
+  default:
+    echo "unknown type $3";
+    echo ERROR;
+    exit;
+endsw
+
+doflat:
+    
+# flatstats (list) (detimage) (medlist) (tenlist) (statlist) 
+cat > $temp << END
+input $script
+flatstats $1 $2 $4 $5 $6 $7
+END
+
+mana --only $temp
+
+rm -f $temp
+
+echo "SUCCESS"
+exit; 
+
+dodark:
+    
+# darkstats (list) (detimage) (medlist) (tenlist) (statlist) 
+cat > $temp << END
+input $script
+darkstats $1 $2 $4 $5 $6 $7
+END
+
+mana --only $temp
+
+rm -f $temp
+
+echo "SUCCESS"
+exit; 
+
+
+# we are performing statistics on the detrended images:
+# input is a list of images for a given ccd, along with the
+# appropriate detrend image
+# 
+# for each image in the list, detrend the image, measure statistics,
+# create a binned-by-10 image, create a median-binned image, write
+# them out.  to be used by the mosaicing step
+#
+# need to create many output files: 1 medbin & 1 jpeg for each entry in list.
+# these need to be merged by a later program...       

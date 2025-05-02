@@ -1,0 +1,17 @@
+
+2012.09.03 
+
+Things that we need to add to the DVO schema to support the desired PSPS stuff:
+
+* measure.psfQualPerfect (PSF_QF_PERFECT) [OK in ps1-v4]
+* average.stargal [add to ps1-v4, old average@ps1-v4 need to be read as average@ps1-v3]
+  (re-purpose average.Xp, which should be deprecated anyway)
+* error on kron radius : skipping this (is proportional to R1 / (S/N))
+
+Here is what I've done:
+* updated mksource.pl to handle the cmf series a bit more cleanly
+* added CMF_PS1_SV2 and CMF_PS1_DV3
+* added AP_FLUX and AP_FLUX_SIG to PS1_V4, PS1_SV2 formats
+* added RA_EXT, DEC_EXT, POSANGLE, PLTSCALE to PS1_DV3
+* PLTSCALE has parity +1 if image has sky parity, -1 for opposite parity
+

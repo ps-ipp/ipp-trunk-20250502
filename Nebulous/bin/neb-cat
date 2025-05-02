@@ -1,0 +1,159 @@
+#!/usr/bin/env perl
+
+# Copyright (C) 2007  Joshua Hoblitt
+#
+# $Id: neb-cat,v 1.1 2007-04-28 02:52:13 jhoblitt Exp $
+
+use strict;
+use warnings FATAL => qw( all );
+
+use vars qw( $VERSION );
+$VERSION = '0.01';
+
+use Nebulous::Client;
+
+use Getopt::Long qw( GetOptions :config auto_help auto_version );
+use Pod::Usage qw( pod2usage );
+
+use constant CHUNK_SIZE => 1024;
+
+my ($server, $help);
+
+$server = $ENV{'NEB_SERVER'} unless $server;
+
+GetOptions(
+    'server|s=s'    => \$server,
+    'help|h'        => \$help,
+) || pod2usage( 2 );
+
+# explicitly defined -h / --help:
+if ($help) { pod2usage( -verbose => 1 ); }
+
+pod2usage( -msg => "Required options: --server <key...>", -exitval => 2 ) unless defined $server;
+
+my $neb = Nebulous::Client->new(
+    proxy => "$server",
+);
+
+die "can't connected to Nebulous Server: $server"
+    unless defined $neb;
+
+unless (scalar @ARGV) {
+    no strict;
+    print_fh(STDIN);
+    use strict;
+}
+
+foreach my $key (@ARGV) {
+    my $fh;
+    # copy cat's behavior of treating '-' as stdin
+    if ($key eq '-') {
+        open($fh, '-') or warn "failed to open stdin" and next;
+    } else {
+        $fh = $neb->open( $key, 'read' )
+            or warn "failed to open key: $key" and next;
+    }
+
+    print_fh($fh);
+
+    close ($fh) or die "failed to close filehandle: $!";
+}
+
+sub print_fh
+{
+    my $fh = shift;
+
+    my $status;
+    while ($status = read($fh, my $buf, CHUNK_SIZE)) {
+            print $buf;
+    }
+
+    # read() returns undef on error
+    unless (defined $status) {
+        die "failed to read from filehandle: $!";
+    }
+}
+
+__END__
+
+=pod
+
+=head1 NAME
+
+neb-cat - concatenate one instance per Nebulous key and print on the standard output
+
+=head1 SYNOPSIS
+
+    neb-cat [--server <URL>] <key...>
+
+=head1 DESCRIPTION
+
+This program selects one instance per Nebulous keys given in C<<key...>> and
+conatenates them together then prints them on the standard output.  Note that
+just as with the C<cat> utility, C<-> can be used to read from the standard
+input.
+
+=head1 OPTIONS
+
+=over 4
+
+=item --server|-s <URL>
+
+URL of the Nebulous server to connect to.
+
+Optional if the appropriate environment variable is set.
+
+=back
+
+=head1 ENVIRONMENT
+
+These environment variables may be used in place of the specified command line
+options.  All command line option will override the corresponding environment
+value.
+
+=over 4
+
+=item * C<NEB_SERVER>
+
+Equivalent to --server|-s
+
+=back
+
+=head1 CREDITS
+
+Just me, myself, and I.
+
+=head1 SUPPORT
+
+Please contact the author directly via e-mail.
+
+=head1 AUTHOR
+
+Joshua Hoblitt <jhoblitt@cpan.org>
+
+=head1 COPYRIGHT
+
+Copyright (C) 2007  Joshua Hoblitt.  All rights reserved.
+
+This program is free software; you can redistribute it and/or modify it under
+the terms of the GNU General Public License as published by the Free Software
+Foundation; either version 2 of the License, or (at your option) any later
+version.
+
+This program is distributed in the hope that it will be useful, but WITHOUT ANY
+WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A
+PARTICULAR PURPOSE.  See the GNU General Public License for more details.
+
+You should have received a copy of the GNU General Public License along with
+this program; if not, write to the Free Software Foundation, Inc., 59 Temple
+Place - Suite 330, Boston, MA  02111-1307, USA.
+
+The full text of the license can be found in the L<perlgpl> Pod as supplied
+with Perl 5.8.1 and later.
+
+=head1 SEE ALSO
+
+L<Nebulous::Server>, L<neb-initdb>, L<neb-addvol>, L<nebdiskd>, L<neb-df>,
+L<neb-touch>, C<regex(7)>
+
+=cut

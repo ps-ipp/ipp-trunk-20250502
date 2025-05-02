@@ -1,0 +1,69 @@
+<meta name=file  content=mkdetrend>
+<meta name=title content=mkdetrend User's Guide>
+<meta name=page  content=mkdetrend>
+
+<p>
+mkdetrend is the interface to the Elixir detrend creation system.  
+
+<p>
+All date/times are in the form YYYY/MM/DD,HH:MM:SS, with HH:MM:SS optional.  
+
+<p>
+By default, commands apply to the currently active camera/run, but
+these may be specified on the command line with the -camera (camera)
+and -run (run) flags.
+
+<h2> primary user commands </h2>
+
+<table>
+<tr><td> create (camera) (run) (start) (stop) </td><td> create a new mkdetrend run for the given camera, normally automatically performed by ert. </td></tr>
+<tr><td> create run (runid)                   </td><td> create a new mkdetrend run based on the mkrun table information. </td></tr>
+<tr><td> config (camera) (run)                </td><td> set the current active config </td></tr>
+<tr><td> state                                </td><td> show the state of the active config </td></tr>
+<tr><td> init                                 </td><td> start the init stage of mkdetrend processing </td></tr>
+<tr><td> run                                  </td><td> start the main processing, or re-processing </td></tr>
+<tr><td> reg                                  </td><td> register the completed images in the detrend database </td></tr>
+<tr><td> clean                                </td><td> clean the camera/run directories; recovery from this command will require a complete reprocessing. </td></tr>
+<tr><td> reset (level)                        </td><td> reset the configs. if level is 'hard', all will be reset.  if level is 'update', configs may be reset to 'init' or 'update', depending on their state.  </td></tr>
+<tr><td> update                               </td><td> perform an update run (identify new images, process residuals, but do not generate master). </td></tr>
+<tr><td> auto (cmd)                           </td><td> automatic processing commands </td></tr>
+</table>
+
+<h2> low-level user comands </h2>
+<table>
+<tr><td> dup (config)                         </td><td> duplicate the given config </td></tr>
+<tr><td> del (config)                         </td><td> delete the given config </td></tr>
+<tr><td> def (config) (start) (stop)          </td><td> set the start & stop times for the given config </td></tr>
+<tr><td> set (config) (state)                 </td><td> manually set the config state </td></tr>
+<tr><td> list.init                            </td><td> run just the list.init stage </td></tr>
+<tr><td> split                                </td><td> run just the split stage </td></tr>
+<tr><td> flips                                </td><td> run just the flips stage </td></tr>
+<tr><td> norm                                 </td><td> run just the norm stage </td></tr>
+<tr><td> scat                                 </td><td> run just the scat stage </td></tr>
+<tr><td> merge                                </td><td> run just the merge stage </td></tr>
+<tr><td> update.list                          </td><td> run just the update.list stage </td></tr>
+<tr><td> update.stats                         </td><td> run just the update.stats stage </td></tr>
+</table>
+
+<h2> HTML cgibin commands </h2>
+<table>
+<tr><td> htmldup </td><td>  </td></tr>
+<tr><td> htmldef </td><td>  </td></tr>
+<tr><td> htmldel </td><td>  </td></tr>
+<tr><td> htmlmod </td><td>  </td></tr>
+<tr><td> htmlkeep </td><td>  </td></tr>
+<tr><td> htmlconfig </td><td>  </td></tr>
+<tr><td> html1 </td><td>  </td></tr>
+<tr><td> html2 </td><td>  </td></tr>
+<tr><td> html3 </td><td>  </td></tr>
+</table>
+
+<h2> other support commands </h2>
+<table>
+<tr><td> dads </td><td>  </td></tr>
+<tr><td> dads.top </td><td>  </td></tr>
+<tr><td> meval </td><td>  </td></tr>
+<tr><td> eval </td><td>  </td></tr>
+<tr><td> fix.masters </td><td>  </td></tr>
+<tr><td> check.splits </td><td>  </td></tr>
+</table>

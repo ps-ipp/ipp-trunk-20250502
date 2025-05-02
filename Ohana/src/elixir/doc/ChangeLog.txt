@@ -1,0 +1,24 @@
+
+- elixir-1-5 : 2006.08.23
+  * converted to gfits APIs (forces libfits 1.6)
+
+elixir-1-4:
+  changed printing formats for pointers to %p
+  using updated version of mkdirhier (libohana 1.7)
+
+elixir-1-3:
+  libohana / libfits were modified, forcing the 
+  addition of fitsio.h to controller.h
+
+elixir-1-2:
+ - changing setlockfile2 to fsetlockfile
+   (dropping use of fd version of APIs)
+   elixir should eventually be superceeded by sched/pcontrol,
+   but perhaps not at CFHT.
+
+elixir-1-1:
+ - minor cleanup of rconnect process
+ - ignore SIG_CHLD now 
+
+elixir-1-0:
+ - created tag for first elixir distribution

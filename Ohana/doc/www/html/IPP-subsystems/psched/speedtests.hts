@@ -1,0 +1,15 @@
+
+CheckController is critical for speed
+
+parse jobs: 1.5 usec per job + 20 usec
+
+check exit stack: 2.7ms average, up to 10ms: this seems to be the
+kernel scheduler putting pcontrol in the background every now and
+again.  
+
+with 1024 jobs and 4 machines, the jobs being sent to machines (should
+take only 1 second, but timeouts add in delays) takes up the first few
+seconds.  initially
+
+
+*write this up, add some tests for timing... *

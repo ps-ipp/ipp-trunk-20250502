@@ -1,0 +1,39 @@
+#!/bin/csh -f 
+
+set REALRUN = 1
+
+set galaxy = "g0"
+set images = "i0"
+set region = "330 336 -4 2"
+set catdir = "catdir.par"
+
+rm -rf $catdir.$galaxy $catdir.$images
+
+if ($REALRUN) then
+  alias GO 'echo === \!* ===; \!*; if ($status) exit 2'
+else
+  alias GO 'echo === \!* ==='
+endif
+
+alias NO 'echo === skip : \!* ==='
+
+if (-f template.dat == 0) then
+  echo "missing template template.dat"
+  exit 2
+endif
+
+# make the basic fake data
+GO fakeastro -galaxy -region $region -uniform-radec -D CATDIR $catdir.$galaxy -D CATFORMAT PS1_V5 -D SKY_DEPTH 4 -D FAKEASTRO_NSTARS 100000 -D FAKEASTRO_NQSO_ICRF 200 -D FAKEASTRO_NQSO_ZERO 2000 -testing
+GO fakeastro -images -input $catdir.$galaxy -output $catdir.$images -input-images template.dat -region $region -D CATFORMAT PS1_V5 -D SKY_DEPTH 3
+
+set myHost = `hostname`
+set myPath = `pwd`
+cat HostTable.dat.in | sed s/HOSTNAME/$myHost/ | sed "s|CATDIR|$myPath/$catdir.$images|" > $catdir.$images/HostTable.dat
+# XXX catdir currently needs to include the full path
+
+GO dvodist -out $catdir.$images
+
+GO relphot -parallel -averages -region $region -D CATDIR $catdir.$images -update
+
+GO addstar -parallel -resort -region 320 340 -10 10 -D CATDIR $catdir.$images
+

@@ -1,0 +1,177 @@
+Some ideas for improving the image subtraction
+==============================================
+
+Paul Price
+15 August 2007
+
+
+1. Dual convolution
+
+The Alard & Lupton (1998) and Alard (2000) algorithms are unable to
+produce useful subtractions when the PSFs of the input and reference
+images have misaligned position angles (e.g., / vs \), since this
+would involve a deconvolution along one of the axes, which does not
+work well.  One way to solve this problem is through a dual
+convolution.  Instead of solving
+
+	I(x,y) = k(u,v) * R(x,y)
+
+for k(u,v), we can solve
+
+	k1(u,v) * I(x,y) = k2(u,v) * R(x,y)
+
+for k1(u,v) and k2(u,v).  If we write
+
+      k1(u,v) = sum_i a_i f_i(u,v)
+
+and
+
+      k2(u,v) = sum_i b_i g_i(u,v)
+
+where f_i(u,v) and g_i(u,v) are sets of basis functions, then the
+solution boils down to two equations:
+
+      sum_j a_j A_j A_i = sum_j b_j B_j A_i
+
+and
+
+      sum_j a_j A_j B_i = sum_j b_j B_j B_i
+
+where
+
+      A_i = sum_x,y f_i(u,v) * I(x,y) / sigma(x,y)
+
+and
+
+      B_i = sum_x,y g_i(u,v) * R(x,y) / sigma(x,y)
+
+Noting that the matrix terms of the RHS of the first equation and the
+LHS of the second equation (A_i B_j) are the same leads us to attempt
+to solve this system by iteration:
+
+  1. Set a_i = 1 if i = 0, otherwise a_i = 0; f_0 = delta(u,v); and
+     solve for b in the first equation.  This corresponds to doing the
+     usual Alard & Lupton solution.
+
+  2. Use b in the second equation, and solve for a.
+
+  3. Use a in the first equation, and solve for b.
+
+  4. Proceed in this manner until the change in b between iterations
+     is small.
+
+This is basically doing A&L to get the reference image to match the
+input image in the usual manner, then doing A&L on the input image to
+match the convolved reference image, then doing A&L on the reference
+image to match the convolved input image, etc., until the system
+settles down to the solution.  A more refined method of solving the
+equations may exist, but this should work.
+
+There is a need to normalise one of the kernels: the solution is
+currently non-unique because a and b can be scaled by some arbitrary
+value.  If we write
+
+      k1(u,v) = delta(u,v) + sum_i a_i [k_i - delta(u,v)]
+
+and the k_i are normalised to a sum of unity, then
+
+      sum_u,v k1(u,v) = 1.
+
+So k1 has a sum of unity, always.  This means that k2 supplies the
+scaling to match the photometry (as happens in Alard & Lupton), and k1
+is merely used to broaden the input image as required for the best
+subtraction.
+
+Note that the expense for this method over the usual Alard & Lupton
+roughly amounts to the extra image convolution, since that is
+typically the dominant factor.  Accumulation of the sums is not much
+more than Alard & Lupton, and the iteration should be fairly fast.
+
+
+2. Data-based kernel selection
+
+The quality of the subtraction is highly sensitive to the choice of
+basis functions.  In the case of ISIS kernels (which seem to be the
+most useful of those experimented with so far, because it takes a
+small number of parameters to generate a large kernel), the choice of
+the Gaussian widths is very important.  Some recipes exist for
+choosing these widths, but these are generally motivated by experience
+(through much trial and error) rather than directly from the data.  It
+would be nice to be able to throw down a large number of widths and
+allow the least-squares solution to choose the best for the data at
+hand (i.e., the most dominant contributors), but this is prohibitively
+expensive --- at least for a full solution.
+
+What might be possible is to do a quick and dirty solution by reducing
+the dimensionality.  Instead of working with the full two-dimensional
+kernel, k(u,v), let's work in one dimension, k(u).  For each of our
+stamps, let's take a cut through them in a consistent direction (e.g.,
+the x direction), and solve
+
+	I(x) = k(u) * R(x)
+
+This is not nearly as computationally expensive as the full solution,
+so we can pack k(u) with multiple Gaussian widths, solve the
+least-squares problem, and identify the most important kernel
+contributions which we will use (in suitable two-dimensional versions)
+in solving the full problem.  This method could even be applied with
+multiple direction cuts to ensure the full range of required Gaussian
+widths is obtained.
+
+Fitting the normalisation of a single kernel component, k(u) and the
+background, we obtain the least-squares matrix and vector:
+
+M = ( sum_x C(x)^2/sigma(x)^2    sum_x C(x)/sigma(x)^2 )
+    ( sum_x C(x)/sigma(x)^2      sum_x 1/sigma(x)^2    )
+
+v = ( sum_x I(x)C(x)/sigma(x)^2   sum_x I(x)/sigma(x)^2 )
+
+where C(x) = R(x) * k(u)
+
+Inverting the matrix, multiplying by the vector and taking the
+component corresponding to the kernel normalisation, we get:
+
+f = (ab - cd) / (ae - c^2)
+
+where
+
+a = sum_x 1/sigma(x)^2
+b = sum_x I(x)C(x)/sigma(x)^2
+c = sum_x C(x)/sigma(x)^2
+d = sum_x I(x)/simga(x)^2
+e = sum_x C(x)^2/sigma(x)^2
+
+Note that a and d are independent of the kernel, and so may be
+measured once only.  Note that we are ignoring any spatial variation
+of the kernel here --- we are only interested in which kernel
+components should be in the final solution, not the details of that
+solution.
+
+Assuming that the kernel components are normalised, the kernel
+component normalisation, f, is a measure of how important that kernel
+component is in the final solution of the full problem.  The following
+algorithm is suggested:
+
+(a) For each original kernel component, extract a vector at 0, 45 and
+    90 degrees (x, y and x-y axes).  Ignore one of these sub-kernels
+    in what follows if the standard deviation of the subkernel is
+    zero.  We use these three extraction angles to cover the u, v and
+    uv terms.
+
+(b) For each stamp, extract a vector at 0, 45, and 90 degrees (x, y,
+    and x-y axes).  These sub-stamps go with the corresponding
+    sub-kernel.
+
+(c) For each kernel component, measure b, c, e and therefore determine
+    the kernel normalisation, f.  Use the sub-kernel appropriate for
+    the sub-stamp (matched by extraction angle), and accumulate the
+    values together (sub-kernels all contribute to the same original
+    kernel component).
+
+(d) Take the kernel component with the largest |f| as the 'winner' of
+    this iteration.  Apply this kernel to the sub-stamps for R(x), and
+    mark this kernel component in the list.  It is part of the end
+    solution, but should not be used any more in the iteration.
+
+(e) Repeat from step (c) until the largest |f| is small, say 10^-3 of
+    the first obtained value of |f|.

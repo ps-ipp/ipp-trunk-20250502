@@ -1,0 +1,971 @@
+
+2009.09.26
+
+  Remaining PSPHOT Issues:
+
+  o soften errors a bit for bright stars?  (essentially allow a
+    systematic error on the flat of some percentage).  this may help
+    the very saturated stars (peaks > 10k) which seem to be
+    excessively driven by the cores.
+    ** did not seem to be a big success --> makes things worse for f =
+    0.01, about the same for f = 0.005
+
+  o clean up and remove test bits of code.
+
+  o clean up psphot.config files : drop unused, fix some conflicting
+    names, reduce camera-specific options, make S/N limits
+    consistent...
+
+  * PSF Eval & ChiSq test??
+
+  * EXT fail fit?  lack of iterations?
+
+  * extended source output
+
+  * still some concerns with the source size analysis: the parameters
+    space seems fine (Mxx, Myy, nSigma), but we need to define more
+    sophisticated boundaries (perhaps include dMag or Mag).  
+
+  * some optimization issues:	      
+    * too many re-calculations of all magnitude / aperture data
+    * is FluxScale really faster?  do we need a finer mapping? (5x5
+      clearly yields too much scatter)
+    * is psphotFitSourcesLinear.c (build matrix) super-slow when optimized?
+
+  * very saturated stars are somewhat segmented.
+
+  * footprint coverage in dense simtest image 005.001?
+
+  * footprint S/N limit vs peaks S/N limit?
+
+  * warning about burntool table?
+
+  * is the residual map failing to be masked at the radius?
+
+  * PSF 2D convergence : how to choose between marginally different
+    options?  (note that the GPC1 images may go to 2x2 instead of 3x3)
+
+  * -visual needs more fine-grained control
+
+  * visualization graphs should reset the sections in general.
+
+  * some excess verbosity (my log level is 9, lower?)
+
+  ----- 
+
+  Apparently I'm getting bad psf vs ap mags because of the difference
+  between linear and non-linear fits.  I think this is due to the
+  weighting schemes:
+
+  psphotChoosePSF & psphotBlendFit depend on POISSON.ERRORS.PHOT.LMM,
+  which is set to TRUE => use Poisson errors
+
+  psphotFitSourcesLinear depends on CONSTANT_PHOTOMETRIC_WEIGHTS,
+  which is set to TRUE => do not use Poisson errors.
+
+  nothing seems to use the value POISSON.ERRORS.PHOT.LIN
+
+  ** Poisson errors seeem to be working much better than Constant
+     errors (as judged by consistency between PSF and APERTURE
+     magnitdues).  Not sure I understand this.  It could be that the
+     implementation of Constant errors in the linear fitting analysis
+     is busted.  
+
+  ** Also, I was getting some additional scatter from the FluxScale
+     (lookup-table for Io -> mags).  
+
+     * surprisingly, it is not clear that the FluxScale method is
+       faster than the more accurate integration technique...
+
+2009.09.25
+
+  Notes on pmSourceMagnitudes:
+
+  * in psphotChoosePSF, in pmPSFtry: raw PSF & raw AP
+  * in psphotChoosePSF, psphotMakeGrowthCurve: uses direct all to pmSourcePhotometryAper
+  * in psphotSourceSize, in psphotSourceSizePSF, raw PSF & raw AP (but uses moments->Sum) for PSF stars
+    NOTE: on the initial call, the PSF stars may have had multiple models tried and the psfMag
+    may not be the value for the chosen model.  
+  * in psphotSourceSize, in psphotSourceClassRegion, raw PSF & raw AP for all sources for which size is not yet measured.
+  * in psphotApResid: raw PSF & raw AP for STARS only
+  * in psphotMagnitudes; corrected PSF & AP mags
+
+2009.01.24
+
+  Some results from the threading work below.  these are all tests on
+  pikake using a sample GPC1 image.  This set uses an optimized
+  build of psLib, psModules, and psphot.
+
+pikake: grep --color "built models" o4771g0244o.t?.opt.log
+o4771g0244o.t0.opt.log:    built models for 3156 objects: 0.696490 sec
+o4771g0244o.t0.opt.log:    built models for 1738 objects: 0.367092 sec
+o4771g0244o.t1.opt.log:    built models for 3150 objects: 0.746428 sec
+o4771g0244o.t1.opt.log:    built models for 1745 objects: 0.411406 sec
+o4771g0244o.t2.opt.log:    built models for 3152 objects: 0.412824 sec
+o4771g0244o.t2.opt.log:    built models for 1756 objects: 0.241859 sec
+o4771g0244o.t3.opt.log:    built models for 3151 objects: 0.341083 sec
+o4771g0244o.t3.opt.log:    built models for 1746 objects: 0.176361 sec
+o4771g0244o.t4.opt.log:    built models for 3159 objects: 0.235669 sec
+o4771g0244o.t4.opt.log:    built models for 1741 objects: 0.164474 sec
+o4771g0244o.t5.opt.log:    built models for 3155 objects: 0.286719 sec
+o4771g0244o.t5.opt.log:    built models for 1747 objects: 0.165341 sec
+
+pikake: grep --color "measure magnitudes" o4771g0244o.t?.opt.log
+o4771g0244o.t0.opt.log:    measure magnitudes : 4.080628 sec for 4895 objects (2191 with apertures)
+o4771g0244o.t1.opt.log:    measure magnitudes : 4.155192 sec for 4896 objects (2185 with apertures)
+o4771g0244o.t2.opt.log:    measure magnitudes : 2.174322 sec for 4909 objects (2190 with apertures)
+o4771g0244o.t3.opt.log:    measure magnitudes : 1.507431 sec for 4898 objects (2189 with apertures)
+o4771g0244o.t4.opt.log:    measure magnitudes : 1.174447 sec for 4901 objects (2191 with apertures)
+o4771g0244o.t5.opt.log:    measure magnitudes : 1.149875 sec for 4903 objects (2194 with apertures)
+
+pikake: grep --color "full-frame aperture" o4771g0244o.t?.opt.log
+o4771g0244o.t0.opt.log:    measure full-frame aperture residuals for 1977 sources: 1.681260 sec
+o4771g0244o.t1.opt.log:    measure full-frame aperture residuals for 1972 sources: 1.728578 sec
+o4771g0244o.t2.opt.log:    measure full-frame aperture residuals for 1980 sources: 0.929584 sec
+o4771g0244o.t3.opt.log:    measure full-frame aperture residuals for 1978 sources: 0.656556 sec
+o4771g0244o.t4.opt.log:    measure full-frame aperture residuals for 1977 sources: 0.507413 sec
+o4771g0244o.t5.opt.log:    measure full-frame aperture residuals for 1981 sources: 0.512259 sec
+
+pikake: grep --color "fit models" o4771g0244o.t?.opt.log
+o4771g0244o.t0.opt.log:    fit models: 4.623715 sec for 2011 objects (1904 psf, 45 ext, 62 failed, 1146 skipped)
+o4771g0244o.t1.opt.log:    fit models: 5.036680 sec for 2006 objects (1901 psf, 45 ext, 60 failed, 1145 skipped)
+o4771g0244o.t2.opt.log:    fit models: 3.507495 sec for 2014 objects (1912 psf, 44 ext, 58 failed, 1139 skipped)
+o4771g0244o.t3.opt.log:    fit models: 3.236495 sec for 2012 objects (1906 psf, 44 ext, 62 failed, 1140 skipped)
+o4771g0244o.t4.opt.log:    fit models: 3.929518 sec for 2013 objects (1906 psf, 44 ext, 63 failed, 1147 skipped)
+o4771g0244o.t5.opt.log:    fit models: 4.152286 sec for 2012 objects (1903 psf, 45 ext, 64 failed, 1144 skipped)
+
+pikake: grep failed o4771g0244o.t?.opt.log | grep --color "moments"
+o4771g0244o.t0.opt.log:    3161 sources, 3147 moments, 14 failed: 1.288588 sec
+o4771g0244o.t0.opt.log:    1738 sources, 1698 moments, 40 failed: 0.700303 sec
+o4771g0244o.t1.opt.log:    3155 sources, 3142 moments, 13 failed: 1.329107 sec
+o4771g0244o.t1.opt.log:    1745 sources, 1702 moments, 43 failed: 0.739017 sec
+o4771g0244o.t2.opt.log:    3157 sources, 3144 moments, 13 failed: 0.717423 sec
+o4771g0244o.t2.opt.log:    1756 sources, 1712 moments, 44 failed: 0.409145 sec
+o4771g0244o.t3.opt.log:    3156 sources, 3142 moments, 14 failed: 0.510468 sec
+o4771g0244o.t3.opt.log:    1746 sources, 1702 moments, 44 failed: 0.311198 sec
+o4771g0244o.t4.opt.log:    3164 sources, 3150 moments, 14 failed: 0.412192 sec
+o4771g0244o.t4.opt.log:    1741 sources, 1698 moments, 43 failed: 0.240172 sec
+o4771g0244o.t5.opt.log:    3160 sources, 3144 moments, 16 failed: 0.418781 sec
+o4771g0244o.t5.opt.log:    1747 sources, 1701 moments, 46 failed: 0.244808 sec
+
+pikake: grep --color "complete psphot" o4771g0244o.t?.opt.log
+o4771g0244o.t0.opt.log:    complete psphot run: 38.044034 sec
+o4771g0244o.t1.opt.log:    complete psphot run: 39.039324 sec
+o4771g0244o.t2.opt.log:    complete psphot run: 28.565228 sec
+o4771g0244o.t3.opt.log:    complete psphot run: 25.380312 sec
+o4771g0244o.t4.opt.log:    complete psphot run: 24.606107 sec
+o4771g0244o.t5.opt.log:    complete psphot run: 24.796387 sec
+
+  Some results from the threading work below.  these are all tests on
+  pikake using a sample GPC1 image.  This set uses an unoptimized
+  build of psphot (though psLib may be optmized).
+
+pikake: grep --color "built models" o4771g0244o.t?.no-opt.log
+o4771g0244o.t0.no-opt.log:    built models for 3160 objects: 0.997456 sec
+o4771g0244o.t0.no-opt.log:    built models for 1725 objects: 0.523033 sec
+o4771g0244o.t1.no-opt.log:    built models for 3154 objects: 1.031943 sec
+o4771g0244o.t1.no-opt.log:    built models for 1725 objects: 0.562166 sec
+o4771g0244o.t2.no-opt.log:    built models for 3156 objects: 0.563504 sec
+o4771g0244o.t2.no-opt.log:    built models for 1729 objects: 0.311835 sec
+o4771g0244o.t3.no-opt.log:    built models for 3155 objects: 0.399958 sec
+o4771g0244o.t3.no-opt.log:    built models for 1728 objects: 0.235203 sec
+o4771g0244o.t4.no-opt.log:    built models for 3153 objects: 0.329366 sec
+o4771g0244o.t4.no-opt.log:    built models for 1726 objects: 0.192076 sec
+o4771g0244o.t5.no-opt.log:    built models for 3155 objects: 0.408434 sec
+o4771g0244o.t5.no-opt.log:    built models for 1734 objects: 0.198095 sec
+
+pikake: grep --color "measure magnitudes" o4771g0244o.t?.no-opt.log
+o4771g0244o.t0.no-opt.log:    measure magnitudes : 5.939663 sec for 4886 objects (2187 with apertures)
+o4771g0244o.t1.no-opt.log:    measure magnitudes : 6.041825 sec for 4880 objects (2189 with apertures)
+o4771g0244o.t2.no-opt.log:    measure magnitudes : 3.126765 sec for 4886 objects (2192 with apertures)
+o4771g0244o.t3.no-opt.log:    measure magnitudes : 2.158470 sec for 4884 objects (2188 with apertures)
+o4771g0244o.t4.no-opt.log:    measure magnitudes : 1.756856 sec for 4880 objects (2192 with apertures)
+o4771g0244o.t5.no-opt.log:    measure magnitudes : 1.697331 sec for 4890 objects (2188 with apertures)
+
+pikake: grep --color "full-frame aperture" o4771g0244o.t?.no-opt.log
+o4771g0244o.t0.no-opt.log:    measure full-frame aperture residuals for 1976 sources: 2.869795 sec
+o4771g0244o.t1.no-opt.log:    measure full-frame aperture residuals for 1973 sources: 2.908194 sec
+o4771g0244o.t2.no-opt.log:    measure full-frame aperture residuals for 1977 sources: 1.545140 sec
+o4771g0244o.t3.no-opt.log:    measure full-frame aperture residuals for 1977 sources: 1.091451 sec
+o4771g0244o.t4.no-opt.log:    measure full-frame aperture residuals for 1976 sources: 0.857477 sec
+o4771g0244o.t5.no-opt.log:    measure full-frame aperture residuals for 1979 sources: 0.860652 sec
+
+pikake: grep --color "fit models" o4771g0244o.t?.no-opt.log
+o4771g0244o.t0.no-opt.log:    fit models: 7.771925 sec for 2011 objects (1902 psf, 45 ext, 64 failed, 1150 skipped)
+o4771g0244o.t1.no-opt.log:    fit models: 8.053570 sec for 2010 objects (1904 psf, 45 ext, 61 failed, 1145 skipped)
+o4771g0244o.t2.no-opt.log:    fit models: 5.063026 sec for 2009 objects (1904 psf, 44 ext, 61 failed, 1148 skipped)
+o4771g0244o.t3.no-opt.log:    fit models: 4.314687 sec for 2012 objects (1905 psf, 44 ext, 63 failed, 1144 skipped)
+o4771g0244o.t4.no-opt.log:    fit models: 4.147600 sec for 2009 objects (1904 psf, 44 ext, 61 failed, 1145 skipped)
+o4771g0244o.t5.no-opt.log:    fit models: 4.207860 sec for 2012 objects (1906 psf, 44 ext, 62 failed, 1144 skipped)
+
+pikake: grep failed o4771g0244o.t?.no-opt.log | grep --color "moments" 
+o4771g0244o.t0.no-opt.log:    3165 sources, 3151 moments, 14 failed: 2.867193 sec
+o4771g0244o.t0.no-opt.log:    1725 sources, 1681 moments, 44 failed: 1.513526 sec
+o4771g0244o.t1.no-opt.log:    3159 sources, 3146 moments, 13 failed: 2.966456 sec
+o4771g0244o.t1.no-opt.log:    1725 sources, 1685 moments, 40 failed: 1.568208 sec
+o4771g0244o.t2.no-opt.log:    3161 sources, 3148 moments, 13 failed: 1.590746 sec
+o4771g0244o.t2.no-opt.log:    1729 sources, 1687 moments, 42 failed: 0.823426 sec
+o4771g0244o.t3.no-opt.log:    3160 sources, 3146 moments, 14 failed: 1.068936 sec
+o4771g0244o.t3.no-opt.log:    1728 sources, 1684 moments, 44 failed: 0.603041 sec
+o4771g0244o.t4.no-opt.log:    3158 sources, 3144 moments, 14 failed: 0.869741 sec
+o4771g0244o.t4.no-opt.log:    1726 sources, 1685 moments, 41 failed: 0.505545 sec
+o4771g0244o.t5.no-opt.log:    3160 sources, 3146 moments, 14 failed: 0.830094 sec
+o4771g0244o.t5.no-opt.log:    1734 sources, 1695 moments, 39 failed: 0.469828 sec
+
+pikake: grep --color "complete psphot" o4771g0244o.t?.no-opt.log
+o4771g0244o.t0.no-opt.log:    complete psphot run: 70.375518 sec
+o4771g0244o.t1.no-opt.log:    complete psphot run: 71.167205 sec
+o4771g0244o.t2.no-opt.log:    complete psphot run: 51.237604 sec
+o4771g0244o.t3.no-opt.log:    complete psphot run: 44.195015 sec
+o4771g0244o.t4.no-opt.log:    complete psphot run: 41.782608 sec
+o4771g0244o.t5.no-opt.log:    complete psphot run: 42.483942 sec
+
+Not bad: almost a factor of 2 overall.  psphotMagnitudes,
+psphotApResid, psphotSourceStats all get nearly the max improvement.
+psphotBlendFit seems to be saturating.  There are a lot of allocs in
+the main functions: pmSourceFitModel and pmSourceFitSet, which are
+probably blocking each other.
+
+2009.01.22
+
+  working on more psphot threading.  So far, I have threaded code for:
+
+  * psphotGuessModel (DONE) : not working so well just yet (see
+    below).  Late Update: in recent tests, the result below may have
+    been caused by the unoptimized psLib.
+
+  here are functions for which a modest gain can be realized and which
+  should be easy to thread:
+
+  * psphotMagnitudes (DONE)
+
+    ** this function uses psImageShiftMask to interpolate the source
+       flux to compensate for fractional pixel offsets.  This function
+       requires a call to psImageAlloc and a subsequent call to
+       psFree.  This probably will make the threading
+       inefficient.  However, it is not clear we need to perform this
+       interpolation for all sources: the correction is probably only
+       signficant compared to the errors for the brighter sources.
+
+    ** psImageShiftMask gratuitously calls psImageInterpolationAlloc;
+       perhaps it should accept this as an argument, or perhaps this
+       function should be re-examined.
+
+  * psphotApResid (DONE)
+
+    * this function is basically calling pmSourceMagnitudes, so
+      suffers the same issues as psphotMagnitudes
+
+  * psphotFindDetections (footprints) (fairly tricky, actually)
+
+    ** need to examine the steps in the function. it is not obvious
+       yet what needs to be improved.
+
+  * psphotBlendFit (DONE)
+
+    ** this one will be a little tricky: this function currently
+       extends the source array to add new sources detected as part of
+       psphotFitBlob.  I would need to have a way of saving these from
+       each thread, then joining them back together at the end.
+
+  * psphotSourceStats (DONE)
+
+    ** this one includes the allocs to generate the source pixels, but
+       could be split into two steps: 1) generate the complete array
+       of sources; 2) measure the sky, sky variance, and moments.
+
+       Otherwise, this function should be easy: no other allocs or
+       frees, i think.
+
+  * psphotChoosePSF : 
+
+    ** need to use the grid technique for the pmPSFtryModel which does
+       the source fitting
+
+2008.10.26
+
+  (note: this is unoptimized)
+  0 threads: built models for 3921 objects: 15.223455 sec
+             built models for 2868 objects: 10.698732 sec
+
+  2 threads: built models for 3921 objects: 37.529655 sec
+             built models for 2862 objects: 28.142142 sec
+
+  (clearly, the threading is doing bad things, at least without optimization..)
+
+  old code (no threading):  
+             built models for 3923 objects: 15.265046 sec
+             built models for 2842 objects: 10.840331 sec
+
+  (so, the threaded version without threading is OK)
+
+2008.06.25
+
+ timing : footprints
+
+ on GPC1, with FFT: 
+    pass 1 :     convolved with grow disc: 17.558344 sec
+    pass 2 :     convolved with grow disc: 8.915036 sec
+
+2008.01.31
+
+ Most of the fixes listed below have been finished except for:
+
+ * careful handling of the r ~ 0 fluxes / effective positions (for eg sersic)
+ * the EXT output parameters have not been tested
+
+ In addition, some further work to be done:
+
+ * multiple image detection
+ * multiple image fitting (including projection)
+ * optimization
+ * multi-threading
+
+ * possibly try the 'active deblending' concept that Ken from WISE is using.
+   * instead of fitting a double star with the positions floating at a
+     slightly random location, search for significant additions within
+     a grid about the central peak (say ~ 1sigma / 0.2 pix?).  
+     (note that this is a linear fit)
+
+ * for the blend groups, freeze the positions for the fainter sources
+   (consistent with the non-linear S/N threshold)
+
+ 
+
+2007.08.17
+
+ I am working on a number of cleanup / fixes.  I have made an overhaul
+ of the pmModel APIs, adding function pointers in the pmModel
+ structure to the class-specific utility functions (eg,
+ pmModel->modelFunc is the actual function which is evaluated). 
+
+ TO DO:
+
+ * update pmSourceFitSet to be able to include more than one model
+   type (currently it assumes the sources are all, eg, PSFs).  This is
+   now needed because the old implementation used the function lookups
+   which have been dropped.
+
+ * define a generic API set to handle 2D modelling of a scalar using
+   either polynomials (as the pmPSF code currently does) or an
+   image-based representation (as the psphot sky model currently
+   does).  
+
+   The image-based representation can automatically step down from NxM
+   super pixels to a smaller number based on the density of
+   measurements.  
+
+   Include ways to smooth and regularize the output result.
+
+   This mechanism can be applied to: psf parameters, aperture
+   residual, psf peak-to-flux variations, the psphot background
+   representation.
+
+ * generate and store the output radial profile for objects
+
+ * finish testing and incorportate the CR / EXT measurements
+
+ * adjustments to pixel center based on second derivatives : needed
+   for the sersic models.
+
+ * adjustments to pixel flux for extreme values (r ~ 0) : needed for
+   the sersic models.
+
+ * on psf stars : fall back on a Gaussian.
+
+ * OPTIMIZATIONS !!
+
+ * drop the model sky element : should only be in source->sky,dsky
+
+2006.11.16
+
+ensemble:
+
+  * first block: 
+    * select sources of interest / skip
+    * generate a guess model
+    * re-measure moments for saturated stars (MOVE)
+    * update peak position (MOVE to peaks)
+    * set the object radius 
+    * build temporary source copies (including pixels, mask, weight)
+
+  * second block:
+    * measure the cross-products and weights
+    * add to the sparse matrix
+
+  * build full-image mask
+  * measure coord weights
+  * build order elements
+
+  * solve for source amplitudes
+  * update models
+
+  * create psSparseBorder to solve matrix equations which have a large
+    sparse region, with a completely filled border of a smaller number
+    of rows.
+
+  * trying to modify psphotEnsemble to (1) be more general (not just
+    PSFs) and (2) fit for the sky offset.
+
+    - how is the radius for each source set?
+    
+
+2006.11.11
+
+  I am trying to define a complete set of tests to validate the
+  measurement of the photometry compared with the simulated images.
+  Part of my confusion is controlling exactly which corrections are
+  applied to the output magnitudes.  Here is the complete list:
+
+  psfMag_out = psfMag_meas + ApTrend(x,y,0.0,0.0)
+  apMag_out = apMag_meas + growth(radius,refRadius) + f(skyBias,skySat)
+
+  these corrections are modified by the following config settings:
+
+  IGNORE_GROWTH (sets all growth magnitudes to the fitMag value,
+  effectively turning off the growth correction)
+
+  APTREND : set the level of correction
+    NONE     : no correction is fitted
+    CONSTANT : just a single constant (applied to get psfMag_out)
+    SKYBIAS  : the skybias term is fitted (constant applied to psfMag,
+               slope applied apMag)
+  
+2006.11.08
+
+  I have been testing the pmSourceMagnitudes interpolation of the
+  source position when measuing the aperture magnitudes.  I built a
+  test suite for pmSourceMagnitudes and pmGrowthCurve.  even with
+  bicubic interpolation, there are noticable errors for small
+  apertures (ie, small compared to the PSF sigma).  I used a gaussian
+  PSF to make the tests.  it seems that, if the radius is less than 2
+  sigma or so, the interpolated aperture mag is in error by as much as
+  12mmag.  The size of this effect must depend on the smoothing
+  algorithm, the shape of the PSF, the size of the PSF relative to the
+  pixels, and the size of the subpixel interpolation.  I believe the
+  effect is a result of the smoothing introduced by the interpolation:
+  the smoothing pushes the flux in the inner portions of the PSF down
+  and enhances the flux in the outer portions.  thus, there is
+  actually a turn over in the error: at very large values, the error
+  is very small because the aperture contains all of the flux, and the
+  interpolation has little effect.  as the radius shrinks, the error
+  grows (in the sense of M_raw - M_interpolated; ie, the flux in the
+  interpolated source is too large).  around 2-3sigma, the error turns
+  over and becomes negative (too little flux in the interpolated
+  source). 
+
+  The sigmas I used for these tests (1.0, 1.5, 2.0 pix) are
+  appropriate for the range we expect to see from PS1, or any
+  well-sampled detector.  Thus, even though the effect is probably
+  less important for poorer seeing, we have to be careful to avoid it
+  in our Pan-STARRS analysis.
+
+  Currently, the minimum aperture is defined only by the config
+  variable PSF_FIT_PAD, which really implies a padding.  My proposal
+  is to require the minimum aperture to be a number of sigma (an
+  additional parameter).  Then, the formula for the radius would be
+  something like:
+
+  MAX (modelRadiusPSF (PSF_FIT_NSIGMA), PSF_FIT_RADIUS_NSIG) +
+  PSF_FIT_PAD
+
+  with PSF_FIT_RADIUS_NSIG (choose a better name!) set to something
+  like 2 or 3.
+
+2006.11.06
+
+  I have added the aperture interpolation as a component of the
+  pmSourceMagnitudes function.  
+
+  I am trying to make things a bit more organized, with more
+  consistent APIs. 
+
+  * changed pmPSFtry to use the pmSourceMagnitudes API
+  * changed pmPSFtry to use new pmSource entries for each try (saving
+  * the pmModels generated)
+
+  other notes:
+  * moved psphotGrowthCurve -> pmGrowthCurveGenerate 
+
+  things I know need to be added / fixed:
+  * measure bicube fit to peak from smoothed image
+  * use psphotEnsemble fit to re-measure normalization?
+  * extended object statistical measures 
+
+2006.11.02
+
+  Looking into the growth curve problem.  RHL sent his recipe for
+  correcting to true circular apertures.  I've done a test fix of
+  interpolating the stellar image to the desired center.  it looks
+  like bilinear interpolation is insufficient (about 8% error for 2
+  pixel radius aperture).  Unless I've got the formula wrong, the
+  effective smoothing of the gaussian is moving flux from the center
+  out and making small apertures in error that depends on the offset.
+  Bicubic could be enough to clean this up?  
+
+  I think the current code may need to be careful modified to include
+  the interpolation for every aperture measurement.  there are paired
+  'pmModelAdd' and pmModelSub steps to add and remove the model flux.
+  I need to be careful about how the mask affects these steps.
+
+  I also need to be careful in interpreting the test results: since
+  the simulated images create objects by filling in a pixel and then
+  smoothing, all objects have centroids which are exactly 0.5 pixel
+  offsets.  These all then have a fixed growth correction error, which
+  fortunately happens to be substantial (because of a 0.5 pixel offset
+  in the growth curve reference object!)
+
+  I need to double check the 0.5 pixel error issues.  There are
+  problems with the pslib version of psImageShift and
+  psImageInterpolate (or at least inconsistencies).  the pmModelAdd
+  and Sub functions and the centroid functions are probably also
+  inconsistent.
+
+2006.11.01
+
+  Trying to understand low-level errors in psphot using simulated
+  data.  the main issue I am concerned with is the bias RHL is seeing
+  in SDSS-psphot comparisons.  But there are other issues that are
+  creeping in and probably point at logical errors in the code.
+
+  * in pmPSFtry, I measure the first pass on the aperture residual (to
+    choose between PSF model options, if that is being tested).  This
+    analysis currently uses a polynomial fit (1st order) for the offset
+    and the sky bias (using r^2/flux as an independent variable).
+
+    Notes:
+
+    - is the psf-fit error distribution reasonable?  perhaps a little
+      on the high side: at 10000 DN, noise is 0.0138, should be
+      0.0107.
+
+    - scatter of ap-fit is surprisingly high.  M_input - M_fit has a
+      median chisq of 2 (mean of 5), while M_input - M_ap has a median
+      chisq of 125 (mean of 380).  This is using a radius of 15.  It
+      cleans up hugely when I go to a radius of 7 and even more so
+      with radius = 4. (In this case, the PSF sigma is 1.5, so 4 is
+      well matched and 7 is only slightly large).
+
+      * make the initial PSF fitting radius and aperture radius
+	  different?  
+      * make the initial PSF fitting radius a function of the measured
+	  PSF sigma?
+
+    - I have been fitting ap-fit mag without weights; the resulting
+      ap-fit errors are highly over-estimated since the ap-fit scatter
+      is too high.  I have added code to carry the weights (error from
+      the fit only at the moment, ie, not the ap error as well).  This
+      is good, but not as important if the radius is chosen well above.
+
+  * a bias in the psphotEnsemble results depending on the sky level
+    but not in the PSF model fits?  turning on/off CONST_PHOT_WT has
+    an equivalent effect, but is quite small.  why is one sensitive to
+    the sky and the other is not?  
+
+  * the error measured by psphotEnsemble was wrong (and inconsistent
+    for a given weighting situation): fixed the def of the error.
+
+  * still trying to understand the corrections being made.  running a
+    few tests:
+
+    keeping PSF_FIT_RADIUS at 4.0
+
+    t1 : no growth correction,    constant weights
+    t2 :    growth correction,    constant weights
+    t3 : no growth correction, no constant weights
+    t4 :    growth correction, no constant weights
+    t5 :    growth correction,    constant weights, constant ap (4)
+    t6 :    growth correction,    constant weights, integer radius
+    t7 :    growth correction,    constant weights, integer radius
+    (for t7, I've fixed the bug that the growth correction include the
+    min radius).
+
+  * psphotGrowthCurve is messed up : the measurement does not correct
+    for the actual object center, and at small radii this is an
+    important source of noise.
+
+2006.06.28
+
+  I am adding a few minor features.  First up is the ability to break
+  the processing at interesting stages.  These will be:
+
+  - PEAKS: after sources are generated, but before moments are
+    measured
+  - MOMENTS: after moments are measured, before the PSF is measured
+  - PSFMODEL: after the psf model is measured, before sources are
+    fitted in bulk
+  - ENSEMBLE: after the linear ensemble fitting
+  - DEFAULT: complete processing
+
+2006.04.22
+
+  I have updated psphot to work with the cycle 11 release of psLib and
+  psModules.  At this point, the IfA group is now working off of the
+  CVS head rather than from a separate IfA branch of psLib and
+  psModules.  The cycle 11 release of psLib needed a few updates to
+  fix minor problems.  The psModules code needed significant work to
+  fix discrepancies.  The new version of psphot has also been leak
+  checked, at least for basic configurations.  This new version of
+  psphot should be used with the new camera configuration system,
+  which can be found in the ipp/config directory.  Here are the
+  necessary tags:
+
+  psphot: psphot_dev_11_0
+  psModules: rel11_ifa_pre0
+  psLib: rel11_ifa_0
+
+2006.04.16
+
+  Examining some of the throughput issues.  the flux measurement speed
+  is strongly dependent on the interation of the function step size:
+
+  dz = 0.01 : 3.24s for 4400 objects
+  dz = 0.1  : 0.44s for 4400 objects
+
+  there is an increased error in the result with the larger step size,
+  but it is smaller than the phot error.  Still, we could do better
+  with a smarter integration function.
+
+  Including the aperture photometry on all sources, but not the
+  pixWeight, the source magnitudes takes 4.8 sec for 4400 objects.
+
+  Adding the pixWeight increases the time to 7.5 sec for 4400 objects
+
+2006.02.12
+
+  Last week, I made a new tag (psphot_dev_08) after finishing the work
+  to clean memory leaks and to modify psphot to work with Paul's
+  ppImage infrastructure.  
+
+  I have added a new background model function which generates a
+  median map based on Robert's suggestion of a) half-step windows and
+  b) linear interpolation.
+
+  Now, I am working to remove the constant sky level concepts and make
+  every relevant test use the signal/noise ratio as the trigger.  This
+  has impacts on the peak detections, the threshold for blends, and
+  the threshold for choosing pixels in the fitting routines.
+
+2005.12.23
+
+  Improvements in psphot as of psphot_dev_07
+
+  - updated to work with psModule release 9.0
+  - moved model test functions into psphot as optional mode
+  - added pmSourceFitSet : simultaneous model group fitting
+  - added bicubic interpolation to tweak up the peak coordinates
+  - added aperture residual analysis after complete object model & subtraction
+  - added 3D (x,y,rflux) aperture residual fitting
+  - added blend vs blob fitting (BlendFit)
+  - added ensemble PSF fitting, with sparse matrix inversion
+  - improved the flagging / marking of model results
+  - better abstraction for setting fit parameters
+  - various low-level fixes
+  - added PSF output option
+  - added break points
+  - added more optional output formats
+  - fixed FITS table output
+
+  Things still to be added to psphot:
+
+  - better initial background model (NxM median grid?)
+  - include local background model in EnsemblePSF Fit (use sparse matrix)
+  - 2nd pass (after object subtraction) to smooth and detect faint objects
+  - re-add background to object-subtracted image
+  - cleanup function names
+  - push more functions into psLib / psModule
+  - fix extended / galaxy models to improve stability
+  - add mode with input PSF
+  - add mode with input fixed sources (PS_SOURCE_FIXED)
+  - cleanup memory leaks
+
+2005.11.25
+
+  I've updated psphot to work with the current psLib v8, though a
+  number of psLib fixes were needed.  These are pushed under
+  psLib:eam_rel8_b2.  The psphot code which works with that version of
+  psLib is tagged psphot_dev_04.
+
+  I'm working on converting psphot to work with the current release of
+  psModules, which basically includes all of the object functions. 
+
+  - change comments are relative to psModules (vs psphot versions)
+
+  psEllipse.c : OK
+  psEllipse.h : OK
+  pmModelGroup.c : OK (missing TGAUSS entry)
+  pmModelGroup.h : OK (adds many comments)
+
+  pmPSFtry.c : a bunch of formatting weirdness (try-> got line breaks
+	       added pmPSFtryMetric_Alt
+	       fixed up usage of psVectorClipFitPolynomial1D  
+	       fixed up usage of psPolynomial..Alloc  
+
+  pmPSFtry.h : OK (Added extensive comments)
+
+  pmPSF.c : fixed up usage of psPolynomial..Alloc
+
+  pmPSF.h : OK (Added extensive comments)
+
+  pmObjects.c : cleaned up some formatting,
+		fixed usage of psImageCountPixelMask
+
+  pmObjects.h : added apMag and fitMag to pmSource
+		dropped PS_MODEL_name defines
+
+  psLibUtils.[ch] should be dropped from psModules
+  psModulesUtils.[ch] should be dropped from psModules
+
+  Makefile.am : dropped psModulesUtils.[ch], psLibUtils.[ch]
+
+  - I have successfully tested psphot with the psModules.v8 code
+    (eam_rel8_b1 tag).  I only needed to make a few modes in the
+    psModules code.  
+
+2005.11.16
+
+  I have made some fixes to make psphot work with pslib rel8_0.  I
+  need to merge psphot with the rel8_0 version of the psMinimize and
+  pmObjects code.  
+
+2005.09.06
+
+  I have built a working version of PSPhot using my own copy of the
+  pmObjects.[ch] files.  I need to minimize the difference between the
+  v0.7.0, v0.5.0, and my own version of pmObjects.c
+
+  additions to psLib based on the new version:
+  - extended the minimization to include parameter limits
+
+  changes v0.5.0 / v0.7.0 / EAM
+  - changed all ps* to pm*
+  - fixed naming for local static functions (eg modelFree not p_psModelFree)
+  - dropped all hard-coded model names (vs v0.7.0)
+  - using current psMemSetDellocator name
+  - added noise image to pmSource
+  - converted old asserts to new asserts (PS_.._CHECK..)
+  - add return from error in pmFindImagePeaks
+  - allow isItInThisRegion to have NULL region (true)
+  - fixed subImages to correspond to region definition (end is
+    exclusive) in LocalSky and SetPixelCircle
+  - dropped old, redundant code in pmSourceLocalSky
+  - fixed pmSourceMoments use of mask (0 is valid, not 1)
+  - added pmSourceMoments validity tests (numPixels, Sum, centroid shift)
+  - added correction for Sxy (XY/Sum - x*y)
+  - added pmSourcePSFClump function (and pmPSFClump structure)
+  - allow missing sources in pmSourcePSFClump (not all peaks yield
+    sources)
+  - moved pmSourceRoughClass metadata lookups out of inner loop
+  - added saturated pixel test using pmImageCountPixelMask
+  - various redefinitions of initial classes
+  - dropped old, redundant code in pmSourceSetPixelsCircle
+  - mask image set to type psU8 (was psF32)
+  - abstract object model functions for pmSourceModelGuess
+  - converted evalModel to a public function psModelEval, modified params
+  - pmSourceFitModel operates on a specified model
+  - pmSourceFitModel had option to apply/ignore PSF information
+  - pmSourceFitModel calculates yErr
+  - pmSourceFitModel calculates the covariance matrix
+  - added paramMask to pmSourceFitModel 
+  - pmSourceFitModel_EAM uses covar to carry in beta and param
+    limits...
+  - pmSourceFitModel requires solution to stay within image
+  - pmSourceFitModel calculates and saves chisq, nIter, nDOF
+  - pmSourceFitModel uses GaussNewtonDelta for frozen params
+  - added mask to pmSourceAdd, pmSourceSub
+  - model abstractions in pmSourceAdd, pmSourceSub
+  - fixed 'center' option in pmSourceAdd/Sub
+
+  - pmPSF params should be F64
+
+  lingering concerns:
+  - Polynomials and related functions are STILL messed up.  this is a
+    major priority!!!
+  - pmSourceFitModel calculates sqrt(var), psMinimize calculates sq(sqrt(var))
+  - does psImageAlloc zero the image?  if so, drop init routine
+    from pmSourcePSFClump
+  - pmSourceRoughClass uses RDNOISE, GAIN to calculate SN: should use
+    the source->noise image? part of pmSourceMoments?
+  - pmSourceMoments_EAM uses macro for checkRegion
+  - pmObjects_EAM.c uses some hardcoded mask values (LocalSky)
+  - why does LocalSky_EAM not need subImageMask->col0 = subImage->col0??
+  - psGetRowVectorFromImage should be in psLib (in psLibUtils)
+  - pmSourceSetPixelsCircle and pmSourceLocalSky probably could use
+    the psImageMaskRegion, etc functions.
+  - pmSourceSetPixelsCircle uses a hard-coded mask value
+  - define a mask registration process??
+  - pmSourceContour is using the model flux, not the image flux
+
+2005.09.05
+
+  I have a working version of PSPhot which handles PSF and galaxy
+  models.  I am tagging the module with an alpha version number. this
+  version compiles with psLib-0.5.0, at least my version of it.  My
+  current goal is to make it work with the current psLib head (nearly
+  0.7.0) with a mimimum of _EAM versions of functions.
+
+  the tag for the working version is dev_01
+
+2005.06.04
+
+  progress on psphot has moved along well.  At this point, the process
+  loads the image, finds the peaks, determines a best PSF model,
+  identifies objects which are consistent with that model, and
+  attempts to fit a galaxy model to the objects which are not
+  consistent with the model. 
+
+  a variety of minor issues remain, as well as some major issues. 
+
+  - use a proper noise image to keep the fits honest after other
+    objects have been subtracted.  
+
+  - define the masks in terms of a single mask image.  this image
+    could be provided initially by the user.   
+
+  - add noise enhancement (couple with mask marking subtraction)
+
+  - 
+
+2005.04.12
+
+- psPeak, psSource, etc: should be pmPeak, pmSource, etc
+- pmCullPeaks: should be pmCullImagePeaks
+
+- does pmSourceMoments need an image argument?
+
+- psLibInit / p_psTimeInit
+
+  we should not have to know about astronomy time concepts (ie, have a
+  timeConfig file) in order to use the time functions for basic work.
+  This means having a PS_TIME_UNIX which just works with the UNIX
+  clock and avoids all initialization issues.
+
+- psImageStats is much too slow for basic median
+  - this function does a complete sort on all pixel values.  we need
+  to use the histogram method (spec a different type of median)
+
+- psImageStats, ROBUST_MEDIAN fails
+- there are errors in psVectorStats for ROBUST MEAN, STDEV (& median?)
+  * this is ill-defined.  revise the ADD: too sensitive to the
+  binning, smoothing scales 
+
+- pmFindImagePeaks is not finding any peaks:
+  typo in interior row section: see bug 359
+  after this fix: PASS
+
+* p_psGetRowVectorFromImage : PASS
+* psGetRowVectorFromImage : PASS 
+- both have about the same time (~15 us +/- 5us) for 2048 pix on alala
+
+* pmFindVectorPeaks : PASS (returned row data in data.U32)
+
+- # include <string.h> : needed in psMetadata.c
+
+* MyListAddPeak / pmPeakAlloc are inconsistent wrt col,row vs x,y
+
+- why does psMetadataItemAllocV allocate a string of length
+  MAX_STRING_LENGTH for the comment, then use strncpy?
+
+  should be:
+
+    // set metadata item comment
+    if (comment == NULL) {
+        // Per SDRS, null isn't allowed, must use "" instead
+        metadataItem->comment = psStringCopy ("");
+    } else {
+        metadataItem->comment = psStringCopy (comment);
+    }
+
+psMetadataAdd -> psMetadataAddItem is all confused:
+ - we end up with two psMetadataItemAlloc calls, when only one should
+   be used
+ - psMetadataItemAlloc was doing the wrong thing if the incoming data
+   was NULL
+ - I think the logic in this block is wrong as well.  
+
+ * I fixed this in psMetadata.c
+
+2005.04.14 : 
+
+ - psImageStats is still much too slow
+
+ - pmObjects : changed to using psArray to carry peaks / sources,
+   rather than psList
+
+ - added function pmPeaksSubset to replace pmCullPeaks
+
+ - pmSourceLocalSky: added min/max fncs to force subimage to stay in
+   image
+
+ - Sx, Sy can go negative: have forced limit to 0,0
+
+ - pmSourceRoughClass: implemented sigmaX, sigmaY search for stellar
+   clump (uses pmComparePeakDescend)
+
+   - the search ignores the 0,0 pixel
+
+   - pmSourceRoughClass uses all detected peaks.  allow an exclusion
+     for peak > max, peak < min?
+
+   - need to push clump stats on the metadata
+
+   - the source classes are assigned so they are mutually exclusive 
+
+   - change PS_SOURCE_OTHER to STAR? 
+
+ - pmSourceSetPixelCircle:
+
+   - name should be pmSourceSetPixelsCircle (geometry could be an
+     option...)
+
+   - I cleaned the defined region to match the convensions of
+     pmSourceLocalSky
+
+   - truncate and force subimage to lie on image
+
+   - CheckRadius2 seems like an inefficient coding
+
+   - valid pixels have mask value of 1 (inverse of other funcs)
+
+ - pmSourceFitModel:
+
+   - num iterations is much too large
+
+   - 
+
+mrq:
+
+ - allocate alpha, beta arrays
+ - mrq2dcof (pars, alpha, beta)
+ - make guess pars', alpha', beta'
+ - mrq2dcof (pars', alpha', beta')
+ - if (chisq < old chisq), keep new guess
+
+
+2005.04.19:
+
+- psMinimizeLMChi2 has some serious problems.  I re-wrote it starting
+  from the mrqmin example in ohana.   after a variety little bugs, it
+  seems to work quite well.  the program 'modeltest.c' runs two
+  different gaussians through psMinimizeLMChi2, and gets the right
+  answer quite quickly.  The first pass at the implementation had a
+  variety of problems.  to avoid any worry about errors in the
+  psMatrix code, I implemented psGaussJordan, basing the code on the
+  elixir gaussj.c code.  this worked fine, and let me find the errors
+  elsewhere in the code. the LUD version now works just the same as
+  the GaussJ version.
+
+
+2005.04.21
+
+- psMinimizeLMChi2 does an excellent job now in most cases.  I am able
+  to run pmSourceFitModel on the PSF stars quite well.  I added in the
+  (nearly) correct errors (actually, just using sqrt(N), limiting to
+  N>=1).  I see one problem object, which is quite faint, and does not
+  converge well: I get very large values for x,y, Sx, Sy, etc.  I need
+  to think about constraining these fits from running way off scale.
+
+  fit:   0.123879 sec for 277 stars (gauss)
+  fit:   0.155940 sec for 277 stars (pgauss) (!)
+  fit:   0.153292 sec for 277 stars
+  (0.5 msec per star)

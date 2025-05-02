@@ -1,0 +1,78 @@
+
+I was having some bad results because of poor choices for the window
+used for the fit or the subtraction.  In the past, these were the same
+size (or coupled), and as a result I would either use too many pixels
+(slow) or too small of a subtraction window (bad residuals).  But, the
+fit does not need to operate on all of the pixels used for the
+subtraction.  
+
+I would like to subtract extended sources out to (say) 4 kron radii,
+but fit out to (say) 1 or 2 kron radii.
+
+Here is where the window and/or the fit / subtraction apertures are
+set:
+
+* psphotSourceStats : when a source if first detected (new peak), the
+  source is allocated and the window pixels are defined in the initial
+  loop of psphotSourceStatsReadout.  The window is defined based on a
+  fixed radius of SKY_OUTER_RADIUS (a rather outdated name).  There is
+  no circular mask set at this point.
+
+  If the source seems saturated, I generate a new set of pixels using
+  a fixed radius (3 * PSF_MOMENTS_RADIUS = 12 * Sigma = 12 * 1.6 *
+  PSF_Sigma = 19*PSF sigma.  this is a bit arbitrary, but sure seems
+  big enough..)
+
+* psphotGuessModels : this function sets up the initial PSF-based
+  guess, and in the process sets the fit radius and window based on
+  either the value 'PSF_FIT_RADIUS' or on the radius at which the
+  model flux is a specified fraction of the sky noise.
+
+  NOTE : this also sets a separate radius for the SAT stars, but it is
+  probably too small (2 x fitRadius)
+
+* psphotFitSourcesLinear : this function sets a masked-based aperture
+  based on the value of model->fitRadius (currently disabled)
+
+* psphotBlendFits : EXT models have the fit radius and subtraction
+  window set by calls to psphotSetRadiusFootprint and
+  psphotSetRadiusModel.
+
+
+-- other notes -- 
+
+pmSourceRedefinePixels has a somewhat silly API: there is no need to
+pass in the readout since the current pixels point to their parent
+images.
+
+---
+
+psphot/src/psphotSourceStats.c:        pmSourceDefinePixels (source, readout, source->peak->x, source->peak->y, OUTER);
+psphot/src/psphotSourceStats.c:        pmSourceDefinePixels (source, readout, source->peak->x, source->peak->y, OUTER);
+psphot/src/psphotSourceStats.c:	    // only slightly: pmSourceRedefinePixels uses the readout to pass the pointers to
+psphot/src/psphotSourceStats.c:	    pmSourceRedefinePixels (source, &tmpReadout, source->peak->x, source->peak->y, BIG_RADIUS + 2);
+
+psphot/src/psphotMergeSources.c:      pmSourceDefinePixels (newSource, readout, newSource->peak->x, newSource->peak->y, OUTER);
+psphot/src/psphotMergeSources.c:	pmSourceRedefinePixels (sourceOut, readoutOut, sourceOut->peak->x, sourceOut->peak->y, sourceOut->modelPSF->fitRadius);
+psphot/src/psphotMergeSources.c:	      pmSourceRedefinePixels (sourceOut, readout, sourceOut->peak->x, sourceOut->peak->y, sourceOut->modelPSF->fitRadius);
+psphot/src/psphotEfficiency.c:                if (!pmSourceDefinePixels(source, readout, x, y, sourceRadius)) {
+psphot/src/psphotSourceMatch.c:	    pmSourceDefinePixels (source, readout, source->peak->x, source->peak->y, OUTER);
+psphot/src/psphotExtendedSourceAnalysisByObject.c:	    pmSourceRedefinePixels (source, readout, source->peak->xf, source->peak->yf, 1.5*radius);
+psphot/src/psphotPetrosianStudy.c:      pmSourceDefinePixels (source, readout, Xo, Yo, 128);
+psphot/src/psphotReplaceUnfit.c:bool psphotRedefinePixels (pmConfig *config, const pmFPAview *view, const char *filerule)
+psphot/src/psphotReplaceUnfit.c:	if (!psphotRedefinePixelsReadout (config, view, filerule, i, recipe)) {
+psphot/src/psphotReplaceUnfit.c:bool psphotRedefinePixelsReadout (pmConfig *config, const pmFPAview *view, const char *filerule, int index, psMetadata *recipe) {
+psphot/src/psphotReplaceUnfit.c:      pmSourceRedefinePixels (source, readout, Xo, Yo, radius);
+psphot/src/psphotRadialAperturesByObject.c:	    // the original view; the following elements get destroyed by pmSourceRedefinePixels so save them:
+psphot/src/psphotRadialAperturesByObject.c:	    pmSourceRedefinePixels (source, readout, source->peak->xf, source->peak->yf, outerRadius + 2);
+psphot/src/psphotRadialAperturesByObject.c:	    pmSourceRedefinePixelsByRegion (source, readout, oldRegion);
+
+psphot/src/psphotRadiusChecks.c:    bool status = pmSourceRedefinePixels (source, readout, PAR[PM_PAR_XPOS], PAR[PM_PAR_YPOS], model->fitRadius);
+psphot/src/psphotRadiusChecks.c:    bool status = pmSourceRedefinePixels (source, readout, PAR[PM_PAR_XPOS], PAR[PM_PAR_YPOS], model->fitRadius);
+psphot/src/psphotRadiusChecks.c:    pmSourceRedefinePixels (source, readout, peak->xf, peak->yf, rawRadius);
+psphot/src/psphotRadiusChecks.c:    pmSourceRedefinePixels (source, readout, peak->xf, peak->yf, model->fitRadius);
+
+psphot/src/psphotExtendedSourceAnalysis.c:	pmSourceRedefinePixels (source, readout, source->peak->xf, source->peak->yf, 1.5*radius);
+psphot/src/psphotRadialApertures.c:	// the original view; the following elements get destroyed by pmSourceRedefinePixels so save them:
+psphot/src/psphotRadialApertures.c:	pmSourceRedefinePixels (source, readout, source->peak->xf, source->peak->yf, outerRadius + 2);
+psphot/src/psphotRadialApertures.c:	pmSourceRedefinePixelsByRegion (source, readout, oldRegion);

@@ -1,0 +1,40 @@
+
+CONFDIR                 @pkgdatadir@
+CAMERA                  default
+
+# location of DVO database tables
+CATDIR			default
+
+# location of possible data sources
+2MASS_DIR_AS		NONE
+2MASS_DIR_DR2		NONE
+GSCDIR			NONE
+USNO_A_DIR		NONE
+USNO_B_DIR		NONE
+TYCHO_DIR		NONE
+
+PHOTCODE_FILE		$CONFDIR/dvo.photcodes
+GSCFILE			$CONFDIR/GSCregions.tbl
+CATMODE			SPLIT
+CATFORMAT		PS1_DEV_1
+SKY_DEPTH               3
+# SKY_TABLE		this may be used to override GSCFILE
+ZERO_PT			25.0
+
+# access control for client/server addstar mode 
+# PASSWORD
+# HOSTNAME
+# VALID_IP
+
+# camera dependent parameter files:
+FILTER_LIST             $CONFDIR/$CAMERA/dvo.filters
+CAMERA_CONFIG           $CONFDIR/$CAMERA/dvo.layout
+DETREND_RECIPES         $CONFDIR/$CAMERA/dvo.recipe
+
+# load the camera-specific configuration files
+input                   $CONFDIR/$CAMERA/dvo.config
+
+PANTASKS_SERVER         XXXXX.ifa.hawaii.edu
+PASSWORD                XXXXX
+#PANTASKS_SERVER_STDOUT  pantasks.stdout.log
+#PANTASKS_SERVER_STDERR  pantasks.stderr.log

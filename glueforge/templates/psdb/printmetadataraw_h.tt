@@ -1,0 +1,15 @@
+/** Formats and prints a metadata
+ *
+ * The metadata is printed verbatium without removing any fields.
+ *
+ * When mdcf is set the formated output is in psMetadataConfig
+ * format, otherwise it is in a simple tabular format.
+ *
+ * @return true on success
+ */
+
+bool [% pkg_namespace %]PrintMetadataRaw(
+    FILE            *stream,            ///< a stream
+    psMetadata      *md,                ///< An array of metadata
+    bool            mdcf                ///< format as mdconfig or simple
+);

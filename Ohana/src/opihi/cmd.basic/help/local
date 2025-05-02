@@ -1,0 +1,7 @@
+
+   local (var)
+
+   Creates a variable that is accessible only within the macro
+    in which it is created.
+
+   Variable value is listed as (macro).(var) using the "??" command

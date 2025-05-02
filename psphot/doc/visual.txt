@@ -1,0 +1,47 @@
+
+Visualization Options
+
+image   : display image
+backgnd : display image
+signif  : display image
+
+show image        : image 1 or object 1
+show background   : image 2 or backgnd 1
+show significance : image 3 or signif 1
+show residual     : image 2 or resid 1
+
+XXX: these all need to have the image:
+show peaks        : object 1 or peaks 1
+show moments      : object 2 or image.moments 1
+show footprints   : object 3 or footprints 1
+show rough class  : object 3 or class 3
+show flags        : (disabled)
+show size class   : object 2 or class 2
+show petrosian    : object 2 or petro 1
+
+plot final moments (2D) : moments 1  
+plot test moments (2D)  : moments 2
+plot source sizes : class 1 
+plot ap resid     : apresid 1
+plot chisq        : chisq 1
+
+show PSF model    : psf 1
+show PSF stars    : psf 2
+show Sat stars    : ?
+
+show radial profiles : profile 
+
+petrosian visualization:
+
+  psphotPetrosianVisualEllipticalContour
+  psphotPetrosianVisualStats
+  psphotPetrosianVisualProfileRadii
+  psphotPetrosianVisualProfileByAngle
+
+psphot visualization in psModules:
+
+ pmSourceVisualPSFModelResid
+ pmSourceVisualShowModelFit
+ pmSourceVisualShowModelFits
+ pmSourceVisualPlotPSFMetricSubpix
+ pmSourceVisualPlotPSFMetric

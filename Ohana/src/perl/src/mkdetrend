@@ -1,0 +1,2486 @@
+#!/usr/bin/perl
+# this function is called from the detrend apache user: 
+# it must be explicit about the location of perl
+
+$MKDETREND = "mkdetrend";
+
+# strip off args related to the elixir config system, set env PTOLEMY
+@ARGV = elixir_config (@ARGV);
+
+# interpret command-line arguments
+if (@ARGV < 1) {
+    print STDOUT "USAGE: $MKDETREND (mode) [arguments]\n";
+    print STDOUT "mode = help gives a complete list\n";
+    &escape;
+}
+if ($ARGV[0] eq "help") { &usage; }
+
+# main user level commands
+if ($ARGV[0] eq "create")       { &mk_create;     }
+if ($ARGV[0] eq "config")       { &mk_config;     }
+if ($ARGV[0] eq "run")          { &mk_run;        }
+if ($ARGV[0] eq "state")        { &mk_state;      }
+if ($ARGV[0] eq "list.runs")    { &mk_list_runs;  }
+if ($ARGV[0] eq "clean")        { &mk_clean;    }
+if ($ARGV[0] eq "reset")        { &mk_reset;      }
+if ($ARGV[0] eq "init")         { &mk_init;       }
+if ($ARGV[0] eq "update")       { &mk_update;     }
+if ($ARGV[0] eq "auto")         { &mk_auto;       }
+# lower level user comands
+if ($ARGV[0] eq "dup")          { &mk_dup;        }
+if ($ARGV[0] eq "del")          { &mk_del;        }
+if ($ARGV[0] eq "def")          { &mk_def;        }
+if ($ARGV[0] eq "set")          { &mk_set;        }
+if ($ARGV[0] eq "list.init")    { &mk_list_init;  }
+if ($ARGV[0] eq "split")        { &mk_split;      }
+if ($ARGV[0] eq "flips")        { &mk_flips;      }
+if ($ARGV[0] eq "norm")         { &mk_norm;       }
+if ($ARGV[0] eq "reg")          { &mk_reg;        }
+if ($ARGV[0] eq "scat")         { &mk_scat;       }
+if ($ARGV[0] eq "merge")        { &mk_merge;      }
+if ($ARGV[0] eq "update.list")  { &mk_update_list;     }
+if ($ARGV[0] eq "update.stats") { &mk_update_stats;     }
+# HTML cgibin commands
+if ($ARGV[0] eq "htmldup")      { &mk_htmldup;    }
+if ($ARGV[0] eq "htmldef")      { &mk_htmldef;    }
+if ($ARGV[0] eq "htmldel")      { &mk_htmldel;    }
+if ($ARGV[0] eq "htmlmod")      { &mk_htmlmod;    }
+if ($ARGV[0] eq "htmlkeep")     { &mk_htmlkeep;   }
+if ($ARGV[0] eq "htmlconfig")   { &mk_htmlconfig; }
+if ($ARGV[0] eq "html1")        { &mk_html1;      }
+if ($ARGV[0] eq "html2")        { &mk_html2;      }
+if ($ARGV[0] eq "html3")        { &mk_html3;      }
+# other support commands
+if ($ARGV[0] eq "dads")         { &mk_dads;       }
+if ($ARGV[0] eq "dads.top")     { &mk_dads_top;   }
+if ($ARGV[0] eq "meval")        { &mk_meval;      }
+if ($ARGV[0] eq "eval")         { &mk_eval;       }
+if ($ARGV[0] eq "fix.masters")  { &mk_fixmasters;  }
+if ($ARGV[0] eq "check.splits") { &mk_checksplits; }
+
+if ($ARGV[0] eq "test")         { &mk_test;       }
+
+&escape ("invalid $MKDETREND command $ARGV[0]");
+
+######## top level functions ######################
+
+sub mk_test {
+
+    print "Content-type: text/plain\n\n";
+
+    print "$MKDETREND\n";
+    exit 0;
+}
+
+############# define run ##############
+sub mk_create {
+    if ($ARGV[1] eq "run") { &mk_createrun; }
+    if (@ARGV != 5) { &escape ("USAGE: $MKDETREND create (camera) (run) (startdate) (stopdate)"); }
+    
+    $camera = $ARGV[1];
+    $run    = $ARGV[2];
+    $start  = $ARGV[3];
+    $stop   = $ARGV[4];
+
+    # create should NOT set the mkdetrend defaults 
+    if (0) {
+	# set current run id:
+	system ("mkrun sys camera.mkdetrend $camera");
+	if ($?) { &escape ("can't define camera: error in mkrun"); }
+	
+	# set current camera:
+	system ("mkrun sys runid.mkdetrend $run");
+	if ($?) { &escape ("can't define run: error in mkrun"); }
+    }
+
+    # reset values for the directories, etc.
+    $oldenv = $tmpenv;
+    &elixir_config (split (" ", "-run $run -camera $camera"));
+    unlink ($oldenv);
+
+    # create necessary directories, empty them if they exist
+    foreach $name ("detdir", "html", "stats", "flips") {
+	$file = mkfiles ($name);
+	if (! -d $file) {
+	    if (! mkdir ($file, 0777)) {
+		&escape ("can't create detdir $file\n");
+	    }
+	    chmod 0775, $file;
+	}
+    }
+    &save_dates ($start, $stop, "init");
+
+    # create run-specific config file
+    @list = ();
+    for ($i = 0; $i < @filt; $i++) {
+	$line = stconfig ("$run $type[$i] $filt[$i] 0 $start $stop init", "all");
+	@list = (@list, $line);
+    }
+    save_config (@list);
+    
+    # make the necessary directories?
+    &goodbye;
+}
+
+############# define run ##############
+sub mk_createrun {
+    if (@ARGV != 3) { &escape ("USAGE: $MKDETREND create run (run)"); }
+    if ($ARGV[1] ne "run") { &escape ("USAGE: $MKDETREND create run (run)"); }
+    
+    $run    = $ARGV[2];
+    $answer = `mkrun run $run`;
+    if ($?) { &escape ("run $run not defined, use 'mkrun'"); }
+    ($newrun, $start, $stop, $camera) = split (" ", $answer);
+    if ($run ne $newrun) { &escape ("inconsistent answer from mkrun run $run"); }
+
+    # reset values for the directories, etc.
+    $oldenv = $tmpenv;
+    &elixir_config (split (" ", "-run $run -camera $camera"));
+    unlink ($oldenv);
+
+    # create necessary directories, empty them if they exist
+    foreach $name ("detdir", "html", "stats", "flips") {
+	$file = mkfiles ($name);
+	if (! -d $file) {
+	    if (! mkdir ($file, 0777)) {
+		&escape ("can't create detdir $file\n");
+	    }
+	    chmod 0775, $file;
+	}
+    }
+    &save_dates ($start, $stop, "init");
+
+    # create run-specific config file
+    @list = ();
+    for ($i = 0; $i < @filt; $i++) {
+	$line = stconfig ("$run $type[$i] $filt[$i] 0 $start $stop init", "all");
+	@list = (@list, $line);
+    }
+    save_config (@list);
+    
+    # make the necessary directories?
+    &goodbye;
+}
+
+############# change current run ##############
+sub mk_config {
+    if (@ARGV != 3) { &escape ("USAGE: $MKDETREND config (camera) (run)"); }
+    
+    $camera = $ARGV[1];
+    $run    = $ARGV[2];
+
+    # set current run id:
+    system ("mkrun sys camera.mkdetrend $camera");
+    if ($?) { &escape ("can't define camera: error in mkrun"); }
+    
+    # set current run id:
+    system ("mkrun sys runid.mkdetrend $run");
+    if ($?) { &escape ("can't define run: error in mkrun"); }
+    
+    &goodbye;
+}
+
+############# auto run system ##############
+sub mk_auto {
+    my ($start, $stop, $mode);
+
+    if ((@ARGV != 2) && (@ARGV != 3)) { &escape ("USAGE: $MKDETREND auto [command]"); }
+    $command = $ARGV[1];
+
+    ($start, $stop, $mode) = load_dates ();
+    if ($command eq "set") {
+	if (@ARGV != 3) { &escape ("USAGE: $MKDETREND auto set (mode)"); }
+	&save_dates ($start, $stop, $ARGV[2]);
+	&goodbye;
+    }
+    
+    if (@ARGV != 2) { &escape ("USAGE: $MKDETREND auto [command]"); }
+    if ($command eq "show") {
+	print STDERR "MODE : $mode\n";
+	&goodbye;
+    }
+    
+    if ($command eq "run") {
+	if ($mode eq "init") {
+	    system ("$MKDETREND reset hard");
+	    system ("$MKDETREND init");
+	    system ("$MKDETREND run");
+	    &save_dates ($start, $stop, "init");
+	    &goodbye;
+	}
+	
+	if ($mode eq "update") {
+	    system ("$MKDETREND update");
+	    &save_dates ($start, $stop, "update");
+	    &goodbye;
+	}
+	
+	if ($mode eq "hold") {
+	    &goodbye;
+	}
+    }
+    &escape ("$MKDETREND auto $command : command not found\n");
+}
+
+############# main run ##############
+sub mk_run {
+    if (@ARGV != 1) { &escape ("USAGE: $MKDETREND run"); }
+    
+    system ("$MKDETREND flips");
+    system ("$MKDETREND norm");
+    system ("$MKDETREND merge");
+    
+    &goodbye;
+}
+
+############# main init ##############
+sub mk_init {
+    if (@ARGV != 1) { &escape ("USAGE: $MKDETREND init"); }
+    
+    system ("$MKDETREND list.init");
+    system ("$MKDETREND split");
+    
+    &goodbye;
+}
+
+############# main update ##############
+sub mk_update {
+    if (@ARGV != 1) { &escape ("USAGE: $MKDETREND update"); }
+    
+    system ("$MKDETREND reset update");
+    system ("$MKDETREND init");
+    system ("$MKDETREND update.list");
+    system ("$MKDETREND update.stats");
+    system ("$MKDETREND run");
+    
+    &goodbye;
+}
+
+############# show current state ##############
+sub mk_state {
+    if (@ARGV != 1) { &escape ("USAGE: $MKDETREND state"); }
+    
+    $file = mkfiles ("dates");
+    if (! -e $file) { 
+	print STDOUT "CAMERA    $camera\n";
+	print STDOUT "RUN       $run\n";
+	&escape ("setup not defined");
+    }
+    ($start, $stop, $mode) = load_dates ();
+
+    print STDOUT "CAMERA    $camera\n";
+    print STDOUT "RUN       $run\n";
+    print STDOUT "START     $start\n";
+    print STDOUT "STOP      $stop\n";
+    print STDOUT "MODE      $mode\n";
+    
+    @list = &load_config;
+    if (@list == 0) { &escape ("$MKDETREND not configured"); }
+
+    for ($i = 0; $i < @list; $i++) {
+	printf STDOUT "%3d %s\n", $i, $list[$i];
+    }
+    &goodbye;
+}
+
+############# show current state ##############
+sub mk_list_runs {
+    if (@ARGV != 1) { &escape ("USAGE: $MKDETREND list.runs"); }
+    
+    system ("ls $root");
+    &goodbye;
+}
+
+############## duplicate config ###############
+sub mk_dup {
+    if (@ARGV != 2) { &escape ("USAGE: detrend dup (config)"); }
+    
+    $key = $ARGV[1];
+    @list = load_config ();
+    
+    # look for entry that matches requested config
+    @match = ();
+    for ($i = 0; $i < @list; $i++) {
+	$config = gtconfig ($list[$i], "config");
+	if ($key eq $config) { @match = (@match, $i); }	
+    }
+    if (@match == 0) { &escape ("config $key not found\n"); }
+    
+    # create new config version based on version 0
+    $Nnew = @match;
+    $old = $list[$match[0]];
+    $new = stconfig ($old, "version", $Nnew);
+    @list = (@list, $new);
+    save_config (@list);
+    
+    # now we need to duplicate all of the reference files from the first config 
+    foreach $ccd (@ccds) {
+	$fold = mknames ("master", $old, $ccd);
+	$fnew = mknames ("master", $new, $ccd);
+	system ("cp $fold $fnew");
+    }
+    foreach $name ("stats", "medbin", "tenbin", "imbin") {
+	$fold = mknames ($name, $old);
+	$fnew = mknames ($name, $new);
+	system ("cp $fold $fnew");
+    }
+    
+    &goodbye;
+    
+}
+
+############## clean config ###############
+sub mk_clean {
+    if (@ARGV != 1) { &escape ("USAGE: detrend clean"); }
+    # only deletes temporary files for configs in state 'done'
+    
+    @list = load_config ();
+    
+    $detdir = mkfiles ("detdir");
+    open (CF, ">$detdir/clean.fail");
+
+    $Nmiss = 0;
+    $Nfail = 0;
+    $Ngood = 0;
+
+    foreach $confline (@list) {
+	$status = gtconfig ($confline, "status");
+	if ($status ne "done") { next; }
+
+	print STDERR "deleting files from $confline\n";
+	$confline = stconfig ($confline, "status", "running.clean");
+	save_config (@list);
+
+	foreach $ccd (@ccds) { 
+	    # delete these specific files:
+	    @dlist = ();
+	    push @dlist, &mknames ("fits", $confline, $ccd); 
+	    push @dlist, &mknames ("norm", $confline, $ccd); 
+	    push @dlist, &mknames ("proc.imbin", $confline, $ccd); 
+	    push @dlist, &mknames ("proc.medbin", $confline, $ccd); 
+	    push @dlist, &mknames ("proc.tenbin", $confline, $ccd); 
+
+	    # delete file, if it exists
+	    foreach $file (@dlist) { 
+		if (! -e $file) { $Nmiss ++; next; }
+		if (!unlink $file) { $Nfail ++; print CF "$file\n"; next; }
+		$Ngood ++;
+	    }
+	}
+	$confline = stconfig ($confline, "status", "clean");
+	save_config (@list);
+    }
+    close (CF);
+    
+    print STDERR "$Ngood files deleted\n";
+    print STDERR "$Nmiss files already removed\n";
+    print STDERR "$Nfail files not deleted, see '$detdir/clean.fail'\n";
+
+    &goodbye;
+}
+
+############## delete config ###############
+sub mk_del {
+    if (@ARGV != 2) { &escape ("USAGE: $MKDETREND del (config.ver)"); }
+    
+    $key = $ARGV[1];
+    @list = load_config ();
+    
+    # look for entry that matches requested config
+    $match = -1;
+    for ($i = 0; $i < @list; $i++) {
+	$version = gtconfig ($list[$i], "version");
+	if ($key eq $version) {
+	    $match = $i;
+	    last;
+	}	
+    }
+    if ($match == -1) {
+	print STDERR "config.ver $key not found\n";
+	&escape;
+    }
+    
+    # create new list without match:
+    @newlist = ();
+    for ($i = 0; $i < @list; $i++) {
+	if ($i == $match) { next; }
+	@newlist = (@newlist, $list[$i]);
+    }
+    
+    save_config (@newlist);
+    &goodbye;
+    
+}
+
+############## reset config ###############
+sub mk_reset {
+    if (@ARGV != 2) {
+	print STDERR "USAGE: $MKDETREND reset (level)\n";
+	print STDERR "       level = hard || update\n";
+	&escape; 
+    }
+
+    $level = $ARGV[1];
+    @list = load_config ();
+    
+    # find specific config:
+RESET:
+    foreach $confline (@list) {
+	$status = gtconfig ($confline, "status");
+
+	if ($level eq "hard" ) {
+	    $confline = stconfig ($confline, "status", "init");
+	}
+	if ($level eq "update") {
+	    if (($status eq "done.merge") || ($status eq "modified") || ($status eq "update")) {
+		$confline = stconfig ($confline, "status", "update");
+		next RESET;
+	    } 
+	    if (($status eq "freeze") || ($status eq "accepted")) {
+		next RESET;
+	    } 
+	    $confline = stconfig ($confline, "status", "init");
+	}
+    }
+    save_config (@list);
+    &goodbye;
+}
+
+############## define config ###############
+sub mk_def {
+    if (@ARGV != 4) { &escape ("USAGE: $MKDETREND def (config.ver) (start) (stop)"); }
+    
+    $key   = $ARGV[1];
+    $start = $ARGV[2];
+    $stop  = $ARGV[3];
+    
+    @list = load_config ();
+    
+    # find specific config:
+    $match = -1;
+    for ($i = 0; $i < @list; $i++) {
+	$version = gtconfig ($list[$i], "version");
+	if ($key eq $version) {
+	    $match = $i;
+	}	
+    }
+    if (@match == -1) {
+	print STDERR "config.ver $key not found\n";
+	&escape;
+    }
+    
+    $new = $list[$match];
+    $new = stconfig ($new, "start", $start);
+    $new = stconfig ($new, "stop", $stop);
+    $list[$match] = $new;
+    
+    save_config (@list);
+    &goodbye;
+    
+}
+
+############## list init ###############
+sub mk_list_init {
+    if (@ARGV != 1) { &escape ("USAGE: $MKDETREND list.init"); }
+    
+    @list = load_config ();
+    
+    # create namelist
+    $Nrun = 0;
+    $file = mkfiles ("list");
+    open (FILE, ">$file");
+    foreach $confline (@list) {
+	$status = gtconfig ($confline, "status");
+	if ($status ne "init") { next; }
+	$Nrun ++;
+	$line = gtconfig ($confline, "mosaic");
+	print FILE "$line\n";
+	$confline = stconfig ($confline, "status", "running.init");
+    }
+    close (FILE);
+    save_config (@list);
+
+    if ($Nrun == 0) { &goodbye; }
+    
+    vsystem ("elixir -D DETREND_DIR $det -D mode $MKDETREND -D global.pending imselect.split $file");
+    system ("$MKDETREND meval init");
+    
+    &goodbye;
+}
+
+############## split ###############
+sub mk_split {
+    if (@ARGV != 1) { &escape ("USAGE: $MKDETREND split"); }
+    
+    @list = load_config ();
+    
+    # create namelist
+    $Nrun = 0;
+    $file = mkfiles ("list");
+    open (FILE, ">$file");
+    foreach $confline (@list) {
+	$status = gtconfig ($confline, "status");
+	if (($status ne "done.init") && ($status ne "split")) { next; }
+	$Nrun ++;
+	foreach $ccd (@ccds) {
+	    $line = gtconfig ($confline, "chiprun", $ccd);
+	    print FILE "$line\n";
+	}
+	$confline = stconfig ($confline, "status", "running.split");
+    }
+    close (FILE);
+    save_config (@list);
+
+    if ($Nrun == 0) { &goodbye; }
+    
+    system ("elixir -D DETREND_DIR $det -D mode $MKDETREND -D global.pending merge.lists $file");
+    system ("$MKDETREND eval split");
+    
+    &goodbye;
+}
+
+############## update lists ###############
+sub mk_update_list {
+    if (@ARGV != 1) { &escape ("USAGE: $MKDETREND update.list"); }
+    
+    @list = load_config ();
+    
+    # create namelist
+    $Nrun = 0;
+    $file = mkfiles ("list");
+    open (FILE, ">$file");
+    foreach $confline (@list) {
+	$status = gtconfig ($confline, "status");
+	if ($status ne "update") { next; }
+	$Nrun ++;
+	$line = gtconfig ($confline, "mosaic");
+	print FILE "$line\n";
+	$confline = stconfig ($confline, "status", "running.update.list");
+    }
+    close (FILE);
+    save_config (@list);
+    
+    if ($Nrun == 0) { &goodbye; }
+    
+    system ("elixir -D DETREND_DIR $det -D mode $MKDETREND -D global.pending update.split $file");
+    system ("$MKDETREND meval update.list");
+    
+    &goodbye;
+}
+
+############## update stats ###############
+sub mk_update_stats {
+    if (@ARGV != 1) { &escape ("USAGE: $MKDETREND update.stats"); }
+    
+    @list = load_config ();
+    
+    # create namelist
+    $Nrun = 0;
+    $file = mkfiles ("list");
+    open (FILE, ">$file");
+    foreach $confline (@list) {
+	$status = gtconfig ($confline, "status");
+	if (($status ne "done.update.list") && ($status ne "update.stats")) { next; }
+	$Nrun ++;
+	foreach $ccd (@ccds) {
+	    $line = gtconfig ($confline, "chiprun", $ccd);
+	    print FILE "$line\n";
+	}
+	$confline = stconfig ($confline, "status", "running.update.stats");
+
+    }
+    close (FILE);
+    save_config (@list);
+    
+    if ($Nrun == 0) { &goodbye; }
+    
+    system ("elixir -D DETREND_DIR $det -D mode $MKDETREND -D global.pending update.msplit $file");
+    system ("$MKDETREND eval update.stats");
+    
+    &goodbye;
+}
+
+############## set state ###############
+sub mk_set {
+    if (@ARGV != 3) { &escape ("USAGE: $MKDETREND set (config number) (state)"); }
+    
+    @list = load_config ();
+    
+    $key = $ARGV[1];
+    $state = $ARGV[2];
+    
+    $new = stconfig ($list[$key], "status", "$state");
+    $list[$key] = $new;
+    save_config (@list);
+    
+    &goodbye;
+}
+
+############## flips run ###############
+sub mk_flips {
+    if (@ARGV != 1) { &escape ("USAGE: $MKDETREND flips"); }
+    
+    @list = load_config ();
+    
+    # create namelist for those with appropriate status
+    $Nrun = 0;
+    $file = mkfiles ("list");
+    open (FILE, ">$file");
+    foreach $confline (@list) {
+	$status = gtconfig ($confline, "status");
+	if (($status ne "done.split") && ($status ne "modified") && ($status ne "flips")) { next; }
+	$Nrun ++;
+	foreach $ccd (@ccds) {
+	    $line = gtconfig ($confline, "chiprun", $ccd);
+	    print FILE "$line\n";
+	}
+	$confline = stconfig ($confline, "status", "running.flips");
+    }
+    close (FILE);
+    save_config (@list);
+
+    if ($Nrun == 0) { &goodbye; }
+
+    system ("elixir -D DETREND_DIR $det -D mode $MKDETREND -D global.pending create.subset $file"); 
+    system ("$MKDETREND eval flips");
+
+    &goodbye;
+}
+
+############## norm run ###############
+sub mk_norm {
+    if (@ARGV != 1) { &escape ("USAGE: $MKDETREND norm"); }
+
+    @list = load_config ();
+
+    # create namelist for those with appropriate status
+    $Nrun = 0;
+    $file = mkfiles ("list");
+    open (FILE, ">$file");
+    foreach $confline (@list) {
+	$status = gtconfig ($confline, "status");
+	if (($status ne "done.flips") && ($status ne "norm")) { next; }
+	$Nrun ++;
+	foreach $ccd (@ccds) {
+	    $line = gtconfig ($confline, "chiprun", $ccd);
+	    print FILE "$line\n";
+	}
+	$confline = stconfig ($confline, "status", "running.norm");
+    }
+    close (FILE);
+    save_config (@list);
+
+    if ($Nrun == 0) { &goodbye; }
+
+    vsystem ("elixir -D DETREND_DIR $det -D mode $MKDETREND -D global.pending normal $file");
+    vsystem ("$MKDETREND eval norm");
+
+    &goodbye;
+}
+
+############## merge run ###############
+sub mk_merge {
+    if (@ARGV != 1) { &escape ("USAGE: $MKDETREND merge"); }
+    
+    @list = load_config ();
+    
+    # create namelist for those with appropriate status
+    $Nrun = 0;
+    $file = mkfiles ("list");
+    open (FILE, ">$file");
+    foreach $confline (@list) {
+	$status = gtconfig ($confline, "status");
+	if (($status ne "done.norm") && ($status ne "done.update.stats") && ($status ne "merge")) { next; }
+	$Nrun ++;
+	$line = gtconfig ($confline, "mosaic");
+	$confline = stconfig ($confline, "status", "running.merge");
+	print FILE "$line\n";
+    }
+    close (FILE);
+    save_config (@list);
+
+    if ($Nrun == 0) { &goodbye; }
+    
+    vsystem ("elixir -D DETREND_DIR $det -D mode $MKDETREND -D global.pending stats $file");
+    vsystem ("$MKDETREND meval merge");
+    
+    &goodbye;
+}
+
+############## reg run ###############
+sub mk_reg {
+    if (@ARGV != 1) { &escape ("USAGE: $MKDETREND reg"); }
+    
+    @list = load_config ();
+    
+    # create directory for fhtool to work in
+    $links = mkfiles ("links");
+    if (! -e $links) { mkdir ($links); }
+
+    # create namelist for those with appropriate status
+    foreach $confline (@list) {
+	$status = gtconfig ($confline, "status");
+	if (($status ne "accepted") && ($status ne "reg")) { next; }
+	$confline = stconfig ($confline, "status", "running.reg");
+	save_config (@list);
+
+	$success = 1;
+	$ID = gtconfig ($confline, "ID");
+
+	$DBmode = `gconfig DETREND-DB-MODE`; chop $DBmode;
+	$DBmode = "\U$DBmode\E";
+
+	if ($DBmode eq "SPLIT") {
+	    for ($j = 0; $j < $Nccd; $j++) {
+		$file = mknames ("norm", $confline, $ccds[$j]);
+		$line = "detregister $file -label elixir -ID $ID";
+		$status = system ($line);
+		if ($status) { 
+		    print STDERR "error registering $file\n";
+		    $success = 0;
+		}
+	    }
+	    goto registered;
+	}
+
+	if ($DBmode eq "MEF") {
+	    # empty link directory:
+	    system ("rm -f $links/*.fits");
+
+	    # make links 
+	    foreach $ccd (@ccds) {
+		$file = mknames ("norm", $confline, $ccd);
+		$link = mknames ("link", $confline, $ccd);
+		symlink $file, $link;
+	    }
+
+	    # mef, register
+	    $mef = mknames ("mef", $confline);
+	    if (-e $mef) { unlink $mef; }
+	    vsystem ("fhtool -P $links $mef");
+	    if ($status) { $success = 0; }
+	    vsystem ("detregister $mef -label elixir -ID $ID");
+	    if ($status) { $success = 0; }
+
+	    # remove links
+	    foreach $ccd (@ccds) {
+		$link = mknames ("link", $confline, $ccd);
+		unlink $link;
+	    }
+	    goto registered;
+	}
+	print STDERR "DB mode not defined?\n";
+	$success = 0;
+
+      registered:
+	if ($success) { 
+	    $confline = stconfig ($confline, "status", "done.reg");
+	} else {
+	    print STDERR "error registering $file\n"; 
+	    $confline = stconfig ($confline, "status", "fail.reg");
+	}
+	save_config (@list);
+
+    }
+
+    # use recipe file to decide if we apply 'scat' or not!
+    $file = mkfiles ("list");
+    # create list of images to apply scattered-light correction:
+    foreach $confline (@list) {
+	$type = gtconfig ($confline, "type");
+	$status = gtconfig ($confline, "status");
+	if (($status ne "done.reg") && ($status ne "scat")) { next; }
+
+	# only flats get scat correction
+	if ($type eq "flat") { 
+	    $ID = gtconfig ($confline, "ID");
+
+	    open (FILE, ">$file");
+	    foreach $ccd (@ccds) {
+		$line = mknames ("norm", $confline, $ccd);
+		print FILE "$line\n";
+	    }
+	    close (FILE);
+	    
+	    $confline = stconfig ($confline, "status", "running.scat");
+	    save_config (@list);
+
+	    $status = vsystem ("fixscat $file B.2 $ID");
+	    if (($status == 0) || ($status == 2 * 256)) { 
+		$confline = stconfig ($confline, "status", "done.scat");
+	    } else {
+		$confline = stconfig ($confline, "status", "fail.scat");
+	    }		
+	    save_config (@list);
+	}
+    }
+
+    foreach $confline (@list) {
+	$status = gtconfig ($confline, "status");
+	if (($status ne "done.reg") && ($status ne "done.scat")) { next; }
+	$confline = stconfig ($confline, "status", "done");
+    }
+    save_config (@list);
+    &goodbye;
+}
+
+############## html modify ###############
+sub mk_fixmasters {
+    if (@ARGV != 1) { &escape ("USAGE: $MKDETREND fix.masters"); }
+    
+    @list = load_config ();
+
+    foreach $name (@list) {
+
+	@mstate = ();
+	$master = mknames ("master", $name, $ccds[0]); 
+	print STDERR "$master: $name\n";
+	open (FILE, $master);
+	@master = <FILE>;
+	close FILE;
+	for ($j = 0; $j < @master; $j++) {
+	    ($tmp, $state) = split (" ", $master[$j]);
+	    @mstate = (@mstate, $state);
+	}
+
+	# re-create all masters to match master for chip 00
+	for ($i = 1; $i < $Nccd; $i++) {
+
+	    # load existing master file
+	    $master = mknames ("master", $name, $ccds[$i]); 
+	    open (FILE, $master);
+	    @master = <FILE>;
+	    close FILE;
+	    
+	    $Nm = @master;
+	    $Ns = @mstate;
+	    if (@mstate != @master) {
+		print STDOUT "error: mis-match in image lists ccd $i\n";
+		&escape;
+	    }
+	    
+	    # write results back to master file
+	    open (OUT, ">$master") or die "can't open $master";
+	    for ($j = 0; $j < @master; $j++) {
+		($fname, $state) = split (" ", $master[$j]);
+		if ($state != $mstate[$j]) { print STDERR "error on $j $name\n"; }
+		printf OUT "%s %d\n", $fname, $mstate[$j];
+	    }
+	    close (OUT);
+	}
+    }
+    &goodbye;
+}
+
+############## html modify ###############
+sub mk_checksplits {
+    if (@ARGV != 2) { &escape ("USAGE: $MKDETREND check.splits (config)"); }
+    
+    $Nconfig = $ARGV[1];
+    @list = load_config ();
+    $name = $list[$Nconfig];
+
+    # re-create all masters to match master for chip 00
+    foreach $ccd (@ccds) {
+	
+	# load existing master file
+	$master = mknames ("master", $name, $ccd); 
+	open (FILE, $master);
+	@master = <FILE>;
+	close FILE;
+	
+	for ($j = 0; $j < @master; $j++) {
+	    ($fname, $state) = split (" ", $master[$j]);
+	    if (! -e $fname) { 
+		print STDERR "missing file $fname\n";
+	    }
+	}
+    }
+    &goodbye;
+}
+
+####  HTML cgibin functions ################ 
+
+############## html duplicate ###############
+sub mk_htmldup {
+    if (@ARGV != 2) { &escape ("USAGE: $MKDETREND htmldup (config)"); }
+    
+    $config = $ARGV[1];
+    # we are just calling the "mkdetrend dup" function and then calling "$MKDETREND html1"
+    
+    system ("$MKDETREND dup $config");
+    print STDOUT "<meta http-equiv=refresh content=\"0; url=$CGI/dt.elixir1?&elconf=$elconf\">\n";
+    
+    &goodbye;
+    
+}
+
+############## html delete ###############
+sub mk_htmldel {
+    if (@ARGV != 2) { &escape ("USAGE: $MKDETREND htmldel (config.ver)"); }
+    
+    $config = $ARGV[1];
+    # we are just calling the "mkdetrend del" function and then calling "mkdetrend html1"
+    
+    system ("$MKDETREND del $config");
+    print STDOUT "<meta http-equiv=refresh content=\"0; url=$CGI/dt.elixir1?&elconf=$elconf\">\n";
+    
+    &goodbye;;
+    
+}
+
+############## html define ###############
+sub mk_htmldef {
+    if (@ARGV != 2) { &escape ("USAGE: $MKDETREND htmldef (config.ver)"); }
+    
+    $key = $ARGV[1];
+    
+    # find (config.ver) in list:
+    
+    @list = load_config ();
+    
+    $match = -1;
+    for ($i = 0; $i < @list; $i++) {
+	$version = gtconfig ($list[$i], "version");
+	if ($key eq $version) {
+	    $match = $i;
+	    last;
+	}
+    }
+    if ($match == -1) { &escape ("error: can't find config entry"); }
+    
+    # show the complete list for reference
+    print STDOUT "<HEADER> <TITLE>Elixir Mkdetrend Report</TITLE> </HEADER>\n";
+    print STDOUT "<BODY BGCOLOR=#fff0e0 TEXT=#000000 LINK=#0000ff VLINK=#6600ff ALINK=#a0a0a0>\n";
+    print STDOUT "<table border>\n";
+    for ($i = 0; $i < @list; $i++) {
+	$config  = gtconfig ($list[$i], "config");
+	$version = gtconfig ($list[$i], "version");
+	$status  = gtconfig ($list[$i], "status");
+	$from    = gtconfig ($list[$i], "from");
+	$to      = gtconfig ($list[$i], "to");
+	print STDOUT "<tr><td> $version </td>\n";
+	print STDOUT "<td> $from </td><td> $to </td>\n";
+	print STDOUT "<td> <a href=$CGI/dt.elixir2?$version&elconf=$elconf> $status </a></td>\n";
+	print STDOUT "<td> <a href=$CGI/dt.split?$config&elconf=$elconf>      split </a></td>\n";
+	print STDOUT "<td> <a href=$CGI/dt.delete?$version&elconf=$elconf>   delete </a></td>\n";
+	print STDOUT "<td> <a href=$CGI/dt.redef?$version&elconf=$elconf>  redefine </a></td>\n";
+	print STDOUT "</tr>\n";
+    }
+    print STDOUT "</table></body><br><br>\n";
+    
+    $version = gtconfig ($list[$match], "version");
+    $status  = gtconfig ($list[$match], "status");
+    $from    = gtconfig ($list[$match], "from");
+    $to      = gtconfig ($list[$match], "to");
+    print STDOUT "redefining <b> $key: </b> <br>\n";    
+    print STDOUT "<table border>\n";
+    print STDOUT "<tr><td> $version </td>\n";
+    print STDOUT "<td> $from </td><td> $to </td><td> $status </a></td>\n";
+    print STDOUT "</tr></table>\n";
+    
+    
+    # create a simple form for redefine:
+    print STDOUT "<form method=post action=$CGI/dt.redefine&elconf=$elconf>\n";
+    print STDOUT "start: <input type=text value=$from name=start size=40 maxlength=40> <br>\n";
+    print STDOUT "stop: <input type=text value=$to name=stop size=40 maxlength=40> <br>\n";
+    print STDOUT "<input type=hidden name=config value=\"$key\">\n";
+    print STDOUT "<input type=\"submit\" value=\"submit\"><input type=\"reset\" value=\"reset\">\n";
+    print STDOUT "</form>\n";
+    print STDOUT "</body>\n";
+    
+    &goodbye;;
+    
+}
+
+############## html modify ###############
+sub mk_htmlmod {
+    if (@ARGV != 1) { &escape ("USAGE: $MKDETREND htmlmod"); }
+    
+    $key = $ENV{'WWW_config'};
+    $Nimage = $ENV{'WWW_Nimage'};
+    
+    @list = load_config ();
+    
+    $match = -1;
+    for ($i = 0; $i < @list; $i++) {
+	$version = gtconfig ($list[$i], "version");
+	if ($key eq $version) {
+	    $match = $i;
+	    last;
+	}
+    }
+    if ($match == -1) { &escape ("error: can't find config entry"); }
+    
+    # re-create $master to match selections
+    # depends on the format of data in the 'master' file
+    foreach $ccd (@ccds) {
+
+	# load existing master file
+	$master = mknames ("master", $list[$match], $ccd); 
+	open (FILE, $master);
+	@master = <FILE>;
+	close FILE;
+
+	if ($Nimage != @master) {
+	    print STDOUT "error: mis-match in image lists ccd $ccd\n";
+	    &escape;
+	}
+
+	# write results back to master file
+	open (OUT, ">$master") or die "can't open $master";
+	for ($j = 0; $j < @master; $j++) {
+	    @tmpw = split (" ", $master[$j]);
+	    $name = "WWW_image_$j";
+
+	    $tmpw[1] = 0;
+	    if ($ENV{$name} ne "") { $tmpw[1] = 1; }
+	    printf OUT "%s %d\n", $tmpw[0], $tmpw[1];
+	}
+	close (OUT);
+    }
+    # adjust the config file: convert status to 'modified'
+    $list[$match] = stconfig ($list[$match], "status", "modified");
+    save_config (@list);
+
+    print STDOUT "<meta http-equiv=refresh content=\"0; url=$CGI/dt.elixir2?$key&elconf=$elconf\">\n";
+    &goodbye;
+}
+
+############## html accept ###############
+sub mk_htmlkeep {
+    if (@ARGV != 2) { &escape ("USAGE: $MKDETREND htmlkeep (config.ver)"); }
+    
+    $key = $ARGV[1];
+    @list = load_config ();
+    
+    $match = -1;
+    for ($i = 0; $i < @list; $i++) {
+	$version = gtconfig ($list[$i], "version");
+	if ($key eq $version) {
+	    $match = $i;
+	    last;
+	}
+    }
+    if ($match == -1) {
+	print STDERR "error: can't find config entry\n";
+	&escape;
+    } 
+    
+    # adjust the config file: convert status to 'accepted'
+    $list[$match] = stconfig ($list[$match], "status", "accepted");
+    save_config (@list);
+    
+    print STDOUT "<meta http-equiv=refresh content=\"0; url=$CGI/dt.elixir1?&elconf=$elconf\">";
+    &goodbye;
+}
+
+############## html config ###############
+sub mk_htmlconfig {
+    if (@ARGV != 1) { &escape ("USAGE: $MKDETREND htmlconfig"); }
+    
+    ## html headers
+    print STDOUT "<HEADER> <TITLE>Elixir Mkdetrend Report</TITLE> </HEADER>\n";
+    print STDOUT "<BODY BGCOLOR=#fff0f0 TEXT=#000000 LINK=#0000ff VLINK=#6600ff ALINK=#a0a0a0>\n";
+    
+    # create a simple form for redefine:
+    print STDOUT "<form method=post action=$CGI/dt.newconfig>\n";
+    if ($elconf) {
+	print STDOUT "enter new config: <input type=text value=$elconf name=config size=40 maxlength=40> <br>\n";
+    } else {
+	print STDOUT "enter new config: <input type=text name=config size=40 maxlength=40> <br>\n";
+    }
+    print STDOUT "<input type=\"submit\" value=\"submit\"><input type=\"reset\" value=\"reset\">\n";
+    print STDOUT "</form>\n";
+    print STDOUT "</body>\n";
+    
+    &goodbye;
+}
+
+############## html level 1 ###############
+sub mk_html1 {
+    if (@ARGV != 1) { &escape ("USAGE: $MKDETREND html1"); }
+    
+    @list = load_config ();
+    
+    ## html headers
+    print STDOUT "<HEADER> <TITLE>Elixir Mkdetrend Report</TITLE> </HEADER>\n";
+    print STDOUT "<BODY BGCOLOR=#fff0f0 TEXT=#000000 LINK=#0000ff VLINK=#6600ff ALINK=#a0a0a0>\n";
+
+    print STDOUT "<table border>\n";
+    for ($i = 0; $i < @list; $i++) {
+	$config  = gtconfig ($list[$i], "config");
+	$version = gtconfig ($list[$i], "version");
+	$from    = gtconfig ($list[$i], "from");
+	$to      = gtconfig ($list[$i], "to");
+	$status  = gtconfig ($list[$i], "status");
+	print STDOUT "<tr><td> $version </td>\n";
+	print STDOUT "<td> $from </td><td> $to </td>\n";
+	print STDOUT "<td> <a href=$CGI/dt.elixir2?$version&elconf=$elconf> $status </a></td>\n";
+	print STDOUT "<td> <a href=$CGI/dt.split?$config&elconf=$elconf> split </a></td>\n";
+	print STDOUT "<td> <a href=$CGI/dt.delete?$version&elconf=$elconf> delete </a></td>\n";
+	print STDOUT "<td> <a href=$CGI/dt.redef?$version&elconf=$elconf> redefine </a></td>\n";
+	print STDOUT "</tr>\n";
+    }
+    
+    print STDOUT "</table><br><br>\n";
+    if ($elconf eq "") {
+	print STDOUT "Current Config: <b>default</b><br>\n";
+    } else {
+	print STDOUT "Current Config: <b>$elconf</b><br>\n";
+    }
+    print STDOUT "<a href=$CGI/dt.config?&elconf=$elconf>Change Config</a></td>\n";
+    print STDOUT "</body>\n";
+    &goodbye;;
+}
+
+############## html level 2 ###############
+sub mk_html2 {
+    if (@ARGV != 2) { &escape ("USAGE: $MKDETREND html2 (config.ver)"); }
+    
+    @list = load_config ();
+    
+    # entry on line will be either config.ver (== key) or config.ver.col for sorting
+    # grab just the key portion
+    $status = "none";
+    ($key) = $ARGV[1] =~ /(\w+.\w+.\w+.\w+)/; # (config.ver)
+    $arg = $ARGV[1];
+    
+    # find appropriate config.ver entry:
+    for ($i = 0; $i < @list; $i++) {
+	$version = gtconfig ($list[$i], "version");
+	if ($key eq $version) {
+	    $confline = $list[$i];
+	    $status = gtconfig ($confline, "status");
+	    last;
+	}
+    }
+    
+    $from = gtconfig ($confline, "from");
+    $to   = gtconfig ($confline, "to");
+    print STDOUT "<HEADER> <TITLE>Elixir Mkdetrend Report</TITLE> </HEADER>\n";
+    print STDOUT "<BODY BGCOLOR=#fff0f0 TEXT=#000000 LINK=#0000ff VLINK=#6600ff ALINK=#a0a0a0>\n";
+    print STDOUT "<center><table border>\n";
+    print STDOUT "<tr><th>config   </th><th> from  </th><th> to </th></tr>\n";
+    print STDOUT "<tr><td>$version </td><td> $from </td><td> $to</td></tr>\n";
+    print STDOUT "</table></center><hr>\n";
+    
+    $master = mknames ("master", $confline, $ccds[0]);
+    
+    if ($status eq "modified")   { flips_report ($arg, $confline,      "modified"); }
+    if ($status eq "accepted")   { flips_report ($arg, $confline,      "accepted"); }
+    if ($status eq "done.merge") { flips_report ($arg, $confline,      "merged"); }
+    if ($status eq "done.reg")   { flips_report_done ($key, $confline, "registered"); }
+    if ($status eq "done")       { flips_report_done ($key, $confline, "registered"); }
+    if ($status eq "clean")      { flips_report ($key, $confline,      "registered"); }
+    
+    if ($status eq "none")              { $message = "not found"; }
+    if ($status eq "init")              { $message = "initialized, not yet run."; }
+    if ($status eq "not.available")     { $message = "has no images available for detrend creation."; }
+    
+    foreach $step (init, flips, norm, merge) {
+	if ($status eq "running.$step") { $message = "running step $step"; }
+	if ($status eq "fail.$step")    { $message = "failed step $step"; }
+	if ($status eq "done.$step") { $message = "has finished $step"; }
+    }      
+
+    print STDOUT "config <b> $key </b> $message <br>\n";
+    
+    print STDOUT "<table border>\n";
+    open (FILE, "$master");
+    while ($line = <FILE>) {
+	chop ($line);
+	@entry = split ("/", $line);
+	$N = @entry - 1;
+	print STDOUT "<tr><td>$entry[$N]</td></tr>\n";
+    }
+    print STDOUT "</table>\n";
+    
+    print STDOUT "</body>\n";
+    &goodbye;
+}
+
+############## html level 3 ###############
+sub mk_html3 {
+    if (@ARGV != 2) { &escape ("USAGE: $MKDETREND html3 (entry.config.ver)"); }
+    
+    @list = load_config ();
+    
+    # extract the entry and key values from $ARGV[1]
+    ($entry, $key) = $ARGV[1] =~ /(\d+)\Q.\E(.*)/;
+    
+    $status = "none";
+    # find appropriate config.ver entry:
+    for ($i = 0; $i < @list; $i++) {
+	$version = gtconfig ($list[$i], "version");
+	if ($key eq $version) {
+	    $confline = $list[$i];
+	    $status = gtconfig ($confline, "status");
+	    last;
+	}
+    }
+    
+    print STDOUT "<HEADER> <TITLE>Elixir Mkdetrend Report</TITLE> </HEADER>\n";
+    print STDOUT "<BODY BGCOLOR=#fff0f0 TEXT=#000000 LINK=#0000ff VLINK=#6600ff ALINK=#a0a0a0>\n";
+    
+    if ($status eq "none")              { print STDOUT "config <b> $key </b> not found\n </body>\n"; &goodbye; }
+    if ($status eq "init")              { print STDOUT "config <b> $key </b> initialized, not yet run\n </body>\n"; &goodbye; }
+    if ($status eq "not.available")     { print STDOUT "config <b> $key </b> has no images available for detrend creation\n </body>\n"; &goodbye; }
+    
+    # if ($status eq "done.update") { flips_entry ($key, $entry, $confline); }
+    if ($status eq "done.merge") { flips_entry ($key, $entry, $confline); }
+    if ($status eq "accepted")   { flips_entry ($key, $entry, $confline); }
+    if ($status eq "modified")   { flips_entry ($key, $entry, $confline); }
+    if ($status eq "done.reg")   { flips_entry ($key, $entry, $confline); }
+    
+    foreach $step (init, flips, norm, merge) {
+	# print "step: $step, $status: $status\n";
+	if ($status eq "running.$step") { print STDOUT "config <b> $key </b> running step $step \n </body>\n"; &goodbye; }
+	if ($status eq "fail.$step")    { print STDOUT "config <b> $key </b> failed step $step\n </body>\n"; &goodbye; }
+	
+	if ($status eq "done.$step") {
+	    print STDOUT "config <b> $key </b> has finished $step\n";
+	    
+	    # load image names from CCD 0 list:
+	    $master = mknames ("master", $confline, $ccds[0]);
+	    print STDOUT "<table border>\n";
+	    open (FILE, "$master");
+	    while ($line = <FILE>) {
+		chop ($line);
+		@entry = split ("/", $line);
+		$N = @entry - 1;
+		print STDOUT "<tr><td>$entry[$N]</td></tr>\n";
+	    }
+	    print STDOUT "</table>\n";
+	}
+    }
+    
+    # print STDOUT "</body>\n";
+    &goodbye;
+}
+
+###  other support commands ####################
+
+############## evaluate chip run ###############
+sub mk_eval {
+    if (@ARGV != 2) { &escape ("USAGE: $MKDETREND eval (step)"); }
+    
+    $step = $ARGV[1];
+    @list = load_config ();
+    
+    # load success fifo info:
+    $file = `gconfig -D mode $MKDETREND global.success`; chop $file;
+    open (FILE, "$file");
+    @success = <FILE>;
+    close (FILE);
+    
+    # load failure fifo info:
+    $file = `gconfig -D mode $MKDETREND global.failure`; chop $file;
+    open (FILE, "$file");
+    @failure = <FILE>;
+    close (FILE);
+    
+    # entry must be in state 'running.$step'
+    # possible states:
+    #   1 all 12 chips in success          == done.$step
+    #   2 any chips in failure             == fail.$step
+    #   3 any chips missing                == fail.$step
+    #   4 any chips in failure, merge.list == not.available (only for $step eq init)
+    # valid steps: init flips norm
+    
+  CONFIG:
+    foreach $confline (@list) {
+	$status = gtconfig ($confline, "status");
+	if ($status ne "running.$step") { next; }
+	$state = 1;
+
+      CCD:
+	foreach $ccd (@ccds) {
+	    $entry = gtconfig ($confline, "chiprun", $ccd);
+
+	    # search for entry in success fifo:
+	    foreach $value (@success) {
+		if ($value =~ /^$entry/) { next CCD; }
+	    }
+	    
+	    # search for entry in failure fifo: note the special ending state for 'init'
+	    foreach $value (@failure) {
+		if ($value =~ /^$entry/) {
+		    $state = 2;
+		    if ($step eq "split") {
+			($status) = $value =~ /$entry\s+\S+\s+(\S+)/;
+			if ($status eq "merge.lists") {
+			    $state = 4;
+			}
+		    }
+		    last CCD;
+		}
+	    }
+	    
+	    # if we make it here, it wasn't in either fifo.success or fifo.failure...
+	    $state = 3;
+	    last CCD;
+	}
+	
+	if ($state == 1) { $confline = stconfig ($confline, "status", "done.$step"); } 
+	if ($state == 2) { $confline = stconfig ($confline, "status", "fail.$step"); }
+	if ($state == 3) { $confline = stconfig ($confline, "status", "fail.$step"); } 
+	if ($state == 4) { $confline = stconfig ($confline, "status", "not.available"); }
+    }
+    save_config (@list);
+
+    system ("$MKDETREND state");
+    &goodbye;
+}
+
+############## evaluate mosaic run ###############
+sub mk_meval {
+    if (@ARGV != 2) { &escape ("USAGE: $MKDETREND meval (step)"); }
+    
+    $step = $ARGV[1];
+    @list = load_config ();
+    
+    # load success fifo info:
+    $file = `gconfig -D mode $MKDETREND global.success`; chop $file;
+    open (FILE, "$file");
+    @success = <FILE>;
+    close (FILE);
+    
+    # load failure fifo info:
+    $file = `gconfig -D mode $MKDETREND global.failure`; chop $file;
+    open (FILE, "$file");
+    @failure = <FILE>;
+    close (FILE);
+    
+    # entry must be in state 'running.$step'
+    # possible states:
+    #   1 entry in success          == done.$step
+    #   2 entry in failure          == fail.$step
+    #   3 entry missing             == fail.$step
+    # valid steps: merge
+    
+    foreach $confline (@list) {
+	$status = gtconfig ($confline, "status");
+	if ($status ne "running.$step") { next; }
+	$state = 3;
+	$entry = gtconfig ($confline, "mosaic");
+
+      MCHECK: 
+	{
+	    foreach $value (@success) {
+		if ($value =~ /^$entry/) { 
+		    $state = 1;
+		    last MCHECK;
+		}
+	    }
+	    
+	    foreach $value (@failure) {
+		if ($value =~ /^$entry/) { 
+		    $state = 2;
+		    next MCHECK;
+		}
+	    }
+	}
+	
+	if ($state == 1) { $confline = stconfig ($confline, "status", "done.$step"); } 
+	if ($state == 2) { $confline = stconfig ($confline, "status", "fail.$step"); }
+	if ($state == 3) { $confline = stconfig ($confline, "status", "fail.$step"); }
+    }
+    
+    save_config (@list);
+    system ("$MKDETREND state");
+    
+    &goodbye;
+}
+
+############## html for dads ###############
+sub mk_dads {
+    if (@ARGV != 2) { &escape ("USAGE: $MKDETREND dads (config.ver)"); }
+    
+    # options: mkdetrend dads (config.ver)
+    # return all relevant images (jpegs) for given config.ver
+
+    @list = load_config ();
+    
+    # entry on line will be either config.ver (== key) or config.ver.col for sorting
+    # grab just the key portion
+    $status = "none";
+    $arg = $ARGV[1];
+    ($key) = $arg =~ /(\w+.\w+.\w+.\w+)/; # (config.ver)
+    
+    # find appropriate config.ver entry:
+    for ($i = 0; $i < @list; $i++) {
+	$version = gtconfig ($list[$i], "version");
+	if ($key eq $version) {
+	    $confline = $list[$i];
+	    $status = gtconfig ($confline, "status");
+	    last;
+	}
+    }
+    if (!$confline) { &escape ("$key not found"); }
+    
+    # only print for config.ver entries which are ready (done, clean)
+    if (($status ne "done") && ($status ne "clean")) { 
+	&escape ("$version is not ready for release by Elixir"); 
+    }
+
+    # parse config entry and get data from appropriate files
+    $from = gtconfig ($confline, "from");
+    $to   = gtconfig ($confline, "to");
+    open (STAT,   mknames ("stats", $confline));            @statdata = <STAT>;        close (STAT);
+    open (MED,    mknames ("medbin", $confline));           @medndata = <MED>;         close (MED);
+    open (TEN,    mknames ("tenbin", $confline));           @tenndata = <TEN>;         close (TEN);
+    open (MASTER, mknames ("master", $confline, $ccds[0])); @mastdata = <MASTER>;      close (MASTER);
+    
+    $tmpname = mknames ("master", $confline, $ccds[0]);
+
+    # get stats from the stats & master files
+    $Nkeep = 0;
+    $Ncnt = 0;
+    $Sigma = 0;
+    $Nimage = @statdata;
+    for ($i = 0; $i < $Nimage; $i++) {
+	@tmpw = split (" ", $mastdata[$i]);
+	@tmps = split (" ", $statdata[$i]);
+	if ($tmpw[1]) { $Nkeep++; $Ncnt += $tmps[3]; $Sigma += $tmps[8]*$tmps[8]; }
+    }
+    $imbin = mknames ("dads.imbin", $confline);
+
+    ($start, $stop, $mode) = &load_dates;
+    print STDOUT "$imbin $Nimage $start $stop\n";
+
+    $dir = mkfiles ("html");
+    # create the image-by-image table lines
+    for ($i = 0; $i < $Nimage; $i++) {
+	@word = split (" ", $statdata[$i]);
+	$used = $word[12];
+	$dawn = $word[11];
+	
+	@tmpw = split (" ", $mastdata[$i]);
+	$keep = $tmpw[1];
+	
+	# data files contain the complete path, but this may have changed
+	# replace path with mkfiles ("html") -> $dir
+	@tmpw = split ('/', $tenndata[$i]);
+	$tenimg = "$dir/$tmpw[-1]"; chop $tenimg;
+	@tmpw = split ('/', $medndata[$i]);
+	$medimg = "$dir/$tmpw[-1]"; chop $medimg;
+
+	print STDOUT "$tenimg $medimg $word[0] $word[1] $dawn $word[2] $word[3] $word[5] $word[6] $word[8] $used\n";
+    }
+    &goodbye;
+}
+
+############## html for dads ###############
+sub mk_dads_html {
+    if (@ARGV != 2) { &escape ("USAGE: $MKDETREND dads (config.ver)"); }
+    
+    @list = load_config ();
+    
+    # entry on line will be either config.ver (== key) or config.ver.col for sorting
+    # grab just the key portion
+    $status = "none";
+    $arg = $ARGV[1];
+    ($key) = $arg =~ /(\w+.\w+.\w+.\w+)/; # (config.ver)
+    
+    # find appropriate config.ver entry:
+    for ($i = 0; $i < @list; $i++) {
+	$version = gtconfig ($list[$i], "version");
+	if ($key eq $version) {
+	    $confline = $list[$i];
+	    $status = gtconfig ($confline, "status");
+	    last;
+	}
+    }
+    
+    print STDOUT "<HEADER> <TITLE>Elixir Mkdetrend Report</TITLE> </HEADER>\n";
+    print STDOUT "<BODY BGCOLOR=#ffffff TEXT=#000000 LINK=#0000ff VLINK=#6600ff ALINK=#a0a0a0>\n";
+
+    # only print for config.ver entries which are ready
+    if ($status ne "done.reg") { &escape ("$version is not ready for release by Elixir"); }
+
+    # parse config entry and get data from appropriate files
+    $from = gtconfig ($confline, "from");
+    $to   = gtconfig ($confline, "to");
+    open (STAT,   mknames ("stats", $confline));     @statdata = <STAT>;        close (STAT);
+    open (MED,    mknames ("medbin", $confline));    @medndata = <MED>;         close (MED);
+    open (TEN,    mknames ("tenbin", $confline));    @tenndata = <TEN>;         close (TEN);
+    open (MASTER, mknames ("master", $confline, $ccds[0])); @mastdata = <MASTER>;      close (MASTER);
+    
+    $tmpname = mknames ("master", $confline, $ccds[0]);
+
+    # get stats from the stats & master files
+    $Nkeep = 0;
+    $Ncnt = 0;
+    $Sigma = 0;
+    $Nimage = @statdata;
+    for ($i = 0; $i < $Nimage; $i++) {
+	@tmpw = split (" ", $mastdata[$i]);
+	@tmps = split (" ", $statdata[$i]);
+	if ($tmpw[1]) { $Nkeep++; $Ncnt += $tmps[3]; $Sigma += $tmps[8]*$tmps[8]; }
+    }
+    $Sigma = sprintf "%5.3f", 100*sqrt ($Sigma/$Nkeep);
+
+    print STDOUT "<center><table border>\n";
+    print STDOUT "<tr><th>config   </th><th> from  </th><th> to </th></tr>\n";
+    print STDOUT "<tr><td>$version </td><td> $from </td><td> $to</td></tr>\n";
+    print STDOUT "</table></center><hr>\n";
+
+    $imbin = mknames ("dads.imbin", $confline);
+    print STDOUT "<table width=80%><tr><td valign=top>\n";
+    print STDOUT "this config has been created by Elixir. <br>\n";
+    print STDOUT "there are $Nimage images, $Nkeep used. <br>\n";
+    print STDOUT "Total Counts: $Ncnt<br> r.m.s. median sigma: $Sigma% <br><br>\n";
+    print STDOUT "</td><td align=right><img src=$imbin></td></tr></table>\n";
+    
+    print STDOUT "<center><b>Statistics on each available input image.</b></center>
+  Time is in UT, light background means dawn, grey means dusk.\n";
+
+    print STDOUT "<table bgcolor=#fff0e0 border=1 cellspacing=0 cellpadding=3>\n";
+    print STDOUT "<tr >\n";
+    print STDOUT "<th > image </th>\n";
+    print STDOUT "<th > Date  </th>\n";
+    print STDOUT "<th > Time  </th>\n";
+    print STDOUT "<th > Mean  </a></th>\n";
+    print STDOUT "<th > Sigma (raw) </a></th>\n";
+    print STDOUT "<th > Sigma (clipped) </a></th>\n";
+    print STDOUT "<th > Sigma (med) </a></th>\n";
+    print STDOUT "<th > image </th>\n";
+    print STDOUT "<th > used? </th></tr>\n";
+    
+    # sort the list by image seq number
+    @order = ();
+    for ($i = 0; $i < $Nimage; $i++) { @order = (@order, $i); }
+    $col = 0;
+    @entry = sort by_col @order;
+    
+    # create the image-by-image table lines
+    for ($i = 0; $i < $Nimage; $i++) {
+	$N = $entry[$i];
+	
+	@word = split (" ", $statdata[$N]);
+	$used = $word[12];
+	$dawn = $word[11];
+	
+	@tmpw = split (" ", $mastdata[$N]);
+	$keep = $tmpw[1];
+	
+	@tmpw = split ("/", $medndata[$N]);
+	$medname = $tmpw[-1];
+	
+	@tmpw = split ("/", $tenndata[$N]);
+	$tenname = $tmpw[-1];
+	
+	print STDOUT "<tr><td> $word[0] </td><td> $word[1] </td>\n";
+	if ($dawn) { print STDOUT "<td bgcolor=#cccccc> $word[2] </td>\n"; }
+	else       { print STDOUT "<td> $word[2] </td>\n"; }
+	print STDOUT "<td> $word[3] </td>\n";
+	print STDOUT "<td> $word[5] </td><td> $word[6] </td><td> $word[8] </td>\n";
+	print STDOUT "<td> <a border=0 href=$dadswww/$tenname> <img src=$dadswww/$medname></a></td>\n";
+	if ($used) { print STDOUT "<td bgcolor=#00c000>yes</td>\n"; }
+	else       { print STDOUT "<td bgcolor=#d00000>no</td>\n"; }
+	print STDOUT "</tr>\n\n"; 	
+    }
+    
+    print STDOUT "</table>\n";
+    &goodbye;
+}
+
+############## dads level 1 ###############
+sub mk_dads_top {
+    if (@ARGV != 1) { &escape ("USAGE: $MKDETREND dads.top"); }
+    
+    @list = load_config ();
+    
+    ## html headers
+    print STDOUT "<HEADER> <TITLE>Elixir Mkdetrend Report</TITLE> </HEADER>\n";
+    print STDOUT "<BODY BGCOLOR=#fff0f0 TEXT=#000000 LINK=#0000ff VLINK=#6600ff ALINK=#a0a0a0>\n";
+
+    print STDOUT "<table border>\n";
+    for ($i = 0; $i < @list; $i++) {
+	$config  = gtconfig ($list[$i], "config");
+	$version = gtconfig ($list[$i], "version");
+	$from    = gtconfig ($list[$i], "from");
+	$to      = gtconfig ($list[$i], "to");
+	$status  = gtconfig ($list[$i], "status");
+	print STDOUT "<tr><td> $version </td>\n";
+	print STDOUT "<td> $from </td><td> $to </td>\n";
+	print STDOUT "<td> <a href=$version.html> $status </a></td>\n";
+	print STDOUT "</tr>\n";
+    }
+    
+    print STDOUT "</table></body>\n";
+    &goodbye;;
+    
+}
+
+sub by_col { 
+    @word = split (" ", $statdata[$a]); $va = $word[$col]; 
+    @word = split (" ", $statdata[$b]); $vb = $word[$col]; 
+    $va <=> $vb;
+}
+
+sub flips_report {
+    
+    $col = 0;
+    ($type)   = $_[0] =~ /\w+.(\w+).\w+/;
+    ($config) = $_[0] =~ /(\w+.\w+.\w+)/;
+    ($key)    = $_[0] =~ /(\w+.\w+.\w+.\w+)/; # (config.ver)
+
+    # look for optional sort key (config.ver[.key])
+    if ($_[0] =~ /$key.(\d+)/) {
+	($col) = $_[0] =~ /$key.(\d+)/; 
+    } else {
+	$col = 0;
+    }
+
+    $line = $_[1];
+    $message = $_[2];
+    
+    open (FILE, mknames ("stats",  $line));            @statdata = <FILE>; close (FILE);
+    open (FILE, mknames ("medbin", $line));            @medndata = <FILE>; close (FILE);
+    open (FILE, mknames ("master", $line, $ccds[0]));  @mastdata = <FILE>; close (FILE);
+
+    $Nkeep = 0;
+    $Ncnt = 0;
+    $Sigma = 0;
+    $Nimage = @statdata;
+    for ($i = 0; $i < $Nimage; $i++) {
+	@tmpw = split (" ", $mastdata[$i]);
+	@tmps = split (" ", $statdata[$i]);
+	if ($tmpw[1]) { $Nkeep++; $Ncnt += $tmps[3]; $Sigma += $tmps[8]*$tmps[8]; }
+    }
+    if ($Nkeep > 0) {
+	if ($type eq "flat") { 
+	    $Sigma = sprintf "%5.3f", 100*sqrt ($Sigma/$Nkeep);
+	    $statline = "Total Counts: $Ncnt<br> r.m.s. median sigma: $Sigma% <br><br>\n";
+	} else {
+	    $Sigma = sprintf "%5.3f", sqrt ($Sigma/$Nkeep);
+	    $Ncnt  = sprintf "%5.3f", ($Ncnt / $Nkeep);
+	    $statline = "Mean Counts: $Ncnt<br> r.m.s. median sigma: $Sigma <br><br>\n";
+	}
+    } else {
+	$statline = "";
+    }
+
+    $imbin = mknames ("imbin",  $line);
+    print STDOUT "<table><tr><td width=300px valign=top>\n";
+    print STDOUT "<b>this config has been $message. </b><br>\n";
+    print STDOUT "there are $Nimage images, $Nkeep used. <br>\n";
+    print STDOUT "$statline\n";
+    print STDOUT "you have the following choices: <br>\n";
+    print STDOUT "<a href=$CGI/dt.elixir1?&elconf=$elconf> <b> return to top level </b><br></a>\n";
+    print STDOUT "<a href=$CGI/dt.split?$config&elconf=$elconf> <b> split config </b><br></a>\n";
+    print STDOUT "<a href=$CGI/dt.accept?$key&elconf=$elconf> <b> accept config </b><br></a>\n";
+    print STDOUT "</td><td width=640px align=right><img width=100% src=$imbin></td></tr></table>\n";
+    
+    print STDOUT "<form method=post action=$CGI/dt.modify?&elconf=$elconf>\n";
+
+    print STDOUT "<center><b>Statistics on each available input image.</b></center>
+  Time is in UT, light background means dawn, grey means dusk. Click
+  on the column heading to sort by that entry\n";
+
+    print STDOUT "<table bgcolor=#fff0e0 border=1 cellspacing=0 cellpadding=3>\n";
+    print STDOUT "<tr bgcolor=#00aaaa>\n";
+    print STDOUT "<th > <a href=$CGI/dt.elixir2?$key.0&elconf=$elconf> image </a></th>\n";
+    print STDOUT "<th > Date </th>\n";
+    print STDOUT "<th > Time </th>\n";
+    print STDOUT "<th > <a href=$CGI/dt.elixir2?$key.3&elconf=$elconf> Mean </a></th>\n";
+    print STDOUT "<th > <a href=$CGI/dt.elixir2?$key.5&elconf=$elconf> Sigma (raw) </a></th>\n";
+    print STDOUT "<th > <a href=$CGI/dt.elixir2?$key.6&elconf=$elconf> Sigma (clipped) </a></th>\n";
+    print STDOUT "<th > <a href=$CGI/dt.elixir2?$key.8&elconf=$elconf> Sigma (med) </a></th>\n";
+    print STDOUT "<th > image </th>\n";
+    print STDOUT "<th > used? </th>\n";
+    print STDOUT "<th > keep? </th></tr>\n\n";
+    
+    @order = ();
+    for ($i = 0; $i < $Nimage; $i++) { @order = (@order, $i); }
+    
+    @entry = sort by_col @order;
+    
+    for ($i = 0; $i < $Nimage; $i++) {
+	$N = $entry[$i];
+	
+	@word = split (" ", $statdata[$N]);
+	$used = $word[12];
+	$dawn = $word[11];
+	
+	@tmpw = split (" ", $mastdata[$N]);
+	$keep = $tmpw[1];
+	
+	@tmpw = split ("/", $medndata[$N]);
+	$medname = $tmpw[-1];
+	
+	print STDOUT "<tr><td> <a href=$CGI/dt.elixir3?$N.$key&elconf=$elconf> $word[0] </a></td><td> $word[1] </td>\n";
+	if ($dawn) { print STDOUT "<td bgcolor=#cccccc> $word[2] </td>\n"; }
+	else       { print STDOUT "<td> $word[2] </td>\n"; }
+	print STDOUT "<td> $word[3] </td>\n"; # mean
+	print STDOUT "<td> $word[5] </td>\n"; # Sigma (raw)
+	print STDOUT "<td> $word[6] </td>\n"; # Sigma (clip)
+	print STDOUT "<td> $word[8] </td>\n"; # Sigma (med)
+	print STDOUT "<td> <a border=0 href=$CGI/dt.elixir3?$N.$key&elconf=$elconf>\n";
+	print STDOUT "<img src=$www/$medname></a></td>\n";
+	if ($used) { print STDOUT "<td>yes</td>\n"; }
+	else       { print STDOUT "<td>no</td>\n"; }
+	if ($keep) { print STDOUT "<td bgcolor=#00c000><input type=checkbox checked name=image.$N value=$N size=1></td></tr>\n\n"; }
+	else       { print STDOUT "<td bgcolor=#d00000><input type=checkbox         name=image.$N value=$N size=1></td></tr>\n\n"; }	
+	
+    }
+    
+    print STDOUT "</table>\n";
+    print STDOUT "<input type=hidden    name=Nimage value=\"$Nimage\">\n";
+    print STDOUT "<input type=hidden    name=config value=\"$key\">\n";
+    print STDOUT "<input type=submit    value=\"apply changes\">\n";
+    print STDOUT "<input type=reset     value=Reset>\n";
+    # print STDOUT "<select name=status   size=1> \n";
+    print STDOUT "</form></body>\n";
+    &goodbye;
+    
+}
+
+sub flips_report_done {
+    
+    $col = 0;
+    ($type)   = $_[0] =~ /\w+.(\w+).\w+/;
+    ($config) = $_[0] =~ /(\w+.\w+.\w+)/;
+    ($key)    = $_[0] =~ /(\w+.\w+.\w+.\w+)/; # (config.ver)
+
+    # look for optional sort key (config.ver[.key])
+    if ($_[0] =~ /$key.(\d+)/) {
+	($col) = $_[0] =~ /$key.(\d+)/; 
+    } else {
+	$col = 0;
+    }
+
+    $line = $_[1];
+    $message = $_[2];
+    
+    open (FILE, mknames ("stats",  $line));            @statdata = <FILE>; close (FILE);
+    open (FILE, mknames ("medbin", $line));            @medndata = <FILE>; close (FILE);
+    open (FILE, mknames ("master", $line, $ccds[0]));  @mastdata = <FILE>; close (FILE);
+
+    $Nkeep = 0;
+    $Ncnt = 0;
+    $Sigma = 0;
+    $Nimage = @statdata;
+    for ($i = 0; $i < $Nimage; $i++) {
+	@tmpw = split (" ", $mastdata[$i]);
+	@tmps = split (" ", $statdata[$i]);
+	if ($tmpw[1]) { $Nkeep++; $Ncnt += $tmps[3]; $Sigma += $tmps[8]*$tmps[8]; }
+    }
+    if ($Nkeep > 0) {
+	if ($type eq "flat") { 
+	    $Sigma = sprintf "%5.3f", 100*sqrt ($Sigma/$Nkeep);
+	    $statline = "Total Counts: $Ncnt<br> r.m.s. median sigma: $Sigma% <br><br>\n";
+	} else {
+	    $Sigma = sprintf "%5.3f", sqrt ($Sigma/$Nkeep);
+	    $Ncnt  = sprintf "%5.3f", ($Ncnt / $Nkeep);
+	    $statline = "Mean Counts: $Ncnt<br> r.m.s. median sigma: $Sigma <br><br>\n";
+	}
+    } else {
+	$statline = "";
+    }
+
+    $imbin = mknames ("imbin",  $line);
+    print STDOUT "<table><tr><td width=300px valign=top>\n";
+    print STDOUT "<b>this config has been $message. </b><br>\n";
+    print STDOUT "there are $Nimage images, $Nkeep used. <br>\n";
+    print STDOUT "$statline\n";
+    print STDOUT "you have the following choices: <br>\n";
+    print STDOUT "<a href=$CGI/dt.elixir1?&elconf=$elconf> <b> return to top level </b><br></a>\n";
+    print STDOUT "<a href=$CGI/dt.split?$config&elconf=$elconf> <b> split config </b><br></a>\n";
+    print STDOUT "<a href=$CGI/dt.accept?$key&elconf=$elconf> <b> accept config </b><br></a>\n";
+    print STDOUT "</td><td width=640px align=right><img width=100% src=$imbin></td></tr></table>\n";
+    
+    print STDOUT "<center><b>Statistics on each available input image.</b></center>
+  Time is in UT, light background means dawn, grey means dusk. Click
+  on the column heading to sort by that entry\n";
+
+    print STDOUT "<table bgcolor=#fff0e0 border=1 cellspacing=0 cellpadding=3>\n";
+    print STDOUT "<tr bgcolor=#00aaaa>\n";
+    print STDOUT "<th > <a href=$CGI/dt.elixir2?$key.0&elconf=$elconf> image </a></th>\n";
+    print STDOUT "<th > Date </th>\n";
+    print STDOUT "<th > Time </th>\n";
+    print STDOUT "<th > <a href=$CGI/dt.elixir2?$key.3&elconf=$elconf> Mean </a></th>\n";
+    print STDOUT "<th > <a href=$CGI/dt.elixir2?$key.5&elconf=$elconf> Sigma (raw) </a></th>\n";
+    print STDOUT "<th > <a href=$CGI/dt.elixir2?$key.6&elconf=$elconf> Sigma (clipped) </a></th>\n";
+    print STDOUT "<th > <a href=$CGI/dt.elixir2?$key.8&elconf=$elconf> Sigma (med) </a></th>\n";
+    print STDOUT "<th > image </th>\n";
+    print STDOUT "<th > used? </th></tr>\n\n";
+    
+    @order = ();
+    for ($i = 0; $i < $Nimage; $i++) { @order = (@order, $i); }
+    
+    @entry = sort by_col @order;
+    
+    for ($i = 0; $i < $Nimage; $i++) {
+	$N = $entry[$i];
+	
+	@word = split (" ", $statdata[$N]);
+	$used = $word[12];
+	$dawn = $word[11];
+	
+	@tmpw = split (" ", $mastdata[$N]);
+	$keep = $tmpw[1];
+	
+	@tmpw = split ("/", $medndata[$N]);
+	$medname = $tmpw[-1];
+	
+	print STDOUT "<tr><td> <a href=$CGI/dt.elixir3?$N.$key&elconf=$elconf> $word[0] </a></td><td> $word[1] </td>\n";
+	if ($dawn) { print STDOUT "<td bgcolor=#cccccc> $word[2] </td>\n"; }
+	else       { print STDOUT "<td> $word[2] </td>\n"; }
+	print STDOUT "<td> $word[3] </td>\n"; # mean
+	print STDOUT "<td> $word[5] </td>\n"; # Sigma (raw)
+	print STDOUT "<td> $word[6] </td>\n"; # Sigma (clip)
+	print STDOUT "<td> $word[8] </td>\n"; # Sigma (med)
+	print STDOUT "<td> <a border=0 href=$CGI/dt.elixir3?$N.$key&elconf=$elconf>\n";
+	print STDOUT "<img src=$www/$medname></a></td>\n";
+	if ($used) { print STDOUT "<td>yes</td>\n"; }
+	else       { print STDOUT "<td>no</td>\n"; }
+	print STDOUT "</tr>\n";
+    }
+    
+    print STDOUT "</table></body>\n";
+    &goodbye;
+    
+}
+
+#### process report for html2 ##########
+sub flips_report_done_old {
+    
+    ($config) = $_[0] =~ /(\w+.\w+.\w+)/;
+    ($key)    = $_[0] =~ /(\w+.\w+.\w+.\w+)/; # (config.ver)
+    $line = $_[1];
+    
+    open (STAT, mknames ("stats", $line));
+    open (MED,  mknames ("medbin", $line));
+    open (MASTER, mknames ("master", $line, $ccds[0]));
+    
+    print STDOUT "<table border>\n";
+    print STDOUT "<tr><th> image </th><th> Date </th><th> Time </th><th> Mean </th>\n";
+    print STDOUT "<th> Sigma (raw) </th><th> Sigma (clipped) </th><th> Sigma (med) </th><th> image </th><th> used? </th></tr>\n\n";
+    
+    for ($i = 0; $line = <STAT>; $i++) {
+	
+	chop ($line);
+	# print STDOUT "$line<br>\n";
+	@word = split (" ",$line);
+	$used = $word[12];
+	$dawn = $word[11];
+	
+	$line = <MASTER>;
+	chop ($line);
+	# print STDOUT "$line<br>\n";
+	@tmpw = split (" ",$line);
+	$keep = $tmpw[1];
+	
+	# mkdetrend works with files in the user's paths, but the web page needs 
+	# to work with files visible to the web server
+	$line = <MED>;
+	chop ($line);
+	@tmpw = split ("/", $line);
+	$N = @tmpw - 1;
+	$medname = $tmpw[$N];
+	
+	$sig1 = sprintf "%5.3f", $word[4];
+	$sig2 = sprintf "%5.3f", $word[5];
+	$sig3 = sprintf "%5.3f", $word[6];
+	$sig4 = sprintf "%5.3f", $word[7];
+	$mean = sprintf "%8.1f", $word[3];
+	
+	print STDOUT "<tr><td> <a href=$CGI/dt.elixir3?$i.$key&elconf=$elconf> $word[0] </a></td><td> $word[1] </td>\n";
+	if ($dawn) { print STDOUT "<td bgcolor=#cccccc> $word[2] </td>\n"; }
+	else       { print STDOUT "<td> $word[2] </td>\n"; } 
+	print STDOUT "<td> $word[3] </td>\n";
+	print STDOUT "<td> $word[5] </td><td> $word[6] </td><td> $word[8] </td><td><img src=$www/$medname></td>\n";
+	if ($used) { print STDOUT "<td bgcolor=#00c000>yes</td>\n"; }
+	else       { print STDOUT "<td bgcolor=#d00000>no</td>\n"; }
+    }
+    $Nimage = $i;
+    
+    print STDOUT "</table>\n";
+    print STDOUT "</body>\n";
+    
+    &goodbye;
+    
+}
+
+#### process report for html3 ##########
+sub flips_entry {
+    
+    my($version)= $_[0];		# version of desired entry
+    my($entry)  = $_[1];		# desired entry in list
+    my($line)   = $_[2];		# list of image stats
+    
+    open (STAT, mknames ("stats", $line));
+    open (TEN,  mknames ("tenbin", $line));
+    
+    for ($i = 0; ($i < $entry + 1) && ($line = <STAT>) && ($tenline = <TEN>); $i++) {}
+    if ($i != $entry + 1) { &escape ("</table> selected entry out of range"); }
+    
+    $first = ($entry == 0);
+    $tmp = <STAT>;
+    $last = ($tmp == "");
+    $next = $entry + 1;
+    $prev = $entry - 1;
+    
+    chop ($line);
+    @word = split (" ",$line);
+    $keep = $word[12];
+    
+    # mkdetrend works with files in the user's paths, but the web page needs 
+    # to work with files visible to the web server
+    chop ($tenline);
+    @tmpw = split ("/", $tenline);
+    $N = @tmpw - 1;
+    $name = $tmpw[$N];
+    
+    $sig1 = sprintf "%5.3f", $word[4];
+    $sig2 = sprintf "%5.3f", $word[5];
+    $sig3 = sprintf "%5.3f", $word[6];
+    $sig4 = sprintf "%5.3f", $word[7];
+    $mean = sprintf "%8.1f", $word[3];
+    
+    print STDOUT "<img width=100% src=$www/$name>\n";
+    
+    print STDOUT "<table><tr><td>\n";
+    print STDOUT "<table border>\n";
+    print STDOUT "<tr><th> image </th><th> Date </th><th> Time </th><th> Mean </th>\n";
+    print STDOUT "<th> Sigma (raw) </th><th> Sigma (clipped) </th><th> Sigma (med) </th><th> used? </th></tr>\n\n";
+    
+    print STDOUT "<tr><td> $word[0] </a></td><td> $word[1] </td><td> $word[2] </td><td> $word[3] </td>\n";
+    print STDOUT "<td> $word[5] </td><td> $word[6] </td><td> $word[8] </td>\n";
+    if ($keep) {
+	print STDOUT "<td>yes</td>\n";
+    } else {
+	print STDOUT "<td bgcolor=#ff0000>no</td>\n";
+    }	
+    print STDOUT "</tr>\n\n";
+    print STDOUT "</table>\n";
+    
+    print STDOUT "</td></tr>\n";
+
+    print STDOUT "<tr><td> return to <a href=$CGI/dt.elixir1&elconf=$elconf> config list </a></tr></td>\n"; 
+    print STDOUT "<tr><td> return to <a href=$CGI/dt.elixir2?$version&elconf=$elconf> $version </a></tr></td>\n"; 
+    if (!$first) { print STDOUT "<tr><td> goto <a href=$CGI/dt.elixir3?$prev.$version&elconf=$elconf> prev </a> image </td></tr>\n"; }
+    if (!$last)  { print STDOUT "<tr><td> goto <a href=$CGI/dt.elixir3?$next.$version&elconf=$elconf> next </a> image </td></tr>\n"; }
+    print STDOUT "</table>\n";
+    
+    print STDOUT "</body>\n";
+    &goodbye;
+}
+
+#################### functions to abstract file databases ###################
+
+# set config value
+# TYPE FILTER CRUNID VERSION START STOP STATE
+# CRUNID TYPE FILTER [CCD] VERSION START STOP STATE
+#**************************
+sub stconfig {
+    # in: (config line) (value) (type)
+    my (@words) = split (" ", $_[0]);
+    my ($type)  = $_[1];
+    my ($value) = $_[2];
+    my ($line);
+
+    $format = "%s %6s %5s %2d %s %s %s";
+
+    { 
+	if ($type eq "all") {
+	    $line = sprintf $format, $words[0], $words[1], $words[2], $words[3], $words[4], $words[5], $words[6];
+	    last;
+	}
+	if ($type eq "version") {
+	    $line = sprintf $format, $words[0], $words[1], $words[2], $value, $words[4], $words[5], $words[6];
+	    last;
+	}
+	if ($type eq "start") {
+	    $line = sprintf $format, $words[0], $words[1], $words[2], $words[3], $value, $words[5], $words[6];
+	    last;
+	}
+	if ($type eq "stop") {
+	    $line = sprintf $format, $words[0], $words[1], $words[2], $words[3], $words[4], $value, $words[6];
+	    last;
+	}
+	if ($type eq "status") {
+	    $line = sprintf $format, $words[0], $words[1], $words[2], $words[3], $words[4], $words[5], $value;
+	    last;
+	}
+	&escape ("unknown type $type for stconfig\n");
+    }
+
+    return $line;
+}
+
+# load config lines (returns @list)
+sub load_config {
+    my ($file, $line, @list);
+    
+    $file = mkfiles ("config");
+    @list = ();
+    open (FILE, "$file");
+    while ($line = <FILE>) {
+	chop ($line);
+	@list = (@list, $line);
+    }
+    close (FILE);
+    
+    @list;
+}
+
+# write to config file
+sub save_config {
+
+    my(@outlist) = sort @_;
+    
+    my($file) = mkfiles ("config");
+    open (FILE, ">$file");
+    for ($i = 0; $i < @outlist; $i++) {
+	print FILE "$outlist[$i]\n";
+    }
+    close (FILE);
+}    
+
+# load dates & mode (returns @list)
+sub load_dates {
+    my ($file, $line, @list);
+    my ($start, $stop, $mode);
+    
+    $file = mkfiles ("dates");
+    @list = ();
+    open (FILE, "$file");
+    @list = <FILE>;
+    close (FILE);
+
+    ($tmp, $start) = split (" ", $list[0]);
+    if ($tmp ne "START") { print STDERR "dates file is confused\n"; }
+
+    ($tmp, $stop) = split (" ", $list[1]);
+    if ($tmp ne "STOP") { print STDERR "dates file is confused\n"; }
+    
+    ($tmp, $mode) = split (" ", $list[2]);
+    if ($tmp ne "MODE") { print STDERR "dates file missing mode\n"; }
+    if ($mode eq "") { $mode = "hold"; }
+
+    ($start, $stop, $mode);
+}
+
+# write to dates file
+sub save_dates {
+    # save_dates start stop auto.mode
+    my (@outlist) = @_;
+
+    my ($file) = mkfiles ("dates");
+    open (FILE, ">$file");
+    print FILE "START $outlist[0]\n";
+    print FILE "STOP  $outlist[1]\n";
+    print FILE "MODE  $outlist[2]\n";
+    close (FILE);
+}    
+
+# $root/detrend.config    - current run
+# $det/config.dat         - config info for specific run, 1 line per setup
+# $det/dates.dat          - dates for specific run
+# $det/detrend.list       - temporary list to pass to elixirs
+# $det/flips              - directory to store temporary data
+# $det/split              - directory to store temporary images
+# $det/html               - directory to store results for www
+# $www/$run/html          - html directory as seen by Web server
+
+# construct specific file names
+sub mkfiles {
+    # in: (type)
+    my($type) = $_[0];
+    my($value);
+    
+    { 
+	if ($type eq "run") {
+	    $value = "$root/detrend.config";
+	    last;
+	}
+	if ($type eq "detdir") {
+	    $value = "$det";
+	    last;
+	}
+	if ($type eq "config") {
+	    $value = "$det/config.dat";
+	    last;
+	}
+	if ($type eq "dates") {
+	    $value = "$det/dates.dat";
+	    last;
+	}
+	if ($type eq "list") {
+	    $value = "$det/detrend.list";
+	    last;
+	}
+	if ($type eq "html") {
+	    $value = "$det/html";
+	    last;
+	}
+	if ($type eq "stats") {
+	    $value = "$det/stats";
+	    last;
+	}
+	if ($type eq "flips") {
+	    $value = "$det/flips";
+	    last;
+	}
+	if ($type eq "links") {
+	    $value = "$det/flips/links";
+	    last;
+	}
+	if ($type eq "split") {
+	    $value = "$det/split";
+	    last;
+	}
+	if ($type eq "www") {
+	    $value = "$www";
+	    last;
+	}
+	&escape ("unknown type $type for mkfiles");
+    }
+    $value;    
+}
+
+# construct files from config info:
+# CRUNID TYPE FILTER [CCD] VERSION START STOP STATE
+#**************************
+
+sub mknames {
+    # in: (type) (config.ver) [ccd]
+    my ($type, $version, @words, $dir, $value, $ccd);
+
+    $type = $_[0];
+    $version = $_[1];
+    @words = split (" ", $version);
+    
+    { 
+	# final versions in html dir:
+	if ($type eq "stats") {
+	    $dir = mkfiles ("html");
+	    $value = "$dir/$words[0].$words[1].$words[2].$words[3].stats";
+	    last;
+	}
+	if ($type eq "medbin") {
+	    $dir = mkfiles ("html");
+	    $value = "$dir/$words[0].$words[1].$words[2].$words[3].medbin";
+	    last;
+	}
+	if ($type eq "tenbin") {
+	    $dir = mkfiles ("html");
+	    $value = "$dir/$words[0].$words[1].$words[2].$words[3].tenbin";
+	    last;
+	}
+	if ($type eq "imbin") {
+	    $dir = mkfiles ("www");
+	    $value = "$dir/$words[0].$words[1].$words[2].$words[3].imbin.000.jpg";
+	    last;
+	}
+	if ($type eq "dads.imbin") {
+	    $dir = mkfiles ("html");
+	    $value = "$dir/$words[0].$words[1].$words[2].$words[3].imbin.000.jpg";
+	    last;
+	}
+	# files used for processing:
+	if ($type eq "master") {
+	    $dir = mkfiles ("flips");
+	    $ccd = $_[2];
+	    if ($ccd eq "") { &escape ("missing CCD for mknames master"); }
+	    $value = "$dir/$words[0].$words[1].$words[2].$ccd.$words[3].master";
+	    last;
+	}
+	if ($type eq "msplit") {
+	    $dir = mkfiles ("flips");
+	    $ccd = $_[2];
+	    if ($ccd eq "") { &escape ("missing CCD for mknames master"); }
+	    $value = "$dir/$words[0].$words[1].$words[2].$ccd.$words[3].msplit";
+	    last;
+	}
+	if ($type eq "norm") {
+	    $dir = mkfiles ("flips");
+	    $ccd = $_[2];
+	    if ($ccd eq "") { &escape ("missing CCD for mknames norm"); }
+	    $value = "$dir/$words[0].$words[1].$words[2].$ccd.$words[3].norm";
+	    last;
+	}
+	if ($type eq "fits") {
+	    $dir = mkfiles ("flips");
+	    $ccd = $_[2];
+	    if ($ccd eq "") { &escape ("missing CCD for mknames fits"); }
+	    $value = "$dir/$words[0].$words[1].$words[2].$ccd.$words[3].fits";
+	    last;
+	}
+	if ($type eq "link") {
+	    $dir = mkfiles ("links");
+	    $ccd = $_[2];
+	    if ($ccd eq "") { &escape ("missing CCD for mknames fits"); }
+	    $value = "$dir/$words[0].$words[1].$words[2].$ccd.$words[3].fits";
+	    last;
+	}
+	if ($type eq "mef") {
+	    $dir = mkfiles ("flips");
+	    $value = "$dir/$words[0].$words[1].$words[2].$words[3].fits";
+	    last;
+	}
+	if ($type eq "proc.medbin") {
+	    $dir = mkfiles ("flips");
+	    $ccd = $_[2];
+	    if ($ccd eq "") { &escape ("missing CCD for mknames proc.medbin"); }
+	    $value = "$dir/$words[0].$words[1].$words[2].$ccd.$words[3].medbin";
+	    last;
+	}
+	if ($type eq "proc.tenbin") {
+	    $dir = mkfiles ("flips");
+	    $ccd = $_[2];
+	    if ($ccd eq "") { &escape ("missing CCD for mknames proc.tenbin"); }
+	    $value = "$dir/$words[0].$words[1].$words[2].$ccd.$words[3].tenbin";
+	    last;
+	}
+	if ($type eq "proc.imbin") {
+	    $dir = mkfiles ("flips");
+	    $ccd = $_[2];
+	    if ($ccd eq "") { &escape ("missing CCD for mknames proc.imbin"); }
+	    $value = "$dir/$words[0].$words[1].$words[2].$ccd.$words[3].imbin";
+	    last;
+	}
+	&escape ("unknown type $type for mknames");
+    }    
+    return ($value);
+}
+
+# parse config info
+# TYPE FILTER CRUNID VERSION START STOP STATE
+# CRUNID TYPE FILTER [CCD] VERSION START STOP STATE
+#**************************
+sub gtconfig {
+    my ($value, $type, @words);
+    # in: (config line) (type)
+    @words = split (" ", $_[0]);
+    $type = $_[1];
+
+    { 
+	if ($type eq "elixir") {
+	    $value = "$words[0] $words[1] $words[2] $words[3]";
+	    last;
+	}
+	if ($type eq "mosaic") {
+	    $ccd = "xx";
+	    $value = "$words[0] $words[1] $words[2] $ccd $words[3] $words[4] $words[5]";
+	    last;
+	}
+	if ($type eq "chiprun") {
+	    $ccd  = $_[2];
+	    $value = "$words[0] $words[1] $words[2] $ccd $words[3] $words[4] $words[5]";
+	    last;
+	}
+	if ($type eq "config") {
+	    $value = "$words[0].$words[1].$words[2]";
+	    last;
+	}
+	if ($type eq "version") {
+	    $value = "$words[0].$words[1].$words[2].$words[3]";
+	    last;
+	}
+	if ($type eq "ID") {
+	    $value = "$words[0]";
+	    last;
+	}
+	if ($type eq "type") {
+	    $value = "$words[1]";
+	    last;
+	}
+	if ($type eq "filter") {
+	    $value = "$words[2]";
+	    last;
+	}
+	if ($type eq "from") {
+	    $value = "$words[4]";
+	    last;
+	}
+	if ($type eq "to") {
+	    $value = "$words[5]";
+	    last;
+	}
+	if ($type eq "status") {
+	    $value = "$words[6]";
+	    last;
+	}
+	&escape ("unknown type for gtconfig: $type");
+    }
+    
+    return $value;
+}
+
+# grab complete configuration info from the elixir config system, 
+# applying appropriate command-line arguments
+sub elixir_config {
+    my (@argv) = @_;
+    my ($opt, $config, @tmparg, $status, $keyword, $value);
+    $config = "";
+    if ($ENV{'PTOLEMY'}) { $config = "-c $ENV{'PTOLEMY'}"; }
+    umask (0);
+
+    # look for optional command-line arguments
+    while (@argv) {
+	$value = shift @argv;
+
+	if ($value eq "-c") {
+	    $value = shift @argv;
+	    $config = "-c $value";
+	    next;
+	}
+
+	if ($value eq "-C") {
+	    $elconf = shift @argv;
+	    push @opt, "-C $elconf";
+	    next;
+	}
+	
+	if ($value eq "-D") {
+	    $keyword = shift @argv;
+	    $value = shift @argv;
+	    push @opt, "-D $keyword $value";
+	    next;
+	}
+	
+	if ($value eq "-run") {
+	    $run = shift @argv;
+	    push @opt, "-D RUNID.MKDETREND $run -D RUNID $run";
+	    next;
+	}
+	
+	if ($value eq "-camera") {
+	    $camera = shift @argv;
+	    push @opt, "-D CAMERA.MKDETREND $camera -D CAMERA $camera";
+	    next;
+	}
+	push @argt, $value;
+    }
+    @argv = @argt;
+
+    # load RUNID from state.data (unless set on command line)
+    if ($run eq "") {
+	$run = `gconfig RUNID.MKDETREND`; chop $run;
+	if ($?) {  &escape ("run is not defined: use '$MKDETREND config' or 'mkrun sys'\n"); }
+	if ($run eq "") {  &escape ("run is not defined: use '$MKDETREND config' or 'mkrun sys'\n"); }
+	push @opt, "-D RUNID.MKDETREND $run -D RUNID $run";
+    }
+
+    # load CAMERA from state.data (unless set on command line)
+    if ($camera eq "") {
+	$camera = `gconfig CAMERA.MKDETREND`; chop $camera;
+	if ($?) {  &escape ("camera is not defined: use 'mkrun sys' to set\n"); }
+	if ($camera eq "") {  &escape ("camera is not defined: use 'mkrun sys'\n"); }
+	push @opt, "-D CAMERA.MKDETREND $camera -D CAMERA $camera";
+    }
+
+    # set env PTOLEMY using values from command line
+    $config = join (" ", $config, @opt);
+    $tmpenv = `mktemp /tmp/elixir.XXXXXX`; chop ($tmpenv);
+    $status = system ("gconfig -raw $config > $tmpenv");
+    if ($status) { &escape ("error in elixir configuration: gconfig fails"); }
+    $ENV{'PTOLEMY'} = "$tmpenv";
+
+    # set global variables based on new config info
+    $root = `gconfig DETREND_ROOT`; chop $root;
+    if ($?) { &escape ("error with elixir configuration variable: DETREND_ROOT"); }
+
+    $wwwroot  = `gconfig DETREND_WWW`; chop $wwwroot;
+    if ($?) { &escape ("error with elixir configuration variable: DETREND_WWW"); }
+    
+    $Nccd = `cameraconfig -Nccd`; chop ($Nccd);
+    if ($?) { &escape ("error with elixir camera configuration"); }
+
+    @ccds = split (" ", `cameraconfig -ccdn`);
+    if ($?) { &escape ("error with elixir camera configuration"); }
+
+    # get list of valid filters from lookup table
+    $answer = `filtnames list`;
+    if ($?) { &escape ("error with elixir filter configuration"); }
+
+    # these are the 'flat' types to create:
+    @filt = split (" ", $answer);
+    @type = ();
+    foreach $name (@filt) { push @type, "flat"; }
+    
+    # bias and dark use the exposure time as the 'filter'
+    @type = (@type, 'bias', 'dark', 'dark', 'dark', 'dark');
+    @filt = (@filt, '0',    '60',   '300',  '900',  '1800');
+    # determine dark times from existing data?
+
+    $CGI = `gconfig CGIBIN`; chop ($CGI);
+    if ($?) { &escape ("error with elixir configuration variable: CGIBIN"); }
+
+    $det  = "$root/$run";
+    $www  = "$wwwroot/$run/html";
+    $dadswww = "img";
+
+    return (@argv);
+}
+
+sub vsystem {
+    print STDERR "@_\n";
+    $status = system ("@_");
+    $status;
+}
+
+sub goodbye { 
+    unlink $tmpenv;
+    exit 0; 
+}
+
+sub escape { 
+    unlink $tmpenv;
+    print "$_[0]\n";
+    exit 1;
+}
+
+sub usage {
+    if (@ARGV == 1) {
+	print STDERR "\n --- user modes ---\n";
+	print STDERR "create (run) (startdate) (stopdate)\n";
+	print STDERR "config (run)\n";
+	print STDERR "init\n";
+	print STDERR "run\n";
+	print STDERR "list.runs\n";
+	print STDERR "set (config.ver) (state)\n";
+	print STDERR "reg\n";
+	print STDERR "state \n";
+	print STDERR "help \n";
+	print STDERR "\n --- internal modes --- \n";
+	print STDERR "flips\n";
+	print STDERR "norm\n";
+	print STDERR "update\n";
+	print STDERR "merge\n";
+	print STDERR "dup (config)\n";
+	print STDERR "del (config)\n";
+	print STDERR "def (config.ver) (start) (stop)\n";
+	print STDERR "eval (step)\n";
+	print STDERR "mevel (step)\n";
+	print STDERR "htmldup\n";
+	print STDERR "htmldel\n";
+	print STDERR "htmldef\n";
+	print STDERR "htmlmod\n";
+	print STDERR "htmlkeep\n";
+	print STDERR "html1\n";
+	print STDERR "html2 (config.ver)\n";
+	print STDERR "html3 (entry.config.ver)\n";
+	&escape;
+    }
+    
+    if (@ARGV > 2) { print STDERR "USAGE: $MKDETREND (help) [mode]\n"; &escape; }
+    
+    if ($ARGV[1] eq "config") {
+	print STDERR "set up initial configuration\n";
+	&escape;
+    }
+    
+    if ($ARGV[1] eq "save") {
+	print STDERR "save results from current configuration\n";
+	&escape;
+    }
+    
+    print STDERR "help for $ARGV[1] no defined\n";
+    &escape;
+}

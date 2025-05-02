@@ -1,0 +1,31 @@
+# Sample Postage stamp request description file
+# This can be parsed by the program pstamp_req_create to build a 
+# PS1_PSTAMP_REQUEST binary table
+
+# First line of data is for the extension header
+# The order of keywords follows TABLE 6 of ICD
+#
+# Note that value for REQ_NAME may be overriden by a command line
+# argument to pstamp_req_create.
+# Blank and comment lines are ignored
+
+# REQ_NAME      EXTVER
+CHANGEME         1
+
+# subsequent lines define the rows in the table
+
+# If ROWNUM is set to zero, pstamp_request_file will set insert a value for each row beginning with 1
+# If a later input row reuses a value an error occurs
+
+#
+# ID    |     ROI Specification                   |  JOB Specification | Images of interest specification
+# ROWNUM CENTER_X    CENTER_Y  WIDTH HEIGHT COORD_MASK JOB_TYPE OPTION_MASK PROJECT REQ_TYPE IMG_TYPE    ID   TESS_ID     COMPONENT    DATA_GROUP  REQFILT MJD_MIN MJD_MAX | COMMENT
+#
+0       160.29297   58.2564    200    200      2        stamp         1       gpc1    byid     diff     41501    null      null             null     null      0     0       |a ssdiff
+0       160.29297   58.2564    200    200      2        stamp         1       gpc1    bydiff   diff    1868781    null      null             null     null      0     0      |a ssdiff
+0       160.29297   58.2564    200    200      2        stamp         1       gpc1    bydiff   stack   1868781    null      null             null     null      0     0      |a ssdiff
+0       160.29297   58.2564    200    200      2        stamp        1025     gpc1    bydiff   stack   1868781    null      null             null     null      0     0      |a ssdiff get template
+0       160.29297   58.2564    200    200      2        stamp        2049     gpc1    bydiff   stack   1868781    null      null             null     null      0     0      |a ssdiff unconvolved
+0       160.29297   58.2564    200    200      2        stamp        3073     gpc1    bydiff   stack   1868781    null      null             null     null      0     0      |a ssdiff get unconvolved template
+# this will generate an error
+0       160.29297   58.2564    200    200      2        stamp        1025     gpc1    bydiff   warp   1868781    null      null             null     null      0     0      |a ssdiff get template

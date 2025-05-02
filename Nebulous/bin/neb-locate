@@ -1,0 +1,174 @@
+#!/usr/bin/env perl
+
+# Copyright (C) 2007-2008  Joshua Hoblitt
+#
+# $Id: neb-locate,v 1.3 2008-01-22 21:14:55 jhoblitt Exp $
+
+use strict;
+use warnings FATAL => qw( all );
+
+use vars qw( $VERSION );
+$VERSION = '0.01';
+
+use Nebulous::Client;
+
+use Getopt::Long qw( GetOptions :config auto_help auto_version );
+use Pod::Usage qw( pod2usage );
+
+my ($all, $path, $server, $volume);
+
+$server = $ENV{'NEB_SERVER'} unless $server;
+
+GetOptions(
+    'all|a'         => \$all,
+    'path|p'        => \$path,
+    'server|s=s'    => \$server,
+    'volume=s'      => \$volume,
+) || pod2usage( 2 );
+
+my $key = shift;
+
+pod2usage( -msg => "Unknown option: @ARGV", -exitval => 2 ) if @ARGV;
+pod2usage( -msg => "Required options: --server <URL> <key>",
+        -exitval => 2 )
+        unless defined $server and defined $key;
+
+my $neb = Nebulous::Client->new(
+    proxy => "$server",
+);
+
+die "can't connected to Nebulous Server: $server"
+    unless defined $neb;
+
+$volume = 'any' if defined $all;
+
+my $uris;
+if (defined $volume) {
+    $uris = $neb->find_instances($key, $volume);
+} else {
+    $uris = $neb->find_instances($key);
+}
+
+unless (defined $uris) {
+    warn "no instances found\n";
+    exit 1;
+}
+
+my @files;
+if (defined $all) { 
+    # print all instances
+    if (defined $path) {
+        @files = map {URI->new($_)->file if $_} @$uris;
+    } else {
+        @files = @$uris;
+    }
+} else {
+    # print just one
+    if (defined $path) {
+        @files = (URI->new(@$uris[0])->file);
+    } else {
+        @files = @$uris[0];
+    }
+}
+
+print join("\n", @files), "\n";
+
+__END__
+
+=pod
+
+=head1 NAME
+
+neb-locate - list URIs|paths to Nebulous key instances
+
+=head1 SYNOPSIS
+
+    neb-locate [--server <URL>] [--volume <volume name>] [--all] [--path] <key>
+
+=head1 DESCRIPTION
+
+This program will lookup the URIs|paths associated with C<<key>> and list them. By default only one instance is listed.
+
+=head1 OPTIONS
+
+=over 4
+
+=item * --all|-a
+
+This flag causes all found instances to be listed.  By default only one (if any
+are found) is reported.
+
+Optional.
+
+=item * --path|-p
+
+This flag causes instances to be listed as C<paths> instead of C<URI>s.
+
+Optional.
+
+=item * --server|-s <URL>
+
+URL of the Nebulous server to connect to.
+
+Optional if the appropriate environment variable is set.
+
+=item * --volume <volume name>
+
+Restrict search for instances to this Nebulous volume.
+
+Optional.
+
+=back
+
+=head1 ENVIRONMENT
+
+These environment variables may be used in place of the specified command line
+options.  All command line option will override the corresponding environment
+value.
+
+=over 4
+
+=item * C<NEB_SERVER>
+
+Equivalent to --server|-s
+
+=back
+
+=head1 CREDITS
+
+Just me, myself, and I.
+
+=head1 SUPPORT
+
+Please contact the author directly via e-mail.
+
+=head1 AUTHOR
+
+Joshua Hoblitt <jhoblitt@cpan.org>
+
+=head1 COPYRIGHT
+
+Copyright (C) 2007-2008  Joshua Hoblitt.  All rights reserved.
+
+This program is free software; you can redistribute it and/or modify it under
+the terms of the GNU General Public License as published by the Free Software
+Foundation; either version 2 of the License, or (at your option) any later
+version.
+
+This program is distributed in the hope that it will be useful, but WITHOUT ANY
+WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A
+PARTICULAR PURPOSE.  See the GNU General Public License for more details.
+
+You should have received a copy of the GNU General Public License along with
+this program; if not, write to the Free Software Foundation, Inc., 59 Temple
+Place - Suite 330, Boston, MA  02111-1307, USA.
+
+The full text of the license can be found in the L<perlgpl> Pod as supplied
+with Perl 5.8.1 and later.
+
+=head1 SEE ALSO
+
+L<Nebulous::Server>, L<neb-initdb>, L<neb-addvol>, L<nebdiskd>, L<neb-df>,
+L<neb-touch>
+
+=cut

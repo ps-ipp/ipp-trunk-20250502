@@ -1,0 +1,310 @@
+#!/usr/bin/env perl
+#
+# dsgetindex: Generate response to http GET for a DataStore index
+#
+# The only required argument is the REQUEST_URI.
+# The number of elements in the URI tell us whether we are listing
+# the data store root, a product, or a fileset.
+#
+# if a second argument -html is provided, the output is in HTML format
+# otherwise plain text is used
+#
+# The only thing specific to the ipp used here is the exit codes.
+
+use warnings;
+use strict;
+
+use CGI ':standard';
+use IPC::Cmd 0.36 qw( can_run run );
+
+my $PS_EXIT_CONFIG_ERROR = 3;
+my $PS_EXIT_DATA_ERROR = 5;
+
+my $redirect_root_to_pstamp = 0;
+
+my $uri = shift;
+
+if (!$uri) {
+    warn("need uri");
+    exit ($PS_EXIT_CONFIG_ERROR);
+}
+
+my $DS_ROOT = $ENV{DS_ROOT};
+
+die("DS_ROOT not found in the environment") unless defined($DS_ROOT);
+
+my @path;
+
+my $html_mode;
+my $arg = shift;
+if ($arg && ($arg eq "-html")) {
+    $html_mode = 1;
+}
+
+#
+# split up the uri into componnts.
+#
+# XXX: Find a simpler way to do this
+
+# collapse any multipe slashes in uri
+$uri = File::Spec->canonpath($uri);
+
+# split the directories from the file
+my $directories;
+my $file = "";
+my $query_str;
+
+if ($html_mode) {
+    # there is no file on the url
+
+    # print STDERR "html mode\n";
+
+    ($directories, $query_str) = split/\?/, $uri;
+
+    # used by the pretty printer
+    @path = split(/\//, $directories);
+    # shift off the empty bit
+    shift @path;
+
+} else {
+    my $volume;
+    ( $volume, $directories, $file) = File::Spec->splitpath($uri);
+
+    # find the query string if any
+    # (This is only relevant for fileset queries but we follow conductor and do not enforse that restriction)
+    ($file, $query_str) = split/\?/, $file;
+
+    if ($file ne "index.txt") {
+        warn("unexepected index file name: $file");
+        exit ($PS_EXIT_CONFIG_ERROR);
+    }
+}
+
+if (!$query_str) {
+    $query_str = "";
+}
+
+my @dirs = split /\//, $directories;
+
+# shift out the empty string at left of the first /
+shift @dirs;
+# shift out 'ds'
+shift @dirs;
+
+# now we're left with either nothing, a product, or a product and a fileset
+my $product = shift @dirs;
+my $fileset = shift @dirs;
+
+if (@dirs) {
+    # XXX need to output an error page
+    warn("unexpected extra directories: @dirs in uri: $uri");
+    exit ($PS_EXIT_CONFIG_ERROR);
+}
+
+my $program;
+if ($fileset) {
+    $program = "dsfsindex";
+} elsif ($product) {
+    $program = "dsprodindex";
+    $fileset .= " $query_str";
+} else {
+    $program = "dsrootindex";
+    $fileset = "";
+    $product = "";
+}
+
+my $missing_tools;
+my $index_program = can_run($program) or (warn "Can't find $program" and $missing_tools = 1);
+if ($missing_tools) {
+    #warn("Can't find required tools.");
+    exit ($PS_EXIT_CONFIG_ERROR);
+}
+
+{
+    my $command = "$index_program $product $fileset";
+
+    my ( $success, $error_code, $full_buf, $stdout_buf, $stderr_buf ) = 
+        run(command => $command, verbose => 0);
+
+    if ($success) {
+        if ($html_mode) {
+            html_index($stdout_buf);
+        } else {
+            print header('text/plain', '200 OK');
+            print @$stdout_buf;
+        }
+        $error_code = 0 if !defined $error_code;
+    } else {
+        if (0 && $html_mode) {
+            XXX: TODO
+
+        } else {
+            # since we're invoked as a redirect from a text file browsers are expecting
+            # 'text/plain' format
+            print header('text/plain', '404 ERROR');
+#           print header('text/plain', '410 GONE');
+#            print header('text/plain', '200 OK');
+            print @$stderr_buf;
+            print STDERR @$stderr_buf;
+#            exit 410;
+        }
+    }
+    exit $error_code >> 8;
+}
+
+
+sub html_index {
+
+    my $out_array_ref = shift;
+    my $outBuf = join( "", @$out_array_ref);
+
+    #print header('text/plain', '200 OK');
+
+    #print "outputting from html_index\n";
+    #print @$out_buf;
+    pprint_pre();
+    my @lines = split /^/, $outBuf;
+    foreach my $line (@lines) {
+        pprint($line);
+    }
+    pprint_post();
+}
+
+#
+# XXX:
+# quick hacky pretty printer
+# Adapted from Eric's Data Store mock up
+#
+
+#sub print_free_space {
+#    use Filesys::Df;
+#	# get free space
+#	my $ref = df($DS_ROOT);
+#	printf '<p>Free space: %.2f G (%.1f%%)</p>',
+#		$ref->{bfree}/(1024*1024),
+#		100.0*$ref->{bfree}/$ref->{blocks};
+#        print "\n";
+#}
+sub pprint_pre {
+
+    print header('text/html', '200 OK');
+    my $name;
+    # note $fileset is not so we look at the name of the index script to determine the level
+    if ($program eq "dsfsindex") {
+        $name = $fileset;
+    } elsif ($program eq "dsprodindex") {
+        $name = "$product";
+    } else {
+        $name = "";
+    }
+    print start_html("IPP Data Store $name");
+
+
+	# return link
+        if (!$redirect_root_to_pstamp || $program ne "dsrootindex") {
+            print a({-href=>"./index.txt"}, "Text Version");
+        }
+
+	if ($#path >= 1) {
+            # including the up links in the data store display causes 
+            # wget -r to follow them up which makes a mess
+            # Turn them off if the user agent looks like wget
+            my $display_up_links = (lc($ENV{HTTP_USER_AGENT}) =~ /wget/) ? 0 : 1;
+            if ($display_up_links) {
+                print "&nbsp&nbsp&nbsp&nbsp\n";
+                my $up = join('/', @path[0..$#path-1]);
+                if ($redirect_root_to_pstamp and $program eq "dsprodindex") {
+                    print a({-href=>"http://pstamp.ipp.ifa.hawaii.edu/dsroot.php"}, "Up to $up");
+                } elsif ($program eq 'dsrootindex') {
+                    # no up link in dsroot
+                } else {
+                    print a({-href=>".."}, "Up to $up");
+                }
+            }
+	}
+        print "</p>\n";
+
+
+    print '<table cellpadding="3">';
+}
+
+
+sub pprint_post {
+    print '</table>';
+    print p();
+
+#    print_free_space();
+    print end_html();
+}
+
+
+sub pprint {
+    my $line = shift;
+
+    my $nolink;
+    my $celltag = 'td';
+
+	# assume a comment line means its the header
+    if ($line =~ /^\s*#/) {
+        $celltag = 'th';
+        $nolink = 1;
+    }
+
+    my @toks = split(/\|/, $line);
+
+    print '<tr>';
+
+    print "<$celltag>";
+
+    if ($nolink) {
+       print $toks[0];
+    } else {
+         # First column is link to an entity down one level in data store (product, fileset, file)
+	 # assumes id is always first field
+	 my $wpath = "./$toks[0]";
+
+         # if this is a file request, use a download cgi
+         my $fits = 0;
+         if ($wpath =~ /\.fits\s*$/) {
+             # This doesn't work through the proxy
+             # The /ds-cgi gets tried on alala
+             #    $wpath = '/ds-cgi/dsfits.cgi?'.substr($wpath, 4); # strip' /ds/'
+             $fits = 1;
+         }
+
+        if ($fits) {
+            print a({-href=>$wpath, -type=>'image/x-fits'}, $toks[0]);
+        } else {
+            print a({-href=>$wpath}, $toks[0]);
+        }
+
+        if ($program eq 'dsrootindex') {
+            # for root listing make most recent fileset a link as well unless there are no filesets
+            my $fileset = $toks[1];
+            $fileset =~ s/^\s+//;
+            $fileset =~ s/\s+$//;
+            if ($fileset ne 'none') {
+                print "</$celltag>";
+                print "<$celltag>";
+                # drop the product from the list of tokens
+                my $product = shift @toks;
+                # elmiminate any whitesapace
+                $product =~ s/^\s+//;
+                $product =~ s/\s+$//;
+                print a({-href=>"./$product/$fileset"}, $fileset);
+            }
+        }
+    }
+    shift @toks;
+
+    print "</$celltag>";
+
+    # foreach my $val (@toks[1..$#toks]) {
+    foreach my $val (@toks) {
+		print "<$celltag>";
+		print $val;
+		print "</$celltag>";
+    }
+
+    print '</tr>';
+}

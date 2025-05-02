@@ -1,0 +1,152 @@
+#!/usr/bin/env perl
+
+# case 1: run on a list of MEF images:
+# case 2: run on a list from ptolemy.failure / ptolemy.success
+
+$complete = 0;
+$stds = 0;
+$demo = 0;
+@tARGV = ();
+for (; @ARGV > 0; ) {
+    if ($ARGV[0] eq "-C") {
+        $config = "$config -C $ARGV[1]";
+        shift; shift; next;
+    }
+    if ($ARGV[0] eq "-c") {
+        $config = "$config -c $ARGV[1]";
+        shift; shift; next;
+    }
+    if ($ARGV[0] eq "-D") {
+        $config = "$config -D $ARGV[1] $ARGV[2]";
+        shift; shift; shift; next;
+    }
+    if ($ARGV[0] eq "-stds") {
+	$stds = 1;
+        shift; next;
+    }
+    if ($ARGV[0] eq "-demo") {
+	$demo = 1;
+        shift; next;
+    }
+    if ($ARGV[0] eq "-complete") {
+	$complete = 1;
+        shift; next;
+    }
+    if ($ARGV[0] eq "-h") {
+	print "USAGE: elixir.rerun (list) (mode) [elixir options]\n";
+	print "  options: \n";
+	print "  -C config (set value of CONFIG variable)\n";
+	print "  -c config.file (specify alternate to config file)\n";
+	print "  -D key value (set value of key)\n";
+	print "  -stds (send output to STDS directory)\n";
+	print "  -complete (use sexcomplete not sextract)\n";
+	print "  -demo (show input list and command)\n";
+	exit 1;
+    }
+    @tARGV = (@tARGV, $ARGV[0]);
+    shift;
+}
+@ARGV = @tARGV;
+if (@ARGV != 2) { die "USAGE: elixir.rerun (list) (mode) [elixir options]\n"; }
+
+if ($stds) {
+    $catdir = `gconfig $config DB_STDS`; chop $catdir;
+    if ($?) { die "config error with CATDIR\n" }
+} else {
+    $catdir = `gconfig $config CATDIR`; chop $catdir;
+    if ($?) { die "config error with CATDIR\n" }
+}
+
+$tmpdir = `gconfig $config TMPDIR`; chop $tmpdir;
+if ($?) { die "config error with TMPDIR\n" }
+
+$input  = $ARGV[0];
+$mode   = $ARGV[1];
+
+# check on mode:
+if ($mode eq "fifo") { &getfifo; }
+if ($mode eq "mef")  { &getmef;  }
+
+die "ERROR: unknown mode $mode\n";
+
+sub getfifo {
+
+    $temp = `mktemp elixir.XXXXXX`; chop $temp;
+    $templog = `mktemp elixir-log.XXXXXX`; chop $templog;
+
+    open (FILE, "$input");
+    @list = <FILE>;
+    close (FILE);
+
+    # write input list in correct format to $temp
+    open (FILE, ">$temp");
+    foreach $line (@list) {
+	($raw, $root, $ccd, $inmode) = split (" ", $line);
+	print FILE "$raw $root $ccd $inmode\n";
+    }
+    &runelixir;
+}
+
+sub getmef {
+
+    $temp = `mktemp elixir.XXXXXX`; chop $temp;
+    $templog = `mktemp elixir-log.XXXXXX`; chop $templog;
+
+    @ccds = split (" ", `cameraconfig -ccds`);
+    if ($?) { die "error in cameraconfig -ccds\n"; }
+
+    @ccdn = split (" ", `cameraconfig -ccdn`);
+    if ($?) { die "error in cameraconfig -ccdn\n"; }
+
+    $Nccd = `cameraconfig -Nccd`; chop $Nccd;
+    if ($?) { die "error in cameraconfig -Nccd\n"; }
+
+    open (FILE, "$input");
+    @list = <FILE>;
+    close (FILE);
+
+    # write input list in correct format to $temp
+    open (FILE, ">$temp");
+    foreach $line (@list) {
+	($file) = split (" ", $line);
+	if ($line =~ m|^\s*$|) { next; } # skip blank lines
+	if ($line =~ m|^\s*\#|) { next; } # skip commented lines
+	
+	# must be absolute path for elixir to work anyway
+	@words = split ("/", $file);
+	$root = $words[-1];
+	$root =~ s/.fits$//;
+	for ($i = 0; $i < $Nccd; $i++) {
+	    printf FILE "$file %s/%s%02d %s MEF\n", $root, $root, $ccdn[$i], $ccds[$i];
+	}
+    }
+    &runelixir; 
+}
+
+sub runelixir {
+    
+    if ($demo) {  
+	if ($complete) {
+	    print "elixir -D mode sexcomplete -D CATDIR $catdir -D TMPDIR $tmpdir $temp >& $templog\n";
+	} else {
+	    print "elixir -D mode sextract -D CATDIR $catdir -D TMPDIR $tmpdir $temp >& $templog\n";
+	}
+	printf "list is in $temp\n";
+	exit 0;
+    }
+
+    # launch elixir for input list
+    if ($complete) {
+	vsystem ("elixir -D mode sexcomplete -D CATDIR $catdir -D TMPDIR $tmpdir $temp >& $templog &");
+    } else {
+	vsystem ("elixir -D mode sextract -D CATDIR $catdir -D TMPDIR $tmpdir $temp >& $templog &");
+    }
+    exit 0;
+}
+
+sub vsystem {
+    print STDERR "@_\n";
+    $status = system ("@_");
+    $status;
+}
+

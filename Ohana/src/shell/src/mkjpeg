@@ -1,0 +1,90 @@
+#!/bin/csh -f
+# create a binned-by-10 mosaic in jpeg format
+# write the results to a file for the TCL display
+
+setenv PATH /bin:/usr/bin:/usr/bin/X11:/apps/elixir/bin:/usr/local/bin
+
+if ($#argv != 3) then
+ echo "USAGE: mkjpeg (fdir) (file) (mode)"
+ echo "(mode) may be 'on' for mef, 'off' for split"
+ exit;
+endif
+
+# this is stupid, but simple: wait a few seconds to let 'getseeing' win
+sleep 5
+
+# kill off other processes with this name, and their children
+set procname=mkjpeg
+set list=`/bin/ps -eo pid,user,comm | awk -v n=$procname -v m=$$ '($3==n)&&($1!=m){print $1}'`
+foreach pid ($list)
+ echo "kill $pid"
+ set children=`/bin/ps -eo pid,ppid | awk -v p=$pid '($2==p){print $1}'`
+ kill $pid
+ foreach child ($children)
+   echo "kill $child"
+   kill $child
+ end
+end
+
+set fdir=$1
+set name=$2
+set mode=$3
+
+# find the appropriate script file
+set confdir = `gconfig CONFDIR`
+set datdir  = `gconfig DATDIR`
+
+set confdir  = "/data/elixir2/elixir/config"
+set script   = "$confdir/mana/mkjpeg.pro"
+set output   = "$datdir/plots/current.b10.gif"
+set outzoom  = "$datdir/plots/current.zoom.gif"
+set outshort = "$datdir/plots/lastshort.zoom.gif"
+
+# test named Xserver, or start vnc on specified machine
+set xhost   = `gconfig XHOST.SUMMIT`
+set xdisp   = `gconfig XDISP.SUMMIT`
+xdpyinfo -display $xdisp >& /dev/null
+if ($status) then
+  # X server is not running. start it now
+  echo "X server is not running. start it now on $xhost"
+  exit 1;
+endif
+setenv DISPLAY $xdisp
+
+set temp=`mktemp /tmp/mkjpeg.XXXXXX`
+rm -f $temp $temp.jpg
+
+if ("$mode" == "on") then
+ set mef=1
+else 
+ set mef=0
+endif
+
+echo "input $script" > $temp
+echo "init.mosaic" >> $temp
+foreach ccd (00 01 02 03 04 05 06 07 08 09 10 11)
+ if ($mef) then
+  set file=$fdir/$name.fits
+  block $file -t 60 || exit 1;
+  echo "load.mosaic $file $ccd MEF" >> $temp
+ else
+  set file=$fdir/$name/$name$ccd.fits
+  block $file -t 60 || exit 1;
+  echo "load.mosaic $fdir/$name/$name$ccd.fits $ccd SPLIT" >> $temp
+ endif
+end
+echo "jpeg.mosaic $temp.jpg $temp.zoom.jpg" >> $temp
+
+mana --norc --only $temp
+# ppmquant 256 $temp.jpg | ppmtogif > $output
+djpeg -gif < $temp.jpg > $output
+djpeg -gif < $temp.zoom.jpg > $outzoom
+
+set short = `echo $file | fields EXPTIME | awk '{s = 0}($2 < 30){s = 1}{print s}'`
+echo "short: $short"
+if ($short) then
+ cp -f $outzoom $outshort
+endif
+
+rm -f $temp $temp.jpg $temp.zoom.jpg
+exit 0

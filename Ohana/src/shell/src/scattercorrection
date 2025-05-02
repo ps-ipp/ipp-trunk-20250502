@@ -1,0 +1,53 @@
+#!/bin/csh -f
+
+# USAGE: scattercorrection (input) (output) (ccd) (xcol) (ycol) (mcol) (nhead)
+if ($#argv != 6) then
+  echo "USAGE: scattercorrection (input) (output) (ccd) (xcol) (ycol) (mcol)"
+  exit 2
+endif
+
+set INPUT  = $1
+set OUTPUT = $2
+set CCD    = `echo $3 | awk '{printf "%02d", $1}'`
+set XCOL   = $4
+set YCOL   = $5
+set MCOL   = $6
+
+rm -f $OUTPUT
+rm -f tmp.cat
+
+mana << END
+
+macro fixcat
+ data $INPUT
+ read x $XCOL y $YCOL m $MCOL
+ set x = x * (x > 5)       + 5 * (x <= 5)
+ set x = x * (x < 2050) + 2050 * (x >= 2050)
+ set y = y * (y > 20)     + 20 * (y <= 20)
+ set y = y * (y < 4096) + 4096 * (y >= 4096)
+ rd a 2002B.scatter.Z.$CCD.00.fits 
+ for i 0 x[]
+  stats -q a {x[\$i]-5} {y[\$i]-5} 11 11
+  \$dmag = -2.5*log(\$MEDIAN)
+  m[\$i] = m[\$i] - \$dmag
+  sprintf line "%7.4f" m[\$i]
+  output tmp.cat
+  echo "\$line" 
+  output stdout
+ end
+ exit 0
+end
+
+fixcat
+exit 1
+
+END
+
+if ($status) then
+ echo "problem running mana on $INPUT"
+ exit 1
+endif
+
+grep '#' $INPUT > tmp.head
+grep -v '#' $INPUT | paste - tmp.cat > tmp.body
+cat tmp.head tmp.body > $OUTPUT

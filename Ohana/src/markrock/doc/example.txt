@@ -1,0 +1,13 @@
+
+rats: foreach f ( */*.cpt )
+foreach? echo $f
+foreach? echo $f >> bright.log
+foreach? (markstar -v $f >> bright.dat) >>& bright.log
+foreach? end
+
+
+
+ echo $f
+ echo $f >> bright.log
+ (markstar -v $f >> bright.dat) >>& bright.log
+ end

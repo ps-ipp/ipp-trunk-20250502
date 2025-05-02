@@ -1,0 +1,69 @@
+<meta name=file  content=mkfringe>
+<meta name=title content=mkfringe User's Guide>
+<meta name=page  content=mkfringe>
+
+<p>
+mkfringe is the interface to the Elixir fringe creation system.  
+
+<p>
+All date/times are in the form YYYY/MM/DD,HH:MM:SS, with HH:MM:SS optional.  
+
+<p>
+By default, commands apply to the currently active camera/run, but
+these may be specified on the command line with the -camera (camera)
+and -run (run) flags.
+
+<h2> primary user commands </h2>
+
+<table>
+<tr><td> create (camera) (run) (start) (stop) </td><td> create a new mkfringe run for the given camera, normally automatically performed by ert. </td></tr>
+<tr><td> create run (runid)                   </td><td> create a new mkfringe run based on the mkrun table information. </td></tr>
+<tr><td> mkconfig (camera) (run)              </td><td> create an mkfringe config table based on an existing mkdetrend date range </td></tr>
+<tr><td> config (camera) (run)                </td><td> set the current active config </td></tr>
+<tr><td> state                                </td><td> show the state of the active config </td></tr>
+<tr><td> init                                 </td><td> start the init stage of mkfringe processing </td></tr>
+<tr><td> run                                  </td><td> start the main processing, or re-processing </td></tr>
+<tr><td> reg                                  </td><td> register the completed images in the detrend database </td></tr>
+<tr><td> map                                  </td><td> start the map run (requires manually setting state to map) </td></tr>
+<tr><td> map.reg                              </td><td> register mode maps </td></tr>
+<tr><td> clean                                </td><td> clean the camera/run directories; recovery from this command will require a complete reprocessing. </td></tr>
+</table>
+
+<h2> low-level user comands </h2>
+<table>
+<tr><td> dup (config)                         </td><td> duplicate the given config </td></tr>
+<tr><td> del (config)                         </td><td> delete the given config </td></tr>
+<tr><td> def (config) (start) (stop)          </td><td> set the start & stop times for the given config </td></tr>
+<tr><td> set (config) (state)                 </td><td> manually set the config state </td></tr>
+<tr><td> list.init                            </td><td> run just the list.init stage </td></tr>
+<tr><td> list.reinit                          </td><td> run just the list.reinit stage </td></tr>
+<tr><td> detrend                              </td><td> run just the detrend stage </td></tr>
+<tr><td> merge                                </td><td> run just the merge stage </td></tr>
+<tr><td> mkrough                              </td><td> run just the mkrough stage </td></tr>
+<tr><td> defringe                             </td><td> run just the defringe stage </td></tr>
+<tr><td> mksmooth                             </td><td> run just the mksmooth stage </td></tr>
+<tr><td> regimage                             </td><td> run just the regimage stage </td></tr>
+</table>
+
+<h2> HTML cgibin commands </h2>
+<table>
+<tr><td> htmldup </td><td>  </td></tr>
+<tr><td> htmldef </td><td>  </td></tr>
+<tr><td> htmldel </td><td>  </td></tr>
+<tr><td> htmlmod </td><td>  </td></tr>
+<tr><td> htmlkeep </td><td>  </td></tr>
+<tr><td> htmlconfig </td><td>  </td></tr>
+<tr><td> html1 </td><td>  </td></tr>
+<tr><td> html2 </td><td>  </td></tr>
+<tr><td> html3 </td><td>  </td></tr>
+<tr><td> htmlmodes </td><td>  </td></tr>
+<tr><td> htmlmaps </td><td>  </td></tr>
+<tr><td> htmlmapkeep </td><td>  </td></tr>
+</table>
+
+<h2> other support commands </h2>
+<table>
+<tr><td> dads </td><td>  </td></tr>
+<tr><td> dads.top </td><td>  </td></tr>
+<tr><td> eval </td><td>  </td></tr>
+</table>

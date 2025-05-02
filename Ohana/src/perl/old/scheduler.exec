@@ -1,0 +1,21 @@
+#!/bin/csh -f
+
+set logdir = `gconfig LOGDIR`
+set log = "$logdir/scheduler.log"
+
+if ($#argv < 2) then
+ echo "USAGE: scheduler.exec (logfile) (cmd)"
+ exit 2;
+endif
+
+set cmdlog = $1
+shift
+
+set start=`date`
+echo "start: $start - $*" >> $log
+
+csh -c "$*" >>& $cmdlog
+set stat=$status
+
+set stop=`date`
+echo "stop:  $stop $stat $*" >> $log

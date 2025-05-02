@@ -1,0 +1,1 @@
+select software_ver,maskfrac_npix,maskfrac_static,maskfrac_dynamic,maskfrac_magic,maskfrac_advisory from diffSkyfile where diff_id = %lld

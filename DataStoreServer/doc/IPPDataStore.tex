@@ -1,0 +1,306 @@
+The purpose of this note is to describe the implementation of the IPP Data Store.
+Introduction
+The DataStore client interface is defined in document PSDC-940-010-02 which we will hereafter refer to as DSDoc. Basically the DataStore server provides clients with a directory listing and file transfer interface through HTTP. 
+The Data Store “virtual” file system is arranged in four levels
+1. The root of the Data Store.   Which contains
+2. One or more products.         Which contain
+3. One or more file sets.            Which contain
+4. One or more files.
+The Data Store provides specialized indexing for the first three levels as described in section 3.2 of DSDoc. 
+As an example the IPP Data Store is required to support a number of different products
+* Image Quality and data validity for OTIS
+* Transient Detections, Detectability results for MOPS
+* Postage Stamp Images
+* Postage Stamp Requests (internal to the web interface of the Postage  Stamp Server)
+
+Each product will be visible at the root of the Data Store. As described in DSDoc, HTTP Requests to URLs with basename index.txt return lists in a simple easy to parse format. For example, an http request to the URL http://ippdatastore/ds/index.txt might return the following list of products
+
+# productID  |Most recent |Time registered     |type     |Description                   |
+pstamprequest|none        |2008-02-28T09:01:54Z|psrequest|Postage Stamp Request         |
+pstampresults|test        |2008-03-01T02:18:15Z|psresults|Postage Stamp Request Results |
+ipp_otis     |tootis080305|2008-03-04T22:43:00Z|image    |IPP to OTIS Data Store        |
+ipp_mops     |tomops080305|2008-03-04T22:45:42Z|image    |IPP to MOPS Data Store        |
+
+If index.txt is omitted from the URL, the list is returned in a more readable html format complete with links into the products. The “Most recent” column gives the name of the file set most recently added to each product and “Time registered” gives the time that that fileset was added to the Data Store.
+An interesting feature of the interface is related to file set indexing. If the user sets the “query string” of the URL (the searchpart defined in rfc1738) to the name of an existing file set, the server will return a list that contains only those file sets that were registered later time than the given file set. This makes it easy for clients to find out “what’s new”.
+
+For example if the URL http://ippdatastore/ds/pstampresults/index.txt returns
+# filesetID|time registered     |type     |
+fileset13  |2008-03-01T01:52:18Z|PSRESULTS|
+nfileset1  |2008-03-01T01:54:46Z|PSRESULTS|
+nfileset2  |2008-03-01T01:55:00Z|PSRESULTS|
+fileset43  |2008-03-01T02:01:29Z|PSRESULTS|
+test       |2008-03-01T02:18:15Z|PSRESULTS|
+
+the URL http://ippdatastore/ds/pstampresults/index.txt?nfileset2 would yield
+# filesetID|time registered     |type     |
+fileset43  |2008-03-01T02:01:29Z|PSRESULTS|
+test       |2008-03-01T02:18:15Z|PSRESULTS| 
+
+the set of filesets newer than nfileset2. This feature requires that the Data Store’s implementation of the fileset lists be more sophisticated than the simple text file that the URL implies.
+There are other considerations that led us to not try and manage the Data Store contents using simple text file indexes. Since registration requires indexes at multiple levels to be changed, and since multiple clients can be manipulating the Data Store simultaneously, keeping text file indexes consistent just using files in the file system would be problematic.
+Instead we store the contents of the DataStore in an SQL database tables.  The indexes are built on demand using cgi scripts.
+Web Implementation
+Note: although we are beginning our discussion with the specifics of the web interface, this is probably the least complex and concrete part of the DS implementation.
+The web interface for the Data Store is implemented using Apache HTTP server.  The Data Store is configured by adding the file httpd-datastore.conf to the Apache configuration directory /etc/httpd/conf.d.
+ A few directives are used.
+<Directory "/var/www/html/ds/dsroot">
+
+  DirectoryIndex /ds-cgi/dsindex.cgi
+
+  Options +Includes
+
+  # files will be processed for server side includes if they have the
+  # executable bit set (note: this doesn’t seem to be necessary)
+  XBitHack on
+
+  AddOutputFilter INCLUDES .txt
+
+  AllowOverride None
+
+  Order allow,deny
+  Allow from all
+</Directory>
+
+<Directory "/cgi-bin/ds-cgi">
+  Options ExecCGI
+
+
+  Order allow,deny
+  Allow from all
+</Directory>
+
+Alias       /ds/     /var/www/html/ds/dsroot/
+ScriptAlias /ds-cgi/ /var/www/cgi-bin/ds-cgi/
+
+This configuration file is written for a set up where the root of the Data Store file system is located at /var/www/html/ds/dsroot/ and http clients see the root of the Data Store at http://server/ds
+The cgi scripts live in /var/www/cgi-bin/ds-cgi which is aliased to /ds-cgi.
+The directories in the Data Store file system are arranged to match the data. That is, product productA is represented by a directory productA in the Data Store root directory. The directory productA contains a subdirectory for each registered file set and in these directories are either the file set’s constituent files themselves or to their actual location.  NOTE: locating the files outside the Data Store is not implemented yet.
+The DirectoryIndex directive in the configuration file redirects index requests for all directories to the script dsindex.cgi.
+The index re-directions are intended to insure that only registered products and file sets are available for access over the web interface. Other directories and files may in fact be in the file systems (file sets under construction for example) but they aren’t visible.
+ISSUE: other directories in the file system aren’t listable. The dsindex script will return not found, but if an actual file name is known by the client then it will be accessible. Is this a problem?
+dsindex.cgi
+This script is simply
+#!/bin/sh
+PATH_TO_COMMAND/pstamp_runcommand.sh dsgetindex $REQUEST_URI -html 
+
+pstamp_runcommand.sh is a (now misnamed) wrapper script that sets up the environment to run IPP commands on behalf of the web server user apache. That program is listed in appendix A. dsgetindex is a perl script that computes the index corresponding to the URI by querying the data base. 
+The environment variable REQUEST_URI is the set by Apache to the requested URL. For example /ds or /ds/pstampresults
+
+
+
+Index.txt
+The Data Store implementation places a file named index.txt in each registered directory in the Data Store.  The contents of each of these files is the same:
+<!--#include virtual="/ds-cgi/dstxtindex.cgi" -->
+
+That is, index.txt redirects the web server to the cgi script dstxtindex.cgi which is yet another wrapper script
+#!/bin/sh
+PATH_TO_COMMAND/pstamp_runcommand.sh dsgetindex $REQUEST_URI;
+
+ (Note: there are probably better implementations for the index.txt redirection but I haven’t found any yet. This seems to work fine).
+
+The interesting bit of the web implementation: dsgetindex
+As might be inferred from the last couple of sections the interesting bit is contained in the program dsgetindex. 
+dsgetindex takes the REQUEST_URI from the web server and decides whether it is an index request for the Data Store root, a product, or an individual file set. Based on this level it runs one of the following commands to query the database for the appropriate index
+* dsrootindex
+* dsprodindex
+* dsfsindex
+If the parameter –html is provided to dsgetindex the output of these commands is passed through a filter to create a user friendly HTML page.
+The 3 index programs are perl scripts that use the DBI package to access the mysql database. Currently IPP interfaces are only used for looking up configuration information. Thus it would be easy to modify this Data Store implementation to run outside of the IPP environment.
+NOTE: We need to add the statistics specified by the DSDoc.
+ 
+
+Data Store Index Tables
+The logical contents of the Data Store is represented by 4 SQL tables.
+* dsProduct
+* dsFileset
+* dsFile
+* dsFileType
+The tables are defined in the usual ipp style where each row has an integer id which is the primary key. 
+The product table is defined as
+mysql> describe dsProduct;
++-------------+--------------+------+-----+---------+----------------+
+| Field       | Type         | Null | Key | Default | Extra          |
++-------------+--------------+------+-----+---------+----------------+
+| prod_id     | bigint(20)   | NO   | PRI | NULL    | auto_increment | 
+| prod_name   | varchar(64)  | NO   | UNI |         |                | 
+| last_update | datetime     | YES  |     | NULL    |                | 
+| last_fs     | varchar(64)  | YES  |     | NULL    |                | 
+| type        | varchar(64)  | YES  |     | NULL    |                | 
+| description | varchar(255) | YES  |     | NULL    |                | 
+| prod_col_0  | varchar(64)  | YES  |     | NULL    |                | 
+| prod_col_1  | varchar(64)  | YES  |     | NULL    |                | 
+| prod_col_2  | varchar(64)  | YES  |     | NULL    |                | 
+| prod_col_3  | varchar(64)  | YES  |     | NULL    |                | 
+| prod_col_4  | varchar(64)  | YES  |     | NULL    |                | 
+| prod_col_5  | varchar(64)  | YES  |     | NULL    |                | 
+| prod_col_6  | varchar(64)  | YES  |     | NULL    |                | 
+| prod_col_7  | varchar(64)  | YES  |     | NULL    |                | 
++-------------+--------------+------+-----+---------+----------------+
+
+The columns named prod_col_0..7 are used to store the labels for any product specific columns.  For example the DSDoc defines several fields for the gpc1 product: telescope pointing, integration time, filter, airmass, comment.
+A fileset is represented in the database as
++--------------+-------------+------+-----+---------+----------------+
+| Field        | Type        | Null | Key | Default | Extra          |
++--------------+-------------+------+-----+---------+----------------+
+| prod_id      | bigint(20)  | YES  | MUL | NULL    |                | 
+| fileset_id   | bigint(20)  | NO   | PRI | NULL    | auto_increment | 
+| fileset_name | varchar(64) | NO   | UNI |         |                | 
+| reg_time     | datetime    | NO   |     |         |                | 
+| type         | varchar(64) | YES  |     | NULL    |                | 
+| prod_col_0   | varchar(64) | YES  |     | NULL    |                | 
+| prod_col_1   | varchar(64) | YES  |     | NULL    |                | 
+| prod_col_2   | varchar(64) | YES  |     | NULL    |                | 
+| prod_col_3   | varchar(64) | YES  |     | NULL    |                | 
+| prod_col_4   | varchar(64) | YES  |     | NULL    |                | 
+| prod_col_5   | varchar(64) | YES  |     | NULL    |                | 
+| prod_col_6   | varchar(64) | YES  |     | NULL    |                | 
+| prod_col_7   | varchar(64) | YES  |     | NULL    |                | 
++--------------+-------------+------+-----+---------+----------------+
+
+So all filesets in product 2 could be found with
+SELECT * from dsFileset where prod_id = 2;
+
+The column’s named prod_col_n give the values of the product specific columns for the fileset.
+ISSUE: fileset_name is mared as UNIQUE but this is too restrictive. The name doesn’t have to be unique in dsFileset, it only has to be unique in the product. We could manage this easily by storing prod_name/fileset_name instead of just the fileset_name instead of the. The current dsreg handles the uniqueness requirement by searching the product directory for an existing fileset.
+
+
+The individual files are represented in the table dsFile
+mysql> describe dsFile;
++------------+--------------+------+-----+---------+----------------+
+| Field      | Type         | Null | Key | Default | Extra          |
++------------+--------------+------+-----+---------+----------------+
+| fileset_id | bigint(20)   | YES  | MUL | NULL    |                | 
+| file_id    | bigint(20)   | NO   | PRI | NULL    | auto_increment | 
+| file_name  | varchar(255) | NO   |     |         |                | 
+| bytes      | bigint(20)   | YES  |     | NULL    |                | 
+| md5sum     | varchar(255) | YES  |     | NULL    |                | 
+| type       | varchar(64)  | YES  |     | NULL    |                | 
+| type_col_0 | varchar(64)  | YES  |     | NULL    |                | 
+| type_col_1 | varchar(64)  | YES  |     | NULL    |                | 
+| type_col_2 | varchar(64)  | YES  |     | NULL    |                | 
+| type_col_3 | varchar(64)  | YES  |     | NULL    |                | 
++------------+--------------+------+-----+---------+----------------+
+
+So the list of files in fileset 42 could be found with
+SELECT * from dsFile where fileset_id = 42;
+
+The columns type_col_n contain the values for any columns that are specific to a given file type.
+The names of these colums are contained in the dsFileType table
+mysql> describe dsFileType;
++------------+-------------+------+-----+---------+-------+
+| Field      | Type        | Null | Key | Default | Extra |
++------------+-------------+------+-----+---------+-------+
+| type       | varchar(64) | YES  |     | NULL    |       | 
+| type_col_0 | varchar(64) | YES  |     | NULL    |       | 
+| type_col_1 | varchar(64) | YES  |     | NULL    |       | 
+| type_col_2 | varchar(64) | YES  |     | NULL    |       | 
+| type_col_3 | varchar(64) | YES  |     | NULL    |       | 
++------------+-------------+------+-----+---------+-------+
+
+Currently we’ve identified the following file types
+* chip (a chip level image file)
+* psrequest (postage stamp request table)
+* psresults (postage stamp results table)
+* pstamp (postage stamp image)
+The chip type has one type specific column the chipname (ota name).
+TODO: we might want to discuss product and fileset types as well. For us they are just labels however.
+ 
+
+Data Store Management
+The script dsregproduct is used to add a product to the data store
+dsregproduct –-product myProduct –-type image –description ‘Data Store for my Images’ \               		–-pc0 ‘telescope pointing        ‘ –-pc1 ‘etime’ –-pc2 ‘f’ –-pc3 ‘airm’ \
+         --pc4 ‘comments          ‘
+
+By padding the strings in the product specific column labels the fileset listings will have more regular formatting.
+
+Filesets are added to the data store creating the fileset directory in the data store, populating it with the constituent files and then registering the file set by invoking the program dsreg
+dsreg --add –-product myProduct –-fileset firstFileset –-type SKYFLAT \ 			–-pc0 ‘-109.192656 \19.751905 2000’ –-pc1 ‘129.1’ –-pc2 ‘g’ –-pc3 ‘’1.06’ \
+         –-pc4 ‘Twilight flat g 2/5’ 
+         
+dsreg reads the list of files from stdin (TODO: should we give a file argument?) Each line contains
+filename filetype [0 – 4 type_specific_columns]
+
+dsreg computes the md5sum for each file and looks up the file’s size and adds the appropriate entries to the database tables dsFile and dsFileset. 
+Filesets may be removed from the database using 
+Dsreg –-del myProduct –-fileset oldFileset
+
+The registration information is removed from the database. The files however are not removed. TODO: should they be?
+Appendix A
+Note: this program was originally written for the postage stamp server but has found other applications. (To be relocated/renamed)
+pstamp_runcommand.sh
+#!/bin/sh
+###
+#
+# pstamp_runcommand.sh: 
+#
+# Set up the ipp environment to run a ipp commands on behalf of the postage stamp
+# server and execute the command given by the argument list 
+# This script is used by cgi or php scripts.
+
+if [[ $# == 0 ]] ;then
+    echo "usage $0 command" >&2
+    #  EINVAL = 22
+    exit 22
+fi
+
+#### BEGIN LOCAL_CONFIGURATION
+
+# These variables need to be customized for a particular installation
+# XXX: why not pass these on on the command line or in the environment?
+export PSCONFDIR=/export/data0/bills/psconfig
+
+WORK_DIR=/export/data1/bills/pstamp/work
+CMD_DIR=/export/data0/bills/src/ipp/pstamp/scripts:/export/data0/bills/src/ipp/DataStoreServer/web/cgi
+
+#### END LOCAL_CONFIGURATION
+
+export HOME=$WORK_DIR
+
+cd $WORK_DIR
+status=$?
+if [[ $status != 0 ]] ; then
+    echo $0 cannot cd to WORK_DIR: $WORK_DIR status: $status >&2
+    exit $status
+fi
+
+###
+### configure the IPP
+###
+
+source $PSCONFDIR/psconfig.bash default
+status=$?
+if [[ $status != 0 ]] ; then
+    echo error setting up IPP environment >&2
+    exit $status
+fi
+
+###
+### Add our command directory to the path. 
+### XXX: This won't be necessary once the scripts get installed as part of the IPP
+###
+PATH=${CMD_DIR}:${PATH}
+#echo path: $PATH >&2
+#echo command: $* >&2
+
+## make sure we are able to run the desired command
+## XXX: This test is sort of redundant. 
+## We'd get a more useful error by just going ahead and trying the command
+## or by not suppressing the error output of which
+if [[ ! -x `which $1 2> /dev/null` ]] ;then
+    status=$?
+    echo command $1 not found >&2
+    exit $status
+fi
+
+#### Finally, execute the command given by the command line arguments
+
+$*
+
+
+
+
+
+
+
+

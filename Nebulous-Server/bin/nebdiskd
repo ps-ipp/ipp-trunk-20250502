@@ -1,0 +1,586 @@
+#!/usr/bin/env perl
+
+# Copyright (C) 2007-2009  Joshua Hoblitt
+
+use strict;
+use warnings FATAL => qw( all );
+
+use vars qw( $VERSION );
+$VERSION = '0.03';
+
+use Config::YAML;
+use DBI;
+use File::Spec;
+use Log::Log4perl;
+use Nebulous::Server::SQL;
+use Net::Server::Daemonize qw( daemonize unlink_pid_file );
+
+use Getopt::Long qw( GetOptions :config auto_help auto_version );
+use Pod::Usage qw( pod2usage );
+
+my (
+    $debug,
+    $db,
+    $dbhost,
+    $dbuser,
+    $dbpass,
+    $pidfile,
+    $stop,
+    $restart,
+    $verbose,
+    $user,
+    $group,
+    $retry,
+);
+
+GetOptions(
+    'dbhost|H=s'    => \$dbhost,
+    'dbpass|p=s'    => \$dbpass,
+    'dbuser|u=s'    => \$dbuser,
+    'db|D=s'        => \$db,
+    'debug|d'       => \$debug,
+    'group|g=s'     => \$group,
+    'pidfile=s'     => \$pidfile,
+    'restart|r'     => \$restart,
+    'retry=i'       => \$retry,
+    'stop|s'        => \$stop,
+    'user|U=s'      => \$user,
+    'verbose|v'     => \$verbose,
+) || pod2usage( 2 );
+
+# set the process name for easy pgrep-ability
+$0 = 'nebdiskd';
+#my $rcfile = "$ENV{HOME}/.nebdiskrc";
+my $rcfile = $ENV{NEBDISKDRC};
+unless (defined($rcfile)) {
+    $rcfile = '/etc/nebdiskd.rc';
+}
+$rcfile = File::Spec->canonpath($rcfile);
+
+my $c = read_rcfile($rcfile);
+
+$db         ||= $c->get_db      || $ENV{'NEB_DB'};
+$dbhost     ||= $c->get_dbhost  || $ENV{'NEB_DBHOST'} || 'localhost';
+$dbuser     ||= $c->get_dbuser  || $ENV{'NEB_USER'};
+$dbpass     ||= $c->get_dbpass  || $ENV{'NEB_PASS'} || undef;
+$pidfile    ||= $c->get_pidfile || "/var/tmp/nebdiskd";
+$user       ||= $c->get_user    || $<; # user
+$group      ||= $c->get_group   || $); # group
+$retry      ||= $c->get_retry   || 1;
+
+# stuff to controll failures.
+my %host_failure_counts = ();
+my %host_removed = ();
+my $failure_limit = 5;
+
+#my $mounts = $c->get_mounts;
+my $poll_interval = $c->get_poll_interval || 5;
+
+if ($restart || $stop) {
+    my $status = kill_pid_file($pidfile);
+    exit($status) if $stop;
+}
+
+$c->set_db($db);
+$c->set_dbhost($dbhost);
+$c->set_dbuser($dbuser);
+$c->set_dbpass($dbpass);
+$c->set_pidfile($pidfile);
+$c->set_poll_interval($poll_interval);
+$c->set_retry($retry);
+$c->write;
+
+pod2usage( -msg => "Unknown option: @ARGV", -exitval => 2 ) if @ARGV;
+pod2usage( -msg => "Required options: --db --dbuser", -exitval => 2 )
+    unless $db && $dbuser;
+
+# start up logging
+my $conf = '
+    log4perl.category.nebdiskd = WARN, Screen, SERVERLOGFILE
+
+    log4perl.appender.Screen        = Log::Log4perl::Appender::Screen
+    log4perl.appender.Screen.stderr = 1
+    log4perl.appender.Screen.layout = Log::Log4perl::Layout::PatternLayout
+    log4perl.appender.Screen.layout.ConversionPattern = %d{yyyy-MM-dd HH:mm:ss} | %H | %p | %M - %m%n
+
+    log4perl.appender.SERVERLOGFILE           = Log::Log4perl::Appender::File
+    log4perl.appender.SERVERLOGFILE.filename  = /tmp/nebdiskd.log
+    log4perl.appender.SERVERLOGFILE.mode      = append
+    log4perl.appender.SERVERLOGFILE.layout    = Log::Log4perl::Layout::PatternLayout
+    log4perl.appender.SERVERLOGFILE.layout.ConversionPattern = %d{yyyy-MM-dd HH:mm:ss} | %H | %p | %M - %m%n
+    log4perl.appender.SERVERLOGFILE.size      = 10485760
+
+    log4perl.filter.MatchWarn  = Log::Log4perl::Filter::LevelMatch
+    log4perl.filter.MatchWarn.LevelToMatch  = WARN
+    log4perl.filter.MatchWarn.AcceptOnMatch = off
+
+    log4perl.appender.Limiter              = Log::Log4perl::Appender::Limit
+    log4perl.appender.Limiter.appender     = Mailer
+    log4perl.appender.Limiter.block_period = 300
+';
+# I've removed this bit.
+#     log4perl.appender.Mailer         = Log::Dispatch::Email::MailSend
+#     log4perl.appender.Mailer.to      = ps-ipp-ops@ifa.hawaii.edu
+#     log4perl.appender.Mailer.subject = nebdiskd alert
+#     log4perl.appender.Mailer.buffered = 0
+#     log4perl.appender.Mailer.Filter= MatchWarn
+#     log4perl.appender.Mailer.layout = Log::Log4perl::Layout::PatternLayout
+#     log4perl.appender.Mailer.layout.ConversionPattern = %d{yyyy-MM-dd HH:mm:ss} | %H | %p | %M - %m%n
+
+
+Log::Log4perl::init(\$conf);
+my $log = Log::Log4perl::get_logger("nebdiskd");
+$log->level('WARN');
+$log->level('DEBUG') if $debug;
+
+daemonize(
+    $user,     # User
+    $group,    # Group,
+    $pidfile,  # PID file
+) unless $debug;
+
+$SIG{TERM} = sub { unlink_pid_file($pidfile); exit(); };
+$SIG{INT}  = $SIG{TERM};
+$SIG{HUP}  = sub { $c = read_rcfile($rcfile) };
+
+my $date = localtime();
+$log->warn("BEGIN: $date with RCFILE: $rcfile");
+
+while (1) {
+    eval {
+        poll_mounts(
+                db              => $db,
+                dbhost          => $dbhost,
+                dbuser          => $dbuser,
+                dbpass          => $dbpass,
+                poll_interval   => $poll_interval,
+                debug           => $debug,
+                retry           => $retry,
+        );
+    };
+    if ($@) {
+        $log->warn($@);
+    }
+
+    sleep $poll_interval;
+}
+
+$log->logdie("poll loop exited -- THIS SHOULD NOT HAPPEN");
+
+
+sub poll_mounts
+{
+    my %p = @_;
+
+    my $db              = $p{db} or return;
+    my $dbhost          = $p{dbhost} or return;
+    my $dbuser          = $p{dbuser} or return;
+#    my $dbpass          = $p{dbpass} or return;
+    my $poll_interval   = $p{poll_interval} || 60;
+    my $debug           = $p{debug} || 0;
+    my $retry           = $p{retry} || 1;
+
+    # setup the db on every pass incase the database died on us
+    my $dbh = setup_db(
+        db      => $db,
+        dbhost  => $dbhost,
+        dbuser  => $dbuser,
+        dbpass  => $dbpass,
+    );
+
+    eval {
+        my $r_query = $dbh->prepare_cached("REPLACE INTO mountedvol SELECT vol_id,name,host,path,allocate,available,xattr,mountpoint, ?, ?,note FROM volume WHERE mountpoint = ?");
+        my $d_query = $dbh->prepare_cached("DELETE FROM mountedvol WHERE mountpoint = ?");
+
+        # get list of mount points
+        my $mounts = [];
+        {
+            # there may be multiple vol_ids per mountpoint but we only need to
+            # check each mountpoint once
+            my $query = $dbh->prepare_cached("SELECT DISTINCT host, mountpoint FROM volume WHERE xattr != 5");
+            $query->execute;
+            while (my $row = $query->fetchrow_hashref) {
+                push @$mounts, $row;
+            }
+            $query->finish;
+        }
+
+        # determine valid mountpoints
+        foreach my $mnt (@$mounts) {
+            my $mountpoint = $mnt->{'mountpoint'};
+            my $alt_mountpoint = $mountpoint;
+            $alt_mountpoint =~ s/data/export/;
+            my $hostname = $mnt->{'host'};
+            my $valid_mountpoint = 1;
+
+            # fetch stats on the device using ssh and df
+            my $dev_info = df_through_ssh($hostname, $alt_mountpoint, 1024);
+            unless (defined $dev_info) {
+                $valid_mountpoint = 0;
+                $log->error("can't find device info for $mountpoint / $alt_mountpoint");
+                $d_query->execute($mountpoint);
+                next;
+            }
+
+            # find vol_id(s) for mountpoint
+            $r_query->execute(@$dev_info{qw( blocks used )}, $mountpoint);
+            $log->debug("adding $mountpoint to db");
+
+        }
+    };
+    if ($@) {
+        $log->logdie($@);
+    }
+}
+
+sub read_rcfile
+{
+    my $rcfile = shift;
+
+    return unless defined $rcfile;
+
+    if (!-f $rcfile) {
+        open(my $fh, '>', $rcfile) or $log->logdie("can't open file: $!");
+        close($fh) or $log->logdie("can't close file:$!");
+    }
+
+    return Config::YAML->new(
+            config => $rcfile,
+            output => $rcfile,
+    );
+}
+
+
+sub setup_db
+{
+    my %p = @_;
+
+    # $p{dbpass} may be undef;
+
+    return unless defined $p{db}
+              and defined $p{dbhost}
+              and defined $p{dbuser};
+
+    my $sql = Nebulous::Server::SQL->new;
+
+    my $dbh = DBI->connect_cached(
+        "DBI:mysql:database=$p{db}:host=$p{dbhost}",
+        $p{dbuser},
+        $p{dbpass},
+        {
+            RaiseError => 1,
+            PrintError => 1,
+            AutoCommit => 1, # don't want this to be trasnactional
+        },
+    );
+
+    eval {
+        $dbh->do( $sql->set_transaction_model );
+#        $dbh->commit;
+    };
+    if ($@) {
+#        $dbh->rollback;
+        $log->logdie($@);
+    }
+
+    return $dbh;
+}
+
+
+sub stat_dirs
+{
+    my $mounts = shift;
+
+    return unless defined $mounts;
+
+    foreach my $path (@$mounts) {
+        if (stat File::Spec->canonpath($path)) {
+            $log->debug("stated $path");
+        } else {
+            $log->warn("can not stat path: $path");
+        }
+    }
+}
+
+#
+# This function, originally named check_pid_file() was copied from
+# Net::Server::Daemonize '0.05' licensed under the Perl license.  It has been
+# renamed and modified to kill off process who's PID value is stored in pidfile.
+#
+
+sub kill_pid_file {
+  my $pid_file = shift;
+
+  ### no pid_file = return success
+  return 1 unless -e $pid_file;
+
+  ### get the currently listed pid
+  if( ! open(_PID,$pid_file) ){
+    $log->logdie("Couldn't open existant pid_file \"$pid_file\" [$!]");
+  }
+  my $_current_pid = <_PID>;
+  close _PID;
+  my $current_pid = $_current_pid =~ /^(\d{1,10})/ ? $1 : $log->logdie("Couldn't find pid in existing pid_file");
+
+  my $exists = undef;
+
+  ### try a proc file system
+  if( -d '/proc' ) {
+    $exists = -e "/proc/$current_pid";
+
+  ### try ps
+  #}elsif( -x '/bin/ps' ){ # not as portable
+  # the ps command itself really isn't portable
+  # this follows BSD syntax ps (BSD's and linux)
+  # this will fail on Unix98 syntax ps (Solaris, etc)
+  } elsif( `ps h o pid p $$` =~ /^\s*$$\s*$/ ){ # can I play ps on myself ?
+      $exists = `ps h o pid p $current_pid`;
+  }
+
+  ### running process exists, ouch
+    if( $exists ){
+
+        if( $current_pid == $$ ){
+            $log->warn("Pid_file created by this same process. Doing nothing.");
+            return 1;
+        }else{
+            kill 'TERM', $current_pid
+                or $log->logdie("Failed to signal process ($current_pid)");
+            unlink $pid_file || $log->logdie("Couldn't remove pid_file \"$pid_file\" [$!]");
+        }
+    }
+
+    return 0;
+}
+
+sub df_through_ssh {
+    my $hostname = shift;
+    my $mountpoint = shift;
+    my $units = shift;
+    $log->debug("Getting info from mountpoint = [$mountpoint] / unit = [$units] / hostname = [$hostname]");
+    my $df_data = qx/ssh $hostname 'df $mountpoint' | grep -v Filesystem/;
+    $df_data =~ s/\s+/:/g;
+    $log->debug("Received from ssh = [$df_data]");
+    my %df_info = ();
+    $df_info{"blocks"} = 0;
+    $df_info{"used"} = 0;
+    unless ($df_data) {
+        # We cannot connect to the host for some reason However, the
+        # partition can be mounted on some other hosts (in the case of
+        # an original host failure or upgrade for instance) Let's look
+        # for an entry in /etc/autofs/auto.data starting with
+        # <hostname>.[012] If it's in there, return (blocks => 1, used
+        # => 1). The partition is mounted but not available for
+        # replication (since blocks-used = 0 and used/blocks=1=100%).
+        my $partition_name = $mountpoint;
+        $partition_name =~ s/\/export\///;
+        $log->debug("Looking for $partition_name in /etc/autofs/auto.data");
+        open(AUTODATA, "</etc/autofs/auto.data") or die("Can't open /etc/autofs/auto.data");
+        foreach my $line (<AUTODATA>) {
+            if ($line =~ /^$partition_name/) {
+                $log->debug("$partition_name found in /etc/autofs/auto.data");
+                close(AUTODATA);
+                $df_info{"blocks"} = 1;
+                $df_info{"used"} = 1;
+                return \%df_info;
+            }
+        }
+        $log->debug("$partition_name NOT found in /etc/autofs/auto.data");
+        close(AUTODATA);
+        return undef;
+    }
+    my @data = split(/:/, $df_data);
+    $df_info{"blocks"} = $data[1];
+    $df_info{"used"} = $data[1]-$data[3];
+    $log->debug("blocks = " . $df_info{"blocks"} . " / used = " . $df_info{"used"});
+    return \%df_info;
+}
+
+__END__
+
+=pod
+
+=head1 NAME
+
+nebdiskd - Nebulous mounted volume capacity monitoring daemon
+
+=head1 SYNOPSIS
+
+    nebdiskd [--db|-D <db name>] [--dbhost|-H <db hostname>
+    [--dbuser|-u <db username>] [--dbpass|-p <db password>] [--debug|-d]
+    [--user|-U <username>] [--group|-g <groupname>] [--pidfile <filename>]
+    [--retry <n>] [--stop|-s] [--restart|-r] [--verbose|-v]
+
+=head1 DESCRIPTION
+
+This program looks for mounted volumes, at a configurable interval, and records
+statistics about them into a database.
+
+=head1 OPTIONS
+
+=over 4
+
+=item * --db|-D <db name>
+
+Name of database (C<namespace>) to write too.
+
+Optional if defined in the F<.nebdiskdrc> file or the appropriate environment
+variable is set.
+
+=item * --dbuser|-u <username>
+
+Username to authenticate with.
+
+Optional if defined in the F<.nebdiskdrc> file or the appropriate environment
+variable is set.
+
+=item * --dbpass|-p <password>
+
+Password to authenticate with.
+
+Optional if defined in the F<.nebdiskdrc> file or the appropriate environment
+variable is set or if the database does not require a password.
+
+=item * --dbhost|-H <hostname>
+
+Database host to connect to.
+
+Optional if defined in the F<.nebdiskdrc> file or the appropriate environment
+variable is set.
+
+=item * --debug|-d
+
+This flag prevents the program from "daemonizing" so output can be sent to
+C<stdout>/C<stderr> and a debugger used on the running process.
+
+=item * --pidfile <filename>
+
+Filename to log the running daemon's PID too.
+
+Optional, if this option is omitted and no value is defined in the
+F<.nebdiskrc> then no pidfile is created.
+
+=item * --stop|-s
+
+Uses the pidfile to kill an already running daemon.
+
+=item * --restart|-r
+
+Uses the pidfile to kill an already running daemon and then starts a new
+instance.
+
+=item * --retry
+
+The number of times to test a mountpoint for "mountedness" before giving up on
+it.
+
+=item * --verbose|-v
+
+Turns on informational/debugging messages to be sent to the
+C<stderr>/C<stdout>.  This option is probably not very usefully unless combined
+with C<--debug>.
+
+=item * --user|-U
+
+user account to run daemon as.
+
+=item * --group|-g
+
+group to run daemon as.
+
+=back
+
+=head1 ENVIRONMENT
+
+These environment variables may be used in place of the specified command line
+options.  All command line option will override the corresponding environment
+value.
+
+=over 4
+
+=item * C<NEB_DB>
+
+Equivalent to --db|-D
+
+=item * C<NEB_USER>
+
+Equivalent to --dbuser|-u
+
+=item * C<NEB_PASS>
+
+Equivalent to --dbpass|-p
+
+=back
+
+=head1 RCFILE
+
+This program will attempt to read an C<rcfile> from F<$HOME/.nebdiskrc> and if
+found will use it's values to override program defaults.  Please not that the
+precedence for values is: command line, rcfile, environment variables.
+
+The format of the C<rcfile> is in L<YAML> format and uses the following values:
+
+    ---
+    db: nebulous
+    dbpass: '@neb@'
+    dbuser: nebulous
+    pidfile: /var/tmp/nebdiskd
+    poll_interval: 5
+    retry: 3
+
+The values C<db>, C<dbpass>, C<dbuser>, and C<pidfile> have the same semantics
+as their command line and/or environment variable equivalents.
+
+=over 4
+
+This value may be omitted or left blank.
+
+=item * C<poll_interval>
+
+The number of seconds to wait between checks for mounted volumes.
+
+This value may be omitted or left blank.  The default value is C<60>s.
+
+=item * C<retry>
+
+Same as C<--retry>.
+
+=back
+
+=head1 CREDITS
+
+Just me, myself, and I.
+
+=head1 SUPPORT
+
+Please contact the author directly via e-mail.
+
+=head1 AUTHOR
+
+Joshua Hoblitt <jhoblitt@cpan.org>
+
+=head1 COPYRIGHT
+
+Copyright (C) 2007-2009  Joshua Hoblitt.  All rights reserved.
+
+This program is free software; you can redistribute it and/or modify it under
+the terms of the GNU General Public License as published by the Free Software
+Foundation; either version 2 of the License, or (at your option) any later
+version.
+
+This program is distributed in the hope that it will be useful, but WITHOUT ANY
+WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A
+PARTICULAR PURPOSE.  See the GNU General Public License for more details.
+
+You should have received a copy of the GNU General Public License along with
+this program; if not, write to the Free Software Foundation, Inc., 59 Temple
+Place - Suite 330, Boston, MA  02111-1307, USA.
+
+The full text of the license can be found in the L<perlgpl> Pod as supplied
+with Perl 5.8.1 and later.
+
+=head1 SEE ALSO
+
+L<Nebulous::Server>, L<YAML>, L<neb-addvol>, L<neb-df>, L<neb-initdb>
+
+=cut

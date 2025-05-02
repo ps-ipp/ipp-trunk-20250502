@@ -1,0 +1,9 @@
+
+This directory contains the Ohana version of libskycalc, a small
+collection of astronomical almanac functions.  This library is derived
+from the skycalc progrm provided to the community by John Thorstensen
+(Dartmouth College).  See the file doc/Thorstensen.txt for his
+discussion of skycalc, including the legal release.  
+
+Skycalc, and thus this code, are released for non-commercial use only,
+and are not explicitly covered by the GPL.

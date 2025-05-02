@@ -1,0 +1,41 @@
+
+- libfits 1.6 : 2006.08.23
+  * in order to allow compliation with cfitsio programs, I have changed the 
+    entire namespace to 'gfits' from 'fits'  (actually, only fits_copy_header 
+    was conflicting, but it is better to have a sufficiently different namespace).  
+    All ohana programs need to migrate to the new version of libfits.
+  * set buffer to NULL in gfits_init_header 
+
+- libfits 1.5
+  * cleaned up signed/unsigned inconsistencies
+
+libfits-1-4:
+  added dependency on libohana
+  make libfits work with ohana_allocate
+  removed internal fits.h include file, 
+  replaced with the common fitsio.h file
+
+2005.10.07
+
+	I was having some memory collision problems, and attempting to
+	use the ohana_allocate functions reminded me that the libFITS
+	functions were not supported under ohana_allocate.  This was
+	unhelpful.  I bit the bullet and split libohana into libohana
+	(base functions only, including ohana_allocate) and libdvo
+	(functions based on the libautocode structures).  Doing this
+	allowed me to make libFITS depend on libohana (including
+	ohana_allocate).  BUT, this forced me to change all LDFLAGS
+	entries in ohana to swap -lohana -lFITS for -lFITS -lohana,
+	and to add include <fitsio.h> in some cases.
+
+libfits-1-3:
+ added some additional vtable support, fixed minor iterpretation errors
+ in fits_modify.  
+
+libfits-1-1: 
+
+  F_scan now skips leading ' before parsing value : some bad FITS
+  writers add ' to float entries!
+
+libfits-1-0:
+  imported to CVS

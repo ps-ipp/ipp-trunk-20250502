@@ -1,0 +1,10 @@
+
+# addstar tests:
+
+1) simple ingest
+   * create a fake input and ingest into a dvo database
+   * check all fields in the input file against the dvo database
+
+2) addstar matches:
+  * ingest fake cmf 2x
+  * check for 

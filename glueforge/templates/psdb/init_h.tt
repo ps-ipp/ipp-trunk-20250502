@@ -1,0 +1,13 @@
+/** Opens a new database connection
+ *
+ *  @return A new psDB object if the database connection is successful or NULL
+ *  on failure.
+ */
+
+psDB *[% pkg_namespace %]Init(
+    const char      *host,              ///< Database server hostname
+    const char      *user,              ///< Database username
+    const char      *passwd,            ///< Database password
+    const char      *dbname,            ///< Database table.namespace
+    unsigned int    port                ///< Database port
+);

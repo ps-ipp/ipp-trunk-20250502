@@ -1,0 +1,15 @@
+SIMPLE  =                    T /                                               
+BITPIX  =                  -32 /                                               
+NAXIS   =                    2 /                                               
+NAXIS1  =                  100 /                                               
+NAXIS2  =                  100 /                                               
+PCOUNT  =                    0 /                                               
+GCOUNT  =                    1 /                                               
+BSCALE  =         1.0000000000 /                                               
+BZERO   =         0.0000000000 /                                               
+EXTEND  =                    F /                                               
+STRVAL  = 'STRING VALUE      ' / STRING VALUE COMMENT                          
+FLTVAL  = 3.1415000000 / FLOAT VALUE COMMENT                                   
+INTVAL  = 2 / INTEGER VALUE COMMENT                                            
+BOOLVAL = F / BOOL VALUE COMMENT                                               
+COMMENT  STRING COMMENT                                                        

@@ -1,0 +1,5 @@
+-- 2010-06-24 edit to add notes.
+
+ALTER TABLE volume ADD COLUMN note VARCHAR(255) AFTER cab_id;
+ALTER TABLE mountedvol ADD COLUMN note VARCHAR(255) AFTER used;
+

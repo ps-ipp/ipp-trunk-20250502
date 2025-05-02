@@ -1,0 +1,13 @@
+
+  contour <buffer> (overlay) level [Npix]
+
+  "contour" makes a contour plot from the given <buffer> at the
+specified level.  If Npix is specified, the image is rebinned by a
+factor of Npix in each direction.  The contour is drawn as a series of
+lines on the specified overlay.  The new lines are added to any
+existing shapes.  (Use "erase" first to erase all objects if desired).
+
+Valid overlays may be: 0, red, 1, green, 2, blue, 3, yellow.
+
+  See also: load, save, erase
+

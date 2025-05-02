@@ -1,0 +1,7 @@
+      1 Getopt::Long
+      1 Pod::Usage
+      1 PS::IPP::Metadata::Config
+      1 strict
+      1 Template
+      1 vars
+      1 warnings

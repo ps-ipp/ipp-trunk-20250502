@@ -1,0 +1,4 @@
+
+2006.08.23:
+  base-1-4 : added doc and test to base
+	     minor updates to configure

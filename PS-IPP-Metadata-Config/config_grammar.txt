@@ -1,0 +1,355 @@
+# Copyright (c) 2005  Joshua Hoblitt
+#
+# $Id: config_grammar.txt,v 1.17 2008-02-19 23:35:38 jhoblitt Exp $
+
+{
+    use strict;
+
+    use Carp qw( carp );
+    use DateTime::Format::ISO8601;
+
+    our @scope_stack;
+}
+
+startrule: grammar <commit> eofile
+    { $item{grammar} }
+    | <error: of metadata file : could not parse beyond this point>
+
+grammar:
+    statement(s)
+        {
+            $thisparser->{local} = pop @scope_stack;
+            [ grep $_->{class} !~ /comment_line/, @{$item{'statement(s)'}} ];
+        }
+
+statement:
+    scalar
+    | comment_line
+    | metadata
+    | typedef
+    | typedef_declare
+    | multi_declare
+    | vector
+    | <error:unmatched statement: $text>
+
+scalar:
+    <skip:'[ \t\r]*'> name type <matchrule:$item{type}> comment(?) "\n"
+        {
+            $thisparser->{local}{name}{ $item{name} }++
+                unless defined $thisparser->{local}{name}{ $item{name} };
+
+            $return = {
+                class   => 'scalar',
+                name    => $item{name},
+                type    => $item{type},
+                value   => $item[4],
+            };
+
+            $return->{comment} = $item{'comment(?)'}[0]
+                if $item{'comment(?)'}[0];
+
+            if ( defined $thisparser->{local}{name}{ $item{name} } ) {
+                $return->{multi}++
+                    if $thisparser->{local}{name}{ $item{name} } =~ /MULTI/;
+            } else {
+                $thisparser->{local}{name}{ $item{name} }++;
+            }
+        }
+
+vector:
+     <skip:'[ \t\r]*'> vname <commit> vtype vvalue[ $item{vtype} ] comment(?) "\n"
+        {
+            $thisparser->{local}{name}{ $item{vname} }++
+                unless defined $thisparser->{local}{name}{ $item{vname} };
+
+            $return = {
+                class   => 'vector',
+                name    => $item{vname},
+                type    => $item{vtype},
+                value   => $item{vvalue},
+                comment => $item{comment}
+            };
+
+            $return->{comment} = $item{'comment(?)'}[0]
+                if $item{'comment(?)'}[0];
+        }
+    | <error?:redefinition of MULTI> <reject>
+
+multi_declare:
+    <skip:'[ \t\r]*'> name /MULTI/i <commit> comment(?) "\n"
+        {
+            if ( ! defined $thisparser->{local}{name}{ $item{name} } ) {
+                $thisparser->{local}{name}{ $item{name} } = "MULTI";
+                $return = { class   => 'comment_line' };
+            } else {
+                $return = undef;
+            }
+        }
+    | <error?:redefinition of MULTI> <reject>
+
+# can't comit after the metadat_name here as it seems to break parsing empty
+# metadatas
+metadata:
+    <skip:'[ \t\r]*'> name /METADATA/i comment(?) "\n"
+    <commit>
+    { push @scope_stack, $thisparser->{local}; $thisparser->{local} = {}; 1; }
+    grammar(?)
+    <skip:'[ \t\r]*'> /END/i comment(?) "\n"
+
+        {
+            if (@{$item{'grammar(?)'}}) {
+                $return = {
+                    class   => 'metadata',
+                    name    => $item{name},
+                    value   => @{$item{'grammar(?)'}},
+                };
+            } else {
+                $return = {
+                    class   => 'metadata',
+                    name    => $item{name},
+                    value   => [],
+                };
+            }
+
+            $return->{comment} = $item[4][0]
+                if defined $item[4][0];
+
+            if ( defined $thisparser->{local}{name}{ $item{name} } ) {
+                $return->{multi}++
+                    if $thisparser->{local}{name}{ $item{name} } =~ /MULTI/;
+            } else {
+                $thisparser->{local}{name}{ $item{name} }++;
+            }
+        } 
+    | <error?:bad METADATA syntax: $text> <reject>
+
+comment_line:
+    <skip:'[ \t\r]*'> comment(?) "\n"
+        {{ class   => 'comment_line' }}
+
+typedef_declare:
+    <skip:'[ \t\r]*'> 'TYPE' <commit> name name(s) comment(?) "\n"
+        {
+            if (defined $thisparser->{local}{typedef}{ $item{name} }) {
+                carp "refinition of TYPE $item{name}";    
+                $return = undef;
+            } else {
+
+                my $type = {
+                    class   => 'typedef_declare',
+                    name    => $item{name},
+                    fields  => $item{'name(s)'},
+                    length  => scalar @{ $item{'name(s)'} },
+                };
+
+                $thisparser->{local}{typedef}{ $item{name} } = $type;
+
+                # don't return anything in the parse tree
+                $return = { class => 'comment_line' };
+            }
+        }
+    | <error?:redefinition of TYPE> <reject>
+
+typedef:
+    <skip:'[ \t\r]*'> name typedef_type <commit> word(s) comment(?) "\n"
+        {
+            my $type = $thisparser->{local}{typedef}{ $item{typedef_type} };
+
+            unless ( scalar @{ $item{'word(s)'} } == $type->{length} ) {
+                my $expect = $type->{length};
+                my $got = scalar @{ $item{'word(s)'} };
+                carp "\"$item{name} $item{typedef_type}\""
+                    . " does not have enough fields, epected: $expect, got: $got";
+                $return = undef;
+            } else {
+                my @md;
+                my $i = 0;
+                foreach my $name ( @{ $type->{fields} } ) {
+                    push @md, {
+                        name    => $name,
+                        class   => 'scalar',
+                        type    => 'STR',
+                        value   => $item{'word(s)'}[$i],
+                    };
+
+                    $i++;
+                }
+
+                $return = {
+                    class   => 'metadata',
+                    name    => $item{name},
+                    value   => \@md,
+                };
+
+                if ( defined $thisparser->{local}{name}{ $item{name} } ) {
+                    $return->{multi}++
+                        if $thisparser->{local}{name}{ $item{name} } =~ /MULTI/;
+                } else {
+                    $thisparser->{local}{name}{ $item{name} }++;
+                }
+            }
+
+        }
+    | <error?:'TYPE' does not have enough parameters: $text> <reject>
+
+
+typedef_type: name
+        {
+            if ( ! defined $thisparser->{local}{typedef}{ $item{name} } ) {
+                $return = undef;
+            } else {
+                $return = $item{name};
+            }
+        }
+
+comment:
+    '#' to_end_of_line
+        { $item{to_end_of_line} }
+
+vname:
+    '@' name
+        { $item{name} }
+
+name:
+    /[\w][.\w-]*/i
+        {
+            if ( $item[1] =~ /^(METADATA|END|TYPE)$/i ) {
+                $return = undef;
+            } else {
+                $return = $item[1];
+            }
+        }
+
+# 'STR' seems to be the most common type, trying to match it first is a simple
+# optimization.
+type: 
+    vtype
+    | /(STR
+    | STRING
+    | UTC
+    | UT1
+    | TAI
+    | TT)/x
+
+vtype: 
+    /(S8
+    | S16
+    | S32
+    | S64
+    | U8 
+    | U16
+    | U32
+    | U64
+    | F32
+    | F64
+    | C32
+    | C64
+    | BOOL)/x
+
+S8: int
+S16: int
+S32: int
+S64: int
+U8 : int
+U16: int
+U32: int
+U64: int
+F32: float
+F64: float
+C32: float
+C64: float
+BOOL: bool
+STR: string
+STRING: string
+
+vvalue:
+    _vvalue[%arg](s)
+        { [ map { @$_ } @{$item[1]} ] }
+
+# backtracking optimization
+_vvalue:
+    <matchrule:$arg[0]> vector_sep(?)
+        { [ $item[1] ] }
+
+vector_sep:
+    /,|\s+/
+
+int:
+    # $RE{num}{int} from Regexp::Common::number
+    /(?:(?:[+-]?)(?:[0-9]+))/
+
+    # based on $RE{num}{real} from Regexp::Common::number
+float:
+    /(?:(?i)(?:[+-]?)(?:(?=[0-9]|[.])(?:[0-9]*)(?:(?:[.])(?:[0-9]{0,}))?)(?:(?:[Ee])(?:(?:[+-]?)(?:[0-9]+))|))/
+    | inf
+    | nan
+
+inf:
+    /[+-]?inf(?:inity)?/i
+        {
+            if ($item[1] =~ /^-/) {
+                $return = "-inf";
+            } else {
+                $return = "+inf";
+            }
+        }
+nan:
+    /[+-]?nan(?:\(\S*?\))?/i
+        { $return = "nan" }
+
+bool:
+    /(true|false|t|f)/i
+        { $item[1] =~ /t/i ? 1 : 0 }
+
+string:
+    /[^#\n\s]+[^#\n]*/
+        # trim tailing the trailing white that's left when the string is
+        # followed by a comment (#)
+        { 
+            $item[1] =~ s/\s*$//;
+            $return = $item[1];
+        }
+    | NULL
+
+word:
+    /(?:[^#\s\n]+)/
+
+to_end_of_line:
+    /[^\n]*/
+        {
+            my $comment = $item[1];
+            # remove leading whitespace
+            $comment =~ s/^\s+//;
+            # remove trailing whitespace
+            $comment =~ s/\s+$//;
+
+            $return = $comment;
+        }
+
+UTC:
+    iso8601
+    | NULL
+
+UT1:
+    iso8601
+    | NULL
+
+TAI:
+    iso8601
+    | NULL
+
+TT:
+    iso8601
+    | NULL
+
+iso8601:
+    # based on code from DateTime::Format::ISO8601
+    / \d{4} -?? \d\d -?? \d\d T?? \d\d :?? \d\d :?? \d\d (?:[\.,] (\d+))? Z?/x
+        { DateTime::Format::ISO8601->parse_datetime( $item[1] ) }
+
+NULL:
+    /NULL/
+    { $return = "NULL" }
+
+eofile:
+    /^\z/

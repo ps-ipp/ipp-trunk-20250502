@@ -1,0 +1,28 @@
+bool [% pkg_namespace %]PrintMetadatas(FILE *stream, psArray *mds, const char *mdname, bool mdcf)
+{
+    PS_ASSERT_PTR_NON_NULL(mds, false);
+    PS_ASSERT_PTR_NON_NULL(mdname, false);
+
+    psMetadata *output = psMetadataAlloc();
+    for (long i = 0; i < psArrayLength(mds); i++) {
+        psMetadata *md = psMetadataCopy(NULL, mds->data[i]);
+        if (!psMetadataAddMetadata(output, PS_LIST_TAIL, mdname, PS_META_DUPLICATE_OK, NULL, md)) {
+            psError(PS_ERR_UNKNOWN, false, "failed to add a metadata item");
+            psFree(md);
+            psFree(output);
+            return false;
+        }
+
+        psFree(md);
+    }
+
+    if (![% pkg_namespace %]PrintMetadata(stream, output, mdcf)) {
+        psError(PS_ERR_UNKNOWN, false, "failed to print metadata");
+        psFree(output);
+        return false;
+    }
+
+    psFree(output);
+
+    return true;
+}

@@ -1,0 +1,21 @@
+#  stack bycoord from 3PI released
+#
+#  REQ_NAME EXTVER ACTION EMAIL
+CHANGEME 2 PROCESS null
+#  ROWNUM CENTER_X CENTER_Y WIDTH HEIGHT COORD_MASK JOB_TYPE OPTION_MASK PROJECT SURVEY_NAME IPP_RELEASE REQ_TYPE IMG_TYPE ID TESS_ID COMPONENT DATA_GROUP REQFILT MJD_MIN MJD_MAX RUN_TYPE FWHM_MIN FWHM_MAX | COMMENT
+
+# this should pick up best (3PI.PV1)
+1         241.54949 55.4273 1500  1500   2      stamp      2057         gpc1      3PI         null     bycoord    stack  null null   null      null       i        0      0        null      0        10    | 3PI no release
+
+# this will find same stack but not get the skycal cmf
+2         241.54949 55.4273 1500  1500   2      stamp      2057         gpc1      null        null     bycoord    stack  null null   null    LAP.ThreePi.20120706%       i        0 0        null      0        10    | no release LAP data group
+
+# this should find MD08 refstack
+3         241.54949 55.4273 1500  1500   2      stamp      2057         gpc1      MD08        null     bycoord    stack  null null   null     null       i        0      0        reference      0        10    | MD08 reference
+
+# test that we avoid the nightly stacks
+4         241.54949 55.4273 1500  1500   2      stamp      2057         gpc1      MD08        null     bycoord    stack  null null   null     null       i        0 0        notnightly      0        10    | no release notnightly
+
+
+# this looks for a deep stack but there are none yet
+5         241.54949 55.4273 1500  1500   2      stamp      2057         gpc1      MD08        null     bycoord    stack  null null   null     null       i        0      0        deep      0        10    | MD08 deep

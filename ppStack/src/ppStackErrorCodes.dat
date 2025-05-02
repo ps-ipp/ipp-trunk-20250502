@@ -1,0 +1,13 @@
+#
+# This file is used to generate ppStackErrorClasses.h
+#
+BASE = 13000		First value we use; lower values belong to psLib
+UNKNOWN			Unknown ppSub error code
+NOT_IMPLEMENTED		Desired feature is not yet implemented
+ARGUMENTS		Incorrect arguments
+CONFIG			Problem in configure files
+IO			Problem in FITS I/O
+DATA                    Problem in data values
+PSF			Problem determining PSF
+REJECTED		All images rejected
+PROG			Programming error

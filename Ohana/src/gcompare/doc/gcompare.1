@@ -1,0 +1,52 @@
+.ad l
+.nh
+.TH gcompare 1.0 "Sept 18, 1992" "Version 1.0"
+.SH NAME
+\fIgcompare:\fP  2-D intercomparison between 2 files
+
+.SH SYNOPSIS
+.B gcompare [-d -m -n1 -n2 -s1 N -s2 N -c X Y] file1 X1 Y1 file2 X2 Y2 radius
+
+.SH DESCRIPTION
+\fIgcompare\fP takes two files and compares the entries with one with
+the entries in the second.  Two columns (X and Y) which contain the
+coordinates are given.  Lines in the second file with coordinates
+within the given radius of the first file are selected.  Depending on
+the optional flags, any of the following are printed:  
+1) the coordinate difference for these matched lines,
+2) both matched lines (concatenated into a single line)
+3) \fIunmatched\fP lines from file 1 
+4) \fIunmatched\fP lines from file 2 
+
+.SS OPTIONS
+.TP
+.I "-d"
+Include in the output the coordinate differences for the two files
+.TP
+.I "-m"
+Include in the output the matched lines from the two files
+.TP
+.I "-n1"
+Include in the output the unmatched lines from file 1
+.TP
+.I "-n2"
+Include in the output the unmatched lines from file 2
+.TP
+.I "-s1 N"
+skip the first N lines of file 1
+.TP
+.I "-s2 N"
+skip the first N lines of file 2
+.TP
+.I "-c X Y"
+offset the coordinates of file 2 by (X,Y)
+.TP
+.I "-h, -help"
+print a short help summary
+
+
+.SH COPYRIGHT
+Copyright 1993 Eugene Magnier
+.PP                                                
+.SH AUTHOR
+Eugene Magnier.  MIT - CSR, UvA

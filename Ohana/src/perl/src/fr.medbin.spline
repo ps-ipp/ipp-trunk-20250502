@@ -1,0 +1,125 @@
+#!/usr/bin/env perl
+
+# check the usage
+if ($ARGV[0] eq "-h") { usage (); }
+if ($ARGV[0] eq "-help") { usage (); }
+if (@ARGV != 5) { die "USAGE: fr.medbin (path) (root) (factor) (meddir) (mapdir)\n" }
+
+# assign the command line arguments
+$path   = $ARGV[0];
+$root   = $ARGV[1];
+$factor = $ARGV[2];
+$meddir = $ARGV[3];
+$mapdir = $ARGV[4];
+
+$Nccd = `cameraconfig -Nccd`; chop ($Nccd);
+@ccds = split (" ", `cameraconfig -ccdn`);
+if ($?) { die "ERROR: cameraconfig error\n"; }
+
+($Xmap, $Ymap) = split (" ", `gconfig FRINGE_MAP_SCALE`);
+if ($?) { die "ERROR: missing FRINGE_MAP_SCALE in config system\n"; }
+
+if (! -d $meddir) { vsystem ("mkdir -p $meddir"); }
+if (! -d $mapdir) { vsystem ("mkdir -p $mapdir"); }
+
+open (MANA, "|mana --norc");
+
+# convert BIASSEC string to x1, x2, y1, y2 vars
+print MANA "macro parsesec\n";
+print MANA "  \$f = \$1\n";
+print MANA "  getchr \$f : n\n";
+print MANA "  substr \$f 1 {\$n-1} x1\n";
+print MANA "  strlen \$f N\n";
+print MANA "  substr \$f \$n {\$N-\$n} f\n";
+  
+print MANA "  getchr \$f , n\n";
+print MANA "  substr \$f 1 {\$n-1} x2\n";
+print MANA "  strlen \$f N\n";
+print MANA "  substr \$f \$n {\$N-\$n} f\n";
+  
+print MANA "  getchr \$f : n\n";
+print MANA "  substr \$f 1 {\$n-1} y1\n";
+print MANA "  strlen \$f N\n";
+print MANA "  substr \$f \$n {\$N-\$n} f\n";
+  
+print MANA "  getchr \$f ] n\n";
+print MANA "  substr \$f 1 {\$n-1} y2\n";
+print MANA "  strlen \$f N\n";
+print MANA "  substr \$f \$n {\$N-\$n} f\n";
+print MANA "end\n";
+
+print MANA "macro mkmap\n";
+# load detrended image
+print MANA " rd a \$1\n";
+print MANA " keyword a NAXIS1 nx\n";
+print MANA " keyword a NAXIS2 ny\n";
+
+# generate binned image 
+print MANA " medianmap a b {\$nx/$factor} {\$ny/$factor} -range 0.25 0.75\n";
+print MANA " keyword a DATASEC line\n";
+print MANA " parsesec \$line\n";
+print MANA " sprint newline \"[%d:%d,%d:%d]\" {int(\$x1/2 + 1)} {int(\$x2/2 + 1)} {int(\$y1/2 + 1)} {int(\$y2/2 + 1)}\n";
+print MANA " keyword b DATASEC -w \$newline\n";
+print MANA " keyword b NAXIS1 nx\n";
+print MANA " keyword b NAXIS2 ny\n";
+
+# sky from first ccd saved for reference
+print MANA " if (\$setsky)\n";
+print MANA "  stats -q b - - - -\n";
+print MANA "  \$sky = \$MEDIAN\n";
+print MANA "  \$setsky = 0\n";
+print MANA " end\n";
+# we use the sky value of the first chip to remove the DC level for map, add it to med
+
+# create Xmap x Ymap sky map, spline-fit to medbin scale
+print MANA " medianmap b m $Xmap $Ymap -ignore 0.0 -range 0.25 0.75\n";
+print MANA " set m = m - \$sky\n";
+print MANA " spline.construct m M x\n";
+print MANA " spline.apply m M sky x \$nx \$ny\n";
+
+# multiplying by (abs(b) > 0.001) maintains the mask
+print MANA " set c = (b - sky) * (abs(b) > 0.001)\n";
+print MANA " wd c \$2\n";
+print MANA " wd m \$3 -bitpix -32 -bzero 0.0 -bscale 1.0\n";
+print MANA "end\n";
+
+print MANA "macro go\n";
+print MANA " \$setsky = 1\n";
+for ($ccd = 0; $ccd < $Nccd; $ccd++) {
+    $infile = sprintf "%s/%s%s.fits", $path,   $root, $ccds[$ccd];
+    $outmed = sprintf "%s/%s%s.fits", $meddir, $root, $ccds[$ccd];
+    $outmap = sprintf "%s/%s%s.fits", $mapdir, $root, $ccds[$ccd];
+    print MANA " mkmap $infile $outmed $outmap\n";
+}
+print MANA " exit 0\n";
+print MANA "end\n";
+print MANA "go\n";
+print MANA "exit 1\n";
+close (MANA);
+if ($?) {
+    print STDERR "ERROR running mana\n";
+    exit 1;
+}
+
+print STDOUT "SUCCESS: finished with fr.medbin.spline\n";
+exit 0;
+
+sub vsystem {
+    print STDERR "@_\n";
+    $status = system ("@_");
+    $status;
+}
+
+sub goodbye {
+    die "@_\n";
+}
+
+sub usage {
+    print "\n";
+    print "USAGE: fr.medbin.spline (path) (root) (factor) (outpath)\n";
+    print " path:   path to MEF image or SPLIT dir\n";
+    print " root:   root name of image (MEF = root.fits, SPLIT = root/rootNN.fits)\n";
+    print " mode:   MEF or SPLIT\n";
+    print " outdir: directory for output results (all split)\n";
+    exit 1;
+}

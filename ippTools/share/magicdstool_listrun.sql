@@ -1,0 +1,4 @@
+SELECT 
+    magicDSRun.*
+FROM
+    magicDSRun

@@ -1,0 +1,92 @@
+
+functions in time.c:
+
+int    get_sys_date (struct SC_date_time *date)
+       set SC date & time from system clock
+
+double date_to_jd (struct SC_date_time date)
+       convert JD to SC date & time
+
+void   jd_to_date (double jdin, struct SC_date_time *date)
+       convert SC date & time to JD
+
+double lst (double jd, double longit)
+       convert JD & longitude to LST
+
+double adj_time (double x)
+       force time domain to be -12h and 12h 
+
+
+functions in geometry.c:
+
+void   xyz_cel (double x, double y, double z, double *r, double *d)
+       converts a coordinate triplet back to a standard ra and dec
+
+double atan_circ (double x, double y)
+       returns radian angle 0 to 2pi for coords x, y -- get that quadrant right !! */
+
+double altit (double dec, double ha, double lat, double *az)
+       returns altitude (degrees) for dec, ha, lat (degree)
+       also computes and returns azimuth through pointer argument.
+
+double ha_alt (double dec, double lat, double alt)
+       returns hour angle at which object at dec is at altitude alt.
+       If object is never at this altitude, signals with special
+       return values 1000 (always higher) and -1000 (always lower).
+
+void   min_max_alt (double lat, double dec, double *min, double *max)
+       computes minimum and maximum altitude for a given dec and latitude.
+
+double circulo (double x)
+       force domain to be 0 - 360 degrees
+
+
+functions in astro.c:
+
+void   precrot (double rorig, double dorig, double orig_epoch, double final_epoch, double *rf, double *df) {
+       accurate precession method from rorig, dorig, orig_epoch 
+
+void   geocent (double geolong, double geolat, double height, double x_geo, double y_geo, double z_geo)
+       return geocentric coordinate from geodetic data
+
+void   eclrot(double jd, double x, double y, double z)
+       rotates ecliptic rectangular coords x, y, z to equatorial
+
+double etcorr (double jd)
+       return correction to jd for shifts in ET or TDT
+
+void   set_zenith (struct SC_date_time date, double lat, double longit, double epoch, double *ra, double *dec)
+       return zenith coords for given date, time, epoch, position 
+
+
+functions is sun.c:
+
+void   lpsun (double jd, double ra, double dec)
+       return ra & dec for sun on given JD (low precision)
+
+double jd_sun_alt (double alt, double jdguess, double lat, double longit)
+       return JD for sun at given altitude, start with jdguess
+
+double sunset_tonight (struct SC_date_time date, double lat, double longit, double elev)
+       return JD for sunset before closest midnight to date & time
+
+double sunrise_tonight (struct SC_date_time date, double lat, double longit, double elev)
+       return JD for sunrise after closest midnight to date & time
+
+
+functions in moon.c:
+
+void   accumoon (double jd, double geolat, double lst, double elevsea, 
+       double *geora, double *geodec, double *geodist, 
+       double *topora, double *topodec, double *topodist)
+       calculate position of moon given jd, lat, etc.
+
+double jd_moon_alt (double alt, double jdguess, double lat, double longit, double elevsea)
+       return JD for moon at given altitude, start with jdguess
+
+double moonset_tonight (struct SC_date_time date, double lat, double longit, double elevsea, double elev) {
+       Given site position, return Moonset for closest midnight
+
+double moonrise_tonight (struct SC_date_time date, double lat, double longit, double elevsea, double elev) {
+       Given site position, return Moonrise for closest midnight
+

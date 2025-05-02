@@ -1,0 +1,49 @@
+
+psphot uses analytical models to represent stars (PSF model),
+galaxies, and trailed asteroids.  At certain points in the code, the
+analytical models are fitted to the source flux distributions using
+chi-square minimization (Levenberg Marquardt Minimization).  
+
+The analytical models have some common features, but there are some
+subtleties, especially wrt the way some of the galaxy parameters are
+modeled.
+
+Within the code, the models are represented by the pmModel structure.
+The fitted values of these parameters are carried on this structure in
+a psVector element.  The assignment of the different vector elements
+to the different parameters is hard-wired in the code, with the values
+of PM_PAR* used to abstract the values (eg, PM_PAR_SKY, etc).
+
+When the results of fits are written out to the CMF format fits files,
+the table field names may differ from the internal parameter names.
+In some cases, the model values themselves are modified.
+
+In the discussion below, I refer to both the PM_PAR_* values and the
+
+All models have 4 parameters in common:
+
+* XPOS, YPOS: the centroid position of the object 
+  * for PSF models in the PSF table, these are written as X_PSF, Y_PSF
+  * for EXT models in the extended model table, these are written as
+    X_EXT, Y_EXT
+
+* SKY : the local background.  Note, this parameter is in general NOT
+  fitted in psphot.  The local value is subtracted during the sky
+  background step and the residual is assumed to be zero. The output
+  tables store the value which was subtracted before the fit took
+  place.
+
+* I0 : the model flux normalization.  This field is normally not
+  written out to the FITS table.  Instead, the integrated flux or
+  magnitude (or both) is saved.
+
+All models, except for the trailed asteroid model, use a common
+elliptical contour.  The functional form of the model can then be
+written as I(x,y) = Io * f(z) where:
+
+z(x,y) = 0.5(x/\sigma_x)^2 + 0.5(y/\sigma_y)^2 + 0.5 x y \sigma_xy
+
+The elliptical profile is actually fitted using the following
+parameters:
+
+* SXX, SYY, SXY : For 

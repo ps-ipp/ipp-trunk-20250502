@@ -1,0 +1,8 @@
+
+   getchr (string) (char) [variable]
+
+   Return the index of the string in the position of the specified character
+
+   Only the first instance of a character is returned.
+
+   If not found, the variable is set to -1.

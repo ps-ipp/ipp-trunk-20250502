@@ -1,0 +1,192 @@
+== General notes ==
+
+Though efforts have been made to avoid this from occurring, where
+header keyword names are longer than the usual 8 character maximum,
+the HIERARCH convention will be used.
+
+Celestial coordinates are in ICRS.
+
+Magnitudes are AB magnitudes (flux zero point is 3631 Jy).
+
+Unless otherwise noted, error values are statistical only, and include
+no contribution by systematic errors.
+
+== Primary header ==
+
+The primary header will not contain any information beyond that
+written automatically by cfitsio, and is present only for compliance
+with the FITS standard.
+
+== FITS table ==
+
+The FITS table will include all detections within an exposure.
+
+Duplicates from overlapping skycells will have been filtered out by
+IPP, with the measurements from the source closest to the centre of a
+skycell included (and all others discarded).
+
+=== Header ===
+
+The header will contain information relevant to the exposure as a whole.
+
+ * Version information
+  * SWSOURCE (string): source of software (e.g., "60eb6cdc-a59c-4636-a4e0-dba66a9721fd")
+  * SWVERSN (string): version of software (e.g., "trunk/ppMops@24658")
+
+ * Provenance information
+  * EXP_NAME (string): Exposure name (e.g., "o1234g5678")
+  * EXP_ID (S64): Exposure identifier
+  * CHIP_ID (S64): Chip stage identifier
+  * CAM_ID (S64): Camera stage identifier
+  * FAKE_ID (S64): Fake stage identifier
+  * WARP_ID (S64): Warp stage identifier
+  * DIFF_ID (S64): Diff stage identifier
+  * DIFF_POS (boolean): Sense of subtraction; T for forward, F for backward
+
+ * Exposure details
+  * MJD-OBS (F64): TAI MJD of exposure mid-point
+  * RA (string): Reported Right Ascension of telescope boresight, sexagesimal hours (e.g., "12:34:56.789")
+  * DEC (string): Reported Declination of telescope boresight, sexagesimal degrees (e.g., "-12:34:56.78")
+  * TEL_ALT (F64): Reported telescope altitude, degrees
+  * TEL_AZ (F64): Reported telescope azimuth, degrees
+  * EXPTIME (F32): Exposure time, seconds
+  * ROTANGLE (F64): Rotator angle, degrees
+  * FILTER (string): Filter name (e.g., "r.00000")
+  * AIRMASS (F32): Airmass for exposure
+  * OBSCODE (string): IAU observatory code (i.e., "F51" for PS1)
+  * SEEING (F32): Measured seeing at diff stage, arcsec
+  * MAGZP (F32): Magnitude zero point
+  * MAGZPERR (F32): Error in magnitude zero point
+  * ASTRORMS (F32): RMS of astrometric fit, arcsec
+
+ * Detection efficiency
+  * DE_MAGnn (F32): Magnitude (calibrated) for detection efficiency
+  * DE_EFFnn (F32): Detection efficiency (0..1)
+
+==== Current limitations ====
+
+The IPP is not yet calculating detection efficiencies (it is still
+being developed).  Further, it is not yet clear how to merge the
+detection efficiency measurements for different skycells.  Until these
+issues are resolved, the detection efficiency values will be fake.
+
+==== Differences from original ICD ====
+
+ * SWSOURCE, SWVERSN has replaced TABLEVER which was never defined
+ * All of the "Provenance information" has replaced FPA_ID, for better tracking of the source of each detection
+ * SEEING and MAGZP added as indicators of the quality of the exposure
+ * MAGZPERR added to make absolute (i.e., across exposures) magnitude errors more accurate
+ * ASTRORMS added to make absolute (i.e., across exposures) astrometry errors more accurate
+ * DE_MAGnn and DE_EFFnn replace DE1 through DE10, which were never well defined
+ * Removed LIMITMAG, which was never well defined, and is unnecessary given the DE_MAGnn and DE_EFFnn
+
+=== Table ===
+
+The table will contain information relevant to the individual
+detections within the exposure.
+
+ * RA (F64): Right Ascension of detection centre, degrees
+ * RA_ERR (F64): Error in RA, degrees
+ * DEC (F64): Declination of detection centre, degrees
+ * DEC_ERR (F64): Error in DEC, degrees
+ * MAG (F32): Calibrated magnitude of detection
+ * MAG_ERR (F32): Error in MAG
+ * STARPSF (F32): A PSF/extended source separator
+ * ANGLE (F64): Angle of trail fit to source, degrees E of N
+ * ANGLE_ERR (F64): Error in ANGLE, degrees
+ * LENGTH (F32): Length of trail fit to source, degrees
+ * LENGTH_ERR (F32): Error in LENGTH, degrees
+ * FLAGS (S32): IPP detection flags, bit mask
+ * DIFF_SKYFILE_ID (S64): IPP diff_skyfile_id for source
+
+==== Current limitations ====
+
+The IPP is not yet fitting trails to sources in the difference images.
+Until this is being done, the ANGLE, ANGLE_ERR, LENGTH and LENGTH_ERR
+values will be zero.
+
+The value being written as STARPSF is EXT_NSIGMA from the IPP CMF
+files; it is not clear that this is what MOPS wants, but this is
+probably irrelevant until the trail fitting has been implemented.
+
+==== Differences from original ICD ====
+
+ * RA_DEG, DEC_DEG renamed RA, DEC to match apparent naming policy
+ * *_SIG renamed *_ERR to be more clear
+ * ANG, ANG_SIG, LEN, LEN_SIG spelled out as ANGLE, ANGLE_ERR, LENGTH, LENGTH_ERR
+ * FLUX, FLUX_SIG renamed MAG, MAG_ERR since IPP writes magnitudes
+ * FLAGS added to allow additional weeding out of bad detections
+ * DIFF_SKYFILE_ID added to allow trace back to IPP diff skyfile, for postage stamps
+
+
+=== Example ===
+
+{{{
+XTENSION= 'BINTABLE'           / binary table extension
+BITPIX  =                    8 / 8-bit bytes
+NAXIS   =                    2 / 2-dimensional binary table
+NAXIS1  =                   72 / width of table in bytes
+NAXIS2  =                42032 / number of rows in table
+PCOUNT  =                    0 / size of special data area
+GCOUNT  =                    1 / one data group (required keyword)
+TFIELDS =                   13 / number of fields in each row
+TTYPE1  = 'RA      '           / label for field   1
+TFORM1  = '1D      '           / data format of field: 8-byte DOUBLE
+TTYPE2  = 'RA_ERR  '           / label for field   2
+TFORM2  = '1D      '           / data format of field: 8-byte DOUBLE
+TTYPE3  = 'DEC     '           / label for field   3
+TFORM3  = '1D      '           / data format of field: 8-byte DOUBLE
+TTYPE4  = 'DEC_ERR '           / label for field   4
+TFORM4  = '1D      '           / data format of field: 8-byte DOUBLE
+TTYPE5  = 'MAG     '           / label for field   5
+TFORM5  = '1E      '           / data format of field: 4-byte REAL
+TTYPE6  = 'MAG_ERR '           / label for field   6
+TFORM6  = '1E      '           / data format of field: 4-byte REAL
+TTYPE7  = 'STARPSF '           / label for field   7
+TFORM7  = '1E      '           / data format of field: 4-byte REAL
+TTYPE8  = 'ANGLE   '           / label for field   8
+TFORM8  = '1E      '           / data format of field: 4-byte REAL
+TTYPE9  = 'ANGLE_ERR'          / label for field   9
+TFORM9  = '1E      '           / data format of field: 4-byte REAL
+TTYPE10 = 'LENGTH  '           / label for field  10
+TFORM10 = '1E      '           / data format of field: 4-byte REAL
+TTYPE11 = 'LENGTH_ERR'         / label for field  11
+TFORM11 = '1E      '           / data format of field: 4-byte REAL
+TTYPE12 = 'FLAGS   '           / label for field  12
+TFORM12 = '1J      '           / data format of field: 4-byte INTEGER
+TZERO12 =           2147483648 / offset for unsigned integers
+TSCAL12 =                    1 / data are not scaled
+TTYPE13 = 'DIFF_SKYFILE_ID'    / label for field  13
+TFORM13 = '1K      '           / data format of field: 8-byte INTEGER
+SWSOURCE= '60eb6cdc-a59c-4636-a4e0-dba66a9721fd' / Software source
+SWVERSN = 'branches/pap_mops/ppMops@25227' / Software version
+HISTORY ppMops at 2009-09-02T03:48:46.695783
+HISTORY psLib version: branches/pap_mops/psLib@25227
+HISTORY psLib source: 60eb6cdc-a59c-4636-a4e0-dba66a9721fd
+HISTORY ppMops version: branches/pap_mops/ppMops@25227
+HISTORY ppMops source: 60eb6cdc-a59c-4636-a4e0-dba66a9721fd
+EXP_NAME= 'o4995g0129o'        / Exposure name
+EXP_ID  =                77164 / Exposure identifier
+CHIP_ID =                24019 / Chip stage identifier
+CAM_ID  =                17726 / Cam stage identifier
+FAKE_ID =                10227 / Fake stage identifier
+WARP_ID =                 8842 / Warp stage identifier
+DIFF_ID =                    0 / Diff stage identifier
+DIFF_POS=                    F / Positive subtraction?
+MJD-OBS =     54995.4740598313 / MJD of exposure midpoint
+RA      = '18:25:01.988'       / Right Ascension of boresight
+DEC     = '-17:20:40.069'      / Declination of boresight
+TEL_ALT =            51.951873 / Telescope altitude
+TEL_AZ  =           179.483883 / Telescope azimuth
+EXPTIME =                  38. / Exposure time (sec)
+ROTANGLE=             333.1039 / Rotator position angle
+FILTER  = 'r.00000 '           / Filter name
+AIRMASS =                1.269 / Airmass of exposure
+OBSCODE = 'F51     '           / IAU Observatory code
+SEEING  =             1.678401 / Mean seeing
+MAGZP   =             28.65226 / Magnitude zero point
+MAGZPERR=             0.353063 / Error in magnitude zero point
+ASTRORMS=            0.3111496 / RMS of astrometric fit
+EXTNAME = 'MOPS_TRANSIENT_DETECTIONS'
+END
+}}}

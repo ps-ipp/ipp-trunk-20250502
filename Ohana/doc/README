@@ -1,0 +1,46 @@
+Documenation for Ohana:
+
+ Ohana includes:
+
+   1) fits - FITS I/O library (Eugene Magnier) (V 1.0)
+	These are clean, C-like FITS interaction routines which are
+	meant to be easy to program with and easy to read, etc.
+
+   2) readline - the GNU readline library. (FSF / GNU) (V1.1)
+	This routines allow for easy emacs / vi-like cursor interactions.
+
+   3) opihi - a shell template program (Eugene Magnier) (V1.0)
+      This program provides a tcsh-like interaction with macros
+	and math capabilities.  It is meant to be a template for any
+	program which may require a shell-like interaction, macros, and math.
+
+   4) mana - an image manipulation program. (Eugene Magnier) (V1.0)
+	This program is in someways similar to MIDAS, IRAF, or Vista (the standard
+	astrophysics analysis packages).  However, mana is meant to be more 
+	stripped down (it is not a "do everything in the world" program!).
+	Mana also has three major advantages over the large programs:
+	  a) it is easy to modify (clean, friendly code!)
+	  b) it has a nice macro language with math at the shell input
+	  c) it has a tcsh-like cursor interaction
+
+   5) kii - display program for mana.
+	This is the X window display tool used by mana.  It is not meant to be run
+	by the user, only by mana.
+
+
+
+-----------------------------------------------------------------------------------------
+Notes
+
+Compiled successfully for HP730, gcc & cc
+
+Compiled successfully for Sparc 
+
+
+
+
+-----------------------------------------------------------------------------------------
+Problems / Bugs
+
+mana / kii are rather slow in general - can we do anything about this?
+

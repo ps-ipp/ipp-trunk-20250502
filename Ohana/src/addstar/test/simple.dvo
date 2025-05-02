@@ -1,0 +1,477 @@
+# -*-sh-*-
+
+input tap.dvo
+input ptolemy.dvo
+
+# generates ptolemy.rc, dvo.photcodes, $zpt_nominal:g,r $klam_nominal:g,r
+mkptolemy.rc
+
+macro test.one
+  test.fields PS1_V5 PS1_V5
+end
+
+macro test.all
+  # test.fields (DVO schema) (CMF format)
+  test.fields PS1_DEV_0 PS1_V1
+  test.fields PS1_DEV_1 PS1_V1
+  test.fields PS1_V1    PS1_V1
+  test.fields PS1_V2    PS1_V1
+  test.fields PS1_V3    PS1_V1
+  test.fields PS1_V5    PS1_V1
+
+  test.fields PS1_DEV_0 PS1_V2
+  test.fields PS1_DEV_1 PS1_V2
+  test.fields PS1_V1    PS1_V2
+  test.fields PS1_V2    PS1_V2
+  test.fields PS1_V3    PS1_V2
+  test.fields PS1_V5    PS1_V2
+
+  test.fields PS1_DEV_0 PS1_V3
+  test.fields PS1_DEV_1 PS1_V3
+  test.fields PS1_V1    PS1_V3
+  test.fields PS1_V2    PS1_V3
+  test.fields PS1_V3    PS1_V3
+  test.fields PS1_V5    PS1_V3
+
+  test.fields PS1_DEV_0 PS1_V4
+  test.fields PS1_DEV_1 PS1_V4
+  test.fields PS1_V1    PS1_V4
+  test.fields PS1_V2    PS1_V4
+  test.fields PS1_V3    PS1_V4
+  test.fields PS1_V5    PS1_V4
+end  
+
+if (not($?NO_NOISE)) 
+  $NO_NOISE = ""
+end
+
+# create a populated catdir with a single cmf -- test each field
+macro test.fields
+  if ($0 != 3)
+    echo "USAGE: test.fields (cmftype) (dvotype?)"
+    break
+  end
+
+  echo ""
+  echo "testing --- CMF = $1, DVO = $2 ---"
+
+  exec rm -rf catdir.test
+
+  $RA = 10.0
+  $DEC = 20.0
+
+  mkinput
+  # tapEXEC mkcmf test.in.txt test.cmf -date 2008/1/1 -time 01:00:00 -radec $RA $DEC -type $1 $NO_NOISE
+
+  $options = 
+  $options = $options -type $1
+  $options = $options -radec $RA $DEC
+  $options = $options -mjd 54466.041667
+  $options = $options -date 2008/1/1 -time 01:00:00
+  $options = $options -photcode GPC1.g.XY00
+  $options = $options $NO_NOISE
+
+  # $options = $options -flags
+  # $options = $options -bad-psfqf-frac $DEFECT_FRAC
+  # $options = $options -size $CHIP_DX $CHIP_DY 
+  # $options = $options -crpix {0.5*$CHIP_DX} {0.5*$CHIP_DY} 
+  # $options = $options -airmass $AIRMASS
+  # $options = $options -exptime $EXPTIME
+  # $options = $options -coords 
+
+  tapEXEC mkcmf test.in.txt test.cmf $options
+  tapEXEC addstar -D CATDIR catdir.test -D CAMERA gpc1 test.cmf -D CATFORMAT $2 -quick-airmass
+
+  list testfields -copy testfields_$1
+
+  # set the number of tests based on the testfields list
+  tapPLAN {3 + 3*($testfields:n - 1)}
+
+  catdir catdir.test
+  skyregion {$RA-1.0} {$RA+1.0} {$DEC-1.0} {$DEC+1.0} 
+
+  data test.cmf
+
+  for i 0 $testfields:n
+    if ($TAP_VERBOSE) echo $testfields:$i
+    list name -split $testfields:$i
+    if ("$name:0" == "SKIP") continue
+    if ("$name:2" == "SKIP") continue
+ 
+    read -fits Chip.psf $name:0
+    mextract $name:2
+  end
+
+  # how is the detection ID?
+  list name -split $testfields:0
+  set ID1 = $name:0
+  set ID2 = $name:2
+  tapOK {ID1[] == ID2[]} "lengths for $name:0 vs $name:2"
+  if (not($TAP_LAST)) return
+
+  set d = $name:0 - $name:2
+  vstat -q d
+  tapOK {abs($MEAN)  < 0.001} "$name:0 vs $name:2 (MEAN = $MEAN)"
+  tapOK {abs($SIGMA) < 0.001} "$name:0 vs $name:2 (SIGMA = $SIGMA)"
+
+  # detection ID must be first for this to work:
+  for i 1 $testfields:n
+    list name -split $testfields:$i
+    if ("$name:0" == "SKIP") 
+      tapSKIP 3
+      continue
+    end
+    if ("$name:2" == "SKIP") 
+      tapSKIP 3
+      continue
+    end
+    # must be the same length
+    set v1 = $name:0
+    set v2 = $name:2
+    tapOK {v1[] == v2[]} "lengths for $name:0 vs $name:2"
+    if (not($TAP_LAST)) continue
+
+    set id1 = ID1
+    set id2 = ID2
+    sort id1 v1
+    sort id2 v2
+
+    # some fields require arithmetic manipulations
+    ## if ("$name:0" == "KRON_FLUX") 
+    ##  set v1 = -2.5*log(v1)
+    ## end
+    ## if ("$name:0" == "KRON_FLUX_ERR") 
+    ##  set v1 = KRON_FLUX_ERR / KRON_FLUX
+    ## end
+    if (("$name:0" == "X_PSF_SIG") || ("$name:0" == "Y_PSF_SIG"))
+     set v1 = int(100*(v1))
+     set v2 = int(100*(v2 + 0.0001))
+    end
+    if ("$name:0" == "POSANGLE")
+     set v1 = int((0xffff/360.0)*(v1))
+     set v2 = int((0xffff/360.0)*(v2 + 0.0028))
+    end
+
+    set d = v1 - v2
+    vstat -q d
+    
+    #echo tapOK fabs($MEAN)  < 0.001 "$name:0 vs $name:2 (MEAN)"
+    #echo tapOK fabs($SIGMA) < 0.001 "$name:0 vs $name:2 (SIGMA)"
+
+    # THETA is stored to only (360/65536) deg accuracy
+    if ("$name:0" == "PSF_THETA")
+      # echo $MEAN
+      tapOK {abs($MEAN)  < 0.006} "$name:0 vs $name:2 (MEAN = $MEAN)"
+      tapOK {abs($SIGMA) < 0.001} "$name:0 vs $name:2 (SIGMA = $SIGMA)"
+      continue
+    end
+
+    tapOK {abs($MEAN)  < 0.001} "$name:0 vs $name:2 (MEAN = $MEAN)"
+    tapOK {abs($SIGMA) < 0.001} "$name:0 vs $name:2 (SIGMA = $MEAN)"
+  end    
+
+  # exec rm test.cmf test.in.txt
+  # exec rm -r catdir.test
+
+  tapDONE
+end
+
+# make a simple input file for mkcmf
+macro mkinput
+  exec rm -f test.in.txt
+
+  output test.in.txt
+  for i 10 1024 100
+    for j 10 1024 100
+      fprintf " %4d %4d  %6.2f" $i $j {-15.0 + 2.5*($i + $j)/1000.0}
+    end
+  end
+  output stdout
+end
+
+# the following lists define fields in the cmf files which can be compared to their equivalents in DVO
+# the left column is the cmf field name, the right column is the dvo field name
+
+# list of cmf fields to test matched to mextract fields
+# this list is good for PS1_DEV_0
+list testfields_PS1_DEV_0
+  IPP_IDET          : detid
+  X_PSF             : xccd
+  Y_PSF             : yccd
+  X_PSF_SIG         : xccd:err
+  Y_PSF_SIG         : yccd:err
+  PSF_INST_MAG      : mag:inst
+  PSF_INST_MAG_SIG  : mag:err
+  PEAK_FLUX_AS_MAG  : SKIP # not ingested into DVO
+  SKY               : sky
+  SKY_SIG           : sky_err
+  PSF_CHISQ         : psf_chisq
+  PSF_WIDTH_X       : FWHM_MAJ
+  PSF_WIDTH_Y       : FWHM_MIN
+  PSF_THETA         : THETA
+  PSF_QF            : PSF_QF
+  N_FRAMES          : SKIP # not ingested into DVO
+end
+
+# list of cmf fields to test matched to mextract fields
+# this list is good for PS1_DEV_1
+list testfields_PS1_DEV_1
+  IPP_IDET          : detid
+  X_PSF             : xccd
+  Y_PSF             : yccd
+  X_PSF_SIG         : xccd:err
+  Y_PSF_SIG         : yccd:err
+  PSF_INST_MAG      : mag:inst
+  PSF_INST_MAG_SIG  : mag:err
+  PEAK_FLUX_AS_MAG  : SKIP # not ingested into DVO
+  SKY               : sky
+  SKY_SIG           : sky_err
+  PSF_CHISQ         : psf_chisq
+  CR_NSIGMA         : cr_nsigma
+  EXT_NSIGMA        : ext_nsigma
+  PSF_WIDTH_X       : FWHM_MAJ
+  PSF_WIDTH_Y       : FWHM_MIN
+  PSF_THETA         : THETA
+  PSF_QF            : PSF_QF
+  N_FRAMES          : SKIP # not ingested into DVO
+  FLAGS             : phot_flags
+end
+
+# this list is good for PS1_V1
+list testfields_PS1_V1
+  IPP_IDET          : detid     
+  X_PSF             : xccd      
+  Y_PSF             : yccd      
+  X_PSF_SIG         : xccd:err #  FAIL
+  Y_PSF_SIG         : yccd:err # FAIL
+  RA_PSF            : SKIP # astrometry is not calibrated in the cmf
+  DEC_PSF           : SKIP # astrometry is not calibrated in the cmf
+  POSANGLE          : SKIP # astrometry is not calibrated in the cmf
+  PLTSCALE          : SKIP # astrometry is not calibrated in the cmf
+  PSF_INST_MAG      : mag:inst  
+  PSF_INST_MAG_SIG  : mag:err   
+# AP_MAG_STANDARD   : mag:ap # FAIL
+  AP_MAG_RADIUS     : SKIP # no accessor
+  PEAK_FLUX_AS_MAG  : SKIP # no accessor
+  CAL_PSF_MAG       : SKIP # photometry is not calibrated in the cmf
+  CAL_PSF_MAG_SIG   : SKIP # photometry is not calibrated in the cmf
+  SKY               : sky       
+  SKY_SIGMA         : sky_err   
+  PSF_CHISQ         : psf_chisq 
+  CR_NSIGMA         : cr_nsigma 
+  EXT_NSIGMA        : ext_nsigma
+  PSF_MAJOR         : FWHM_MAJ  
+  PSF_MINOR         : FWHM_MIN  
+  PSF_THETA         : THETA # FAIL
+  PSF_QF            : PSF_QF    
+  PSF_NDOF          : SKIP # no accessor
+  PSF_NPIX          : SKIP # no accessor
+  MOMENTS_XX        : SKIP # no accessor
+  MOMENTS_XY        : SKIP # no accessor
+  MOMENTS_YY        : SKIP # no accessor
+  FLAGS             : phot_flags
+  N_FRAMES          : SKIP # no accessor        
+end
+
+# this list is good for PS1_V2
+list testfields_PS1_V2
+  IPP_IDET          : detid     
+  X_PSF             : xccd      
+  Y_PSF             : yccd      
+  X_PSF_SIG         : xccd:err # FAIL
+  Y_PSF_SIG         : yccd:err # FAIL
+  RA_PSF            : SKIP # astrometry is not calibrated in the cmf
+  DEC_PSF           : SKIP # astrometry is not calibrated in the cmf
+  POSANGLE          : SKIP # astrometry is not calibrated in the cmf
+  PLTSCALE          : SKIP # astrometry is not calibrated in the cmf
+  PSF_INST_MAG      : mag:inst  
+  PSF_INST_MAG_SIG  : mag:err   
+# AP_MAG_STANDARD   : mag:ap # FAIL
+  AP_MAG_RADIUS     : SKIP # no accessor
+  PEAK_FLUX_AS_MAG  : SKIP # no accessor
+  CAL_PSF_MAG       : SKIP # photometry is not calibrated in the cmf
+  CAL_PSF_MAG_SIG   : SKIP # photometry is not calibrated in the cmf
+  SKY               : sky       
+  SKY_SIGMA         : sky_err   
+  PSF_CHISQ         : psf_chisq 
+  CR_NSIGMA         : cr_nsigma 
+  EXT_NSIGMA        : ext_nsigma
+  PSF_MAJOR         : FWHM_MAJ  
+  PSF_MINOR         : FWHM_MIN  
+  PSF_THETA         : THETA # FAIL
+  PSF_QF            : PSF_QF    
+  PSF_NDOF          : SKIP # no accessor
+  PSF_NPIX          : SKIP # no accessor
+  MOMENTS_XX        : SKIP # no accessor
+  MOMENTS_XY        : SKIP # no accessor
+  MOMENTS_YY        : SKIP # no accessor
+  FLAGS             : phot_flags
+  N_FRAMES          : SKIP # no accessor        
+end
+
+# this list is good for PS1_V3
+list testfields_PS1_V3
+  IPP_IDET          : detid     
+  X_PSF             : xccd      
+  Y_PSF             : yccd      
+  X_PSF_SIG         : xccd:err # FAIL
+  Y_PSF_SIG         : yccd:err # FAIL
+  POSANGLE          : SKIP # astrometry is not calibrated in the cmf
+  PLTSCALE          : SKIP # astrometry is not calibrated in the cmf
+  PSF_INST_MAG      : mag:inst  
+  PSF_INST_MAG_SIG  : mag:err   
+  PSF_INST_FLUX     : SKIP # not ingested into DVO
+  PSF_INST_FLUX_SIG : SKIP # not ingested into DVO
+# AP_MAG_STANDARD   : mag:aperinst # FAIL
+  AP_MAG_RAW        : SKIP # not ingested into DVO
+  AP_MAG_RADIUS     : SKIP # not ingested into DVO
+  CAL_PSF_MAG       : SKIP # photometry is not calibrated in the cmf
+  CAL_PSF_MAG_SIG   : SKIP # photometry is not calibrated in the cmf
+  RA_PSF            : SKIP # astrometry is not calibrated in the cmf
+  DEC_PSF           : SKIP # astrometry is not calibrated in the cmf
+  PEAK_FLUX_AS_MAG  : SKIP # not ingested into DVO
+  SKY               : sky       
+  SKY_SIGMA         : sky_err   
+  PSF_CHISQ         : psf_chisq 
+  CR_NSIGMA         : cr_nsigma 
+  EXT_NSIGMA        : ext_nsigma
+  PSF_MAJOR         : FWHM_MAJ  
+  PSF_MINOR         : FWHM_MIN  
+  PSF_THETA         : THETA # FAIL
+  PSF_QF            : PSF_QF    
+  PSF_QF_PERFECT    : SKIP # not ingested into DVO
+  PSF_NDOF          : PSF_NDOF
+  PSF_NPIX          : PSF_NPIX
+  MOMENTS_XX        : MXX
+  MOMENTS_XY        : MXY
+  MOMENTS_YY        : MYY
+  MOMENTS_M3C       : SKIP # not ingested into DVO
+  MOMENTS_M3S       : SKIP # not ingested into DVO
+  MOMENTS_M4C       : SKIP # not ingested into DVO
+  MOMENTS_M4S       : SKIP # not ingested into DVO
+  MOMENTS_R1        : SKIP # not ingested into DVO
+  MOMENTS_RH        : SKIP # not ingested into DVO
+  KRON_FLUX         : mag:kron:inst
+  KRON_FLUX_ERR     : mag:kron:err
+  KRON_FLUX_INNER   : SKIP # not ingested into DVO
+  KRON_FLUX_OUTER   : SKIP # not ingested into DVO
+  FLAGS             : phot_flags
+  N_FRAMES          : SKIP # not ingested into DVO
+end
+
+# this list is good for PS1_V5
+list testfields_PS1_V5
+  IPP_IDET          : detid     
+  X_PSF             : xccd      
+  Y_PSF             : yccd      
+  X_PSF_SIG         : xccd:err
+  Y_PSF_SIG         : yccd:err
+  POSANGLE          : posangle
+  PLTSCALE          : platescale
+  PSF_INST_MAG      : mag:inst  
+  PSF_INST_MAG_SIG  : mag:err   
+  PSF_INST_FLUX     : flux:inst
+  PSF_INST_FLUX_SIG : flux:inst:err
+  AP_MAG            : mag:aper:inst
+  AP_MAG_RAW        : SKIP # not ingested into DVO
+  AP_MAG_RADIUS     : SKIP # not ingested into DVO
+  AP_FLUX           : flux:aper:inst  
+  AP_FLUX_SIG       : flux:aper:inst:err
+  CAL_PSF_MAG       : mag:cal
+  CAL_PSF_MAG_SIG   : mag:cal:err
+  RA_PSF            : ra
+  DEC_PSF           : dec
+  AP_NPIX           : SKIP # not ingested into DVO		      
+  PEAK_FLUX_AS_MAG  : SKIP # not ingested into DVO		      
+  SKY               : sky       				      
+  SKY_SIGMA         : sky_err   				      
+  PSF_CHISQ         : psf_chisq 				      
+  CR_NSIGMA         : cr_nsigma 				      
+  EXT_NSIGMA        : ext_nsigma				      
+  PSF_MAJOR         : fwhm_maj # XXX technically, this is not FWHM but Sigma
+  PSF_MINOR         : fwhm_min # XXX technically, this is not FWHM but Sigma
+  PSF_THETA         : theta # FAIL				      
+  PSF_CORE          : SKIP # not ingested into DVO 
+  PSF_FWHM_MAJ      : SKIP # not ingested into DVO 
+  PSF_FWHM_MIN      : SKIP # not ingested into DVO 
+  PSF_QF            : psf_qf    				      
+  PSF_QF_PERFECT    : SKIP # not ingested into DVO		      
+  PSF_NDOF          : psf_ndof				      
+  PSF_NPIX          : psf_npix				      
+  MOMENTS_XX        : Mxx					      
+  MOMENTS_XY        : Mxy					      
+  MOMENTS_YY        : Myy					      
+  MOMENTS_M3C       : SKIP # not ingested into DVO		      
+  MOMENTS_M3S       : SKIP # not ingested into DVO		      
+  MOMENTS_M4C       : SKIP # not ingested into DVO		      
+  MOMENTS_M4S       : SKIP # not ingested into DVO		      
+  MOMENTS_R1        : SKIP # not ingested into DVO		      
+  MOMENTS_RH        : SKIP # not ingested into DVO		      
+  KRON_FLUX         : flux:kron:inst				      
+  KRON_FLUX_ERR     : flux:kron:inst:err				      
+  KRON_FLUX_INNER   : SKIP # not ingested into DVO		          
+  KRON_FLUX_OUTER   : SKIP # not ingested into DVO		      
+  SKY_LIMIT_RAD     : SKIP # not ingested into DVO		          
+  SKY_LIMIT_FLUX    : SKIP # not ingested into DVO		          
+  SKY_LIMIT_SLOPE   : SKIP # not ingested into DVO		          
+  FLAGS             : phot_flags				      
+  FLAGS2            : SKIP # not ingested into DVO		          
+  N_FRAMES          : SKIP # not ingested into DVO		      
+end								      
+
+# this list is good for PS1_SV3
+list testfields_PS1_SV3
+  IPP_IDET          : detid     
+  X_PSF             : xccd      
+  Y_PSF             : yccd      
+  X_PSF_SIG         : xccd:err
+  Y_PSF_SIG         : yccd:err
+  POSANGLE          : posangle
+  PLTSCALE          : platescale
+  PSF_INST_MAG      : mag:inst  
+  PSF_INST_MAG_SIG  : mag:err   
+  PSF_INST_FLUX     : flux:inst
+  PSF_INST_FLUX_SIG : flux:inst:err
+  AP_MAG            : mag:aper:inst
+  AP_MAG_RAW        : SKIP # not ingested into DVO
+  AP_MAG_RADIUS     : SKIP # not ingested into DVO
+  AP_FLUX           : flux:aper:inst  
+  AP_FLUX_SIG       : flux:aper:inst:err
+  CAL_PSF_MAG       : mag:cal
+  CAL_PSF_MAG_SIG   : mag:cal:err
+  RA_PSF            : ra
+  DEC_PSF           : dec
+  AP_NPIX           : SKIP # not ingested into DVO		      
+  PEAK_FLUX_AS_MAG  : SKIP # not ingested into DVO		      
+  SKY               : sky       				      
+  SKY_SIGMA         : sky_err   				      
+  PSF_CHISQ         : psf_chisq 				      
+  CR_NSIGMA         : cr_nsigma 				      
+  EXT_NSIGMA        : ext_nsigma				      
+  PSF_MAJOR         : fwhm_maj # XXX technically, this is not FWHM but Sigma
+  PSF_MINOR         : fwhm_min # XXX technically, this is not FWHM but Sigma
+  PSF_THETA         : theta # FAIL				      
+  PSF_CORE          : SKIP # not ingested into DVO 
+  PSF_FWHM_MAJ      : SKIP # not ingested into DVO 
+  PSF_FWHM_MIN      : SKIP # not ingested into DVO 
+  PSF_QF            : psf_qf    				      
+  PSF_QF_PERFECT    : SKIP # not ingested into DVO		      
+  PSF_NDOF          : psf_ndof				      
+  PSF_NPIX          : psf_npix				      
+  MOMENTS_XX        : Mxx					      
+  MOMENTS_XY        : Mxy					      
+  MOMENTS_YY        : Myy					      
+  MOMENTS_M3C       : SKIP # not ingested into DVO		      
+  MOMENTS_M3S       : SKIP # not ingested into DVO		      
+  MOMENTS_M4C       : SKIP # not ingested into DVO		      
+  MOMENTS_M4S       : SKIP # not ingested into DVO		      
+  MOMENTS_R1        : SKIP # not ingested into DVO		      
+  MOMENTS_RH        : SKIP # not ingested into DVO		      
+  KRON_FLUX         : flux:kron:inst				      
+  KRON_FLUX_ERR     : flux:kron:inst:err				      
+  KRON_FLUX_INNER   : SKIP # not ingested into DVO		          
+  KRON_FLUX_OUTER   : SKIP # not ingested into DVO		      
+  FLAGS             : phot_flags				      
+  FLAGS2            : SKIP # not ingested into DVO		          
+  N_FRAMES          : SKIP # not ingested into DVO		      
+end								      

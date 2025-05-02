@@ -1,0 +1,26 @@
+
+bool ppSubMatchPSFs(ppSubData *data)
+ - setup huge number of recipe values
+ - load or find sources
+ - pmSubtractionMatch
+ - data normalization
+
+bool pmSubtractionMatch()
+ - setup
+ - loop over iso-kernel regions
+   - identify stamp sources
+   - extract stamp pixels
+   - generate kernel basis functions
+   - iterate to reject stamps
+     - pmSubtractionCalculateEquation
+     - pmSubtractionSolveEquation
+     - pmSubtractionCalculateDeviations
+     - pmSubtractionRejectStamps
+
+bool pmSubtractionCalculateEquationStamp()
+ - convolve stamp with each kernel basis function
+ - generate the polynomial terms for the basis functions
+ - sum the elements of the chisq equation 
+
+bool pmSubtractionSolveEquation()
+ 

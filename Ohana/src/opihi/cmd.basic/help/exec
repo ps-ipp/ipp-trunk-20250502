@@ -1,0 +1,6 @@
+
+   exec (shell command)
+
+   Allows a shell command to be run while running DVO
+   On the command line, this can also be done by placing a "!" before the shell
+    command

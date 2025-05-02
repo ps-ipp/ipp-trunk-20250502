@@ -1,0 +1,67 @@
+
+2015.08.28
+
+-update-offsets -hostID 90 -D CATDIR /data/ipp094.0/eugene/pv3.cam.20150607/catdir.master -hostdir /data/ipp090.0/eugene/pv3.3pi.20150612/catdir.090 -region 5.000000 20.000000 5.000000 20.000000 -statmode INNER_MEAN -minerror 0.001000 -v -reset -update -max-density 3000.000000 -basic-image-search -exclude-bogus 2.000000 -D USE_FIXED_PIXCOORDS 1 -photcode SCOS.103a.E,SCOS.4414.OG590,SCOS.4415.OG590,SCOS.IIIaF.OG590,SCOS.IIIaF.RG610,SCOS.IIIaF.RG630,SCOS.IIIaJ.GG385,SCOS.IIIaJ.GG395,SCOS.IVN.RG715,SCOS.IVN.RG9,WISE_W1,WISE_W2,WISE_W3,WISE_W4,SYNTH.g,SYNTH.r,SYNTH.i,SYNTH.z,SYNTH.y -dcr-blue-color g i -dcr-red-color z y
+
+
+10:30 : trying to constrain memory usage in update-offsets mode.
+
+  relastro_client.c:75   :   161928 memory blocks allocated (22732118 bytes total)
+  relastro_client.c:81   :   161933 memory blocks allocated (8754713623 bytes total)
+  load_images.c:27       :   161935 memory blocks allocated (8759201623 bytes total)
+  AstromOffsetMapIO.c:41 :   161939 memory blocks allocated (15643735064 bytes total)
+  AstromOffsetMapIO.c:42 :   161939 memory blocks allocated (15643735064 bytes total)
+  AstromOffsetMapIO.c:51 :   198076971 memory blocks allocated (19599617648 bytes total)
+  AstromOffsetMapIO.c:55 :   198076968 memory blocks allocated (12715087087 bytes total)
+  select_images.c:266    :   198076973 memory blocks allocated (12817856495 bytes total)
+  UpdateObjectOffsets.c:53 : 198081293 memory blocks allocated (13202313980 bytes total)
+
+** we have two big memory wastes:
+   1) conversion from AstromOffsetMap_Disk_6x6 to AstromOffsetTable temporarily doubles storage used for maps
+   2) select_images for a full-sky analysis returns a full copy of the image table.
+
+
+16:10 : updated AstromOffsetTableLoad to read FITS table in chunks of 100k rows 
+
+  load_images.c:31  : 161935 memory blocks allocated (8759201623 bytes total)
+  load_images.c:33  : 198076968 memory blocks allocated (12715087087 bytes total)
+
+17:00 : the memory usage claimed by ohana_alloc is ok, but the linux kernel is claiming to hang on to a huge amount.
+
+      I've tried to pre-allocate the be arrays which were being
+      re-alloced, but it does not help much.  Now I'm going to test
+      not actually generating some of the data:
+
+  100 loops puts the memory at 17722496k
+
+  without the call to AstromOffsetMapAppendToTable, we have 8602060k after 100 loops
+
+  It looks like on each loop of AstromOffsetMapAppendToTable I'm adding ~100M to the footprint though I can only account for
+
+20:30 : yay, I figured it out.  there is a minimal page size.  since I
+        was allocating each row of the correction images, I was
+        getting hit by the 900,000 allocs per block of
+        AstromOffsetMapAppendToTable.  By changing the image structure
+        to store the image as a single 1D array I drop that to 300,000
+        allocs per block, with the memory only hitting 16856392k after
+        220 loops (top now claims 8.5g which must be wrong somehow).
+
+2015.08.29
+
+18:00 : I've updated relastro to avoid using the subset images.  Now I'm trying to test with:
+
+       /data/ipp064.0/eugene/relastro.20140923/tests.fake/catdir.sky.i1.v00
+
+       memory usage notes:
+
+       load_images.c:15 : 161930 memory blocks allocated (66916795 bytes total)
+       load_images.c:34 : 161936 memory blocks allocated (67567719 bytes total)
+       load_images.c:50 : 161938 memory blocks allocated (109481535 bytes total)
+eugene   21282  8.0  0.2 183916 124864 pts/1   t    18:08   0:23 /data/ippc19.0/home/eugene/src/psconfig/ipp-dev.lin64/bin/relastro
+
+       with -use-all-images
+       load_images.c:15 : 161930 memory blocks allocated (66916795 bytes total)
+       load_images.c:34 : 161936 memory blocks allocated (67567719 bytes total)
+       load_images.c:56 : 161937 memory blocks allocated (68431383 bytes total)
+eugene   22249  0.2  0.1 143760 84512 pts/1    t    18:22   0:00 /data/ippc19.0/home/eugene/src/psconfig/ipp-dev.lin64/bin/relastro
+

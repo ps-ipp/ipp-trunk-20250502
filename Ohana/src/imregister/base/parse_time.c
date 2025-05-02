@@ -1,0 +1,120 @@
+# include "imregister.h"
+
+int parse_time (Header *header) {
+
+  double jd;
+  int Ny, Nf, mode;
+  int Nsec, hour, min, sec, year, month, day;
+  char *py, *pm, *pd, *c;
+  char line[256];
+
+  /* we want to find JD or MJD to get Nsec (seconds since 01/01/1970) */
+
+  /* try JD first */
+  if (strcasecmp (JDKeyword, "NONE")) {
+    uppercase (JDKeyword);
+    warn_scan (header, JDKeyword, "%lf", 1, &jd);
+    Nsec = ohana_jd_to_sec (jd);
+    return (Nsec);
+  }
+
+  /* try MJD next */
+  if (strcasecmp (MJDKeyword, "NONE")) {
+    uppercase (MJDKeyword);
+    warn_scan (header, MJDKeyword, "%lf", 1, &jd);
+    Nsec = ohana_mjd_to_sec (jd);
+    return (Nsec);
+  }
+    
+  /* get UT and DATE */
+  uppercase (UTKeyword);
+  warn_scan (header, UTKeyword, "%s", 1, line);
+  /* remove ':' characters */
+  for (c = strchr (line, 0x3a); c != NULL; c = strchr (line, 0x3a)) { *c = ' '; }
+  sscanf (line, "%d %d %d", &hour, &min, &sec);
+
+  /* parse mode line */
+  uppercase (DateMode);
+  for (Ny = 0, c = strchr (DateMode, 'Y'); c != NULL; c = strchr (c + 1, 'Y'), Ny++);
+  if ((Ny != 2) && (Ny != 4)) {
+    fprintf (stderr, "error in DATE-MODE format: %s\n", DateMode);
+    exit (0);
+  }
+  py = strchr (DateMode, 'Y');
+  pm = strchr (DateMode, 'M');
+  pd = strchr (DateMode, 'D');
+  if ((py == NULL) || (pm == NULL) || (pd == NULL)) {
+    fprintf (stderr, "error in DATE-MODE format: %s\n", DateMode);
+    exit (0);
+  }
+  if ((py > pm) && (py < pd)) {
+    fprintf (stderr, "error in DATE-MODE format: %s\n", DateMode);
+    exit (0);
+  }
+  if ((py > pd) && (py < pm)) {
+    fprintf (stderr, "error in DATE-MODE format: %s\n", DateMode);
+    exit (0);
+  }
+  mode = 0;
+  if ((py < pm) && (pm < pd)) { mode = 1; }  /* yyyy-mm-dd */
+  if ((py < pm) && (pm > pd)) { mode = 2; }  /* yyyy-dd-mm */
+  if ((py > pm) && (pm < pd)) { mode = 3; }  /* mm-dd-yyyy */
+  if ((py > pm) && (pm > pd)) { mode = 4; }  /* dd-mm-yyyy */
+  if (!mode) {
+    fprintf (stderr, "error in DATE-MODE format: %s\n", DateMode);
+    exit (0);
+  }
+
+  /* parse date entry */
+  uppercase (DateKeyword);
+  warn_scan (header, DateKeyword, "%s",  1, line);
+  /* remove possible separators: ':', '/' '.', '-' */
+  for (c = strchr (line, 0x3a); c != NULL; c = strchr (line, 0x3a)) { *c = ' '; }
+  for (c = strchr (line, 0x2f); c != NULL; c = strchr (line, 0x2f)) { *c = ' '; }
+  for (c = strchr (line, 0x2e); c != NULL; c = strchr (line, 0x2e)) { *c = ' '; }
+  for (c = strchr (line, 0x2d); c != NULL; c = strchr (line, 0x2d)) { *c = ' '; }
+
+  Nf = 0;
+  switch (mode) {
+  case 1:
+    Nf = sscanf (line, "%d %d %d", &year, &month, &day);
+    break;
+  case 2:
+    Nf = sscanf (line, "%d %d %d", &year, &day, &month);
+    break;
+  case 3:
+    Nf = sscanf (line, "%d %d %d", &month, &day, &year);
+    break;
+  case 4:
+    Nf = sscanf (line, "%d %d %d", &day, &month, &year);
+    break;
+  }
+  if (Nf != 3) {
+    fprintf (stderr, "error in date entry (%s) or DATE-MODE format (%s)\n", line, DateMode);
+    exit (0);
+  }
+
+  if (year > 1000) {
+    if (Ny == 2) {
+      fprintf (stderr, "warning: mode line claims 2 digit year, but 4 digit year found\n");
+    }
+  } else {
+    if (Ny == 4) {
+      fprintf (stderr, "warning: mode line claims 4 digit year, but 2 digit year found\n");
+    }
+    if (year < 50) year += 100;
+    year += 1900;
+  }    
+
+  /* convert yy.mm.dd hh.mm.ss to Nsec since 1970 (jd = 2440587.5) */
+  /* note that in this section, tm_mon has range 1-12, unlike for gmtime () */
+  jd = day - 32075 + (int)(1461*(year + 4800 + (int)(((month)-14)/12))/4)
+    + (int)(367*((month) - 2 - (int)(((month) - 14)/12)*12)/12)
+    - (int)(3*(int)((year + 4900 + (int)(((month) - 14)/12))/100)/4) - 0.5;
+  /* jd is the julian day of the whole day only not the time */
+  Nsec = (jd - 2440587.5)*86400 + 3600.0*hour + min*60.0 + sec;
+  
+  return (Nsec);
+
+}
+

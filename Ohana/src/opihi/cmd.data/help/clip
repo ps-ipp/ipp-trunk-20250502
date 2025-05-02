@@ -1,0 +1,8 @@
+
+  clip (buffer) [min Vmin max Vmax] [-inf val] [-nan val]
+
+  clip values in an image.  A min/max clip can be applied, 
+  in which case all values above max are set to Vmax and all
+  below min are set to Vmin.  -nan and -inf flags will set all 
+  instances of NaN or any non-finite values to the given value.
+

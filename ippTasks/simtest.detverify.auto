@@ -1,0 +1,78 @@
+
+automate MULTI
+
+# we run in the sequence BLOCK -> CHECK -> LAUNCH -> BLOCK -> CHECK
+# success on CHECK -> LAUNCH
+# failure on BLOCK -> CHECK
+
+automate METADATA
+  name       STR BIAS
+  check      STR "regtool -processedexp -exp_type BIAS -inst @CAMERA@ -dbname @DBNAME@"
+  ncheck     S32 20
+  launch     STR "dettool -definebyquery -workdir file://@CWD@/detwork -inst @CAMERA@ -det_type BIAS -select_exp_type BIAS -dbname @DBNAME@"
+  block      STR "dettool -runs -active -det_type BIAS -mode master -dbname @DBNAME@"
+END
+
+automate METADATA
+  name       STR BIAS_VERIFY
+  check      STR "detselect -search -inst @CAMERA@ -det_type BIAS -dbname @DBNAME@"
+  launch     STR "dettool -definebyquery -workdir file://@CWD@/detwork -inst @CAMERA@ -det_type BIAS -select_exp_type BIAS -mode verify -ref_det_id @det_id@ -ref_iter @iteration@ -dbname @DBNAME@" 
+  block      STR "dettool -runs -active -det_type BIAS -mode verify -dbname @DBNAME@"
+END
+ 
+automate METADATA
+  name       STR DARK
+  check      STR "detselect -search -inst @CAMERA@ -det_type BIAS -dbname @DBNAME@"
+  launch     STR "dettool -definebyquery -workdir file://@CWD@/detwork -inst @CAMERA@ -det_type DARK -select_exp_type DARK -dbname @DBNAME@"
+  block      STR "dettool -runs -active -det_type DARK -mode master -dbname @DBNAME@"
+END
+ 
+automate METADATA
+  name       STR DARK_VERIFY
+  check      STR "detselect -search -inst @CAMERA@ -det_type DARK -dbname @DBNAME@"
+  launch     STR "dettool -definebyquery -workdir file://@CWD@/detwork -inst @CAMERA@ -det_type DARK -select_exp_type DARK -mode verify -ref_det_id @det_id@ -ref_iter @iteration@ -dbname @DBNAME@"
+  block      STR "dettool -runs -active -det_type DARK -mode verify -dbname @DBNAME@"
+END
+
+automate METADATA
+  name       STR SHUTTER
+  check      STR "detselect -search -inst @CAMERA@ -det_type DARK -dbname @DBNAME@"
+  launch     STR "dettool -definebyquery -workdir file://@CWD@/detwork -inst @CAMERA@ -det_type SHUTTER -filter r -select_exp_type SKYFLAT -select_filter r -dbname @DBNAME@"
+  block      STR "dettool -runs -active -det_type SHUTTER -mode master -dbname @DBNAME@"
+END
+
+automate METADATA
+  name       STR SHUTTER_VERIFY
+  check      STR "detselect -search -inst @CAMERA@ -det_type SHUTTER -dbname @DBNAME@"
+  launch     STR "dettool -definebyquery -workdir file://@CWD@/detwork -inst @CAMERA@ -det_type SHUTTER -filter r -select_exp_type SKYFLAT -select_filter r -mode verify -ref_det_id @det_id@ -ref_iter @iteration@ -dbname @DBNAME@"
+  block      STR "dettool -runs -active -det_type FLAT -filter r -mode verify -dbname @DBNAME@"
+END
+
+automate METADATA
+  name       STR FLAT-r
+  check      STR "detselect -search -inst @CAMERA@ -det_type SHUTTER -dbname @DBNAME@"
+  launch     STR "dettool -definebyquery -workdir file://@CWD@/detwork -inst @CAMERA@ -det_type FLAT -filter r -select_exp_type SKYFLAT -select_filter r -dbname @DBNAME@"
+  block      STR "dettool -runs -active -det_type FLAT -filter r -mode master -dbname @DBNAME@"
+END
+
+automate METADATA
+  name       STR FLAT-i
+  check      STR "detselect -search -inst @CAMERA@ -det_type SHUTTER -dbname @DBNAME@"
+  launch     STR "dettool -definebyquery -workdir file://@CWD@/detwork -inst @CAMERA@ -det_type FLAT -filter i -select_exp_type SKYFLAT -select_filter i -dbname @DBNAME@"
+  block      STR "dettool -runs -active -det_type FLAT -filter i -mode master -dbname @DBNAME@"
+END
+
+automate METADATA
+  name       STR FLAT_VERIFY-r
+  check      STR "detselect -search -inst @CAMERA@ -det_type FLAT -filter r -dbname @DBNAME@"
+  launch     STR "dettool -definebyquery -workdir file://@CWD@/detwork -inst @CAMERA@ -det_type FLAT -filter r -select_exp_type SKYFLAT -select_filter r -mode verify -ref_det_id @det_id@ -ref_iter @iteration@ -dbname @DBNAME@"
+  block      STR "dettool -runs -active -det_type FLAT -filter r -mode verify -dbname @DBNAME@"
+END
+
+automate METADATA
+  name       STR FLAT_VERIFY-i
+  check      STR "detselect -search -inst @CAMERA@ -det_type FLAT -filter i -dbname @DBNAME@"
+  launch     STR "dettool -definebyquery -workdir file://@CWD@/detwork -inst @CAMERA@ -det_type FLAT -filter i -select_exp_type SKYFLAT -select_filter i -mode verify -ref_det_id @det_id@ -ref_iter @iteration@ -dbname @DBNAME@"
+  block      STR "dettool -runs -active -det_type FLAT -filter i -mode verify -dbname @DBNAME@"
+END
+

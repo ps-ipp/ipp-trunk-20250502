@@ -1,0 +1,80 @@
+
+20101019
+
+  We can identify CRs in the (M_minor, KronMag) plane as a fairly
+  tight clump (M_minor ~< 1.0, KronMag ~< -8.0).  The best bounds of
+  the clump vary somewhat from image to image.  I've added a dynamic
+  CR limit function which looks for the peak in M_minor and in KronMag
+  in those regions, then finds the valley floor.  It seems to work
+  fairly well.  Outstanding issues:
+
+  * only adjust the limits once
+  * record limits in the headers
+  * record CR counts in the headers
+  * mask the CRs.
+
+20101017
+  
+  pmSourceMoments:
+    * FWHM(src) vs FWHM(win) & 1st pass centroid accuracy (no noise)
+      * 4.0 : 6.0 -> 30% 
+      * 4.0 : 8.0 -> 20%
+      * 4.0 : 15.0 -> 6.7%
+   * FWHM(src) vs Tophat(radius)
+      * 4.0 : 5.0 -> ~30%
+      * 4.0 : 10.0 -> 0.2%
+      * 4.0 : 8.0 -> 3%
+      * 4.0 : 6.0 -> 18%
+      * 4.0 : 7.0 -> 9%
+
+  pmSourceMomentsGetCentroid(source, 8.0, 0.0, 0.0, 0);
+  pmSourceMomentsGetCentroid(source, 10.0, 8.0/2.35, 0.0, 0);
+
+  Io = 10000 : (S/N ~ 400)
+
+dX stats: -0.000708 +/- 0.004586
+dY stats: -0.000296 +/- 0.004678
+
+  Io = 1000 : (S/N ~ 100)
+
+dX stats: -0.000131 +/- 0.020428
+dY stats: 0.001038 +/- 0.020556
+
+  Io = 100 : (S/N ~ 10)
+
+dX stats: -0.025900 +/- 0.166111
+dY stats: 0.025336 +/- 0.169681
+
+raising bits : these functions may raise:
+
+psphotSourceStats : BELOW_MOMENTS_SN | SKY_FAILURE | SKYVAR_FAILURE | BIG_RADIUS | MOMENTS_FAILURE
+
+psphotBasicDeblend : BLEND 
+
+psphotDeblendSatstars : BLEND 
+
+psphotRoughClass : SATSTAR | SATURATED | DEFECT | PSFSTAR
+
+psphotChoosePSF : can remove PSFSTAR from failed candidates
+
+psphotGuessModels : BADPSF
+
+psphotMergeSources : PSFSTAR | EXTERNAL 
+  * note : this filters out 'bad' sources -- maybe too restrictive?
+  
+psphotFitSourcesLinearStack : LINEAR_FIT
+
+psphotSourceSize : SIZE_SKIPPED | DEFECT | EXT_LIMIT | CR_LIMIT 
+
+psphotApResid : AP_MAGS
+
+psphotRadialAperturesByObject RADIAL_FLUX | EXTENDED_STATS
+
+psphotExtendedSourceFits : EXTENDED_FIT
+
+****
+
+flags from psastro:
+
+ OFF_CHIP | ON_GHOST | ON_GLINT | ON_SPIKE
+

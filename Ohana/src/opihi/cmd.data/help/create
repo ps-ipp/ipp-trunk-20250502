@@ -1,0 +1,9 @@
+
+   create (vector) (start) (end) [delta]
+
+   Create a vector of uniformly spaced values, starting at
+   (start) and going to (end).  By default the spacing is 1, but
+   may be chosen with the [delta] option.
+
+   Note: A vector cannot be created if an image buffer already
+    exists with the same name

@@ -1,0 +1,128 @@
+
+input ../../test/tap.tp
+
+macro go
+ plan {14 + 14}
+ test1
+ test2
+ done
+end
+
+# test unary scalar ops
+macro test1
+ $x = 5;                 ok ($x == 5) "scalar equality"
+ $x = abs(-3);           ok ($x == 3) "scalar abs"
+ $x = int(5.23);         ok ($x == 5) "scalar int"
+ $x = floor(7.1234);     ok ($x == 7) "scalar floor"
+ $x = floor(7.9876);     ok ($x == 7) "scalar floor"
+ $x = ceil(7.1234);      ok ($x == 8) "scalar ceil"
+ $x = ceil(7.9876);      ok ($x == 8) "scalar ceil"
+		         
+ $x = exp(1.0);          ok ($x == 2.71828182846) "scalar exp"
+ $x = ten(3.0);          ok ($x == 1000) "scalar ten"
+ $x = log(10000);        ok ($x == 4) "scalar log"
+ $x = ln(2.71828182846); ok ($x == 1) "scalar ln"
+ $x = sqrt(9);           ok ($x == 3) "scalar sqrt"
+ $x = dsin(30);          ok ($x == 0.5) "scalar dsin"
+ $x = sin($M_PI/6);      ok ($x == 0.5) "scalar sin"
+end
+
+# test unary vector ops
+macro test2
+ create x -3 3
+
+ set y = x;                 ok (y[1] == -2) "vector equality"
+ set y = abs(x);            ok (y[1] ==  2) "vector abs"
+ 
+ set y = ten(x);            ok (y[1] == 0.01) "vector ten"
+       	 		    ok (y[5] == 100) "vector ten"
+ set z = log(y);            ok (z[5] == 2) "vector log"
+       	 		    ok (z[1] == -2) "vector ten"
+
+ set y = exp(x);            ok (y[4] == 2.71828182846) "vector exp"
+       	 		    ok (y[2] == 0.367879441171) "vector exp"
+ set z = ln(y);             ok (z[2] == -1) "vector ln"
+                            ok (z[4] == 1) "vector ln"
+ create x 0 26
+ set y = sqrt(x);           ok (y[4] == 2) "vector sqrt"
+       	 		    ok (y[9] == 3) "vector sqrt"
+
+ create x 0 360 30
+ set y = dsin(x);           ok (y[1] == 0.5) "vector dsin"
+                            ok (y[3] == 1.0) "vector dsin"
+end
+
+# here are all defined unary functions
+# SVM =
+# SVM abs    
+# SVM int    
+# SVM floor  
+#     round  
+# SVM ceil   
+#     rint   
+# SVM exp    
+# SVM ten    
+# SVM log    
+# SVM ln     
+# SVM sqrt   
+# SVM erf    
+# SVM sinh   
+# SVM cosh   
+# SVM asinh  
+# SVM acosh  
+# SVM sin    
+# SVM cos    
+# SVM tan    
+# SVM dsin   
+# SVM dcos   
+# SVM dtan   
+# SVM asin   
+# SVM acos   
+# SVM atan   
+# SVM dasin  
+# SVM dacos  
+# SVM datan  
+# SVM lgamma 
+# SVM rnd    
+# SVM drnd   
+# SVM lrnd   
+# SVM mrnd   
+# SVM not    
+# SVM negate
+# SVM isinf  
+# SVM isnan  
+#  VM ramp   
+#  VM xramp  
+#  VM yramp  
+#  VM zramp  
+#  VM zero   
+
+## tests are not reporting an error when using one of the unimplemented functions
+
+# here are all defined binary functions
+
+# V "^"
+# V max     "U"
+# V min     "D"
+# V atan2   "a"
+# V datan2  "d"
+# * <-      "l"
+# * ->      "r"
+# V @       
+# V /       
+# V *       
+# V %       
+# V +       
+# V -       
+# V &       
+# V |       
+# V <       
+# V >       
+# V ==      "E"
+# V !=      "N"
+# V <=      "L"
+# V >=      "G"
+# V >>      "U"
+# V <<      "D"
+# V &&      "A"
+# V ||      "O"

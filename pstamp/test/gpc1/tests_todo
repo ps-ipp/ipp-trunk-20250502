@@ -1,0 +1,10 @@
+each img_type
+each req_type
+        make a request using each of the modes
+        add qualifiers
+    test options
+    test using data from various epochs
+    test coordinates that are outside of the selected image to insure error code is ok
+both request versions
+a few samples were done
+

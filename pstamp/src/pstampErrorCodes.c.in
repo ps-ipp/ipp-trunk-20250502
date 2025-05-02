@@ -1,0 +1,25 @@
+/*
+ * The line
+    { PSTAMP_ERR_$X{ErrorCode}, "$X{ErrorDescription}"},
+ * (without the Xs)
+ * will be replaced by values from errorCodes.dat
+ */
+#include "pslib.h"
+#include "pstampErrorCodes.h"
+
+void pstampErrorRegister(void)
+{
+    static psErrorDescription errors[] = {
+       { PSTAMP_ERR_BASE, "First value we use; lower values belong to psLib" },
+       { PSTAMP_ERR_${ErrorCode}, "${ErrorDescription}"},
+    };
+    static int nerror = PSTAMP_ERR_NERROR - PSTAMP_ERR_BASE; // number of values in enum
+
+    for (int i = 0; i < nerror; i++) {
+       psErrorDescription *tmp = psAlloc(sizeof(psErrorDescription));
+       *tmp = errors[i];
+       psErrorRegister(tmp, 1);
+       psFree(tmp);			/* it's on the internal list */
+    }
+    nerror = 0;			                // don't register more than once
+}

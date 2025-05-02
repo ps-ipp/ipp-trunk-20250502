@@ -1,0 +1,6 @@
+
+   profile <buffer> <X vector> <Y vector> x y N
+
+   Find the radial profile of an image at the location x, y.  the
+   radius is placed in the X vector and the pixel value is placed in
+   the Y vector.   

@@ -1,0 +1,30 @@
+<meta name=file  content=photcodes>
+<meta name=title content=photcodes>
+<meta name=page  content=photcodes>
+
+<p>
+The DVO photcodes define a photometric system, consisting of a
+detector, a filter, and a telescope.  
+
+<p>
+Many DVO commands which accept a photcode as an argument allow for
+the photcode name to be appended with a modifier which changes
+slightly the type of magnitude returned to the user.  
+
+<p>
+The type of photcode is
+specified by adding :type to a photcode.  Valid types consist of:
+<ul>
+<li> inst : instrumental magnitude
+<li>  cat : catalog magnitude = inst + nominal ZP
+<li>  sys : system magnitude = color + airmass corrected mag
+<li>  rel : relative magnitude = applies color, airmass, and relative magnitude offset
+corrections
+<li>  cal : calibrated magnitude : applies zero-point and color
+terms from dependent to primary/secondary magnitude system)
+<li>  ref : reference system
+</ul>
+
+<p>
+<em>This page needs serious work to clarify the meaning of a photcode,
+and the selection criteria </em>

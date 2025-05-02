@@ -1,0 +1,17 @@
+#!/bin/csh -f
+
+if ($#argv != 1) then
+ echo "USAGE: dads.remef (outbase)"
+ exit;
+endif
+
+set outdir=$1
+
+rm -f $outdir/*.raw
+rm -f $outdir/*.det
+rm -f $outdir/*.def
+
+# generate binned-by-12 image
+mosmc $outdir/*.fits $outdir.B12.fits 12
+
+echo "SUCCESS"

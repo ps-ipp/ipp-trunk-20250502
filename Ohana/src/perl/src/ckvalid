@@ -1,0 +1,302 @@
+#!/usr/bin/env perl
+
+$PASS = 0;
+$FAIL = 1;
+$SUBVALID = 2;
+$DATA_ERR = 3;
+$VERBOSE = 0;
+
+$eval{DATA}    = 0;  # image exists and is full-raster object MEF or SPLIT type
+$eval{DETREND} = 0;  # all needed detrend files exist for this image
+$eval{FRINGES} = 0;  # fringe frames exists if needed
+$eval{ASTROM}  = 0;  # astrometry measured for at least N / 12 chips
+$eval{PHOTOM}  = 0;  # photometry terms available for this image
+
+# USAGE: ckvalid (filename)
+# (filename) may be a MEF file or a SPLIT directory
+# [see end for notes]
+
+@tARGV = ();
+while (@ARGV) {
+    if ($ARGV[0] eq "-v") { 
+	$VERBOSE = 1;
+	shift @ARGV;
+	next;
+    }
+    @tARGV = (@tARGV, $ARGV[0]);
+    shift @ARGV;
+}    
+@ARGV = @tARGV;
+
+if (@ARGV != 1) { die "USAGE: ckvalid (filename)\n" ;}
+$name = $ARGV[0];
+$mode = "unknown";
+$type = "unknown";
+$runid = "none";
+
+# load ccd config information
+@ccdn   = split (" ", `cameraconfig -ccdn`); if ($?) { &goodbye ("ERROR in cameraconfig"); }
+@ccds   = split (" ", `cameraconfig -ccds`); if ($?) { &goodbye ("ERROR in cameraconfig"); }
+
+# determine image mode (SPLIT / MEF / SINGLE)
+$mode = ckimmode ($name);
+if ($mode eq "unknown") { 
+    if ($VERBOSE) { print "can't identify image mode\n"; }
+    &print_status;
+    exit $DATA_ERR; 
+}
+if ($mode eq "SINGLE") { 
+    if ($VERBOSE) { print STDERR "mode = SINGLE, validation undefined\n"; }
+    &print_status;
+    exit $DATA_ERR;
+}
+
+# get filename components
+$path = gt_names ($name, "path", $mode);
+$root = gt_names ($name, "root", $mode);
+$Nccd = gt_names ($name, "Nccd", $mode);
+
+# create the name of a real file:
+if ($mode eq SPLIT) {
+    $tmpname = sprintf "%s/%s%s.fits", $name, $root, $ccdn[0];
+} else {
+    $tmpname = $name;
+}
+
+# find the run id for this image (needed to get astrometry)
+$runid = `ckrunid $tmpname`; chop ($runid);
+if ($?) {
+    if ($VERBOSE) { print STDOUT "$name: no run ID\n"; }
+    $runid = "none";
+}
+
+# check the IMAGETYP:
+$answer = `echo $tmpname | fields OBSTYPE`;
+($tmp, $type) = split (" ", $answer);
+if ($type ne "OBJECT") { 
+    if ($VERBOSE) { print STDOUT "$name: wrong image type $type\n"; }
+    &print_status;
+    exit $SUBVALID;
+}
+
+# check the GEOMETRY:
+$answer = `echo $tmpname | fields CCDBIN1 CCDBIN2 RASTER`;
+@words = split (" ", $answer);
+if (($words[1] != 1) || ($words[2] != 1)) { 
+    if ($VERBOSE) { print STDOUT "$name: binned image\n"; }
+    &print_status;
+    exit $SUBVALID;
+}
+if ($words[3] ne "FULL") { 
+    if ($VERBOSE) { print STDOUT "$name: sub-rastered image\n"; }
+    &print_status;
+    exit $SUBVALID;
+}
+
+# image is OK
+$eval{DATA} = 1;
+
+# check the ASTROMETRY:
+unless ($runid eq "none") {
+    $answer = `ckastrom $runid $root $Nccd`; chop ($answer);
+    if ($?) {
+	if ($VERBOSE) { print "astrometry: $answer\n"; }
+    } else {
+	$eval{ASTROM} = 1;
+    }
+}
+
+# check the DETREND data:
+if ($mode eq "SPLIT") {
+    # we only need the name of an single representative file on disk
+    $tmpname = sprintf "%s/%s%s.fits", $name, $root, $ccdn[0];
+} else {
+    $tmpname = $name;
+}
+$answer = `detsearch -quiet -mosaic $tmpname -recipe`;
+if ($?) { 
+    if ($VERBOSE) { print "missing detrend: $answer\n"; } 
+} else {
+    $eval{DETREND} = 1;
+}
+
+# check on PHOTOMETRY
+$answer = `ckphotom $tmpname $ccds[0] $mode`;
+if ($?) {
+    if ($VEROSE) { print STDERR "photom failed: $answer\n"; }
+} else {
+    $eval{PHOTOM} = 1;
+}
+
+&print_status;
+if ($eval{DATA} && $eval{DETREND} && $eval{PHOTOM} && $eval{ASTROM}) { exit $PASS; }
+exit $FAIL;
+
+# utilities ##############################################
+
+sub print_status {
+    printf STDOUT "%s %8s %8s %8s %d %d %d %d\n", $name, $mode, $type, 
+    $runid, $eval{DATA}, $eval{DETREND}, $eval{PHOTOM}, $eval{ASTROM};
+}
+
+sub gt_names {
+    # in: filename mode type
+    # out: word
+
+    my ($value);
+
+    $value = "";
+    if ($_[2] eq "MEF")   { $value = mefnames ($_[0], $_[1]); }
+    if ($_[2] eq "SPLIT") { $value = splitnames ($_[0], $_[1]); }
+    
+    return $value;
+}
+
+sub mefnames {
+    # in: (/path/file.fits) (mode) 
+    # out: word
+
+    my($fullname) = $_[0];
+    my($mode) = $_[1];
+    my($answer);
+
+    # split rootdir and filename:
+    my (@words) = split ("/", $fullname);
+    $N = @words;
+
+    if ($mode eq "path") {
+	$answer = "";
+	for ($i = 0; $i < $N - 1; $i++) {
+	    $answer = $answer . $words[$i] . "/";
+	}
+	chop ($answer); # strip off last /
+	if ($answer eq "") { $answer = "."; }
+	return ($answer);
+    }
+    
+    if ($mode eq "root") {
+	$answer = "$words[$N-1]";
+	$answer =~ s/.fits$//;
+	return ($answer);
+    }
+    
+    if ($mode eq "Nccd") {
+	if (! -e $fullname) {
+	    return (0);
+	}
+	$answer = `echo $fullname | fields NEXTEND`;
+	@words = split (" ", $answer);
+	if ($words[1] eq "") {
+	    return (0);
+	}
+	return ($words[1]);
+    }
+    
+    return (0);
+}
+
+sub splitnames {
+    # in: (/path/file) (mode) 
+    # out: word
+    # /path/file is directory containing Nccd fits images
+
+    my($fullname) = $_[0];
+    my($mode) = $_[1];
+    my($answer, $N, $tmpname, @imlist, @words);
+
+    # split rootdir and filename:
+    @words = split ("/", $fullname);
+    $N = @words;
+
+    if ($mode eq "path") {
+	$answer = "";
+	for ($i = 0; $i < $N - 1; $i++) {
+	    $answer = $answer . $words[$i] . "/";
+	}
+	chop ($answer); # strip off last /
+	if ($answer eq "") { $answer = "."; }
+	return ($answer);
+    }
+    
+    if ($mode eq "root") {
+	$answer = "$words[$N-1]";
+	return ($answer);
+    }
+    
+    if ($mode eq "Nccd") {
+	
+	$tmpname = "$fullname/$words[$N-1]";
+	@imlist = <$tmpname??.fits>;
+
+	$Nccd = @imlist;
+	return $Nccd;
+    }
+    
+    return (0);
+}
+
+sub ckimmode {
+    # in: (/path/file)
+    # out: MEF | SPLIT | SINGLE | (NULL)
+    
+    my ($answer, $name, $value);
+    my ($file) = $_[0];
+
+    if (! -e $file) { 
+	if ($VERBOSE) { print STDOUT "$file: can't open file\n"; }
+	return "unknown"; 
+    }
+
+    # if /path/file is a directory, it is split:
+    if (-d $file) { return "SPLIT"; }
+
+    # check that the file is a FITS image
+    $answer = `file -L $file`;
+    if ($?) { 
+	if ($VERBOSE) { print STDOUT "can't open file\n"; }
+	return "unknown"; 
+    }
+    ($name, $value) = split (" ", $answer);
+    if ($value ne "FITS") { 
+	if ($VERBOSE) { print STDOUT "not a valid image\n"; }
+	return "unknown"; 
+    }
+    
+    # check for NAXIS = 0 (MEF) 
+    $answer = `echo $file | fields NAXIS`;
+    # if ($?) { return ""; }
+    ($name, $value) = split (" ", $answer);
+    if ($value eq 0) { return "MEF"; }
+    
+    if ($value == 2) { return "SINGLE"; }
+
+    if ($VERBOSE) { print STDOUT "not a valid image\n"; }
+    return "unknown";
+}
+
+sub vsystem {
+    # print STDERR "@_\n";
+    my($status) = system ("@_");
+    $status;
+}
+
+sub goodbye {
+    die "@_\n";
+}
+
+
+# This program calls several other perl scripts to get information 
+# about the image.  
+# ckrunid   - determine the appropriate Camera Run ID for this image
+# ckastrom  - check for the appropriate astrometry information
+# ckdetrend - check for the appropriate detrend images
+# ckphotom  - check for the appropriate photometry data
+
+# at the moment, there are different calling conventions for each of
+# these functions.  Some take a single name (MEF / SPLIT), some take a
+# reference to the specific CCD (filename CCD MODE).  
+
+# none of the called functions need to find the number of CCDs
+# ckvalid determines the number of CCDs from the header (MEF) or the
+# number of appropriately named FITS files in the directory (SPLIT).
+

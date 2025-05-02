@@ -1,0 +1,3 @@
+SELECT
+    detResidImfile.*
+FROM detResidImfile

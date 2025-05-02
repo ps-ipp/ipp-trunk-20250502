@@ -1,0 +1,18 @@
+#if !defined(PPNORM_ERROR_CODES_H)
+#define PPNORM_ERROR_CODES_H
+/*
+ * The line
+ *  PPNORM_ERR_$X{ErrorCode},
+ * (without the X)
+ *
+ * will be replaced by values from errorCodes.dat
+ */
+typedef enum {
+    PPNORM_ERR_BASE = 7000,
+    PPNORM_ERR_${ErrorCode},
+    PPNORM_ERR_NERROR
+} ppNormErrorCode;
+
+void ppNormErrorRegister(void);
+
+#endif

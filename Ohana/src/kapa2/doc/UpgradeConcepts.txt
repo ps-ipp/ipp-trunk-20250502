@@ -1,0 +1,54 @@
+
+2007.05.08
+
+  User Commands:
+  * Add a section (position, type, name)
+  * Add a section element (add graph, add image)
+  * Del a section (by name)
+  * Del a section element (del graph, del image)
+  * Resize window (resizes each section)
+  * Set active section
+  * Get active section
+
+2007.05.06
+
+I am examining plans to upgrade the Kapa / Kii programs.  I have several ideas on this topic:
+
+* Completely merge the code base.  There are many common features, and
+  the merge will be easy.  The biggest difference between them from a
+  programming point of view is that Kapa uses global variables for the
+  layout and graphic (and other minor data), while Kii passes around
+  the Graphic / Layout elements.
+
+  The more object-oriented way to do this is to have private static
+  data for these concepts and to provide accessor functions to operate
+  on or retreive these pointers.  
+
+* Allow an arbitrary number of the graph / image widgets.  The image
+  widget should be considered a single item, which includes the main
+  image window, the zoom box, the status box, the buttons, etc.  The
+  positioning of the multiple graph / image elements in a single
+  window could be equivalent to the 'section' command for the graph
+  sub-boxes.  An image or a graph could be place at any X,Y,dX,dY
+  position with X,Y having a range of 0-1.  In addition, a graph
+  could be optionally tied to a specific image, with the location
+  determined by the image window location (ie, outer box of the image
+  window matched to bounding box of the graph).
+
+* Event parsing would need to go through the list of graph / image
+  elements to determine if the corresond to any of them.  
+
+* Drawing should be done in the order: images first, graphs second.
+  The sequence for the images and / or graphs should be adjustable.
+
+* create an equivalent to the zoom box which is a wide full-view of
+  the current image.
+
+* add the image flipping; this may be easiest using multiple versions
+  of the code with the correct sign flips...
+
+* carry the image data as a full 32 bit buffer
+
+* (optionally?) listed on an IP socket?
+
+

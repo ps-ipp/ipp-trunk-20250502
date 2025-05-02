@@ -1,0 +1,54 @@
+Oct 19  2003 misc/startup.c              . minor changes, DONE
+Oct 19  2003 misc/conversions.c		 . minor changes, DONE
+Oct 19  2003 misc/match_image.c		 . copied to dvo
+Apr 19 17:41 misc/ConfigInit.c		 . minor changes, kept dvo version
+May  6 16:13 misc/ImageOps.c		 . minor changes, DONE
+May 12 09:00 misc/photometry.c           . major changes : DONE
+
+Oct 15  2003 user/badimages.c            . no change
+Oct 15  2003 user/imlist.c		 . no change
+Oct 15  2003 user/precess.c		 . dvo version ok
+Oct 15  2003 user/delete.c		 . dvo version ok
+
+May  6 15:25 user/extract.c		 . mostly deprecated (transfer USNO/HST/etc versions)
+May 10 21:13 user/mextract.c		 . used status version + vectors
+May 11 12:06 user/avextract.c		 . used status version + vectors
+Oct 27  2003 user/imextract.c		 . used status version + vectors
+
+May 12 09:06 user/dmags.c		 . used status version + vectors
+May 12 09:12 user/dmagmeas.c		 . used status version + vectors
+May 12 09:13 user/dmagaves.c		 . used status version + vectors
+May 11 16:18 user/ddmags.c		 . used status version + vectors
+
+May  2 11:14 user/calextract.c		 . used status version + vectors 
+May  3 20:08 user/calmextract.c		 . used status version + vectors
+Oct 19  2003 user/cmd.c			 . fixed (photcodes vs vectors)
+Oct 19  2003 user/ccd.c			 . used status version + vectors
+
+Apr 19 19:48 user/gimages.c		 . minor changes, fixed
+Nov 14  2003 user/gstar.c		 . minor changes, fixed
+May  3 20:49 user/gtypes.c		 . dvo version ok
+May  6 09:37 user/images.c		 . copied to dvo
+May  3 20:49 user/imdata.c		 . dvo version ok
+May  3 20:50 user/imphot.c		 . dvo version ok
+May  3 20:51 user/imrough.c		 . dvo version ok
+May  3 20:51 user/imsearch.c		 . dvo version ok
+Nov  5  2003 user/photcodes.c		 . copied to dvo
+Nov  1  2003 user/pmeasure.c		 . dvo version ok
+Mar  3 11:25 user/showtile.c		 . copied to dvo
+Nov  1  2003 user/subpix.c		 . copied to dvo
+Oct 30  2003 user/dmt.c			 . minor changes & photcodes
+Nov  1  2003 user/lcurve.c		 . minor changes & photcodes
+
+May 18 09:50 user/cgrid.c		 . copied to dvo
+
+Nov  1  2003 user/abszero.c		 . deprecated
+May  3 20:51 user/zeropts.c		 . deprecated
+Nov 13  2003 user/resid.c		 . deprecated
+Nov 13  2003 user/photresid.c		 . deprecated
+
+May  2 11:20 user/cals.c		 . deprecated?
+May  3 20:37 user/ddmagextract.c	 . deprecated?
+May  3 20:11 user/dmagextract.c		 . deprecated?
+Oct 19  2003 user/ccdextract.c		 . deprecated?
+Oct 19  2003 user/cmdextract.c		 . deprecated?

@@ -1,0 +1,33 @@
+
+2012.11.21
+
+I'm working on the code to delete a subset of photcodes.  I'm
+basically re-writing the delstar core code because I don't trust this
+old stuff to work any more.
+
+But, I'm getting myself confused, so I need to map this out:
+
+we start with Measure, Average, where
+
+ measure[i].averef -> average[averef]
+ measure[i].objID   = average[averef].objID
+ measure[i].catID   = average[averef].catID
+
+I am not assuming the input Measure array is sorted (in averef order)
+
+Generate the following arrays:
+
+given measure[i], average[averef] in arbitrary order:
+
+n = measureSeqRaw[i] : measure[n] is in averef order (after sort)
+
+n = measureSeqOut[i] : measure[n] in averef order, only valid measurements
+
+n = measureAveRaw[i] : average[n] is matching entry (just an array of the averefs)
+
+averageNmeas[i] : number of measurements after filtering
+
+averageSeqOut[i] : new averef sequence after filtering
+
+n = measureAveOut[i] : average[n] is matching entry, only valid measurements
+

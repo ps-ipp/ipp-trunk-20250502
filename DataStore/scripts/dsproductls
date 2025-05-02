@@ -1,0 +1,164 @@
+#!/usr/bin/env perl
+
+# Copyright (C) 2006-2008  Joshua Hoblitt
+#
+# $Id: dsproductls,v 1.7 2008-07-29 05:49:53 bills Exp $
+
+use strict;
+use warnings FATAL => qw( all );
+
+use vars qw( $VERSION );
+$VERSION = '0.02';
+
+use DataStore;
+
+use Getopt::Long qw( GetOptions :config auto_help auto_version gnu_getopt );
+use Pod::Usage qw( pod2usage );
+
+my ($uri, $last_fileset, $timeout, $extra, $no_proxy);
+
+GetOptions(
+    'uri|u=s'           => \$uri,
+    'last_fileset|l=s'  => \$last_fileset,
+    'timeout|t=s'       => \$timeout,
+    'extra|e'           => \$extra,
+    'no-proxy'          => \$no_proxy,
+) or pod2usage( 2 );
+
+pod2usage( -msg => "Unknown option: @ARGV", -exitval => 2 ) if @ARGV;
+pod2usage(
+    -msg => "Required options: --uri",
+    -exitval => 3,
+) unless defined $uri;
+
+# default http request timeout is 30s
+$timeout ||= 30;
+$no_proxy = 0 if !defined $no_proxy;
+
+if (!($uri =~ /\/index\.txt$/)) {
+    $uri .= '/index.txt'
+} 
+
+my %p = (
+    uri     => $uri,
+);
+
+$p{last_fileset} = $last_fileset if defined $last_fileset; 
+
+my $response = DataStore::Product->new(%p)->request(
+        ua_args  => { timeout => $timeout },
+        no_proxy => $no_proxy,
+    );
+
+unless (defined $response and $response->is_success) {
+    warn "request failed: ", $response->status_line;
+    exit($response->code - 300);
+}
+
+# file retreival succeed
+
+my $data = $response->data;
+
+unless ($data) {
+    warn "no filesets found";
+    exit(0);
+}
+
+print "# uri fileset datetime type\n";
+foreach my $fs (@$data) {
+    print $fs->uri, " ", $fs->fileset, " ", $fs->datetime, " ", $fs->type;
+    if ($extra) {
+        my $cols = $fs->extra;
+        foreach my $col (@$cols) {
+            print " ", $col;
+        }
+    }
+    print "\n";
+}
+
+__END__
+
+=pod
+
+=head1 NAME
+
+dsproductls - list all the FileSets under a product from a DataStore server
+
+=head1 SYNOPSIS
+
+    dsproductls --uri <uri> [--last_fileset <filesetid>]
+
+=head1 DESCRIPTION
+
+=head1 OPTIONS
+
+=over 4
+
+=item * --uri|-u <uri>
+
+The URI of the file to be retrieved.
+
+=item * --last_fileset|-l <filesetid>
+
+The FileSet ID of the last FileSet that you've seen.
+
+This flag is optional.
+
+=item * --timeout|-t
+
+The ammount of time (in seconds) to wait for a response from the DataStore
+after making an HTTP request.  The default is 30s.
+
+Optional.
+
+=item * --extra|-e
+
+Print out any extra columns in the listing.
+
+Optional.
+
+=item * --no-proxy
+
+Do not load proxy environment variables.
+
+Optional.
+
+=back
+
+=head1 CREDITS
+
+Just me, myself, and I.
+
+=head1 SUPPORT
+
+Please contact the author directly via e-mail.
+
+=head1 AUTHOR
+
+Joshua Hoblitt <jhoblitt@cpan.org>
+
+=head1 COPYRIGHT
+
+Copyright (C) 2006-2008  Joshua Hoblitt.  All rights reserved.
+
+This program is free software; you can redistribute it and/or modify it under
+the terms of the GNU General Public License as published by the Free Software
+Foundation; either version 2 of the License, or (at your option) any later
+version.
+
+This program is distributed in the hope that it will be useful, but WITHOUT ANY
+WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A
+PARTICULAR PURPOSE.  See the GNU General Public License for more details.
+
+You should have received a copy of the GNU General Public License along with
+this program; if not, write to the Free Software Foundation, Inc., 59 Temple
+Place - Suite 330, Boston, MA  02111-1307, USA.
+
+The full text of the license can be found in the L<perlgpl> Pod as supplied
+with Perl 5.8.1 and later.
+
+=head1 SEE ALSO
+
+L<dsget>, L<dsleech>, L<dsrootls>, L<dsproductls>, L<dsfilesetls>, L<DataStore>
+
+=cut

@@ -1,0 +1,71 @@
+# include "mana.h"
+
+# define opihi_name "MANA"
+# define opihi_prompt "mana: "
+# define opihi_description "an image manipulation tool\n"
+# define opihi_history ".mana"
+# define opihi_rcfile ".manarc"
+
+/* program-dependent initialization */
+void program_init (int *argc, char **argv) {
+  OHANA_UNUSED_PARAM(argc);
+  OHANA_UNUSED_PARAM(argv);
+  
+  auto_break = TRUE;
+
+  /* load the commands used by this implementation */
+  InitBasic ();
+  InitData ();
+  InitAstro ();
+  InitMana ();
+
+  rl_readline_name = opihi_name;
+  rl_attempted_completion_function = command_completer;
+
+  set_str_variable ("HISTORY", opihi_history);
+  set_str_variable ("PROMPT", opihi_prompt);
+  set_str_variable ("RCFILE", opihi_rcfile);
+
+  {
+    char *helpdir;
+    char *modules;
+    static char *datadir = "@DATADIR@";
+    ALLOCATE (helpdir, char, strlen(datadir) + strlen("/help") + 2);
+    sprintf (helpdir, "%s/help", datadir);
+    set_str_variable ("HELPDIR", helpdir);
+    free (helpdir);
+    ALLOCATE (modules, char, strlen(datadir) + strlen("/modules") + 2);
+    sprintf (modules, "%s/modules", datadir);
+    set_str_variable ("MODULES:0", modules);
+    set_int_variable ("MODULES:n", 1);
+    free (modules);
+  }
+
+  return;
+}
+
+/* standard welcome message */
+void welcome () {
+  gprint (GP_ERR, "\n");
+  gprint (GP_ERR, "Welcome to %s - %s\n\n", opihi_name, opihi_description);
+}
+
+/* add program-dependent exit functions here */
+void cleanup () {
+  QuitKapa ();
+  ConfigFree ();
+  
+  FreeBasic ();
+  FreeData ();
+  FreeAstro ();
+  FreeMana ();
+
+  return;
+}
+
+/* call to opihi shell */
+int main (int argc, char **argv) {
+  int status;
+  status = opihi (argc, argv);
+  exit (status);
+}

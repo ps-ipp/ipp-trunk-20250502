@@ -1,0 +1,23 @@
+
+   list (name) (string1) (string2) ... end
+   OR
+   list (name) -split (string1) (string2) ...
+   OR
+   list (name) -x "(ls command)"
+   OR
+   list (name) -x "cat (file)" 
+
+   Create a list of strings that are zero indexed.
+
+   $(name):n = the number of elements in the list (name)
+
+   $(name):5 = the 6th element of the list (name)
+
+   -split option: Turn a list of strings (separated by white spaces)
+     into a list
+
+   -x option: turn an ls command or file into a list (one list element per
+     line in the file + 1 white space)
+
+   ***Note: the list ... end version of the command does not currently work
+             within macros

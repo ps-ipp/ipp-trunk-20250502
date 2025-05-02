@@ -1,0 +1,78 @@
+<meta name=file  content=install>
+<meta name=title content=Installling Ohana>
+<meta name=page  content=install>
+
+<p>
+The Elixir system consists of two main software packages: Ohana (main
+developer Eugene Magnier) and Flips (main developer Jean-Charles
+Cuillandre).  The Elixir system combines these two packages, along
+with other external software products, into a complete system
+providing many utilities and functions for image processing at CFHT
+and elsewhere.  This document describes how to install the Ohana
+portion of the Elixir system.  Ohana may be installed from CVS or from
+a distributed tar ball.  Within the Elixir development community, the
+Ohana source tree may be checked out of the Elixir CVS tree.  Ohana is
+also distributed as a tar ball to users outside of the Elixir
+development community.
+
+<p>
+1) Installing Ohana from source tar ball: <br><br>
+
+  un-gzip and untar:   <br><br>
+
+    <tt> > gunzip -c ohana.tgz | tar xvf - </tt></br></br>
+
+  enter the ohana top-level directory: <br><br>
+
+    <tt> > cd ohana</tt><br><br>
+
+  construct the input Configure file [1]: <br><br>
+
+    <tt> > configure</tt><br><br>
+
+  this step will note the binary installation path.  This should be
+  added to your PATH.  Next, compile the software: <br><br>
+
+    <tt> > make</tt><br><br>
+
+  install the software <br><br>
+
+    <tt> > make install</tt><br><br>
+
+<p>
+2) Installing Ohana from CVS (Developer's version): <br><br>
+
+  check out the ohana source tree: <br><br>
+
+    <tt> > setenv CVSROOT poma:/data/elixir2/srcdir/cvs</tt><br><br>
+    <tt> > cvs co ohana</tt><br><br>
+
+  enter the ohana top-level directory: <br><br>
+
+    <tt> > cd ohana</tt><br><br>
+
+  construct the input Configure file [1]: <br><br>
+
+    <tt> > configure</tt><br><br>
+
+  this step will note the binary installation path.  This should be
+  added to your PATH.  Next, compile the software: <br><br>
+
+    <tt> > make</tt><br><br>
+
+  install the software <br><br>
+
+    <tt> > make install</tt><br><br>
+
+<hr>
+<h3> Notes </h3>
+
+<p>
+[1] Ohana is configured for multiple architecture development, which
+is convenient for end users as well.  The libraries, include files,
+and programs, are all installed in directories with the architecture
+type appended: bin/linux, bin/sol, lib/linux, etc.  To take advantage
+of this multiple architecture organization when compiling, end users
+should arrange for the environment variable ARCH to be set based on
+the machine architecture, and for the PATH to depend on ARCH, rather
+than setting it to a fixed quantity.  

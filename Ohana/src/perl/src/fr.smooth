@@ -1,0 +1,196 @@
+#!/usr/bin/env perl
+
+# this program converts the binned fringe image to an unbinned image,
+# adds necessary header information.  it could be used to smooth the 
+# image based on the filter and chip, if needed
+
+$version = 2.0;
+
+if (@ARGV != 8) { &escape ("ERROR: USAGE: fr.smooth (infile) (filter) (CCD) (unbin) (start) (stop) (frstats) (outfile)"); }
+
+$infile  = $ARGV[0];  # input image file
+$filter  = $ARGV[1];  # filter for image
+$ccd     = $ARGV[2];  # ccd number
+$binning = $ARGV[3];  # binning of input image
+$start   = $ARGV[4];  # valid time range start
+$stop    = $ARGV[5];  # valid time range stop
+$frstats = $ARGV[6];  # fringe statistics file
+$outfile = $ARGV[7];  # output image file
+
+@ccds   = split (" ", `cameraconfig -ccds`);
+@ccdn   = split (" ", `cameraconfig -ccdn`);
+$Nccd   = @ccds;
+
+$CCDKEYWORD = `gconfig CCDNUM-KEYWORD`; chop $CCDKEYWORD;
+$dbmode = `gconfig DETREND-DB-MODE`; chop $dbmode;
+
+@frstats = `cat $frstats`;
+for ($i = 0; $i < @frstats; $i++) {
+    if ($frstats[$i] =~ m|^\s*\#|) { 
+	($tmp, $entry, $value) = split (" ", $frstats[$i]);
+	if ($entry eq "REF_CHIP") { $RefChip = $ccds[$value]; }
+	splice @frstats, $i, 1; $i--; 
+    }
+}
+($C0, $C1, $Fs, $Fr) = split (" ", $frstats[$ccd]);
+
+# find fringe-point file
+$frpts  = `detsearch -quiet -image $infile $ccds[$ccd] split -type frpts`; chop $frpts;
+if ($?) { &escape ("can't get fringe points for image"); }
+($name, $Fs, $Fr) = split (" ", `getfringe $infile $ccds[$ccd] $frpts $binning`);
+
+$mask = `detsearch -ccd $ccds[$ccd] -type mask -time $start -select -quiet`; chop $mask;
+if ($?) { &escape ("ERROR: can't find mask for image $1"); }
+
+# unbin and insert header keywords
+open (MANA, "|mana --norc");
+
+# convert BIASSEC string to x1, x2, y1, y2 vars
+print MANA "macro parsesec\n";
+print MANA "  \$f = \$1\n";
+print MANA "  getchr \$f : n\n";
+print MANA "  substr \$f 1 {\$n-1} x1\n";
+print MANA "  strlen \$f N\n";
+print MANA "  substr \$f \$n {\$N-\$n} f\n";
+  
+print MANA "  getchr \$f , n\n";
+print MANA "  substr \$f 1 {\$n-1} x2\n";
+print MANA "  strlen \$f N\n";
+print MANA "  substr \$f \$n {\$N-\$n} f\n";
+  
+print MANA "  getchr \$f : n\n";
+print MANA "  substr \$f 1 {\$n-1} y1\n";
+print MANA "  strlen \$f N\n";
+print MANA "  substr \$f \$n {\$N-\$n} f\n";
+  
+print MANA "  getchr \$f ] n\n";
+print MANA "  substr \$f 1 {\$n-1} y2\n";
+print MANA "  strlen \$f N\n";
+print MANA "  substr \$f \$n {\$N-\$n} f\n";
+print MANA "end\n";
+
+print MANA "list kernel\n";
+print MANA "  0.025\n";
+print MANA "  0.100\n";
+print MANA "  0.025\n";
+print MANA "  0.100\n";
+print MANA "  0.500\n";
+print MANA "  0.100\n";
+print MANA "  0.025\n";
+print MANA "  0.100\n";
+print MANA "  0.025\n";
+print MANA "end\n";
+print MANA "macro go\n";
+print MANA " \$CCDKEYWORD = $CCDKEYWORD\n";
+# read in mask, rebin
+if ($dbmode eq "MEF") {
+    print MANA " rd mask $mask -n $ccds[$ccd]\n";
+} else {
+    print MANA " rd mask $mask\n";
+}
+print MANA " keyword mask NAXIS1 nx2\n";
+print MANA " keyword mask NAXIS2 ny2\n";
+print MANA " rebin mask binmask $binning -norm\n";
+print MANA " clip binmask 0.9 0.0 1.1 0.0\n";
+
+print MANA " rd a $infile\n";
+print MANA " set a = a * binmask\n";
+# print MANA " set a = a * binmask + $Fs*not(binmask)\n";
+print MANA " rebin a A -$binning\n";
+print MANA " keyword A NAXIS1 nx1\n";
+print MANA " keyword A NAXIS2 ny1\n";
+print MANA " delete a\n";
+
+print MANA " extract A b 0 0 \$nx1 \$ny1 0 0 \$nx2 \$ny2\n";
+print MANA " keyword b DATASEC line\n";
+print MANA " parsesec \$line\n";
+print MANA " sprint newline \"[%d:%d,%d:%d]\" {\$x1*2} {\$x2*2} {\$y1*2} {\$y2*2}\n";
+print MANA " keyword b DATASEC -w \$newline\n";
+
+@time  = localtime;
+$now   = sprintf "%04d-%02d-%02dT%02d:%02d:%02d", $time[5]+1900, $time[4]+1, $time[3], $time[2], $time[1], $time[0];
+$elsys = `gconfig ELIXIR_VERSION`; chop ($elsys);
+
+@word = split ("/", $frpts);
+$frpts = $word[-1];
+
+# add keywords for fringe amplitude, fit, etc
+print MANA " keyword b FRNG_C0  -wf $C0\n";
+print MANA " keyword b FRNG_C1  -wf $C1\n";
+print MANA " keyword b FRNG_SKY -wf $Fs\n";
+print MANA " keyword b FRNG_RNG -wf $Fr\n";
+print MANA " keyword b FRNG_REF -w  $RefChip\n";
+print MANA " keyword b FRNG_PTS -w  \"$frpts\"\n";
+print MANA " keyword b TVSTART  -w  $start\n";
+print MANA " keyword b TVSTOP   -w  $stop\n";
+print MANA " keyword b EL_SYS   -w  \"$elsys\"\n";
+print MANA " keyword b EL_SMTH  -w  \"$version\"\n";
+print MANA " keyword b REL_DATE -w  \"$now\"\n";
+
+# add comments for the new keywords
+print MANA " keyword b FRNG_C0  -wc \"Fringe Cross Correlation linear fit term\"\n";
+print MANA " keyword b FRNG_C1  -wc \"Fringe Cross Correlation linear fit term\"\n";
+print MANA " keyword b FRNG_SKY -wc \"Fringe Frame sky level\" \n";
+print MANA " keyword b FRNG_RNG -wc \"Fringe Frame fringe strength\"\n";
+print MANA " keyword b FRNG_REF -wc \"Fringe Cross Correlation reference chip\"\n";
+print MANA " keyword b FRNG_PTS -wc \"Fringe Point File\"\n";
+print MANA " keyword b TVSTART  -wc \"data validity start time\"\n";
+print MANA " keyword b TVSTOP   -wc \"data validity stop time\"\n";
+print MANA " keyword b OBSTYPE  -w  \"FRINGE\"\n";
+print MANA " keyword b EXPTYPE  -w  \"FRINGE\"\n";
+print MANA " keyword b EL_SYS   -wc \"Elixir System Version\"\n";
+print MANA " keyword b EL_SMTH  -wc \"Elixir Smooth Version\"\n";
+print MANA " keyword b REL_DATE -wc \"UTC Release Date\"\n";
+
+print MANA " keyword b COMMENT  -ws \"Fringe (NN) = C0 + C1 * Fringe (REF)\"\n";
+print MANA " keyword b COMMENT  -ws \"Elixir:fr.smooth version $version\"\n";
+print MANA " keyword b COMMENT  -ws \"Elixir Fringe Frame\"\n";
+print MANA " keyword b COMMENT  -ws \"Elixir smoothing: 3x3 kernel (1): 0.025, 0.100, 0.025\"\n";
+print MANA " keyword b COMMENT  -ws \"Elixir smoothing: 3x3 kernel (2): 0.100, 0.500, 0.100\"\n";
+print MANA " keyword b COMMENT  -ws \"Elixir smoothing: 3x3 kernel (3): 0.025, 0.100, 0.025\"\n";
+
+print MANA " stat b - - - -\n";
+print MANA " \$range = \$MAX - \$MIN + 4\n";
+print MANA " if (\$range < 100)\n";
+print MANA "  \$range = 100\n";
+print MANA " end\n";
+print MANA " sprintf bscale %9.4f {\$range / 2^16}\n";
+print MANA " \$bzero = \$bscale * int ((\$MIN + \$range / 2) / \$bscale)\n";
+
+print MANA " wd b $outfile -bzero \$bzero -bscale \$bscale \n";
+print MANA " exit 0\n";
+
+print MANA "end\n";
+print MANA "macro list go\n";
+print MANA "go\n";
+print MANA "exit 1\n";
+close (MANA);
+if ($?) { &escape ("ERROR: failure running mana"); }
+
+print STDERR "SUCCESS\n";
+exit 0;
+
+####################################################
+
+@temp = ();
+sub mktemp {
+
+    my ($base) = $_[0];
+    my ($name);
+    $name = `mktemp /tmp/$base.XXXXXX`;
+    chop $name;
+
+    push @temp, $name;
+    return $name;
+}
+
+sub escape {
+    $message = $_[0];
+    foreach $name (@temp) {
+	unlink ($name);
+    }
+    die "$message\n";
+}
+
+#print MANA " kern a kernel \n";
+#print MANA " set b = a*mask + $Fs*not(mask)\n";

@@ -1,0 +1,181 @@
+
+Proposal for Elixir/Ohana Software Version Control
+
+Current Practice
+
+- RCS on each file
+- source code in /data/elixir2/srcdir/ohana
+- some scripts (mana/status/dimm?) in /data/elixir2/srcdir/config/mana
+- configuration information in /data/elixir2/srcdir/config
+- software compiled in place
+- installed in /apps/elixir/bin, /apps/elixir/config
+
+Proposal
+
+- Use CVS to control software versions
+- Identify software releases, tag with CVS release tags
+- use /data/elixir2/srcdir/ohana as development site (jcc)
+- use /cfht/src/eos/
+
+----
+
+work to be done to finish CFHT elixir conversion to CVS:
+
+- verify perl & shell scripts are current
+- verify config files are current
+- convert to opihi.v2:
+  - test mana scripts under opihi.v2
+  - move 'status' scripts to 'dvo'
+- define a complete set of packages for release
+
+---
+
+In order to convert the operational CFHT version of Elixir / Ohana to
+the CVS-controlled version, we need to do several things:
+
+1) merge the changes between the CFHT and IfA trees.
+
+2) move the CFHT version of Ohana to the new opihi.v2 system from the
+   opihi.v1 system:
+   - move to the name 'dvo' rather than 'status'
+   - use the v2 version of mana
+
+3) define the Elixir / Ohana packages and tag them with a starting
+   release name 
+
+4) define an initial distribution for Elixir / Ohana using the
+   complete set of released packages.
+
+I have been working to unify the CFHT and IfA Elixir / Ohana trees.  I
+have imported all of the CFHT version of the entries in the config
+directories and the CFHT versions of the shell and perl scripts.  
+
+I have checked on the use of the 'status' program within the Elixir /
+Ohana scripts.  I have modified sp_plot and el_plot to use 'dvo'
+instead.  I have also modified elixir.photreport.  
+
+---
+
+Working with Elixir / Ohana and CVS:
+
+The CVS repositories allows the developer to work on a copy of the
+Ohana software, make changes to their copy of the code, test the
+changes within their own version of the Elixir configuration system,
+share the changes with other developers, and freeze a tested, working
+snapshot of portions of the software.
+
+The Ohana software tree is divided into packages, each possibly
+containing a single program, a group of related programs, or a C
+library.  Within the Ohana software version control system, each of
+these packages should be released as a single entity.  Changes may be
+made to any of the elements which make up the package.  The new
+changes should be tested so that the developer is confident that the
+new version of the software may be safely introduced into the
+production system.  At this point, the entire package is tagged with
+an identifying name and the new release of the package may be loaded
+into the production tree.
+
+In the following discussion, we illustrate the process of creating a
+new release of a package within Elixir. 
+
+First, check out the Ohana tree:
+
+set CVSROOT to username@machine:/data/elixir2/srcdir/cvs where
+'username' is your user ID and machine is one of the CFHT linux
+machines which mount /data/elixir2/srcdir.  
+
+check out your copy of the software tree:
+
+ cvs co ohana
+
+you may also check out specific releases of packages with the command:
+ cvs co -r TAG PACKAGE  eg:
+ cvs co -r libfits-1-0 libfits
+
+this version should be executed from the same directory level as the
+cvs co ohana command; each package is placed in the directory
+ohana/src/PACKAGE.
+
+The entire ohana package may be compiled from the ohana directory
+with:
+
+> configure
+> make
+> make install
+
+Make edits, changes, etc to the programs in some package.  For
+example, you might edit the .c files in the directory
+ohana/src/gastro/src.  Occasionally publish your changes to the CVS
+repository:
+
+cvs update (check for changes by other developers)
+cvs commit [filename] (publish the changes)
+
+also:
+
+cvs add (filename)  (add a new file to the repository).  
+
+Once the changes have been made, make sure to compile and test your
+copy of the program.  If you are acting as a developer, you must have
+your version of the ohana/bin/ARCH directory in your path (before the
+production installation path, /apps/elixir/bin).  Once the code has
+been tested, and the package is ready for release, commit all of your
+changes to the repository (cvs commit).  Now you may tag the new
+release of the package.  Within the top-level directory of the
+package, give the command:
+
+cvs tag -c TAG 
+
+where TAG is the name of this release.  Within the Ohana system,
+packages are generally tagged with names of the form PACKAGE-N-M where
+N and M are major and minor version numbers.  For example, libfits has
+tag names starting from libfits-1-0.  If the changes are minor, and
+don't affect interaction with other packages, then it is only
+necessary to change the minor version number.  If the new package
+forces changes on other packages, it is best to change the major
+version as well.  Major version changes should be introduced only with
+discussion among the affected parties!   It is possible to check the
+currenly assigned tags for a package with the command:
+cvs status -v (filename) 
+where (filename) is some file that is part of the package.  A
+convenient file to use is the Makefile for the package.  Assigning the
+tag affects the repository directly (there is no need to run 'commit'
+afterwards).  If you have outstanding changes, the -c option will
+force CVS to complain, so you will not tag different versions of the
+files from what you expect.
+
+Once the tag has been assigned, the new version of the package may be
+introduced to the production system. This is a two step process:
+first the new source tree is placed in the appropriate location and
+compiled.  Then the new binaries are pushed to their final locations.
+There are two options for installing the new package source code.
+First, you may make a new elixir distribution.  To do this, go into
+the ohana/etc directory, and edit the distributions.txt file.  This
+defines the package releases which make up a complete distribution.
+There are entries for the ohana/elixir distributions, mana
+distributions, etc.  Make a new distribution version, update the
+appropriate package, and save the file.  This distribution (or any
+other older distribution) may now be constructed by executing the
+command 'mkdist (distribution) (version)', for example:
+mkdist elixir 1.0
+This command extracts from the CVS repository all of the package
+versions which are specified to be part of the given distribution
+version.  These are placed in a single directory, along with the ohana
+infrastructure pieces, with the directory name matching the package
+name and version number.  This new directory may be moved or copied to
+the official production source code location
+(/data/elixir2/srcdir/ohana).  The entire tree may then be compiled.  
+
+An alternative to the above is to checkout only the new package
+version.  To do this, go to the directory containing the production
+code (ie, /data/elixir2/srcdir).  Perform a checkout of the specific
+tagged release of the package of interest:
+cvs co -r TAG PACKAGE (ie, cvs co -r libfits-1-0 libfits).  This will
+replace the old version of the package with the new version.  Now the
+software may be recompiled from the ohana directory. 
+
+Once a new version of the software has been compiled, it may be pushed
+to the production binary directory.  From the /data/elixir2/srcdir
+directory, issue the command 'make install' (make install-test will
+show what programs are new).
+

@@ -1,0 +1,209 @@
+
+2010.07.15
+
+  Some issues:
+
+  * when I apply the fitted image parameters (UpdateObjectOffsets), I
+    currently check for good/bad fits and warn if the image is bad.
+    But the correction requires multiple re-loads of the catalog
+    tables.
+
+  * I would like to check for bad fits by defining a grid of test
+    points and seeing how much they move.  However, for some chips,
+    the region of valid data is much smaller than the regino with any
+    data.  
+
+  * I would like to define a grid (say, Nx * Ny with Nx >> polynomial
+    order) and only use those grid regions in testing the solution
+
+  * This means knowing which detections belong on a specific image.
+    I'm not sure if there is a good way to do this.  at the moment, it
+    is easy to do detection -> image, but not so easy to do
+    image->detection.
+
+  * That might argue for generating the grid for each image, then
+    running through all detections and, as detections are examined,
+    populate the grid elements for their own image.
+
+2010.03.24
+
+  I have finished only part of the optimizations listed below: I have
+  made the detection->image and image->mosaic lookups use bracket
+  searches.  I have NOT converted the image->mosaic lookups to use the
+  parentID, so these matches are still based on time ranges.  I have
+  also added a bit of positional constraint to the image match
+  function in 'select_images' (comparing Rmax of the sky regions to
+  Rmin of the images).  These have had a huge improvement.  Here is
+  the execution time for the SAS data (~450 images) with the old vs
+  the new code on pikake:
+
+  old : 39min
+  new :  7min
+
+  The bulk of the time for the new code is now disk I/O.
+
+2010.03.23
+
+  I've been working on optimization.  I've updated ImageOps to make
+  the measure->image relationship generation use the image IDs along
+  with a bracket search -- this goes much faster as a result.  More
+  work is needed:
+
+  * select_images needs to apply astrometry to all image corners: 
+    -> cache the image center and radius and use this to narrow down
+       the searches.
+
+  * MosaicOps uses the time to match mosaics.  I've added sorting to
+    speed this up, but this should be done based on the image and
+    parent index.
+
+    -> make a tool to create the parent ID for existing DBs.
+    -> make sure addstar is populating the parent IDs
+    -> use the parent IDs to make the link.
+
+load image data: 0.006347 sec
+  setup sky: 0.091475 sec
+  convert image table: 0.091498 sec
+  select images: 2.925978 sec
+  init images: 2.926957 sec
+  init mosaics: 2.927319 sec
+load images: 2.933762 sec
+load catalog data: 9.772259 sec
+make image bins: 9.780618 sec
+set up image indexes: 10.196519 sec
+
+load image data: 0.006746 sec
+  setup sky: 0.091440 sec
+  convert image table: 0.091467 sec
+  select images: 0.374193 sec
+  init images: 0.375355 sec
+  init mosaics: 0.375753 sec
+load images: 0.382606 sec
+load catalog data: 7.260094 sec
+make image bins: 7.268564 sec
+set up image indexes: 7.687485 sec
+
+
+2008.03.01
+
+  relastro (and relphot for that matter) needs to have a somewhat
+  flexible error model for the detections.  Some data have an accurate
+  astrometric error; some have a reported error, but it is either
+  insufficient (eg, only from poisson error), or inaccurate.  A
+  complete error model would be something like this:
+
+  dR_total^2 =  dR_sys^2 + AS * dR_obs^2 + MS * dM_obs^2
+
+  dR_sys : systematicAstrometryError
+  AS     : astrometryErrorScale
+  MS     : astrometryErrorMagScale
+
+2007.11.12
+
+  relastro is working for the SIMPLE (single-chip) and CHIP
+  (mosaic-chip) modes.  it is not yet working for the MOSAIC mode.
+  The image table contains one mosaic entry and N chip entries for a
+  mosaic with N chips.  The mosaic entry has coord.ctype = DIS, while
+  the corresponding chips have coord.ctype = WRP (and matching
+  time/photcodes).
+
+  (this is fairly weak. we should just define the relationship when we
+  register the chips...)
+
+2007.10.06
+
+  relastro currently loads the set of detections, averages, and image,
+  and sets up arrays of pointers to define the relationships beteen
+  the detections, objects, and images.  This is probably an acceptable
+  scheme.  
+
+  However, the generation of those index arrays is probably very
+  inefficient.  Currently it is written for the old DVO tables in
+  which there was no real link between the detection and image.  We
+  are trying to move to a situation where each detection has a
+  reference to the image (imageID).  If this is unique, then we should
+  be able to make these links directly.
+
+  Outstanding issues:
+
+  * am I getting the correct set of matches for the mosaic images? 
+    ie, do getImageRaw & getImageRef return the correct list when the
+    image is a DIS mosaic image?
+
+  * is the operation in fit_apply_coords doing the correct thing?
+    compare this to psastro code.  This should not be a problem since
+    we are only fitting in the linear frames.  we are just fitting
+    simple polynomials.  We are not changing the reference coordinate
+    for the projection.
+
+  * measure the errors?
+
+  * apply the magnitude errors as weight?
+
+  * improve matching process with the index information available?
+
+  * add the ability to down-weight groups of detections by photcode?
+
+2007.02.11
+
+  relastro major modes:
+
+  - update the astrometry of objects in the images
+    - load objects within a region
+    - foreach object
+      - calculate average R,D
+      - update db tables (dR, dD)
+    - include external trends
+      - parallax factor
+      - atm trends
+
+  - update the astrometric parameters of images
+    - use the average R,D for objects, update image terms
+    * include external refs with adjustable weighting
+
+  - image parameter smoothing
+
+  - simultaneous fit of objects and images
+    - identify parameters to constrain
+    - limited number of internal objects?
+
+
+2006.04.08 : relastro contemplations
+
+relastro will perform the astrometry equivalent to relphot.  For
+region, it loads in the average objects, detections, and image
+parameters.  The goal is to determine improved astrometric positions
+of objects in the images and to determine improved astrometric
+parameters for the images.  Just like relphot, this is an iterative
+process in which the object postions are improved in one step, the
+image parameters are improved in the next, then back to the images.
+
+Relastro needs to deal with outlier objects in a robust way.  There
+are a few reasons why objects should have poor astrometric solutions,
+and these can be flagged up front: saturation and too many bad pixels.
+For detections which come from psphot, we can use the quality
+parameter to exclude objects which have excessively high bad pixel
+counts.  For detections from sextractor or other analysis tools,
+this information is missing.  In this case, we can use the distance
+from the image boundaries as a trigger.
+
+An open question to be addressed is the issue of external calibration
+sources.  Unlike photometry, external astrometric measurements do not
+need to have an unknown filter transformation applied.  They can thus
+be included as part of the solution automatically.  It is not clear,
+however, how to include *proper-motion* data in the analysis.  If I
+introduce, for example, USNO objects with proper motions, the
+information provided consists in practice of a velocity vector and
+errors.  How does this get folded into the fit?  One answer is to
+construct additional artificial datapoints for each entry with the
+proper errors and epochs.  Seems like something of a hack.  
+
+We may want to allow for different errors / weightings for the
+different external sources.
+
+After the initial iterations, we will can solve for proper-motion and
+parallax for (all?) objects
+
+- calculate the parallax normal vector for each image
+- calculate the atmospheric / orbital motion effects for each image
+

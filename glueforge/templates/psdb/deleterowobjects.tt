@@ -1,0 +1,19 @@
+long long [% table.namespace %]DeleteRowObjects(psDB *dbh, const psArray *objects, unsigned long long limit)
+{
+    long long       deleted = 0;
+
+    for (long long i = 0; i < objects->n; i++) {
+        [% table.object_name %] *object = objects->data[i];
+        psMetadata *where = [% table.namespace %]MetadataFromObject(object);
+        long long count = psDBDeleteRows(dbh, [% table.namespace FILTER upper %]_TABLE_NAME, where, limit);
+        psFree(where);
+        if (count < 0) {
+            psError(PS_ERR_UNKNOWN, true, "failed to delete row from [% table.namespace %]");
+            return count;
+        }
+
+        deleted += count;
+    }
+
+    return deleted;
+}

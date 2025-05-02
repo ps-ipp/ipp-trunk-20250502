@@ -1,0 +1,330 @@
+#!/usr/bin/env perl
+
+# Copyright (C) 2006-2008  Joshua Hoblitt
+#
+# $Id: dsleech,v 1.12 2008-05-19 21:24:15 jhoblitt Exp $
+
+use strict;
+use warnings FATAL => qw( all );
+
+use vars qw( $VERSION );
+$VERSION = '0.02';
+
+use DataStore;
+use File::Spec;
+use YAML ();
+
+use Getopt::Long qw( GetOptions :config auto_help auto_version gnu_getopt );
+use Pod::Usage qw( pod2usage );
+
+my ($dir, $uri, $last_fileset, $overwrite, $recall, $remember, $verbose, $timeout, $no_proxy);
+
+GetOptions(
+    'dir|d=s'           => \$dir,
+    'uri|u=s'           => \$uri,
+    'last_fileset|l=s'  => \$last_fileset,
+    'overwrite|o'       => \$overwrite,
+    'recall'            => \$recall,
+    'remember'          => \$remember,
+    'verbose|v'         => \$verbose,
+    'timeout|t=i'       => \$timeout,
+    'no-proxy'          => \$no_proxy,
+) or pod2usage( 2 );
+
+pod2usage( -msg => "Unknown option: @ARGV", -exitval => 2 ) if @ARGV;
+pod2usage(
+    -msg => "Required options: --uri",
+    -exitval => 3,
+) unless defined $uri;
+
+# default http request timeout is 30s
+$timeout ||= 30;
+$no_proxy = 0 if !defined $no_proxy;
+
+my %p = (
+    uri     => $uri,
+);
+
+# rc file path
+my $rcfilename = File::Spec->catfile($ENV{'HOME'}, '.dsleechrc');
+
+# load rc file
+my $rc = load_rc($rcfilename) or die "failed to load rcfile";
+
+$p{last_fileset} = $last_fileset if defined $last_fileset; 
+if ($recall) {
+    # if --last_fileset was specified it's value should override --recall
+    if (defined $last_fileset) {
+        warn "--last_fileset overriding --recall" if defined $verbose;
+    } elsif (defined $rc->{$uri}) {
+        $p{last_fileset} = $rc->{$uri};
+    } else {
+        warn "--recall couldn't find a previous fileset ID"
+            if defined $verbose;
+    }
+}
+
+my $response = DataStore::Product->new(%p)->request(
+    ua_args  => { timeout => $timeout },
+    no_proxy => $no_proxy,
+);
+
+unless (defined $response and $response->is_success) {
+    warn "request failed: ", $response->status_line;
+    exit($response->code - 300);
+}
+
+# file retreival succeed
+
+my $filesets = $response->data;
+unless ($filesets) {
+    warn "no filesets found";
+    exit(0);
+}
+
+print "@$filesets filesets found\n" if $verbose;
+
+process_filesets($filesets, $dir, $overwrite, $verbose) or die "failed to process filesets";
+
+# if we got this far we're assuming that the downloads completed and we can
+# save the last fileset 
+if ($remember) {
+    my $lowest_fileset = $filesets->[-1];
+    if (defined $lowest_fileset) {
+        $rc->{$uri} = $lowest_fileset->fileset;
+    }
+
+    save_rc($rcfilename, $rc) or die "failed to save rcfile";
+}
+
+sub process_filesets
+{
+    my ($filsets, $dir, $overwrite, $verbose) = @_;
+
+    my $n = 0;
+    foreach my $fileset (@$filesets) {
+        $n++;
+        print "processing fileset: $fileset->fileset $n/@$filesets\n" if $verbose;
+
+        my $response = $fileset->request(
+                ua_args  => { timeout => $timeout },
+            );
+        unless (defined $response->is_success) {
+            warn "request failed: ", $response->status_line;
+            return;
+        }
+
+        my $files = $response->data;
+        # if we get an empty fileset ->request will sucessed but ->data will
+        # return undef   
+        next unless defined $files;
+        unless (@$files) {
+            print "no files in fileset ", $fileset->set, "\n" if $verbose;
+            next;
+        }
+
+        if (!process_files($files, $dir, $overwrite, $verbose)) {
+            warn "failed to process files";
+            return;
+        }
+    }
+
+    return 1;
+}
+
+sub process_files
+{
+    my ($files, $dir, $overwrite, $vebose) = @_;
+
+    foreach my $file (@$files) {
+        # generate the filename to downloda too
+        my $filename;
+        if (defined $dir) {
+            if (!-e $dir) {
+                print "creating dir $dir\n" if $verbose;
+                mkdir $dir or die "can't create dir: $!";
+            }
+            if (!-d $dir) {
+                warn "$dir is not a directory";
+                return;
+            }
+
+            $filename = File::Spec->catfile($dir, $file->fileid);
+        } else {
+            $filename = $file->fileid;
+        }
+
+        # make sure that filename doesn't already exist
+        if (-e $filename) {
+            if ($overwrite) {
+                warn "file $filename already exists, overwriting...";
+            } else {
+                warn "file $filename already exists, skipping...";
+                next;
+            }
+        }
+
+        # use the short version of the filename (with out the path) 
+        print "fetching ", $file->fileid, "..." if $verbose;
+
+        my $response = $file->request(
+                filename => $filename,
+                ua_args  => { timeout => $timeout },
+            );
+        unless (defined $response->is_success) {
+            warn "request failed: ", $response->status_line;
+            return;
+        }
+
+        unless ($response->data) {
+            warn "there was a problem retreiving ", $file->fileid;
+            return;
+        }
+
+        print "    ok\n" if $verbose;
+    }
+
+    return 1;
+}
+
+sub load_rc {
+    my $rcfilename = shift;
+
+    # initalize $sums with an empty hash so if there isn't a pre-existing
+    # database we still end up with a hashref instead of an undef scalar
+    my $rc;
+    if (-e $rcfilename) {
+        if (-f $rcfilename) {
+            $rc = YAML::LoadFile($rcfilename) or die "failed to load rc file";
+        } else {
+            warn "$rcfilename is not a plain file";
+            return;
+        }
+    }
+
+    # if the rcfile exists but is empty YAML will return undef
+    $rc ||= {};
+
+    return $rc;
+}
+
+sub save_rc {
+    my ($rcfilename, $rc) = @_;
+
+    my $yaml = YAML::DumpFile($rcfilename, $rc)
+            or die "failed to write rc file";
+
+    return 1;
+}
+
+__END__
+
+=pod
+
+=head1 NAME
+
+dsleech - batch retrieve files from a DataStore server product
+
+=head1 SYNOPSIS
+
+    dsleech --uri <uri> [--dir <dir>] [--last_fileset <filesetid>]
+                [--overwrite] [--recall] [--remember] [--verbose]
+
+=head1 DESCRIPTION
+
+=head1 OPTIONS
+
+=over 4
+
+=item * --uri|-u <uri>
+
+The URI of the DataStore product to retrive files from.
+
+=item * --dir|-d <dir>
+
+This flag is optional.
+
+The directory to download retrived files into.  The default is to fetch files into the current directory.
+
+=item * --last_fileset|-l <filesetid>
+
+The FileSet ID of the last FileSet that you've seen.  Only filesets registered after C<filesetid> will be polled for files to retreive.
+
+This flag is optional.
+
+=item * --overwrite
+
+If a file already exists, overwrite it.
+
+This flag is optional.
+
+=item * --recall
+
+Load the last fileset ID seen for C<--uri> from the I<rcfile>, if it exists.
+
+This flag is optional.
+
+=item * --remember
+
+Store the last fileset ID seen for C<--uri> in the I<rcfile>.
+
+This flag is optional.
+
+=item * --verbose|-v
+
+Be more verbose in reporting actions.
+
+This flag is optional.
+
+=item * --timeout|-t
+
+The ammount of time (in seconds) to wait for a response from the DataStore
+after making an HTTP request.  The default is 30s.
+
+Optional.
+
+=item * --no-proxy
+
+Do not load proxy environment variables.
+
+Optional.
+
+=back
+
+=head1 CREDITS
+
+Just me, myself, and I.
+
+=head1 SUPPORT
+
+Please contact the author directly via e-mail.
+
+=head1 AUTHOR
+
+Joshua Hoblitt <jhoblitt@cpan.org>
+
+=head1 COPYRIGHT
+
+Copyright (C) 2006-2008  Joshua Hoblitt.  All rights reserved.
+
+This program is free software; you can redistribute it and/or modify it under
+the terms of the GNU General Public License as published by the Free Software
+Foundation; either version 2 of the License, or (at your option) any later
+version.
+
+This program is distributed in the hope that it will be useful, but WITHOUT ANY
+WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A
+PARTICULAR PURPOSE.  See the GNU General Public License for more details.
+
+You should have received a copy of the GNU General Public License along with
+this program; if not, write to the Free Software Foundation, Inc., 59 Temple
+Place - Suite 330, Boston, MA  02111-1307, USA.
+
+The full text of the license can be found in the L<perlgpl> Pod as supplied
+with Perl 5.8.1 and later.
+
+=head1 SEE ALSO
+
+L<dsget>, L<dsleech>, L<dsrootls>, L<dsproductls>, L<dsfilesetls>, L<DataStore>
+
+=cut

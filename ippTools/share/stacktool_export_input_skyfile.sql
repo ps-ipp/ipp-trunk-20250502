@@ -1,0 +1,1 @@
+SELECT stackInputSkyfile.* FROM stackInputSkyfile

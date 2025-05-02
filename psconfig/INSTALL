@@ -1,0 +1,225 @@
+
+*** See Summary at the bottom of this file ***
+
+The directory 'ipp/psconfig' contains tools for building the IPP, for
+testing the build environment, for building external C libraries and
+Perl modules, for setting up the user's environment, and for building
+a tarball to be distributed to the end users.
+
+The psconfig system allows the user to build and install the IPP
+software suite into a location which is flexibly defined by the user.
+The tools here also set up the user's environment variables (PATH,
+PERL5LIB, LIBRARY_PATH, etc) to make use of the installed software.
+With the psconfig tools, it is easy to switch between different
+installed versions or to recompile subsets of the IPP tree.
+
+Developer Build vs User Build
+
+Within the IPP code base, there are a few modules which are not
+distributed as part of the tarball.  These include 'glueforge', which
+is used to generate code for interacting with the database;
+'dbconfig', which defines a database layout; and 'ippdb.src', which is
+the raw auto-generated code.  The tarball is instead packaged with a
+version of ippdb for which autogen has been run, and for which there
+is a valid 'configure' script.  As a developer, it is necessary to
+build these packages.  There is a '-dev' option for psbuild which
+builds these packages.
+
+1. Set up the psconfig system.
+
+If you have not previously installed the IPP suite, and do not the
+psconfig scripts installed, you need to generate the scripts for your
+install directory.  Run the following command in this directory
+(ipp/psconfig):
+
+psbuild -bootstrap INSTALL_PATH
+
+where INSTALL_PATH is the top-level directory for all binary
+installations.  Then, follow the instructions supplied by that
+command:
+
+** if you use csh, tcsh or equivalent as your shell, add the following to your .cshrc
+    if (-e /home/kiawe/eugene/psconfig/psconfig.csh) then
+      alias  psconfig        "source /home/kiawe/eugene/psconfig/psconfig.csh"
+    else
+      alias  psconfig        "echo psconfig not available"
+    endif
+    psconfig default
+
+** if you use sh, bash or equivalent as your shell, add the following to your .bashrc
+    if [ -f /home/kiawe/eugene/psconfig/psconfig.csh ]; then
+      alias psconfig='source /home/kiawe/eugene/psconfig/psconfig.bash'
+      # In bash, can't use an alias in the same file that defines it, so need to
+      # expand it here explicitly to make 'controller host add' work in pantasks
+      source /home/kiawe/eugene/psconfig/psconfig.bash default
+    else
+      alias psconfig='echo psconfig not available'
+    fi
+    
+
+Though, in your case, "/home/kiawe/eugene/psconfig/" will be replaced
+by the value of INSTALL_PATH.  After you have set up this alias, you
+will need to source the .cshrc / .bashrc, or open a new shell, to have
+these aliases available.
+
+2. Using psconfig to set / examine your install system:
+
+Before running or compiling the IPP, it is necessary to use psconfig
+to set the installation version:
+
+psconfig (version)
+
+This command sets aliases and environment variables for the current
+shell to point at the IPP installation labeled with the given version
+name and hardware architecture.  For example:
+
+psconfig default
+
+will set the PATH to include ~/psconfig/default.linux/bin on a 32-bit
+linux system, and the other paths to point at the corresponding
+installation directories.
+
+3. Building (full build in one pass)
+
+It should be possible to build the full IPP installation by issuing
+the single command in this directory (ipp/psconfig):
+
+psbuild -extbuild
+
+If you have checked the IPP tree out of our svn repository, certain
+steps are slightly modified.  In this case, it is necessary to add the
+option '-dev'.  For additional information on using psbuild, see the
+listing of options below (or type psbuild -help)
+
+psbuild -dev -extbuild
+
+3. Dependencies
+
+NOTE: It is possible to use the tools discussed below to manually
+check on the external dependencies.  However, the psbuild system
+allows you to build the full suite including dependencies in a single
+pass.  To use this method, skip to section 4.
+
+3.1. External C libraries
+
+The program 'pschecklibs' in this directory will check for required
+system libraries and headers.  It examines the system libraries,
+libraries defined by LD_LIBRARY_PATH, and the installation library
+defined by psconfig.  Any missing dependencies will be listed.
+Tarballs for these libraries are included in the IPP software
+distribution in the directory 'extlibs'.  The command pschecklibs
+-build can be used to install these libraries in the psconfig
+location.  Note that:
+
+'psautogen' replaces autogen.sh
+'psconfigure' replaces configure
+
+3.2 External Perl Modules
+
+The program 'pscheckperl' in this directory will check for required
+Perl modules, and can be used to install them in the appropriate user
+location in the psconfig system.  The command defaults to the latest
+perl installation table (eg, tagsets/ipp-2.9.perl).
+
+pscheckperl
+
+will test for the perl modules specified for the latest IPP release.
+The (known) IPP-required Perl modules are included in the IPP software
+distribution in 'extperl', and can be built by supplying the -build
+flag to pscheckperl:
+
+pscheckperl -build
+
+4. Building (just IPP tools)
+
+To build the full IPP tree using the psconfig system, run 'psbuild' in
+this directory:
+
+psbuild
+
+If you have checked the IPP tree out of our svn repository, certain
+steps are slightly modified.  In this case, it is necessary to add the
+option '-dev'.  For additional information on using psbuild, see the
+listing of options below (or type psbuild -help)
+
+5. Building Magic.
+
+The Magic software, required for processing of PS1/GPC1 data before it
+can be released to the community, is not generally available for
+distribution.  For those without access to this software, the psbuild
+will simply skip the step of building the magic software.  For those
+who have access to this software, it is necessary to install the magic
+source code in the IPP tree before building.  The magic and
+ssa-core-cpp tarballs must be placed in the home directory.  Go to the
+magic directory (cd ../magic) and run the command 'make update'.  This
+will untar the magic code into the local magic directory and install
+an appropriately modified makefile.  Return to this directory and
+follow the build instructions as above.  (NOTE: this step is only
+necessary for a new IPP checkout or a new magic tarball).
+
+------
+
+More options for psbuild:
+
+USAGE: psbuild [options] (distribution)
+     : -version (version) : specify alternate psconfig installation version
+     : -verbose           : give additional information
+     : -extlibs (tarball) : specify the location of the extlibs tarball
+     : -extperl (tarball) : specify the location of the extlibs tarball
+     : -extcheck          : check (but do not build) the external dependencies
+     : -extbuild          : check and build (if needed) the external dependencies
+     : -clean             : clean the source directories before building
+     : -rebuild           : run 'configure (and autogen for developer)' (C code)
+     : -optimize          : set flags for optimized code
+     : -only (module)     : only build the specified module
+     : -start (module)    : begin build at specified module
+     : -stop (module)     : stop build after specified module
+
+     : -dev               : build modules not distributed in tarball
+
+     : psbuild -bootstrap : generate the psconfig scripts
+     : psbuild -list      : list the available distributions
+     : psbuild -h         : this help listing
+     : psbuild -help      : this help listing
+     : psbuild --help     : this help listing
+
+Summary of psconfig operations:
+
+psdist -tag        : tag CVS tree
+psdist -dist       : build tarball from tagged tree
+psdist -dist -head : build tarball from head
+psbuild            : build and install software in tree
+pschecklibs        : check for needed external software
+pscheckperl        : check for needed perl modules
+pscheckperl -build : build and install external modules
+
+----
+0. Choose a target installation directory.
+
+> Choose a location to store the installed software and configuration
+> files.  The psconfig system places the installed binary files by
+> default in directories below ~/psconfig.  There will be one directory
+> for each version of the installation for a given hardware
+> architecture.  To use a different location, place the following line
+> in ~/.psconfigrc (otherwise, this is not needed):
+> 
+> set PSCONFDIR = INSTALL_PATH
+> 
+> where INSTALL_PATH is the top-level directory for all binary
+> installations. 
+
+** the steps above are probably not actually needed.  When is PSCONFDIR needed?
+
+NOTE: see https://stackoverflow.com/questions/44967115/weak-linking-vs-as-needed
+for a discussion of the -no-as-needed option in gcc
+
+*** SUMMARY ***
+
+For Ubuntu:
+
+  psbuild -extbuild -clean -rebuild -dev -optimize -no-as-needed ipp-ubuntu
+
+For Gentoo:
+
+  psbuild -extbuild -clean -rebuild -dev -optimize ipp-gentoo
+

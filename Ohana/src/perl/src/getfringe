@@ -1,0 +1,118 @@
+#!/usr/bin/env perl
+
+if (@ARGV != 4) { &escape ("USAGE: getfringe (input) (ccd) (frpts) (bin)"); }
+
+# assign the command line arguments
+$input   = $ARGV[0];
+$ccd     = $ARGV[1];
+$frpts   = $ARGV[2];
+$binning = $ARGV[3];
+
+# temporary files for flips input/output
+$temp1   = mktemp ("\@getfringe");
+$temp2   = mktemp ("getfringe");
+$temp3   = mktemp ("getfringe");
+
+# create input list file
+@coords = `gtfringetable $frpts $ccd $binning`;
+if ($?) { &escape ("failure to extract fringe point table"); }
+open (FILE, ">$temp1");
+foreach $line (@coords) {
+    chop ($line);
+    print FILE "$input $line\n";
+}
+close (FILE);
+
+# box size for stats:
+$dx = 1 + 2*int(0.5*25/$binning);
+
+# find input parameter file
+$paramfile = `gconfig FLIPS_PARAM_IMSTAT`; chop $paramfile;
+if ($?) { &escape ("paramfile FLIPS_PARAM_IMSTAT not in config system"); }
+
+# fill in missing keywords
+open (FILE, "$paramfile");
+@params = <FILE>;
+close (FILE);
+
+foreach $line (@params) {
+    chop ($line);
+    $line =~ s|INFILE|$temp1|;
+    $line =~ s|SIZEX|$dx|;
+    $line =~ s|SIZEY|$dx|;
+    $line =~ s|OUTFILE|$temp3|;
+}
+
+# save new parameter file
+open (FILE, ">$temp2");
+foreach $line (@params) {
+    print FILE "$line\n";
+}
+close $temp2;
+
+# run imstat (change to flips2 version)
+system ("imstat $temp2 > /dev/null");
+if ($?) { &escape ("failure in imstat"); }
+
+# accumulate sky, fringe
+open (FILE, "$temp3");
+@stats = <FILE>;
+@sky    = ();
+@fringe = ();
+for ($i = 0; $i < @stats; $i++) {
+    ($name, $max) = split (" ", $stats[$i]);
+    $i ++;
+    ($name, $min) = split (" ", $stats[$i]);
+
+    $fringe = $max - $min;
+    push @sky, $min;
+    push @fringe, $fringe;
+}
+
+# calculate fringe sigma:
+$F1 = $F2 = 0;
+foreach $fringe (@fringe) { 
+    $F1 += $fringe;
+    $F2 += $fringe*$fringe;
+}
+$N = @fringe;
+$F1 = $F1 / $N;
+$dfringe = sqrt ($F2/$N - $F1*$F1);
+
+# calculate fringe & sky medians
+@fringe = sort {$a <=> $b} @fringe;
+$fringe = $fringe[int(0.5*$N)];
+@sky = sort @sky;
+$sky = $sky[int(0.5*$N)];
+
+# write out results 
+print STDOUT "$input $sky $fringe $dfringe\n";
+
+&goodbye;
+
+########
+
+@temp = ();
+sub mktemp {
+
+    my ($base) = $_[0];
+    my ($name);
+    $name = `mktemp /tmp/$base.XXXXXX`;
+    chop $name;
+
+    push @temp, $name;
+    return $name;
+}
+
+sub escape {
+    $message = $_[0];
+    foreach $name (@temp) {
+	unlink ($name);
+    }
+    die "$message\n";
+}
+
+sub goodbye {
+    foreach $name (@temp) { unlink ($name); }
+    exit 0;
+}

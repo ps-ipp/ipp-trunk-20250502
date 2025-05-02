@@ -1,0 +1,7 @@
+#  TEST: byid stack
+#
+#  REQ_NAME EXTVER ACTION EMAIL
+CHANGEME 2 PROCESS null
+#  ROWNUM CENTER_X CENTER_Y WIDTH HEIGHT COORD_MASK JOB_TYPE OPTION_MASK PROJECT SURVEY_NAME IPP_RELEASE REQ_TYPE IMG_TYPE ID TESS_ID COMPONENT DATA_GROUP REQFILT MJD_MIN MJD_MAX RUN_TYPE FWHM_MIN FWHM_MAX | COMMENT
+1         241.54949 55.4273 1500  1500   2      stamp      2113         gpc1      3PI         null     byskycell    stack  null RINGS.V3 skycell.2386.085   null       r        0      0        null      0        10    | tadpole galaxy r band
+2         241.54949 55.4273 1500  1500   2      stamp      2113         gpc1      3PI         null     byskycell    stack  null RINGS.V3 skycell.2386.085   null       i        0      0        null      0        10    | tadpole galaxy i band

@@ -1,0 +1,111 @@
+#!/usr/bin/env perl
+
+if (@ARGV != 2) { die "USAGE: imstats (file.fits) (file.stats)\n" }
+
+$file = $ARGV[0];
+$stats = $ARGV[1];
+@medlist = ();
+$cube = 1;
+
+# check for outdir:
+@words = split ("/", $stats);
+pop (@words);
+$outdir = join ("/", @words);
+if ($outdir eq "") { $outdir = "."; }
+if (! -d $outdir) {
+    system ("mkdir -p $outdir");
+    if ($?) { &escape ("ERROR: can't make directory component for output $outdir"); }
+}
+
+if (-e $stats) { unlink ($stats); }
+
+# find the appropriate script file
+$confdir = `gconfig -q CONFDIR`; chop ($confdir);
+$script  = "$confdir/mana/imstats.pro";
+
+# check that image is not MEF?
+$answer = `echo $file | fields NAXIS3`;
+($tmp, $Nplane) = split (" ", $answer);
+if ($Nplane == 0) { 
+    $Nplane = 1; 
+    $cube = 0;
+}
+
+$temp = `mktemp /tmp/imstats.XXXXXX`; chop ($temp);
+
+# loop over cube planes:
+open (MANA, "|mana --norc > /dev/null");
+print MANA "input $script\n";
+
+print MANA "macro go\n";
+for ($plane = 0; $plane < $Nplane; $plane++) {
+    print MANA " irstats $file $plane $temp.$plane.fits $temp.stats $stats\n";  
+    @medlist = (@medlist, "$temp.$plane.fits");
+}
+print MANA " exit 0\n";
+print MANA "end\n";
+
+print MANA "go\n";
+print MANA "exit 1\n";
+close (MANA);
+if ($?) { &escape ("ERROR problem with imstats"); }
+
+if (@medlist > 1) {
+    open (MED, "|medianfilter $temp.fits 0.25 0.75");
+    foreach $file (@medlist) {
+	print MED "$file\n";
+    }
+    close (MED);
+    if ($?) { &escape ("ERROR problem with medianfilter"); }
+
+    system ("sexstats $temp.fits $temp.stats > /dev/null");
+    if ($?) { &escape ("ERROR problem with sexstats"); }
+} else {
+    system ("sexstats $temp.0.fits $temp.stats > /dev/null");
+    if ($?) { &escape ("ERROR problem with sexstats"); }
+}    
+
+if ($cube) {
+    $fwhm = `seeingstats $temp.stats`; chop ($fwhm);
+    if ($?) { &escape ("ERROR problem with sexstats"); }
+    
+    open (MED, "$stats");
+    @list = <MED>;
+    close (MED);
+    
+    $sky = 0;
+    foreach $line (@list) {
+	($tmp, $isky, $tmp) = split (" ", $line);
+	$sky += $isky;
+    }
+    $sky = $sky / @list;
+    
+    open (MED, ">>$stats");
+    print MED "$Nplane $sky $fwhm\n";
+    close (MED);
+}
+
+&cleanup;
+print STDOUT "SUCCESS: finished with imstats\n";
+
+exit 0;
+    
+sub vsystem {
+    print STDERR "@_\n";
+    $status = system ("@_");
+    $status;
+}
+
+sub escape {
+    &cleanup;
+    die "@_\n";
+}
+    
+sub cleanup { 
+    if (-e "$temp")       { unlink ("$temp"); }
+    if (-e "$temp.stats") { unlink ("$temp.stats"); }
+    if (-e "$temp.fits")  { unlink ("$temp.fits"); }
+    foreach $file (@medlist) {
+	if (-e $file) { unlink $file; }
+    }
+}

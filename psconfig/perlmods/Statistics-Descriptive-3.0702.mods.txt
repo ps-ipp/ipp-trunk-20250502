@@ -1,0 +1,16 @@
+      1 5.006
+      2 base
+      4 Carp
+      1 List::MoreUtils
+      1 List::Util
+      1 Module::Build
+      1 parent
+      1 POSIX
+      3 Statistics::Descriptive
+      1 Statistics::Descriptive::Full
+      5 Statistics::Descriptive::Smoother
+      1 Statistics::Descriptive::Sparse
+      8 strict
+      1 Test::More
+      4 vars
+      8 warnings

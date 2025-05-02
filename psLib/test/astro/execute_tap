@@ -1,0 +1,4 @@
+make test
+./tap_psSphereOps_all
+./tap_psEarthOrientation_corrections
+./tap_psEarthOrientation_motion

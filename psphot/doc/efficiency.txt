@@ -1,0 +1,51 @@
+Strategy for efficiency analysis (a.k.a. "fake" stage)
+
+Want:
+* Detection efficiency as a function of instrumental magnitude
+* Masked fraction
+
+Given:
+* Image
+* Mask
+* Variance
+* PSF
+* Sources on image
+* Recipe:
+  + Magnitude bins (relative to guessed detection limit) for fake sources
+  + Number of fake sources for each bin
+
+
+
+Algorithm:
+* Determine mean instrumental magnitude detection limit
+  + Have:
+    - Mean variance
+    - Smoothing size
+    - Covariance
+    - Threshold
+  + Calculate mean peak flux of source at threshold
+  + Integrate PSF to determine magnitude
+* Remove all real sources from image
+* Add fake sources into image
+* Smooth image, variance (maybe only at positions of fake sources?)
+* Count number of sources masked
+* Count number of fake sources above significance level as a function of fake source magnitude
+
+
+If the required density of fake sources is so high that they begin to
+overlap, we will need to do add sources, smooth, and count
+independently for each magnitude bin.  This could be optimised
+using the distributive property of convolutions (f*[g+h]=f*g+f*h)
+if we smooth the image first, and then add in smoothed PSFs.
+
+
+For a 5% statistical measurement of the detection efficiency per bin, we want
+dN/N = 0.05 ==> N ~ 400 for Poisson statistics.
+Assume a 80% masked fraction, so want 500 sources per bin.
+For 5 magnitude bins, want 2500 sources
+Assume worst case PSF is 15 pix FWHM --> ~ 51 pixels for 4-sigma either side
+Total area is 6502500 pixels.
+Chip images are 4846x4868 = 23590328 pixels = 3.6 times the worst total area.
+Not too bad (especially since this is pretty much worst case, and we only
+care about the central pixel, which is much smaller)
+==> Let's just throw all sources on the same image.

@@ -1,0 +1,66 @@
+#!/usr/bin/env perl
+
+# USAGE: pt.run (obsid)
+
+if (@ARGV != 1) { die "USAGE: ckvalid (obsid)\n" ;}
+
+$obsid = $ARGV[0];
+$archive = "/h/archive/current/instrument/cfh12k";
+
+# find the run id for this image
+$runid = `ckrunid $archive/$obsid.fits`;
+if ($?) {
+    print STDOUT "$obsid: no run ID\n";
+    exit 1;
+}
+chop ($runid);
+
+# try to use the flt files, if they exist, for headers
+$tmpdir = "/data/elixir2/cfh12k/tmpdata/$runid/$obsid";
+
+print "$tmpdir\n";
+
+@flt = <$tmpdir/*.flt>;
+$Nflt = @flt;
+if ($Nflt != 12) {
+    print STDOUT "not enough *.flt files ($Nflt)\n";
+    @smp = <$tmpdir/*.smp>;
+    if (@smp == 12) {
+	print STDOUT "using old *.smp files\n";
+	@flt = ();
+	foreach $smp (@smp) {
+	    $flt = $smp;
+	    $flt =~ s/smp/flt/;
+	    vsystem ("cp $smp $flt");
+	    @flt = (@flt, "$flt");
+	}
+    } else {
+	exit 1;
+    }
+}
+
+foreach $flt (@flt) {
+    $smp = $flt;
+    $smp =~ s/flt/smp/;
+
+    $sx = $flt;
+    $sx =~ s/flt/sx/;
+
+    vsystem ("imclean -sex $flt $sx $smp");
+    vsystem ("gastro -v $smp");
+
+    # imclean -sex *.flt *.sx *.smp
+    # gastro -v *.smp
+}
+
+exit 0;
+
+sub vsystem {
+    print STDERR "@_\n";
+    my($status) = system ("@_");
+    $status;
+}
+
+sub goodbye {
+    die "@_\n";
+}

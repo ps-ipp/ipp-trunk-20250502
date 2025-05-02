@@ -1,0 +1,20 @@
+#!/bin/bash
+#
+# script executed by the task pstamp.stopfaulted to stop proceessing of jobs
+# and dependents that have fault_count >= some maximum value. That value is expected
+# to be passed in as an argument otherwise the default in pstamptool is used
+# All arguments are passed to pstamptool
+
+# note: 25 is PSTAMP_NOT_AVAILABLE
+fault_code=25
+
+date
+echo stopping faulted dependent jobs
+cmd="pstamptool -stopdependentjob -set_fault $fault_code $*"
+echo $cmd
+$cmd
+
+echo stopping faulted jobs
+cmd="pstamptool -updatejob -state run -set_state stop -set_fault $fault_code $*"
+echo $cmd
+$cmd

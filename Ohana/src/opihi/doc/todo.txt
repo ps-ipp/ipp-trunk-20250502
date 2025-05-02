@@ -1,0 +1,4 @@
+
+- convert and include all mana/dimm/status derived functions
+- local scalar variables
+- break / continue in: for, macro, 

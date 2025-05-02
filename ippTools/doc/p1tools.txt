@@ -1,0 +1,16 @@
+
+Phase 1 pipeline tools:
+
+p1search -define [constraints]:
+  * examine the raw.exposures tables and select exposures matching the given criteria
+  * add entries which are allowed (mosaic) to the p1.pending table
+
+p1search -pending :
+  * examine the p1.pending table and select exposures waiting for p1
+  * output: lines consisting of:
+    (expID) (p1version) (camera)
+
+p1search -done :
+  * select completed entries in the p1.pending table
+  * move to the p1.done table
+  * add new entry to the p2.pending tables

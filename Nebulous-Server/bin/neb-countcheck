@@ -1,0 +1,254 @@
+#!/usr/bin/env perl
+
+# Copyright (C) 2005-2008  Joshua Hoblitt
+#
+# $Id: neb-admin,v 1.14 2008-10-16 22:24:39 jhoblitt Exp $
+
+use strict;
+use warnings FATAL => qw( all );
+
+use vars qw( $VERSION );
+$VERSION = '0.02';
+
+use DBI;
+use Net::Server::Daemonize qw( check_pid_file create_pid_file unlink_pid_file );
+use URI;
+
+use Getopt::Long qw( GetOptions :config auto_help auto_version );
+use Pod::Usage qw( pod2usage );
+
+my (
+    $db,
+    $dbhost,
+    $dbpass,
+    $dbuser,
+    $so_id_start,
+    $so_id_range,
+    $limit,
+    $verbose,
+);
+
+$db     = $ENV{'NEB_DB'};
+$dbhost = $ENV{'NEB_DBHOST'} || 'localhost';
+$dbuser = $ENV{'NEB_USER'};
+$dbpass = $ENV{'NEB_PASS'};
+
+GetOptions(
+    'db|d=s'                => \$db,
+    'host=s'                => \$dbhost,
+    'user|u=s'              => \$dbuser,
+    'pass|p=s'              => \$dbpass,
+    'so_id_start=i'         => \$so_id_start,
+    'so_id_range=i'         => \$so_id_range,
+    'limit|l=i'             => \$limit,
+    'verbose|v'             => \$verbose,
+) || pod2usage( 2 );
+
+pod2usage( -msg => "Unknown option: @ARGV", -exitval => 2 ) if @ARGV;
+pod2usage( -msg => "Required options: --db --user --pass", -exitval => 2 )
+    unless $db && $dbuser && $dbpass;
+
+# set default limit to 5
+#$limit ||= 5;
+
+# check to make sure that only one instance of neb-admin is running
+# XXX this implies we should move pending replicate elsewhere
+# my $pidfile = '/var/tmp/neb-admin';
+# # abort if an instance is already running
+# END { unlink_pid_file($pidfile) };
+# check_pid_file($pidfile);
+# create_pid_file($pidfile);
+
+my $dbh = DBI->connect(
+    "DBI:mysql:database=$db:host=$dbhost",
+    $dbuser,
+    $dbpass,
+    {
+        RaiseError => 1,
+        PrintError => 0,
+        AutoCommit => 1,
+    },
+);
+
+scan();
+# if ($pending) {
+#     pending();
+# } elsif ($removal) {
+#     removal();
+# } else {
+#     die "THIS SHOULD NOT HAPPEN";
+# }
+
+sub scan {
+    if (not defined $so_id_start) { $so_id_start = 0; }
+    if (not defined $so_id_range) { $so_id_range = 100000; }
+    my $so_id_end = $so_id_start + $so_id_range;
+
+    # XXX check if so_id_start is beyond MAX(so_id): if so, exit with exit status 10
+    { 
+        my $query = $dbh->prepare("SELECT MAX(so_id) from storage_object");
+        $query->execute;
+        my $answer = $query->fetchrow_arrayref;
+        my $max_so_id = $$answer[0];
+        $query->finish;
+
+        if ($so_id_start > $max_so_id) { 
+            print STDERR "at end of so_id range, reset please\n";
+            exit 10;
+        }
+    }
+        
+    my $sth = 	"SELECT so_id,Nhave,Nwant,ext_id FROM 
+            (SELECT so_id,count(ins_id) AS Nhave,value AS Nwant FROM
+                instance 
+                JOIN storage_object_xattr USING(so_id)
+                JOIN mountedvol USING(vol_id)
+                WHERE storage_object_xattr.name = 'user.copies'
+                AND mountedvol.available = 1
+                AND so_id >= $so_id_start
+                AND so_id <  $so_id_end
+                GROUP BY so_id
+                HAVING Nhave != Nwant
+            ) AS V
+            JOIN storage_object USING(so_id)";
+    if ($limit) {
+	$sth .= " LIMIT $limit ";
+    }
+
+
+    my $query = $dbh->prepare($sth);
+    $query->execute;
+
+    my @rows;
+    while (my $row = $query->fetchrow_hashref) {
+	my $call;
+	if ($row->{Nhave} > $row->{Nwant}) {
+	    $call = 'neb-cull';
+	}
+	elsif ($row->{Nhave} < $row->{Nwant}) {
+	    $call = 'neb-replicate';
+	}
+	else {
+	    $call = 'neb-stat';
+	}
+	print "$row->{so_id} $row->{Nhave} $row->{Nwant} $call $row->{ext_id}\n";
+        push @rows, $row;        
+    }
+    $query->finish;
+        
+    exit unless scalar @rows;
+}
+__END__
+
+=pod
+
+=head1 NAME
+
+neb-countcheck
+
+=head1 SYNOPSIS
+
+    neb-countcheck [--host <db host>] [--db <db name>] [--user <db username>]
+        [--pass <db password>] [--limit <n>] [--so_id_start <S>] [--so_id_range <N>]
+
+=head1 DESCRIPTION
+
+=head1 OPTIONS
+
+=over 4
+
+=item * --limit|-l <n>
+
+Limits the number of items return in response to some request (like
+C<--pendingreplicate>). 
+
+Optional.  Defaults to 5.  --limit 0 is treated as asking for the default
+value.
+
+=item * --host <database host>
+
+Name of host on which the database resides.
+
+Optional.  Defaults to C<localhost>.
+
+=item * --db|-d <database>
+
+Name of database (C<namespace>) to create tables in.
+
+Optional if the appropriate environment variable is set.
+
+=item * --user|-u <username>
+
+Username to authenticate with.
+
+Optional if the appropriate environment variable is set.
+
+=item * --pass|-p <password>
+
+Password to authenticate with.
+
+Optional if the appropriate environment variable is set.
+
+=back
+
+=head1 ENVIRONMENT
+
+These environment variables may be used in place of the specified command line
+options.  All command line option will override the corresponding environment
+value.
+
+=over 4
+
+=item * C<NEB_DB>
+
+Equivalent to --db|-d
+
+=item * C<NEB_HOST>
+
+Equivalent to --host
+
+=item * C<NEB_USER>
+
+Equivalent to --user|-u
+
+=item * C<NEB_PASS>
+
+Equivalent to --pass|-p 
+
+=back
+
+=head1 CREDITS
+
+
+=head1 SUPPORT
+
+
+=head1 AUTHOR
+
+CZW
+
+=head1 COPYRIGHT
+
+Copyright (C) 2010 Chris Waters.  All rights reserved.
+
+This program is free software; you can redistribute it and/or modify it under
+the terms of the GNU General Public License as published by the Free Software
+Foundation; either version 2 of the License, or (at your option) any later
+version.
+
+This program is distributed in the hope that it will be useful, but WITHOUT ANY
+WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A
+PARTICULAR PURPOSE.  See the GNU General Public License for more details.
+
+You should have received a copy of the GNU General Public License along with
+this program; if not, write to the Free Software Foundation, Inc., 59 Temple
+Place - Suite 330, Boston, MA  02111-1307, USA.
+
+The full text of the license can be found in the L<perlgpl> Pod as supplied
+with Perl 5.8.1 and later.
+
+=head1 SEE ALSO
+
+L<Nebulous::Server>, L<neb-addvol>, L<neb-fsck>, L<neb-initdb>, L<nebdiskd>
+
+=cut

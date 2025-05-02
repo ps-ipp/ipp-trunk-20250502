@@ -1,0 +1,22 @@
+
+automate MULTI
+
+# we run in the sequence BLOCK -> CHECK -> LAUNCH -> BLOCK -> CHECK
+# success on CHECK -> LAUNCH
+# failure on BLOCK -> CHECK
+
+# XXX these steps all refer to "@DBNAME@"; they need to be more generic, even for the basic simtest analysis
+
+automate METADATA
+  name       STR OBJECT-i
+  check      STR "regtool -processedexp -exp_type OBJECT -filter i -inst @CAMERA@ -dbname @DBNAME@"
+  launch     STR "chiptool  -dbname @DBNAME@ -updaterun -inst @CAMERA@ -filter i -label wait -set_label proc -set_data_group simtest_i -set_dist_group simtest"
+  block      STR NONE
+END
+
+automate METADATA
+  name       STR OBJECT-r
+  check      STR "regtool -processedexp -exp_type OBJECT -filter r -inst @CAMERA@ -dbname @DBNAME@"
+  launch     STR "chiptool  -dbname @DBNAME@ -updaterun -inst @CAMERA@ -filter r -label wait -set_label proc -set_data_group simtest_r -set_dist_group simtest"
+  block      STR NONE
+END

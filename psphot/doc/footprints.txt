@@ -1,0 +1,61 @@
+
+2010.01.18
+
+  * we are having some problems with footprints being freed to early in the second pass
+
+  * footprint memory history:
+
+    * entering psphotFindFootprints, on the first pass, we have an
+      array of detected peak in detections->peaks
+
+    * in pmFootprintsFind, footprints array owns allocated footprints
+      footprints each own their spans
+
+    * from pmFootprintAssignPeaks:
+      * the footprints have an array of peaks with valid memory references
+      * the peaks have just the pointer to the corresponding footprint (not owned)
+      * all peaks get assigned to a footprint
+      * at end of pmFootprintAssignPeaks, only a single copy of each peak is/should be available from the collection of footprints
+
+pmFootprintCullPeaks is very expensive (15 - 30 msec per object) and
+must be performed on every peak.  We need to improve the speed (even
+at the cost of memory) and we need to thread it.
+
+*** pmFootprints makes use of the mask image, but it does not use the
+    master mask values.  this must be fixed!
+
+-- here is the algorithm
+
+** note: this is run once for each footprint...
+
+* the incoming footprint peak list is already sorted by brightness
+
+* loop over all peaks
+
+  * choose a threshold which is the peak flux - nsigma_delta*stdev
+    ? actually, the threshold is using the edge of the containing
+    subimage?  I'm a little confused by this.
+
+  * if the threshold is below a minimum threshold, we drop it
+    - the code is calling psArrayRemoveIndex for each of these, then decrementing i.
+      this is inefficient since psArray is not a psList.  two possible options here:
+      
+      * do not remove the dropped peaks from the array until the full
+        processing is done, then re-build the array in a single pass.
+        flag peaks to be dropped (either in the structure or with a
+        parallel vector)
+
+      * have the code build a separate 'bright peaks' array on the fly
+        then swap the new peaks out under the pmFootprint.
+
+  * psArrayRemoveIndex is used 3x in pmFootprints.c : review each case
+
+  * the subImage is divided into footprints above threshold about the
+    current peak.
+
+    - EAM : Need to disect pmFindFootprintsAtPoint.  Is it expensive
+        in this case?  Should we be calling the normal pmFootprints
+        function?
+
+
+  

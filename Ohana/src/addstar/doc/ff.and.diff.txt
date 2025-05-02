@@ -1,0 +1,11 @@
+
+full-forced warp and diffs need to be loaded in a more efficient manner.
+
+I need to load a bunch of images at once, then merge them into the database.
+
+for the full-force skycells, the individual images need to be mutually merged
+
+things I need to add:
+
+1) associate neb names with real files names read from a list:
+   realname = nebname

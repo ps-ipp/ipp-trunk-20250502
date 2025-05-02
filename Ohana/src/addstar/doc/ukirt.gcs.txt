@@ -1,0 +1,77 @@
+
+  | UKIRT field name          : DVO measure field
+  1 sourceID                  : extID
+  3 frameSetID		      : imageID (assumes we do not try to go backwards for these photcodes)
+  4 ra			      : R
+  5 dec	  		      : D
+  8 epoch 		      : t 
+ 23 priOrSec		      : primary bit in dbFlags
+ 41 mergedClass		      : photFlags2
+ 42 pStar		      : psfChisq
+ 43 pGalaxy		      : extNsigma
+
+ 46 zHallMag		      : M
+ 47 zHallMagErr		      : dM
+ 50 zAperMag3		      : Map
+ 51 zAperMag3Err	      : dMap
+ 52 zAperMag4		      : Mkron
+ 53 zAperMag4Err	      : dMron
+ 58 zPA			      : posangle
+ 61 zClass		      : psfQF
+ 63 zppErrBits		      : photFlags
+ 64 zSeqNum                   : detID
+
+ 68 yHallMag		      : M
+ 69 yHallMagErr		      : dM
+ 72 yAperMag3		      : Map
+ 73 yAperMag3Err	      : dMap
+ 74 yAperMag4		      : Mkron
+ 75 yAperMag4Err	      : dMron
+ 80 yPA			      : posangle
+ 83 yClass		      : psfQF
+ 85 yppErrBits		      : photFlags
+ 86 ySeqNum                   : detID
+
+ 90 jHallMag		      : M
+ 91 jHallMagErr		      : dM
+ 94 jAperMag3		      : Map
+ 95 jAperMag3Err	      : dMap
+ 96 jAperMag4		      : Mkron
+ 97 jAperMag4Err	      : dMron
+102 jPA			      : posangle
+105 jClass		      : psfQF
+107 jppErrBits		      : photFlags
+108 jSeqNum                   : detID
+
+112 hHallMag		      : M
+113 hHallMagErr		      : dM
+116 hAperMag3		      : Map
+117 hAperMag3Err	      : dMap
+118 hAperMag4		      : Mkron
+119 hAperMag4Err	      : dMron
+124 hPA			      : posangle
+127 hClass		      : psfQF
+129 hppErrBits		      : photFlags
+130 hSeqNum                   : detID
+
+134 k_1HallMag		      : M
+135 k_1HallMagErr	      : dM
+138 k_1AperMag3		      : Map
+139 k_1AperMag3Err	      : dMap
+140 k_1AperMag4		      : Mkron
+141 k_1AperMag4Err	      : dMron
+146 k_1PA		      : posangle
+149 k_1Class		      : psfQF
+151 k_1ppErrBits	      : photFlags
+152 k_1SeqNum                 : detID
+
+156 k_2HallMag		      : M
+157 k_2HallMagErr	      : dM
+160 k_2AperMag3		      : Map
+161 k_2AperMag3Err	      : dMap
+162 k_2AperMag4		      : Mkron
+163 k_2AperMag4Err	      : dMron
+168 k_2PA		      : posangle
+171 k_2Class		      : psfQF
+173 k_2ppErrBits	      : photFlags
+174 k_2SeqNum                 : detID

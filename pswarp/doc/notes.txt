@@ -1,0 +1,29 @@
+
+- pswarp takes an image (and corresponding mask and weight images) and
+  warps the pixels to match the specified skycell projection and pixel
+  grid.  the astrometry of the input image is supplied by the header
+  of the image or by a specified SMP file. 
+
+- the input image, weight, mask are loaded into pmFPA structures with
+  the layout determined by the camera/format/layout
+
+- the skycell is loaded into a pmFPA structure.  at a minimum, a
+  single skycell may contain a single chip, cell, and readout, which
+  in turn correspond to the single set of pixels representing the
+  image region.  
+
+  * is there a need or use for a skycell to have a multilayered
+    structure equivalent in any way to the fpa->chip->cell->readout
+    layer?
+
+    - perhaps we will want to use a single fpa for a larger region
+      with small sky cells representing contiguous pixel regions.  
+
+    - perhaps we will want to warp an entire fpa exposure at once and
+      use a skyfpa to represent all of the possible output skycells
+      for a single input fpa exposure.
+
+- the output is a file or set of files corresponding to the skycell
+  files.  the details should be specified by the PSWARP.OUTPUT file
+  rule.
+

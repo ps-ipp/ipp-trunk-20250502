@@ -1,0 +1,61 @@
+Revision history for Perl module PS::IPP::Metadata::Config
+
+1.01 Fri Nov  9 14:50:58 HST 2007
+    - report an error with line # when eof not parsed
+    - remove mdc-dump --file option flag
+
+1.00 Fri Feb  2 21:51:20 HST 2007
+    - version bump only
+
+0.11 Thu Feb  1 15:42:28 HST 2007
+    - add t/00_distribution.t
+
+0.10 Fri Nov 24 17:11:13 HST 2006
+    - fix handling of NULL strings
+    - merge the 'time' production into the 'scalar' production for a ~20% speed boost 
+    - remove support for "epoch format" times
+    - additional metadata structure tests
+    - merge metadata_name & metadata_end into metdata
+    - merge empty metdata case into main metadata production
+    - error check vector
+    - change type & vtype into regex alternations instead of rule alternations
+
+0.09 Thu Oct 26 16:16:28 HST 2006
+    - fix a bug in Build.PL where a rebuilt grammar was not installed
+    - fix time tests that were dependent on MULTI times being broken
+    - fix MULTI time
+    - no longer require the 'Z' and the end of ISO8601 times
+    - implement NULL time support
+
+0.08 Wed Oct 11 16:09:26 HST 2006
+    - add support for empty METADATAs
+
+0.07 Tue Oct 10 17:09:28 HST 2006
+    - fix MULTI parsing of TYPEs
+    - minor test update
+
+0.06 Tue Oct  3 15:25:44 HST 2006
+    - fix Build.PL script to not throw and error when $parser does not exist
+    - fix the trailing white space left in string values when followed by a
+      comment
+
+0.05 Mon Sep 25 12:06:22 HST 2006
+    - fix a bug in the manifest
+    - fix Build.PL so the parser is only regenerated when the grammar has been
+      changed
+
+0.04 Mon Sep 25 11:50:20 HST 2006
+    - add fractional second support to the ISO8601 format
+
+0.03 Fri Sep 22 14:27:14 HST 2006
+    - add float nan/inf support
+
+0.02 Thu Aug 24 17:08:14 HST 2006
+    - split grammar out of PS::IPP::Metadata::Config into grammar_config.txt
+    - precompile the parser as PS::IPP::Metadata::Pasrser
+    - change PS::IPP::Metadata::Config to use PS::IPP::Metadata::Pasrser
+
+0.01 Tue Feb 22 15:46:35 2005
+	- original version; created by ExtUtils::ModuleMaker 0.32
+
+

@@ -1,0 +1,71 @@
+## Site Configuration : use this as an example for your installation
+## Supply locations of interest
+
+# place your data directories here and refer to as path://PATH/remainder
+DATAPATH        METADATA
+        ALALA   STR     /data/alala.0/
+        ISP     STR     /data/ipp000.0/isp
+        ISP_V2  STR     /data/ipp000.0/isp_v2
+        ISP_V3  STR     /data/ipp000.0/isp_v3
+        ISP_TEST STR    /data/ipp000.0/isp_test
+        CFH12K  STR     /data/ipp003.0/eugene/cfh12k
+
+        SRWORK  STR     /data/ipp003.0/rodney/WORK
+        SRDATA  STR     /data/ipp003.0/rodney/DATA
+
+        SRESSWORK  STR     /data/ipp003.0/rodney/WORK
+        SRESSDATA  STR     /data/ipp003.0/rodney/DATA
+
+        SIMDATA STR     /data/ipp002.0/SIM/DATA
+        SIMWORK STR     /data/ipp002.0/SIM/WORK
+
+        MOPS    STR     /data/ipp002.0/MOPS/
+        TALCS   STR     /data/ipp003.0/TALCS/
+        GPC1    STR     /data/ipp002.0/koppenh/
+END
+
+# List of tessellations, and their DVO CATDIR
+TESSELLATIONS   METADATA
+        MOPS            STR     /data/ipp002.0/MOPS/skycells/
+        FIXNS           STR     /data/ipp002.0/FIXNS/skycells/
+END
+
+# dvo databases used for output
+DVO.CATDIRS     METADATA
+        MOPS            STR     /data/ipp002.0/MOPS/catdir/
+        FIXNS           STR     /data/ipp002.0/FIXNS/catdir/
+END
+
+# dvo databases used for psastro reference
+PSASTRO.CATDIRS METADATA
+        2MASS           STR     /data/alala.0/ipp/ippRefs/catdir.2mass
+        SYNTH.GRIZY     STR     /data/alala.0/ipp/ippRefs/catdir.synth.grizy
+        SYNTH.BRIGHT    STR     /data/alala.0/ipp/ippRefs/catdir.synth.bright
+        SYNTH.SIMTEST   STR     /data/alala.0/ipp/ippRefs/catdir.synth.simtest
+END
+
+# nebulous server
+NEB_SERVER      STR     http://alala:80/nebulous        # Nebulous server
+
+# Database configuration
+DBSERVER        STR     XXX                     # Database host name (for psDBInit)
+DBNAME          STR     XXX                     # Database name (for psDBInit)
+DBUSER          STR     XXX                     # Database user name (for psDBInit)
+DBPASSWORD      STR     XXX                     # Database password (for psDBInit)
+DBPORT          S32     0                       # Database port (for psDBInit); 0 = default
+
+# DataStore Database configuration
+DS_DBSERVER     STR     XXX
+DS_DBNAME       STR     XXX
+DS_DBUSER       STR     XXX
+DS_DBPASSWORD   STR     XXX
+
+# root directory of the data store
+DATA_STORE_ROOT STR PATH
+
+PSTAMP_DATA_STORE_ROOT STR PATH
+
+TEMP.DIR	STR	/tmp	# Directory for temporary products
+
+
+# other basic values:

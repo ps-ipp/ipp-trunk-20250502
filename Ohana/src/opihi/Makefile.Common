@@ -1,0 +1,89 @@
+
+# utilities #################################################
+# .SUFFIXES: .$(ARCH).o
+
+BASE_CFLAGS   =	$(CFLAGS)
+BASE_CPPFLAGS =	$(CPPFLAGS) -I$(INC) -I$(DESTINC) $(INCDIRS) -D$(ARCH)
+BASE_LDFLAGS  = $(LDFLAGS) -L$(LIB) -L$(DESTLIB) $(LIBDIRS) $(LIBFLAGS)
+
+%.c : %.c.in
+	sed "s|@DATADIR@|$(DATA)|" $< > $@
+
+%.$(ARCH).o : %.c
+	$(CC) $(FULL_CFLAGS) $(FULL_CPPFLAGS) -c $< -o $@
+
+$(BIN)/%.$(ARCH):
+	@if [ ! -d $(BIN) ]; then mkdir -p $(BIN); fi
+	$(CC) $(FULL_CFLAGS) -o $@ $^ $(FULL_LDFLAGS)
+	@echo "compiled $*"
+	@echo ""
+
+$(DESTBIN)/%: $(BIN)/%.$(ARCH) 
+	@if [ ! -d $(DESTBIN) ]; then mkdir -p $(DESTBIN); fi
+	rm -f $(DESTBIN)/$*
+	cp $(BIN)/$*.$(ARCH) $(DESTBIN)/$*
+	@echo "installed $*"
+	@echo ""
+
+$(LIB)/%.$(ARCH).a:
+	@if [ ! -d $(LIB) ]; then mkdir -p $(LIB); fi
+	rm -f $@
+	ar rcv $@ $^ 
+	$(RANLIB) $@
+	@echo "compiled library $*"
+	@echo ""
+
+$(DESTLIB)/%.a: $(LIB)/%.$(ARCH).a
+	@if [ ! -d $(DESTLIB) ]; then mkdir -p $(DESTLIB); fi
+	rm -f $@
+	cp $< $@
+
+$(LIB)/%.$(ARCH).so:
+	@if [ ! -d $(LIB) ]; then mkdir -p $(LIB); fi
+	rm -f $@
+#	gcc -shared -Wl,-soname,$*.so -o $@ $^ -lc
+	gcc -shared -Wl,-soname,$*.so -o $@ $^ -lc -Wl,--allow-multiple-definition
+
+$(DESTLIB)/%.so: $(LIB)/%.$(ARCH).so
+	@if [ ! -d $(DESTLIB) ]; then mkdir -p $(DESTLIB); fi
+	rm -f $@
+	cp $< $@
+
+lib%.clean:
+	rm -f $(LIB)/lib$*.$(ARCH).a
+	rm -f $($*)
+	@echo ""
+
+%.help:
+	@echo "installing help files for $*"
+	@if [ ! -d $(DATA)/help ]; then mkdir -p $(DATA)/help; fi
+	@rm -f $(HOME)/$*/help/*~
+	@rm -f $(HOME)/$*/help/#*
+	@for i in `find $(HOME)/$*/help -maxdepth 1 -type f`; do cp -f $$i $(DATA)/help; done
+
+%.modules:
+	@echo "installing modules for $*"
+	@if [ ! -d $(DATA)/modules ]; then mkdir -p $(DATA)/modules; fi
+	@if [ ! -d $(HOME)/modules/$* ]; then echo "no modules for $*"; fi
+	@if [   -d $(HOME)/modules/$* ]; then rm -f $(HOME)/modules/$*/*~; fi
+	@if [   -d $(HOME)/modules/$* ]; then rm -f $(HOME)/modules/$*/#*; fi
+	@if [   -d $(HOME)/modules/$* ]; then for i in `find $(HOME)/modules/$* -name CVS -prune -o -type f -print`; do cp -f $$i $(DATA)/modules; done; fi
+
+%.clean:
+	rm -f $(BIN)/$*.$(ARCH)
+	@echo ""
+
+clean:
+	rm -f $(BIN)/*.$(ARCH)
+	rm -f $(LIB)/*.$(ARCH).a
+	rm -f `find . -name "*.o"`
+	rm -f `find . -name "*~"`
+	rm -f `find . -name "#*"`
+
+dist: clean
+	rm -rf $(BIN)/*
+	rm -rf $(LIB)/*
+
+clean-help:
+	@if [ ! -d $(DATA)/help ]; then mkdir -p $(DATA)/help; fi
+	rm -f $(DATA)/help/*

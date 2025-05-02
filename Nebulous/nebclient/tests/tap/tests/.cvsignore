@@ -1,0 +1,6 @@
+Makefile
+Makefile.in
+*.bb
+*.bbg
+*.da
+gmon.out

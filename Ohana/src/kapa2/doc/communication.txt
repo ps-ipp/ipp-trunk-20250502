@@ -1,0 +1,119 @@
+
+These are the allowed commands from the pipe, and their required additional messages:
+
+NCUR : end cursor interaction (only valid if already in active cursor mode)
+     NONE
+QUIT : quit kapa
+     NONE
+CURS : turn on active cursor
+     NONE
+PSIT : create PS file
+  KiiSendMessage (fd, "%s", filename);
+PNGF : create PNG file
+  KiiSendMessage (fd, "%s", filename);
+PPMF : create PPM file
+  KiiSendMessage (fd, "%s", filename);
+DBOX : 
+  KiiSendMessage (fd, "%12.6g %12.6g %12.6g %12.6g", graphdata[0].xmin, graphdata[0].xmax, graphdata[0].ymin, graphdata[0].ymax);
+  KiiSendMessage (fd, "%lf %d", graphdata[0].lweight, graphdata[0].color);
+  KiiSendMessage (fd, "%s %s %s", graphdata[0].axis, graphdata[0].labels, graphdata[0].ticks);
+PLOT : 
+  KiiSendMessage (fd, "%8d %8d %d %d %d %d %d %f %f", Npts, data[0].style, data[0].ptype, data[0].ltype, data[0].etype, data[0].ebar, data[0].color, data[0].lweight, data[0].size);
+  KiiSendMessage (fd, "%g %g %g %g", data[0].xmin, data[0].xmax, data[0].ymin, data[0].ymax);
+LABL : 
+  KiiSendMessage (fd, "%6d", mode);
+  KiiSendData (fd, string, strlen(string));
+PTXT : 
+  KiiSendMessage (fd, "%f %f %f", x, y, angle);
+  KiiSendData (fd, string, strlen(string));
+RSIZ : 
+  KiiSendMessage (fd, "%d %d", Nx, Ny); 
+CHAN : 
+  KiiSendMessage (fd, "%1d", channel);
+CMAP : 
+  KiiSendMessage (fd, "%s", colormap);
+CSVE : 
+  KiiSendMessage (fd, "FILE: %d %s", n, file);
+DSEC : 
+  KiiSendMessage (fd, "%s %6.3f %6.3f %6.3f %6.3f", section[0].name, section[0].x, section[0].y, section[0].dx, section[0].dy);
+ERSC : 
+     NONE
+ERSI : 
+     NONE
+ERSO : 
+  KiiSendCommand (fd, 16, "OVERLAY %7d ", n);
+ERSP : 
+     NONE
+ERSS : 
+     NONE
+FONT : 
+  KiiSendCommand (fd, 16, "%s", name);
+  KiiSendCommand (fd, 16, "%d", size);
+GIMC : 
+  KiiScanMessage (fd, "%f %f %f %f", &coords[0].pc1_1, &coords[0].pc2_2, &coords[0].pc1_2, &coords[0].pc2_1); 
+  KiiScanMessage (fd, "%s", coords[0].ctype);
+  KiiScanMessage (fd, "%lf %lf %f %f %f %f", &coords[0].crval1, &coords[0].crval2, &coords[0].crpix1, &coords[0].crpix2, &coords[0].cdelt1, &coords[0].cdelt2);
+GIMD : 
+  KiiScanMessage (fd, "%lf %lf %s %s", &data[0].zero, &data[0].range, data[0].name, data[0].file);
+GIMR : 
+  KiiScanMessage (fd, "%lf %lf %lf %lf", Xmin, Xmax, Ymin, Ymax);
+GLIM : 
+  KiiScanMessage (fd, "%f %f", dx, dy); 
+GSTY : 
+  /* send kapa the plot details */
+  KiiScanMessage (fd, "%d %d %d %d %d %d %lf %lf", &data[0].style, &data[0].ptype, &data[0].ltype, &data[0].etype, &data[0].ebar, &data[0].color, &data[0].lweight, &data[0].size);
+  KiiScanMessage (fd, "%lf %lf %lf %lf", &data[0].xmin, &data[0].xmax, &data[0].ymin, &data[0].ymax);
+  KiiScanMessage (fd, "%f %f %f %f", &data[0].coords.pc1_1, &data[0].coords.pc2_2, &data[0].coords.pc1_2, &data[0].coords.pc2_1);
+  KiiScanMessage (fd, "%d %d %s", &data[0].flipeast, &data[0].flipnorth, data[0].coords.ctype);
+  KiiScanMessage (fd, "%lf %lf %f %f %f %f", &data[0].coords.crval1, &data[0].coords.crval2, &data[0].coords.crpix1, &data[0].coords.crpix2, &data[0].coords.cdelt1, &data[0].coords.cdelt2);
+LOAD : (eac write follewed by 'DONE')
+  KiiSendMessage (fd, "%d %d %d %d", overnum, Noverlay, Ntext, Ntextdata);
+  write (fd, buffer, Noverlay*sizeof(KiiOverlayBase)); 
+  write (fd, textdata, Ntextdata);
+LSEC : 
+  KiiSendMessage (fd, "%s", name);
+MOVE : 
+  KiiSendMessage (fd, "%d %d", x, y); 
+MSEC : 
+  KiiSendMessage (fd, "%s %s", name, direction);
+READ : 
+  KiiScanMessage (fd, "%d", &Ncolors);
+  KiiSendMessage (fd, "%8d %8d", image[0].Nx, image[0].Ny);
+  KiiSendMessage (fd, "%f %f %s %s", data[0].zero, data[0].range, data[0].name, data[0].file);
+  KiiSendMessage (fd, "%f %f %d ", min, max, size);
+  KiiSendMessage (fd, "%f %f %g %g %g ", coords[0].crval1, coords[0].crpix1, coords[0].cdelt1, coords[0].pc1_1, coords[0].pc1_2);
+  KiiSendMessage (fd, "%f %f %g %g %g ", coords[0].crval2, coords[0].crpix2, coords[0].cdelt2, coords[0].pc2_1, coords[0].pc2_2);
+  KiiSendMessage (fd, "%s", coords[0].ctype);
+  write (fd, image[0].data1d, size);
+  (note that 1D, 2D, and 1D_8bit have the same messaging)
+SAVE : 
+  KiiSendMessage (fd, "FILE: %d %s", n, file);
+SIMC : 
+  KiiSendMessage (fd, "%g %g %g %g", coords[0].pc1_1, coords[0].pc2_2, coords[0].pc1_2, coords[0].pc2_1);
+  KiiSendMessage (fd, "%s", coords[0].ctype);
+  KiiSendMessage (fd, "%g %g %g %g %g %g", coords[0].crval1, coords[0].crval2, coords[0].crpix1, coords[0].crpix2, coords[0].cdelt1, coords[0].cdelt2);
+SIMD : 
+  KiiSendMessage (fd, "%g %g %s %s", data[0].zero, data[0].range, data[0].name, data[0].file);
+SLIM : 
+  KiiSendMessage (fd, "%g %g %g %g ", data[0].xmin, data[0].xmax, data[0].ymin, data[0].ymax);
+SSEC : 
+  KiiSendMessage (fd, "%s", name);
+SSTY : 
+  KiiSendMessage (fd, "%8d %d %d %d %d %d %f %f", data[0].style, data[0].ptype, data[0].ltype, data[0].etype, data[0].ebar, data[0].color, data[0].lweight, data[0].size);
+  KiiSendMessage (fd, "%g %g %g %g", data[0].xmin, data[0].xmax, data[0].ymin, data[0].ymax);
+  KiiSendMessage (fd, "%g %g %g %g", data[0].coords.pc1_1, data[0].coords.pc2_2, data[0].coords.pc1_2, data[0].coords.pc2_1);
+  KiiSendMessage (fd, "%d %d %s", data[0].flipeast, data[0].flipnorth, data[0].coords.ctype);
+  KiiSendMessage (fd, "%g %g %g %g %g %g", data[0].coords.crval1, data[0].coords.crval2, data[0].coords.crpix1, data[0].coords.crpix2, data[0].coords.cdelt1, data[0].coords.cdelt2);
+TOOL : 
+  KiiSendMessage (fd, "%d", location); 
+JPEG : create JPEG file
+  KiiSendMessage (fd, "%s", filename);
+CENT : 
+  KiiSendMessage (fd, "%8.3f %8.3f %8d ", x, y, zoom);
+PARI : 
+  KiiSendMessage (fd, "%2d %2d ", xflip, yflip);
+PLOB :
+  KiiSendMessage (fd, "%s %d %d %d", type, Npts, Nbytes, swap); 
+  write (fd, values, Nbytes);
+
+NPIX : ?? deprecated?

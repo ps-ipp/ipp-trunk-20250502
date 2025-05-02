@@ -1,0 +1,135 @@
+#!/usr/bin/env perl
+
+if (@ARGV != 2) { die "USAGE: mktreport (start) (stop)\n" ;}
+
+$start = $ARGV[0];
+$stop  = $ARGV[1];
+
+@photcodes = split (" ", `filtnames list`);
+
+@list = `photsearch -trans -offset`;
+
+# the lines from transearch look like this:
+# R 2001/04/15,00:00:00  -0.032 26.259  0.004  0.040 -0.090 B_L92 V_L92 5 15 elixir
+#      (date)             (ZP)  (ZPo)   (sigma)
+
+@dates = ();
+
+# get the complete list of unique dates:
+
+LIST:
+foreach $line (@list) {
+	
+    # parse the line for the date
+    @words = split (" ", $line);
+    ($date) = $words[1] =~ /(\d\d\d\d\/\d\d\/\d\d),/;
+    
+    unless ($found{$date}) { @dates = (@dates, $date); $found{$date} = 1; }
+
+    for ($i = 0; $i < @photcodes; $i++) {
+	
+	if ($words[0] ne $photcodes[$i]) { next; }
+
+	$name1 = "ZPo$i";
+	$name2 = "dZP$i";
+	$$name1{$date} = $words[2] - $words[3];
+	$$name2{$date} = $words[4];
+	next LIST;
+    }
+
+    print STDERR "$words[0] not found in photcode list\n";
+}
+
+@sdates = sort by_date @dates;
+
+print STDOUT "           ";
+for ($i = 0; $i < @photcodes; $i++) {
+    printf STDOUT "%6s ", $photcodes[$i];
+}
+print STDOUT "  ";
+for ($i = 0; $i < @photcodes; $i++) {
+    printf STDOUT "%6s ", "d$photcodes[$i]";
+}
+print STDOUT "\n";
+
+foreach $date (@sdates) {
+    
+    print STDOUT "$date ";
+    
+    for ($i = 0; $i < @photcodes; $i++) {
+	$name = "ZPo$i";
+	if ($$name{$date}) {
+	    printf STDOUT "%6.3f ", $$name{$date};
+	} else {
+	    print STDOUT "     - ";
+	}
+    }
+    print STDOUT "  ";
+    for ($i = 0; $i < @photcodes; $i++) {
+	$name = "dZP$i";
+	if ($$name{$date}) {
+	    printf STDOUT "%6.3f ", $$name{$date};
+	} else {
+	    print STDOUT "     - ";
+	}
+    }
+	
+    print STDOUT "\n";
+}
+
+exit 0;
+
+sub by_date {
+    
+    ($year, $month, $day) = $a =~ /(\d\d\d\d).(\d\d).(\d\d)/;
+    $va = get_jd ($year, $month, $day);
+    ($year, $month, $day) = $b =~ /(\d\d\d\d).(\d\d).(\d\d)/;
+    $vb = get_jd ($year, $month, $day);
+    $va <=> $vb;
+}
+    
+
+
+###################################################################################
+
+sub vsystem {
+    print STDERR "@_\n";
+    $status = system ("@_");
+    $status;
+}
+
+sub goodbye {
+    die "@_\n";
+}
+
+
+sub get_jd {
+
+    my($year) = $_[0];
+    my($month) = $_[1];
+    my($day) = $_[2];
+
+    my($jd) = $day - 32075 + int (1461*($year + 4800 + int (($month - 14)/12))/4)
+	+ int(367*($month - 2 - int(($month - 14)/12)*12)/12)
+	    - int(3*int(($year + 4900 + int(($month - 14)/12))/100)/4) - 0.5;
+    
+
+    return ($jd);
+
+}
+
+sub get_mjd {
+
+    my($year) = $_[0];
+    my($month) = $_[1];
+    my($day) = $_[2];
+
+    my($jd) = $day - 32075 + int (1461*($year + 4800 + int (($month - 14)/12))/4)
+	+ int(367*($month - 2 - int(($month - 14)/12)*12)/12)
+	    - int(3*int(($year + 4900 + int(($month - 14)/12))/100)/4) - 0.5 - 2400000.5;
+    
+
+    return ($jd);
+
+}
+

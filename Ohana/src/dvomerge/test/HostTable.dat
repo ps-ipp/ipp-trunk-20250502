@@ -1,0 +1,5 @@
+# Host Table for parallel DVO
+# ID  Hostname  Catdir
+   1  localhost    catdir.merge.p1
+   2  localhost    catdir.merge.p2
+   3  localhost    catdir.merge.p3

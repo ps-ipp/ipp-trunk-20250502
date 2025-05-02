@@ -1,0 +1,15 @@
+bool [% pkg_namespace %]PrintMetadata(FILE *stream, psMetadata *md, bool mdcf)
+{
+    PS_ASSERT_PTR_NON_NULL(md, false);
+
+    psMetadata *clean = psMetadataCopy(NULL, md);
+
+    if (![% pkg_namespace %]PrintMetadataRaw(stream, clean, mdcf)) {
+        psError(PS_ERR_UNKNOWN, false, "failed to print metadata");
+        psFree(clean);
+        return false;
+    }
+    psFree(clean);
+
+    return true;
+}

@@ -1,0 +1,18 @@
+#if !defined(PSPHOT_ERROR_CODES_H)
+#define PSPHOT_ERROR_CODES_H
+/*
+ * The line
+ *  PSPHOT_ERR_$X{ErrorCode},
+ * (without the X)
+ *
+ * will be replaced by values from errorCodes.dat
+ */
+typedef enum {
+    PSPHOT_ERR_BASE = 3000,
+    PSPHOT_ERR_${ErrorCode},
+    PSPHOT_ERR_NERROR
+} psphotErrorCode;
+
+void psphotErrorRegister(void);
+
+#endif

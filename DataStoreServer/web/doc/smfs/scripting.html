@@ -1,0 +1,151 @@
+<html>
+<head>
+<title>Scripting IPP SMF Access</title>
+</head>
+
+<body>
+<H1>
+Scripting IPP SMF Access
+</H1>
+
+<a href=index.html>Go back up.</a><br>
+
+<p>
+The process of retrieving SMF files is straightforward.
+<ul>
+<li>Discover the list of files of interest.
+<li>Build valid commands to retrieve them from the IPP to local storage.
+<li>Check the results for validity.
+<li>Start working on your science :).
+</ul>
+
+<p>
+This page is primarily concerned with the first two items on this list.
+
+<p> 
+The two pages listsmfs.php and getsmf.php have a relatively straightforward
+interface. UNIX command line tools such as curl or wget may be used to
+access the interface.
+
+<h2>Sample PERL script</h2>
+<p>
+The perl script below gives an example of how to use curl to get
+a list of the current day's smf files from listsmf.php and print curl
+commands that may be used to download the files.
+
+<pre>
+        #!/usr/bin/env perl
+
+        use strict;
+        use warnings;
+
+        my $verbose = 0;
+
+        my $misc_url = 'http://misc.ipp.ifa.hawaii.edu';
+        my $list_url = "$misc_url/listsmfs.php";
+        my $get_url = "$misc_url/getsmf.php";
+
+        my $silent = ' --silent';
+        if ($verbose) {
+            $silent = '';
+        }
+
+        my $list_cmd = "curl $silent http://misc.ipp.ifa.hawaii.edu/listsmfs.php";
+
+        my $output = `$list_cmd`;
+
+        if ($? != 0) {
+            my $rc = $?;
+            print STDERR "Ooops something went wrong with the command $list_cmd\n";
+            print STDERR "command returned $rc\n";
+            exit $rc >> 8;
+        }
+
+        my @lines = split "\n", $output;
+
+        foreach my $line (@lines) {
+            # skip the header line and any others that begin with '#'
+            next if $line =~ '#';
+
+            # split the line at the single quote character that preceeds the
+            # comment string
+            my ($left, $right) = split "'", $line;
+            
+            # the right side of this split is the comment string ...
+            my $comment = $right;
+            
+            # ... and the left side of this split contains a string
+            # with the other parameters.
+            # The other parameters are separated by whitespace
+
+            # NOTE: One might have thought we could parse the header string 
+            # and find the column names but that implies more than the
+            # listsmf "interface" commits to at this time.
+
+            my ($cam_id, $smf_name, $quality, $state, $exp_name, $label, $release, $filter, $obs_date, $obs_time) = split " ", $left;
+
+            if ($quality != 0) {
+                print STDERR "camRun $cam_id had bad quality $quality\n";
+                next;
+            }
+
+            if ($state ne 'full') {
+                print STDERR "camRun is in state $state\n";
+                next;
+            }
+
+            # generate and print out a curl command that could be used to
+            # download the smf file to the current directory
+            my $this_cmd = "curl $silent '$get_url?cam_id=$cam_id' --output $smf_name";
+
+            print "$this_cmd\n";
+        }
+        # all done
+
+</pre>
+When executed the resulting output will look something like this:
+<pre>
+        # 1783100 o7622g0010o.1134626.cm.1783100.smf 0 ICECUBE-160731A.01 i band dither 1 visit 1
+        curl  --silent 'http://misc.ipp.ifa.hawaii.edu/getsmf.php?cam_id=1783100' --output o7622g0010o.1134626.cm.1783100.smf
+        # 1783101 o7622g0011o.1134627.cm.1783101.smf 0 ICECUBE-160731A.01 i band dither 2 visit 1
+        curl  --silent 'http://misc.ipp.ifa.hawaii.edu/getsmf.php?cam_id=1783101' --output o7622g0011o.1134627.cm.1783101.smf
+        # 1783102 o7622g0012o.1134628.cm.1783102.smf 0 ICECUBE-160731A.01 i band dither 3 visit 1
+        curl  --silent 'http://misc.ipp.ifa.hawaii.edu/getsmf.php?cam_id=1783102' --output o7622g0012o.1134628.cm.1783102.smf
+        # 1783103 o7622g0013o.1134629.cm.1783103.smf 0 ICECUBE-160731A.01 i band dither 4 visit 1
+        curl  --silent 'http://misc.ipp.ifa.hawaii.edu/getsmf.php?cam_id=1783103' --output o7622g0013o.1134629.cm.1783103.smf
+        # 1783104 o7622g0014o.1134630.cm.1783104.smf 0 ICECUBE-160731A.01 i band dither 5 visit 1
+        curl  --silent 'http://misc.ipp.ifa.hawaii.edu/getsmf.php?cam_id=1783104' --output o7622g0014o.1134630.cm.1783104.smf
+</pre>
+
+<p>
+There are two lines for each exposure. The first (which begins with
+ a '#' character) lists prints selected metadata
+for the smf and its source exposure. The second line gives
+a curl command that would copy the file to the user's current directory.
+<p> Note, while not suggested, one could take the output of listsmfs.php
+and source it into a UNIX shell to execute the commands.
+<p>
+This script demonstrates how to
+<ul>
+<li>Use curl to get a list of the smfs for the current day's exposures
+<li>Split the lines of the output into its columns (including the comment string)
+<li>Examining the state and quality values to determine whether or not an SMF exists for the exposure
+<li>Printing a curl command line which when exectuted with copy the SMF to the current directory
+</ul>
+<p>
+This simple script shows the most important steps necessary for successful
+smf retrieval.
+
+<h2>What about errors?</h2>
+<p>
+For the sake of speed we chose to not include any information that
+might be useful for detecting errors in the download process. The database
+does contain anything (a checksum for example)
+which could be used to gain confidence that a file was transmitted
+successfully.
+
+<p>
+In practice so far this has not shown to be an issue. getsmf.php has been
+used to download hundreds of thousands of smf files. When users have
+detected problem files, simply trying the download again seems to correct
+the problem.

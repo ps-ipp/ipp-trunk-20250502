@@ -1,0 +1,159 @@
+
+I am having some trouble with functions that refer to both subimages
+and regions.  there are inconsistencies between the coordinate
+conventions.  I am going to go through the list of image functions are
+decide if we can choose either 1) external coordinates always refer to
+parent coordinates or 2) something else!
+
+bool psImageSet(const psImage *image, int x, int y, double complex value);
+double complex psImageGet(const psImage *image, int x, int y);
+ - sdrs does not specify
+ - code uses subimage
+
+psRegion psRegionForImage(psImage *image, psRegion in);
+ - sdrs says subimage
+ - code uses subimage
+
+psImage *psFitsReadImage(psImage *out, const psFits *fits, psRegion region, int z);
+ - region here specifies a subimage of the disk image
+ 
+bool psFitsUpdateImage(psFits *fits, const psImage *input, int x0, int y0, int z);
+ - x0,y0 here refer to the disk image coordinates
+
+bool psFitsWriteImage(psFits *fits, psMetadata *header, const psImage
+*input, int depth, const char *extname);
+ - note that the output disk image is truncated to the subimage
+
+bool psFitsInsertImage(psFits *fits, psMetadata *header, const psImage *input, int depth,
+                       const char *extname, bool after);
+ - same as above
+
+psImage *psImageSubset(psImage *image, psRegion region);
+ - code uses region as coordinates in parent image
+ - sdrs does not specify
+ - XXX I think the range tests for region fail if the input is a
+   subimage
+
+psImage *psImageCopy(psImage *output, const psImage *input, psElemType type);
+ - maintains the col0,row0 values
+
+psVector *psImageRow(psVector *out, const psImage *input, int row);
+psVector *psImageCol(psVector *out, const psImage *input, int column);
+ - code uses subimage coordinates for row and column
+
+psVector *psImageSlice()
+psVector* psImageCut()
+ - code uses subimage coordinates (no correction)
+ - sdrs does not specify
+
+psImage *psImageRebin()
+ - mask and input image must currently agree
+
+psImage *psImageTransform()
+ - sdrs is unclear: I think the region defines the output image such
+ that the pixel in the input image *parent* coordinates which
+ corresponds to region.x0,y0 in turn corresponds to the output image
+ 0,0 pixel; the output image always has col0,row0 = 0,0
+
+long psImageCountPixelMask (psImage *mask, psRegion region, psMaskType value);
+ - sdrs says the region corresponds to subimage coordinates
+
+psPolynomial2D *psImageFitPolynomial(psPolynomial2D *coeffs, const psImage *input);
+psImage *psImageEvalPolynomial(psImage *input, const psPolynomial2D *coeffs);
+ - sdrs does not specify
+ - polynomial coordinates should refer to the *parent* image
+
+double complex psImagePixelInterpolate(input, x, y, ...)
+ - sdrs does not specify
+
+int psImageOverlaySection(psImage *image, const psImage *overlay, )
+ - sdrs does not specify
+
+psImage *psPixelsToMask()
+psPixels *psPixelsFromMask()
+ - sdrs does not specify
+
+void psImageMaskRegion()
+void psImageKeepRegion()
+ - sdrs does not specify
+
+void psImageMaskCircle()
+void psImageKeepCircle()
+ - sdrs does not specify
+
+pmReadout *pmSubtractSky(pmReadout *in, psPolynomial2D *poly, psImage *mask, psU8 maskVal, 
+                         int binFactor, psStats *stats, float clipSD);
+ - choice of polynomial coordinates
+
+stats *pmFringeStats (psArray *fringePoints, psImage *image, psMetadata *config);
+ - unspecified
+
+psF32 pmModelEval(pmModel *model, psImage *image, psS32 col, psS32 row);
+ - sdrs says col,row are in *subimage* coords
+
+psArray *pmFindImagePeaks(const psImage *image, float threshold);
+ - does not specify coordinate system
+ - code uses subimage?
+
+bool pmSourceDefinePixels()
+bool pmSourceRedefinePixels()
+ - sdrs does not specify very clearly
+
+
+
+---------
+
+functions which are not affected
+psFitsReadImage()
+psFitsUpdateImage()
+psFitsWriteImage()
+psFitsInsertImage()
+psImageCopy()  -- maintains col0,row0
+psImageRebin() -- mask and image must match
+
+functions which currently use parent coordinates (CORRECT)
+psImageSubset()  -- check on range tests
+psImageMaskRegion()
+psImageKeepRegion()
+psImageMaskCircle()
+psImageKeepCircle()
+pmSourceMoments -- (OK if input peaks are in parent coords)
+
+functions which currently use subimage coordinates (FIX)
+psImageSet()
+psImageGet()
+psRegionForImage() *fixed*
+psImageRow()
+psImageCol()
+psImageSlice()
+psImageCut()
+psImageCountPixelMask ();
+pmModelEval()
+pmFindImagePeaks() *fixed*
+pmSourceDefinePixels() *fixed by psRegionForImage fix*
+pmSourceRedefinePixels() *fixed by psRegionForImage fix*
+
+functions which are unclear (CHECK)
+psImageTransform()
+psImageFitPolynomial()
+psImageEvalPolynomial()
+psImagePixelInterpolate()
+psPixelsToMask()
+pmSubtractSky()
+pmFringeStats()
+
+
+***** one ambiguity: if we have a subimage, but we do not have the
+      parent image data (subimage does not carry dimensions of parent
+      array), then a 0 or negative upper-edge of a region cannot be
+      defined relative to the parent. we can specify it relative to
+      the subimage.  so, for example, given a subimage [32,100:32,100]
+      of a much larger image, then psRegionForImage with 0,0,0,0 as
+      input would return a region with values 32,100:32,100...
+
+
+
+
+
+*** things I've modified
+    psRegionForImage expects parent (not subimage) coordinates

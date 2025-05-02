@@ -1,0 +1,19 @@
+
+  coords <buffer> (filename)
+
+  "coords" loads astrometric parameters for the given buffer from the
+header of the named file.  The parameters are applied to the buffer,
+and will register in the Ki'i window if the buffer it tv'ed again.
+This is particularly convenient for intercomparing coordinate system
+or in the event the astrometry is stored in a different file (eg, a
+stripped off header).  Currently, the only format of coordinate
+information that is looked for are gene's linear transformation: RA_O,
+RA_X, RA_Y, DEC_O, DEC_X, DEC_Y such that the RA,DEC of an object is
+given by:
+
+RA  = RA_O  + x*RA_X  + y*RA_Y
+DEC = DEC_O + x*DEC_X + y*DEC_Y.
+
+
+  See also: rd, tv
+

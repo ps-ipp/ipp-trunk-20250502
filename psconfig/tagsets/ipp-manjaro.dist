@@ -1,0 +1,87 @@
+# necessary fields:                    
+# |-- tag?
+# ||-- build?
+# |||-- package? 
+# ||||-- update directory from CVS?
+# |||||-- build for developer?
+# |||||
+# |||||  module                 branch name      tag version   
+# ||||| 
+  YYNNY  Ohana                  ipp-2-9          -0
+  NNYYN  ohana.base             ipp-2-9          -0
+  NNYYN  libohana               ipp-2-9          -0
+  NNYYN  libfits                ipp-2-9          -0
+  NNYYN  libautocode            ipp-2-9          -0
+  NNYYN  libdvo                 ipp-2-9          -0
+  NNYYN  libkapa                ipp-2-9          -0
+  NNYYN  libtap.ohana           ipp-2-9          -0
+  NNYYN  addstar                ipp-2-9          -0
+  NNYYN  delstar                ipp-2-9          -0
+  NNYYN  getstar                ipp-2-9          -0
+  NNYYN  ohana.tools            ipp-2-9          -0
+  NNYYN  kapa2                  ipp-2-9          -0
+  NNYYN  relphot                ipp-2-9          -0
+  NNYYN  relastro               ipp-2-9          -0
+  NNYYN  uniphot                ipp-2-9          -0
+  NNYYN  opihi.base             ipp-2-9          -0
+  NNYYN  mana                   ipp-2-9          -0
+  NNYYN  dvo                    ipp-2-9          -0
+  NNYYN  pantasks               ipp-2-9          -0
+  NNYYN  pcontrol               ipp-2-9          -0
+  NNYYN  pclient                ipp-2-9          -0      
+          
+# psLib-based code needs the nebclient library to interact with nebulous
+  YNNYY  Nebulous/nebclient     ipp-2-9          -0
+
+  YYYYY  psLib                  ipp-2-9          -0
+  YYYYY  psModules              ipp-2-9          -0
+  YYYYY  ppStats                ipp-2-9          -0
+  YYYYY  psphot                 ipp-2-9          -0
+  YYYYY  psastro                ipp-2-9          -0
+  YYYYY  ppConfigDump           ipp-2-9          -0
+  YYYYY  ppImage                ipp-2-9          -0
+  YYYYY  ppNoiseMap             ipp-2-9          -0
+  YYYYY  ppNorm                 ipp-2-9          -0
+  YYYYY  ppMerge                ipp-2-9          -0
+  YNNYN  pedestal               ipp-2-9          -0
+  YYYYY  dvoTools               ipp-2-9          -0
+  YYYYY  pswarp                 ipp-2-9          -0
+  YYYYY  ppArith                ipp-2-9          -0
+  YYYYY  ppStack                ipp-2-9          -0
+  YYYYY  ppSub                  ipp-2-9          -0
+  YYYYY  ppSim                  ipp-2-9          -0
+          
+  YNNYY  Nebulous               ipp-2-9          -0
+  YNNYY  Nebulous-Server        ipp-2-9          -0
+  YYYYY  PS-IPP-Metadata-Config ipp-2-9          -0
+  YYYYY  PS-IPP-Config          ipp-2-9          -0     
+          
+  YNNYY  glueforge              ipp-2-9          -0
+  YNNYY  dbconfig               ipp-2-9          -0
+  NNNNY  ippdb.src             
+  YYYNN  ippdb                  ipp-2-9          -0
+  YYYYY  PS-IPP-PStamp          ipp-2-9          -0
+  YYYYY  pstamp                 ipp-2-9          -0
+  YYYYY  ippTools               ipp-2-9          -0
+  YYYYY  ippScripts             ipp-2-9          -0
+  YYYYY  ippTasks               ipp-2-9          -0
+# YNYYY  ippToPsps              ipp-2-9          -0 : moved to $svn/psps
+          
+  YYYYY  ippconfig              ipp-2-9          -0
+  YNYYN  psconfig               ipp-2-9          -0
+  YNYYN  ippMonitor             ipp-2-9          -0
+  YYYYY  DataStore              ipp-2-9          -0
+  YYYYY  DataStoreServer        ipp-2-9          -0
+
+  YYYYY  ppTranslate            ipp-2-9          -0
+  YYYYY  ppViz                  ipp-2-9          -0
+  YYYYY  ppBackground		ipp-2-9		 -0
+  YYYYY  ppSkycell              ipp-2-9          -0
+
+  YYYYY  extsrc/gpcsw           ipp-2-9          -0
+# YYYYY  magic                  ipp-2-9          -0
+# YYYYY  magic/censorObjects    ipp-2-9          -0
+# YYYYY  magic/remove           ipp-2-9          -0
+  YYYYY  console                ipp-2-9          -0
+
+# there are externally required C libraries and perl modules (see INSTALL)

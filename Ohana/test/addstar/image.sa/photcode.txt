@@ -1,0 +1,75 @@
+# this file contains the list of valid photometry codes.
+# there should be one code for each combination of CCD, filter, and
+# telescope (and possibly additional ones if filter transmission
+# reduces with time).  The code on each line is a unique number, while
+# the name is a representative name.  The type defines how the
+# photometry is treated.  There can only be one primary photcode.  There
+# should only be a few secondary photcodes: these are the calibrated
+# values for stars.  The dependent photcodes are those which are
+# equivalent to a primary or secondary photcode, and are equated after
+# photometric solutions.  Reference photcodes are for anything without
+# a dynamic solution: the reference values are provided externally.
+
+# a bogosity in scatfit: it assumes primary photcodes are those which
+# N % 50 == 0
+
+# I discovered that the standards star analysis and the photreg
+# process are inconsistent.  the standard star analysis was using the
+# per-chip zero-points while photreg was using the per-filter
+# zero-points.  these should have been the same, but were not.  See
+# cfh12.photcode.original for the version with this error.  This file
+# now contains consistent entries
+
+# code name		type  zero    airmass  offset   c1   c2   slope  <color> equivalence
+#  1    B		pri   26.017  -0.15     -       1023 1024 0.016     -      1
+#  2    V		sec   26.220  -0.12     -       1023 1024 0.008     -      2
+#  3    R		sec   26.190  -0.09     -       1024 1025 0.028     -      3
+#  4    I		sec   26.185  -0.04     -       1025 1027 0.107     -      4
+
+#  1    B		pri   26.017  -0.15     -       1003 1004 0.016     -      1
+#  2    V		sec   26.220  -0.12     -       1003 1004 0.008     -      2
+#  3    R		sec   26.190  -0.09     -       1004 1005 0.028     -      3
+#  4    I		sec   26.185  -0.04     -       1005 1007 0.107     -      4
+
+  1    B		pri   26.000  -0.15     -       1003 1004 0.016     -      1
+  2    V		sec   26.150  -0.12     -       1003 1004 0.008     -      2
+  3    R		sec   26.190  -0.09     -       1003 1004 0.028     -      3
+  4    I		sec   26.135  -0.04     -       1003 1004 0.107     -      4
+  5    Z		sec   25.830  -0.03     -       -    -    -         -      5
+
+  1000 USNO_BLUE	ref   -     -        -       -  -   -      -        -
+  1001 USNO_RED		ref   -     -        -       -  -   -      -        -
+
+    50 ASCA_RED    	dep  10.000 0.0      -       -  -   -      -        3
+    51 ASCA_BLUE    	dep  10.000 0.0      -       -  -   -      -        3
+
+  1002 U_L92		ref   -     -        -       -  -   -      -        -
+  1003 B_L92		ref   -     -        -       -  -   -      -        -
+  1004 V_L92		ref   -     -        -       -  -   -      -        -
+  1005 R_L92		ref   -     -        -       -  -   -      -        -
+  1007 I_L92		ref   -     -        -       -  -   -      -        -
+
+  1022 U_L92_HQ		ref   -     -        -       -  -   -      -        -
+  1023 B_L92_HQ		ref   -     -        -       -  -   -      -        -
+  1024 V_L92_HQ		ref   -     -        -       -  -   -      -        -
+  1025 R_L92_HQ		ref   -     -        -       -  -   -      -        -
+  1027 I_L92_HQ		ref   -     -        -       -  -   -      -        -
+
+  1012 U_STET		ref   -     -        -       -  -   -      -        -
+  1013 B_STET		ref   -     -        -       -  -   -      -        -
+  1014 V_STET		ref   -     -        -       -  -   -      -        -
+  1015 R_STET		ref   -     -        -       -  -   -      -        -
+  1017 I_STET		ref   -     -        -       -  -   -      -        -
+
+  1100 GSC_M    	ref   -     -        -       -  -   -      -        -
+  1101 SAO		ref   -     -        -       -  -   -      -        -
+
+  1200 TYCHO_B		ref   -     -        -       -  -   -      -        -
+  1201 TYCHO_V		ref   -     -        -       -  -   -      -        -
+
+  2011 2MASS_J          ref   -     -        -       -  -   -      -        -
+  2012 2MASS_H          ref   -     -        -       -  -   -      -        -
+  2013 2MASS_K          ref   -     -        -       -  -   -      -        -
+
+  100  CFH12K.B.00	dep   26.000 -0.15     -       -  -   -      -        1
+  101  MEGACAM.r.13	dep   26.000 -0.15     -       -  -   -      -        1

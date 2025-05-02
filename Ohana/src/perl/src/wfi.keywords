@@ -1,0 +1,110 @@
+#!/usr/bin/env perl
+
+$version = 1.0;
+$Nccd = `cameraconfig -Nccd`; chop ($Nccd);
+
+if (@ARGV != 2) { die "USAGE: grab.keywords (fitsfile) (hdrfile)\n" ; }
+
+$fitsfile  = $ARGV[0];  # input image file
+$hdrfile   = $ARGV[1];  # hdr file for fits_insert
+
+@header = `fhead $fitsfile`;
+
+@newhead = ();
+# grab lines from primary header
+foreach $line (@header) {
+    # astrometry keywords which are copied directly
+    if ($line =~ /HIERARCH ESO INS FILT NAME  =/) { 
+	@word = split ("'", $line);
+	$newline = sprintf "FILTER  = '%-18s' / %-46s \n", $word[1], "Filter name";	
+	@newhead = (@newhead, $newline);
+    }
+    if ($line =~ /HIERARCH ESO DPR TYPE       =/) { 
+	@word = split ("'", $line);
+	$value = @word[1];
+	if ($value eq "SKY") { $value = "OBJECT"; }
+	if ($value eq "SKY,FLAT") { $value = "FLAT"; }
+	if ($value eq "DOME,FLAT") { $value = "FLAT"; }
+	$newline = sprintf "OBSTYPE = '%-18s' / %-46s \n", $value, "Obs Type";	
+	@newhead = (@newhead, $newline);
+    }
+    if ($line =~ /HIERARCH ESO TEL AIRM START =/) {
+	($value) = $line =~ /HIERARCH ESO TEL AIRM START = \s*(\S+)/;
+	$newline = sprintf "AIRMASS = %20.10f / %-46s \n", $value, "Airmass";	
+	@newhead = (@newhead, $newline);
+    }
+    if ($line =~ /HIERARCH ESO TEL FOCU VALUE =/) {
+	($value) = $line =~ /HIERARCH ESO TEL FOCU VALUE = \s*(\S+)/;
+	$newline = sprintf "FOCUS   = %20.10f / %-46s \n", $value, "Focus Value";	
+	@newhead = (@newhead, $newline);
+    }
+    if ($line =~ /HIERARCH ESO INS SIGNAL1 ST =/) {
+	($value) = $line =~ /HIERARCH ESO INS SIGNAL1 ST = \s*(\S+)/;
+	$newline = sprintf "SIGNAL1 = %20.10f / %-46s \n", $value, "Detector temp";	
+	@newhead = (@newhead, $newline);
+    }
+    if ($line =~ /HIERARCH ESO INS SIGNAL2 ST =/) {
+	($value) = $line =~ /HIERARCH ESO INS SIGNAL2 ST = \s*(\S+)/;
+	$newline = sprintf "SIGNAL2 = %20.10f / %-46s \n", $value, "Electronic temp";	
+	@newhead = (@newhead, $newline);
+    }
+    if ($line =~ /HIERARCH ESO INS SIGNAL3 ST =/) {
+	($value) = $line =~ /HIERARCH ESO INS SIGNAL3 ST = \s*(\S+)/;
+	$newline = sprintf "SIGNAL3 = %20.10f / %-46s \n", $value, "Barom press";	
+	@newhead = (@newhead, $newline);
+    }
+    $newline = sprintf "ROTATE  = %20.10f / %-46s \n", 0.0, "Barom press";	
+    @newhead = (@newhead, $newline);
+    $newline = sprintf "NEXTEND = %20d / %-46s \n", $Nccd, "Nextend";	
+    @newhead = (@newhead, $newline);
+}
+ 
+for ($i = 0; $i < $Nccd; $i++) {
+    @chiphead = ();
+    @header = `fhead -x $i $fitsfile`;
+    foreach $line (@header) {
+	if ($line =~ /HIERARCH ESO DET CHIP\d INDEX=/) {
+	    ($value) = $line =~ /HIERARCH ESO DET CHIP\d INDEX= \s*(\S+)/;
+#	    $newline = sprintf "CHIPID  = %20d / %-46s \n", $value, "Detector ID";	
+#	    @chiphead = (@chiphead, $newline);
+	    $newline = sprintf "IMAGEID = %20d / %-46s \n", $value, "Detector ID";	
+	    @chiphead = (@chiphead, $newline);
+	    last;
+	}
+    }
+
+    # write output to file
+    open (FILE, ">$hdrfile");
+    foreach $line (@newhead) {
+	print FILE "$line";
+    }
+    foreach $line (@chiphead) {
+	print FILE "$line";
+    }
+    close (FILE);
+
+    system ("fits_insert -X $i $fitsfile $hdrfile");
+    if ($?) { die "problem with extension $i\n"; }
+}
+
+# write output to file
+open (FILE, ">$hdrfile");
+foreach $line (@newhead) {
+    print FILE "$line";
+}
+system ("fits_insert $fitsfile $hdrfile");
+if ($?) { die "problem with phu\n"; }
+
+exit 0;
+
+###################################################################################
+
+sub vsystem {
+    print STDERR "@_\n";
+    $status = system ("@_");
+    $status;
+}
+
+sub goodbye {
+    die "@_\n";
+}

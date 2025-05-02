@@ -1,0 +1,225 @@
+# this file contains the list of valid photometry codes.
+# there should be one code for each combination of CCD, filter, and
+# telescope (and possibly additional ones if filter transmission
+# reduces with time).  The code on each line is a unique number, while
+# the name is a representative name.  The type defines how the
+# photometry is treated.  There can only be one primary photcode.  There
+# should only be a few secondary photcodes: these are the calibrated
+# values for stars.  The dependent photcodes are those which are
+# equivalent to a primary or secondary photcode, and are equated after
+# photometric solutions.  Reference photcodes are for anything without
+# a dynamic solution: the reference values are provided externally.
+
+# a bogosity in scatfit: it assumes primary photcodes are those which
+# N % 50 == 0
+
+# I discovered that the standards star analysis and the photreg
+# process are inconsistent.  the standard star analysis was using the
+# per-chip zero-points while photreg was using the per-filter
+# zero-points.  these should have been the same, but were not.  See
+# cfh12.photcode.original for the version with this error.  This file
+# now contains consistent entries
+
+# code name		type  zero    airmass  offset   c1   c2   slope  <color> equivalence
+#  1    B		pri   26.017  -0.15     -       1023 1024 0.016     -      1
+#  2    V		sec   26.220  -0.12     -       1023 1024 0.008     -      2
+#  3    R		sec   26.190  -0.09     -       1024 1025 0.028     -      3
+#  4    I		sec   26.185  -0.04     -       1025 1027 0.107     -      4
+
+#  1    B		pri   26.017  -0.15     -       1003 1004 0.016     -      1
+#  2    V		sec   26.220  -0.12     -       1003 1004 0.008     -      2
+#  3    R		sec   26.190  -0.09     -       1004 1005 0.028     -      3
+#  4    I		sec   26.185  -0.04     -       1005 1007 0.107     -      4
+
+  1    B		pri   26.000  -0.15     -       1003 1004 0.016     -      1
+  2    V		sec   26.150  -0.12     -       1003 1004 0.008     -      2
+  3    R		sec   26.190  -0.09     -       1003 1004 0.028     -      3
+  4    I		sec   26.135  -0.04     -       1003 1004 0.107     -      4
+  5    Z		sec   25.830  -0.03     -       -    -    -         -      5
+
+  1000 USNO_BLUE	ref   -     -        -       -  -   -      -        -
+  1001 USNO_RED		ref   -     -        -       -  -   -      -        -
+
+    50 ASCA_RED    	dep  10.000 0.0      -       -  -   -      -        3
+
+  1002 U_L92		ref   -     -        -       -  -   -      -        -
+  1003 B_L92		ref   -     -        -       -  -   -      -        -
+  1004 V_L92		ref   -     -        -       -  -   -      -        -
+  1005 R_L92		ref   -     -        -       -  -   -      -        -
+  1007 I_L92		ref   -     -        -       -  -   -      -        -
+
+  1022 U_L92_HQ		ref   -     -        -       -  -   -      -        -
+  1023 B_L92_HQ		ref   -     -        -       -  -   -      -        -
+  1024 V_L92_HQ		ref   -     -        -       -  -   -      -        -
+  1025 R_L92_HQ		ref   -     -        -       -  -   -      -        -
+  1027 I_L92_HQ		ref   -     -        -       -  -   -      -        -
+
+  1012 U_STET		ref   -     -        -       -  -   -      -        -
+  1013 B_STET		ref   -     -        -       -  -   -      -        -
+  1014 V_STET		ref   -     -        -       -  -   -      -        -
+  1015 R_STET		ref   -     -        -       -  -   -      -        -
+  1017 I_STET		ref   -     -        -       -  -   -      -        -
+
+  1100 GSC_M    	ref   -     -        -       -  -   -      -        -
+  1101 SAO		ref   -     -        -       -  -   -      -        -
+
+  1200 TYCHO_B		ref   -     -        -       -  -   -      -        -
+  1201 TYCHO_V		ref   -     -        -       -  -   -      -        -
+
+  2011 2MASS_J          ref   -     -        -       -  -   -      -        -
+  2012 2MASS_H          ref   -     -        -       -  -   -      -        -
+  2013 2MASS_K          ref   -     -        -       -  -   -      -        -
+
+  100  CFH12K.B.00	dep   26.000 -0.15     -       -  -   -      -        1
+  101  CFH12K.B.01	dep   26.000 -0.15     -       -  -   -      -        1
+  102  CFH12K.B.02	dep   26.000 -0.15     -       -  -   -      -        1
+  103  CFH12K.B.03	dep   26.000 -0.15     -       -  -   -      -        1
+  104  CFH12K.B.04	dep   26.000 -0.15     -       -  -   -      -        1
+  105  CFH12K.B.05	dep   26.000 -0.15     -       -  -   -      -        1
+  106  CFH12K.B.06	dep   26.000 -0.15     -       -  -   -      -        1
+  107  CFH12K.B.07	dep   26.000 -0.15     -       -  -   -      -        1
+  108  CFH12K.B.08	dep   26.000 -0.15     -       -  -   -      -        1
+  109  CFH12K.B.09	dep   26.000 -0.15     -       -  -   -      -        1
+  110  CFH12K.B.10	dep   26.000 -0.15     -       -  -   -      -        1
+  111  CFH12K.B.11	dep   26.000 -0.15     -       -  -   -      -        1
+
+  200  CFH12K.V.00	dep   26.150 -0.12     -       -  -   -      -        2
+  201  CFH12K.V.01	dep   26.150 -0.12     -       -  -   -      -        2
+  202  CFH12K.V.02	dep   26.150 -0.12     -       -  -   -      -        2
+  203  CFH12K.V.03	dep   26.150 -0.12     -       -  -   -      -        2
+  204  CFH12K.V.04	dep   26.150 -0.12     -       -  -   -      -        2
+  205  CFH12K.V.05	dep   26.150 -0.12     -       -  -   -      -        2
+  206  CFH12K.V.06	dep   26.150 -0.12     -       -  -   -      -        2
+  207  CFH12K.V.07	dep   26.150 -0.12     -       -  -   -      -        2
+  208  CFH12K.V.08	dep   26.150 -0.12     -       -  -   -      -        2
+  209  CFH12K.V.09	dep   26.150 -0.12     -       -  -   -      -        2
+  210  CFH12K.V.10	dep   26.150 -0.12     -       -  -   -      -        2
+  211  CFH12K.V.11	dep   26.150 -0.12     -       -  -   -      -        2
+
+# was 26.190
+  300  CFH12K.R.00	dep   26.190 -0.09     -       -  -   -      -        3
+  301  CFH12K.R.01	dep   26.190 -0.09     -       -  -   -      -        3
+  302  CFH12K.R.02	dep   26.190 -0.09     -       -  -   -      -        3
+  303  CFH12K.R.03	dep   26.190 -0.09     -       -  -   -      -        3
+  304  CFH12K.R.04	dep   26.190 -0.09     -       -  -   -      -        3
+  305  CFH12K.R.05	dep   26.190 -0.09     -       -  -   -      -        3
+  306  CFH12K.R.06	dep   26.190 -0.09     -       -  -   -      -        3
+  307  CFH12K.R.07	dep   26.190 -0.09     -       -  -   -      -        3
+  308  CFH12K.R.08	dep   26.190 -0.09     -       -  -   -      -        3
+  309  CFH12K.R.09	dep   26.190 -0.09     -       -  -   -      -        3
+  310  CFH12K.R.10	dep   26.190 -0.09     -       -  -   -      -        3
+  311  CFH12K.R.11	dep   26.190 -0.09     -       -  -   -      -        3
+
+  400  CFH12K.I.00	dep   26.135 -0.04     -       -  -   -      -        4
+  401  CFH12K.I.01	dep   26.135 -0.04     -       -  -   -      -        4
+  402  CFH12K.I.02	dep   26.135 -0.04     -       -  -   -      -        4
+  403  CFH12K.I.03	dep   26.135 -0.04     -       -  -   -      -        4
+  404  CFH12K.I.04	dep   26.135 -0.04     -       -  -   -      -        4
+  405  CFH12K.I.05	dep   26.135 -0.04     -       -  -   -      -        4
+  406  CFH12K.I.06	dep   26.135 -0.04     -       -  -   -      -        4
+  407  CFH12K.I.07	dep   26.135 -0.04     -       -  -   -      -        4
+  408  CFH12K.I.08	dep   26.135 -0.04     -       -  -   -      -        4
+  409  CFH12K.I.09	dep   26.135 -0.04     -       -  -   -      -        4
+  410  CFH12K.I.10	dep   26.135 -0.04     -       -  -   -      -        4
+  411  CFH12K.I.11	dep   26.135 -0.04     -       -  -   -      -        4
+
+### This needs to be fixed: I am setting all filters which are not
+###   BVRI to point at photcode 5 (= Z) as a reference.  This is
+###   needed because the 
+
+  500  CFH12K.Z.00	dep   25.83 -0.03     -       -  -   -      -        5
+  501  CFH12K.Z.01	dep   25.83 -0.03     -       -  -   -      -        5
+  502  CFH12K.Z.02	dep   25.83 -0.03     -       -  -   -      -        5
+  503  CFH12K.Z.03	dep   25.83 -0.03     -       -  -   -      -        5
+  504  CFH12K.Z.04	dep   25.83 -0.03     -       -  -   -      -        5
+  505  CFH12K.Z.05	dep   25.83 -0.03     -       -  -   -      -        5
+  506  CFH12K.Z.06	dep   25.83 -0.03     -       -  -   -      -        5
+  507  CFH12K.Z.07	dep   25.83 -0.03     -       -  -   -      -        5
+  508  CFH12K.Z.08	dep   25.83 -0.03     -       -  -   -      -        5
+  509  CFH12K.Z.09	dep   25.83 -0.03     -       -  -   -      -        5
+  510  CFH12K.Z.10	dep   25.83 -0.03     -       -  -   -      -        5
+  511  CFH12K.Z.11	dep   25.83 -0.03     -       -  -   -      -        5
+
+  600  CFH12K.Ha.00	dep   25.000 0.04     -       -  -   -      -       5
+  601  CFH12K.Ha.01	dep   25.000 0.04     -       -  -   -      -       5 
+  602  CFH12K.Ha.02	dep   25.000 0.04     -       -  -   -      -       5 
+  603  CFH12K.Ha.03	dep   25.000 0.04     -       -  -   -      -       5 
+  604  CFH12K.Ha.04	dep   25.000 0.04     -       -  -   -      -       5 
+  605  CFH12K.Ha.05	dep   25.000 0.04     -       -  -   -      -       5 
+  606  CFH12K.Ha.06	dep   25.000 0.04     -       -  -   -      -       5 
+  607  CFH12K.Ha.07	dep   25.000 0.04     -       -  -   -      -       5 
+  608  CFH12K.Ha.08	dep   25.000 0.04     -       -  -   -      -       5 
+  609  CFH12K.Ha.09	dep   25.000 0.04     -       -  -   -      -       5 
+  610  CFH12K.Ha.10	dep   25.000 0.04     -       -  -   -      -       5 
+  611  CFH12K.Ha.11	dep   25.000 0.04     -       -  -   -      -       5 
+									     
+  700  CFH12K.HaOff.00	dep   25.000 0.04     -       -  -   -      -       5
+  701  CFH12K.HaOff.01	dep   25.000 0.04     -       -  -   -      -       5 
+  702  CFH12K.HaOff.02	dep   25.000 0.04     -       -  -   -      -       5 
+  703  CFH12K.HaOff.03	dep   25.000 0.04     -       -  -   -      -       5 
+  704  CFH12K.HaOff.04	dep   25.000 0.04     -       -  -   -      -       5 
+  705  CFH12K.HaOff.05	dep   25.000 0.04     -       -  -   -      -       5 
+  706  CFH12K.HaOff.06	dep   25.000 0.04     -       -  -   -      -       5 
+  707  CFH12K.HaOff.07	dep   25.000 0.04     -       -  -   -      -       5 
+  708  CFH12K.HaOff.08	dep   25.000 0.04     -       -  -   -      -       5 
+  709  CFH12K.HaOff.09	dep   25.000 0.04     -       -  -   -      -       5 
+  710  CFH12K.HaOff.10	dep   25.000 0.04     -       -  -   -      -       5 
+  711  CFH12K.HaOff.11	dep   25.000 0.04     -       -  -   -      -       5 
+
+  800  CFH12K.CN.00	dep   25.000 0.04     -       -  -   -      -       5
+  801  CFH12K.CN.01	dep   25.000 0.04     -       -  -   -      -       5 
+  802  CFH12K.CN.02	dep   25.000 0.04     -       -  -   -      -       5 
+  803  CFH12K.CN.03	dep   25.000 0.04     -       -  -   -      -       5 
+  804  CFH12K.CN.04	dep   25.000 0.04     -       -  -   -      -       5 
+  805  CFH12K.CN.05	dep   25.000 0.04     -       -  -   -      -       5 
+  806  CFH12K.CN.06	dep   25.000 0.04     -       -  -   -      -       5 
+  807  CFH12K.CN.07	dep   25.000 0.04     -       -  -   -      -       5 
+  808  CFH12K.CN.08	dep   25.000 0.04     -       -  -   -      -       5 
+  809  CFH12K.CN.09	dep   25.000 0.04     -       -  -   -      -       5 
+  810  CFH12K.CN.10	dep   25.000 0.04     -       -  -   -      -       5 
+  811  CFH12K.CN.11	dep   25.000 0.04     -       -  -   -      -       5 
+
+  900  CFH12K.TiO.00	dep   25.000 0.04     -       -  -   -      -       5
+  901  CFH12K.TiO.01	dep   25.000 0.04     -       -  -   -      -       5 
+  902  CFH12K.TiO.02	dep   25.000 0.04     -       -  -   -      -       5 
+  903  CFH12K.TiO.03	dep   25.000 0.04     -       -  -   -      -       5 
+  904  CFH12K.TiO.04	dep   25.000 0.04     -       -  -   -      -       5 
+  905  CFH12K.TiO.05	dep   25.000 0.04     -       -  -   -      -       5 
+  906  CFH12K.TiO.06	dep   25.000 0.04     -       -  -   -      -       5 
+  907  CFH12K.TiO.07	dep   25.000 0.04     -       -  -   -      -       5 
+  908  CFH12K.TiO.08	dep   25.000 0.04     -       -  -   -      -       5 
+  909  CFH12K.TiO.09	dep   25.000 0.04     -       -  -   -      -       5 
+  910  CFH12K.TiO.10	dep   25.000 0.04     -       -  -   -      -       5 
+  911  CFH12K.TiO.11	dep   25.000 0.04     -       -  -   -      -       5 
+
+  950  CFH12K.NB920.00	dep   25.000 0.04     -       -  -   -      -       5
+  951  CFH12K.NB920.01	dep   25.000 0.04     -       -  -   -      -       5 
+  952  CFH12K.NB920.02	dep   25.000 0.04     -       -  -   -      -       5 
+  953  CFH12K.NB920.03	dep   25.000 0.04     -       -  -   -      -       5 
+  954  CFH12K.NB920.04	dep   25.000 0.04     -       -  -   -      -       5 
+  955  CFH12K.NB920.05	dep   25.000 0.04     -       -  -   -      -       5 
+  956  CFH12K.NB920.06	dep   25.000 0.04     -       -  -   -      -       5 
+  957  CFH12K.NB920.07	dep   25.000 0.04     -       -  -   -      -       5 
+  958  CFH12K.NB920.08	dep   25.000 0.04     -       -  -   -      -       5 
+  959  CFH12K.NB920.09	dep   25.000 0.04     -       -  -   -      -       5 
+  960  CFH12K.NB920.10	dep   25.000 0.04     -       -  -   -      -       5 
+  961  CFH12K.NB920.11	dep   25.000 0.04     -       -  -   -      -       5 
+
+  970  CFH12K.B2F.00	dep   25.000 0.04     -       -  -   -      -       5
+  971  CFH12K.B2F.01	dep   25.000 0.04     -       -  -   -      -       5 
+  972  CFH12K.B2F.02	dep   25.000 0.04     -       -  -   -      -       5 
+  973  CFH12K.B2F.03	dep   25.000 0.04     -       -  -   -      -       5 
+  974  CFH12K.B2F.04	dep   25.000 0.04     -       -  -   -      -       5 
+  975  CFH12K.B2F.05	dep   25.000 0.04     -       -  -   -      -       5 
+  976  CFH12K.B2F.06	dep   25.000 0.04     -       -  -   -      -       5 
+  977  CFH12K.B2F.07	dep   25.000 0.04     -       -  -   -      -       5 
+  978  CFH12K.B2F.08	dep   25.000 0.04     -       -  -   -      -       5 
+  979  CFH12K.B2F.09	dep   25.000 0.04     -       -  -   -      -       5 
+  980  CFH12K.B2F.10	dep   25.000 0.04     -       -  -   -      -       5 
+  981  CFH12K.B2F.11	dep   25.000 0.04     -       -  -   -      -       5 
+
+  2000 U_BESS		dep   25.0  0.10     -       -  -   -      -        5
+  2001 B_BESS		dep   25.0  0.10     -       -  -   -      -        1
+  2002 V_BESS		dep   25.0  0.10     -       -  -   -      -        2
+  2003 R_BESS		dep   25.0  0.10     -       -  -   -      -        3
+  2004 I_BESS		dep   25.0  0.10     -       -  -   -      -        4

@@ -1,0 +1,36 @@
+
+   style -- many options
+
+   define or check the Kapa plotting style.  without any command-line arguments,
+   style prints the current style.  
+
+   option definitions:
+
+   -n	window number (0-4), can also be used to change active window.
+   -pt	point style: 
+		0 = filled box
+		1 = open box
+		2 = +
+		3 = X
+		4 = filled triangle
+		5 = blank
+		6 = open triangle 
+		7 = open circle
+		100 = connect pair of points
+   -x	plotting method:
+		0 = connect
+		1 = histogram
+		2 = points
+   -lt	line type:
+		0 = solid
+		1 = dashed
+		2 = dotted??
+   -lw	line weight (0-10)
+   -sz	point size
+   -c   color:
+	black, white, red, orange, 
+	yellow, green, blue, indigo, violet
+   -eb  errorbar with no top
+   +eb  errorbar with top
+
+   See also: plot, box

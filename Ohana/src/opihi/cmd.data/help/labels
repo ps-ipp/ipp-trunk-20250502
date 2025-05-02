@@ -1,0 +1,23 @@
+
+   labels 
+
+   write a label on the Kapa window.  there are many options:
+
+   -fn font size -- define the font (may be times, helvetica, courier)
+
+   -x "a long line" -- label on the bottom x-axis
+
+   +x "a long line" -- label on the top x-axis
+
+   -y "a long line" -- label on the left y-axis
+
+   +y "a long line" -- label on the right y-axis
+
+   -ul "a long line" -- label on the upper left of plot
+
+   -ll "a long line" -- label on the lower left of plot
+
+   -ur "a long line" -- label on the upper right of plot
+
+   -lr "a long line" -- label on the lower right of plot
+

@@ -1,0 +1,13 @@
+# Expression for the quantity s(t)+XY/2 based on the IAU2000A precession-nutation 
+# model 
+# 
+# 
+# Updated Table (12/11/2003) for ensuring continuity of UT1 on 1st January 2003
+# 
+# --------------------------------------------------------------------------------------------------------------
+# 
+# s + XY/2 = polynomial part + non-polynomial part
+# 
+# --------------------------------------------------------------------------------------------------------------
+# Polynomial part (unit microarcsecond)
+94.0 +3808.35 -119.94 -72574.09 +27.70 +15.61

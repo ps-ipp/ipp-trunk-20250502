@@ -1,0 +1,3 @@
+SELECT
+    detInputExp.*
+FROM detInputExp

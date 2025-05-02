@@ -1,0 +1,38 @@
+
+This document outlines the way kapa works.
+
+Top-Level (kapa.c):
+
+  * load arguments
+  * generate basic graphic structure (SetUpGraphic)
+    * this is held static by SetUpGraphic.c
+    * it currently does not carry all elements: sections are static elsewhere
+    * Graphic elements are a bit X-centric. 
+  * generate basic window elements (InitLayout / Layout.c)
+  * run event loop
+
+Event Loop:
+
+  * check pipe for messages
+  * in X context, check for various events (cursor interations, resizing, moving, raising)
+
+In X context, events which expose or reconfigure the window trigger Refresh().
+
+In non-X context:
+ * PNGit & JPEGit trigger bDrawIt (equivalent to Refresh)
+ * PSit is equivalent to bDrawIt
+
+------
+
+I would like to change from native X to native bDraw functions.  This
+would allow for opacity and anti-aliasing.  To do this, I need to do
+the following:
+
+* bDraw operations need to include a mask so we can distinguish layers
+  (e.g., text on image).  anti-aliasing needs to be applied to text
+  and graph elements, but not to the images
+
+* Refresh currently calls DrawImage with generates both the main image
+  as well as the extra elements: colorbar, zoom window, pan window,
+  buttons.
+

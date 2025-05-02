@@ -1,0 +1,3 @@
+SELECT
+    detRunSummary.*
+FROM detRunSummary

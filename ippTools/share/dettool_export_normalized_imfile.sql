@@ -1,0 +1,3 @@
+SELECT
+    detNormalizedImfile.*
+FROM detNormalizedImfile

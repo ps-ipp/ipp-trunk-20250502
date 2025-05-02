@@ -1,0 +1,176 @@
+
+2011.06.01
+
+  addressing some details:
+
+  tasks->Njobs:
+    ++ : CheckTasks.c:86 after successful submission
+
+  tasks->Nsuccess:
+    ++ : CheckJobs.c:126 : on exit if exit_status == 0
+  
+  tasks->Nfailure:
+    ++ : CheckJobs.c:102 : on exit if exit_status == 0
+    ++ : CheckJobs.c:123 : on crash
+
+  tasks->Ntimeout:
+
+stdout_cntl:
+  GetJobOutout
+    CheckControllerJob
+      CheckController
+        controller_threads (controlThread)
+  StartController
+  ControllerCommand
+    CheckController
+      controller_threads (controlThread)
+    controller_check (clientThread)
+    controller_host (clientThread)
+    controller_jobstack (clientThread)
+    controller_run (clientThread)
+    controller_status (clientThread)
+    controller_verbose (clientThread)
+    DeleteControllerJob
+      CheckControllerJob
+        CheckController
+	  controller_threads (controlThread)
+    CheckControllerJobStatus
+      CheckControllerJob
+        CheckController
+	  controller_threads (controlThread)
+    SubmitControllerJob
+      SubmitJob
+        CheckTasks (JobTaskThread)
+    PrintControllerBusyJobs
+    KillControllerJob
+    QuitController
+    RestartController    
+  CheckControllerOutput
+    controller_output (clientThread)
+    controller_threads (controlThread)
+
+
+
+
+
+
+
+20090322
+
+  We've been surviving with a slightly broken threading / locking
+  model.  I would like to clean it up.  Previously, the threads where
+  blocking at a very coarse level, and there were certain interactions
+  that were not thread-safe.  Here are my notes on re-working this:
+
+  * we have 6 threads:
+
+    * main (top-level parent) : after it spawns the 5 child threads,
+      this thread waits for new clients and adds them to the list of
+      active clients with 'AddNewClient'
+
+    * clientsThread (ListenClients): this thread is listening for
+      commands from the clients; when it receives a complete command,
+      it executes the command using 'multicommand'.
+
+    * tasksThread
+      CheckTasks
+	NextTask
+
+
+
+    * jobsThread
+
+    * controllerThread
+      CheckControllerStatus : race condition is irrelevant
+
+    * inputsThread
+      AddNewInput called by clientThread
+      (not sure this is really being used: 
+      	   server input (filename) calls 'input'
+	   server module (filename) calls 'module'
+
+  * functions which need to be thread-safe:
+    * AddNewClient
+    * gprint and supporting functions must be thread safe (extensively
+      used...)
+
+
+* race condition is irrelevant for this variable
+static int ControllerStatus = FALSE;
+
+static int stdin_cntl, stdout_cntl, stderr_cntl;
+GetJobOutput -> CheckControllerJob -> CheckController -> controllerThread
+ControllerCommand -> controllerThread / clientThread
+CheckControllerOutput -> controllerThread / clientThread
+StartController -> controllerThread / clientThread
+StopController
+
+
+
+static IOBuffer stdout_buffer;
+static IOBuffer stderr_buffer;
+static int ControllerPID = 0;
+
+/* local static variables to track the controller host properties */
+static Host *hosts = NULL;
+static int Nhosts = 0;
+static int NHOSTS = 0;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+PanTasks Client / Server design
+
+Client
+
+client uses readline to parse the incoming commands commands are only
+validated by the client before being sent to the server:
+
+client loop:
+
+   line = readline ()
+   validate argv[0]
+   send to server
+   wait for response?
+
+Server
+
+Server does not use readline at all.  server has two threads.  first
+thread listens for commands from the clients.  how many clients?  use
+poll to wait for data?  can we manage enough clients with a single
+thread?
+
+the second thread runs the scheduler loop: this is the same background
+check that is being run by the current model on the timeouts.
+
+server loop:
+
+  check socket for new incoming client connection
+  check known clients for new messages
+    execute new command
+    send response to the client
+  run the scheduler for a single loop
+
+client / server communication is modelled after addstar client /
+server?
+

@@ -1,0 +1,4 @@
+psDB *[% pkg_namespace %]Init(const char *host, const char *user, const char *passwd, const char *dbname, unsigned int port)
+{
+    return psDBInit(host, user, passwd, dbname, port);
+}

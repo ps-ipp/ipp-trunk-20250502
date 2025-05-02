@@ -1,0 +1,6 @@
+
+   shift buffer dx dy
+
+   shift image by dx,dy pixels (may be fractional values).
+
+   

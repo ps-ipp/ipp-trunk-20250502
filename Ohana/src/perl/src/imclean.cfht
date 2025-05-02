@@ -1,0 +1,64 @@
+#!/usr/bin/env perl
+
+$config = "";
+@tARGV = ();
+for (; @ARGV > 0; ) {
+    if ($ARGV[0] eq "-C") {
+        $config = "-C $ARGV[1]";
+        shift; shift; next;
+    }
+    if ($ARGV[0] eq "-c") {
+        $config = "-c $ARGV[1]";
+        shift; shift; next;
+    }
+    if ($ARGV[0] eq "-D") {
+        $config = "-D $ARGV[1] $ARGV[2]";
+        shift; shift; shift; next;
+    }
+    @tARGV = (@tARGV, $ARGV[0]);
+    shift;
+}
+@ARGV = @tARGV;
+
+if (@ARGV < 3) { 
+    print STDERR "ERROR: USAGE: USAGE: imclean.cfht (fits) (obj) (cmp) [option]\n";
+    print STDERR "  corrects for errors with CD1_1, CRPIX1 on 12k for 51400 < MJD < 51540\n";
+    print STDERR "  also determines and inserts the photcode for the image\n";
+    exit 2;
+}
+
+# input image must already be in SPLIT mode
+
+# determine the photcode of this image:
+$photcode=`photcode $config -quiet $ARGV[0] 0 split`; chop $photcode;
+if ($?) { die "ERROR: cannot find photcode\n"; }
+
+# check if we need to correct the WCS terms (only CFH12K)
+($name, $id, $mjd) = split (" ", `echo $ARGV[0] | fields IMAGEID MJD-OBS`);
+
+$fix="";
+if (($mjd > 51400) && ($mjd < 51540) && (($id == 2) || ($id == 6))) {
+    $line = `echo $ARGV[0] | fields CD1_1 CRPIX1 NAXIS1`;
+    ($name, $cd11, $crpix1, $nx) = split (" ", $line, 4);
+    $crpix1 = $nx - $crpix1;
+    $cd11 = -$cd11;
+    $fix = "-key CD1_1 %f $cd11  -key CRPIX1 %f $crpix1";
+}
+
+vsystem ("imclean $config @ARGV -p $photcode $fix");
+
+exit 0;
+
+############
+
+sub vsystem {
+    print STDERR "@_\n";
+    $status = system ("@_");
+    $status;
+}
+
+sub goodbye {
+    print STDERR "ending execution\n";
+    die "@_";
+}
+

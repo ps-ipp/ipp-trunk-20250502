@@ -1,0 +1,124 @@
+#!/bin/csh -f
+
+if ($#argv != 1) then
+ echo "USAGE: elixir.launch (system)"
+ exit 2
+endif
+
+set run    = `gconfig RUNID.CURRENT`;
+set camera = `gconfig CAMERA.CURRENT`;
+set logdir = `gconfig LOGDIR`;
+set datdir = `gconfig DATDIR`;
+
+if ($1 == "mkdetrend") then
+    switch ($camera)
+     case cfh12k:
+     case megacam:
+     case meganorth:
+      echo "starting mkdetrend"
+      mkdetrend auto run -run $run -camera $camera >>& $logdir/mkdetrend.log &
+      breaksw;
+
+     default:
+      breaksw;
+    endsw
+
+    exit 0;
+endif
+
+if ($1 == "imstats") then
+    switch ($camera)
+     case cfh12k:
+     case megacam:
+     case meganorth:
+      echo "starting elixir imstats"
+      elixir -restart -D mode imstats -D CAMERA $camera -D RUNID $run >>& $logdir/imstats.log &
+      breaksw;
+
+     case cfhtir:
+      echo "starting elixir irstats"
+      elixir -restart -D mode irstats -D CAMERA $camera -D RUNID $run >>& $logdir/imstats.log &
+      breaksw;
+
+     default:
+      echo "stopping elixir imstats"
+      elixir -stop -D mode imstats
+      breaksw;
+    endsw
+    exit 0;
+endif
+
+if ($1 == "imstatreg") then
+    switch ($camera)
+     case cfhtir:
+     case cfh12k:
+     case megacam:
+     case meganorth:
+      echo "checking for existing imstatreg -daemon"
+      imstatreg -D CAMERA $camera -D RUNID $run -daemon -status
+      if ($status) then
+	echo "no imstatreg -daemon, starting..."
+	imstatreg -D CAMERA $camera -D RUNID $run -daemon -v
+	if ($status) then
+	    echo "error starting imstatreg -daemon"
+	endif
+      endif
+      breaksw;
+
+     default:
+      echo "no imstatreg -daemon needed for $camera"
+      breaksw;
+    endsw
+    exit 0;
+endif
+
+if ($1 == "cadc") then
+    switch ($camera)
+     case cfh12k:
+     case megacam:
+     case meganorth:
+      set date = `date -u +%Y%m%d+%H:%M:%S`
+
+      # extract CADC table, using all undistributed, object images from the past few days
+      imsearch -D CAMERA $camera -D RUNID $run -type object -dist f -trange now -4d -cadctable $datdir/cadc/mcmd.raw.$date.fits
+      if ($status) then
+	echo "error extracting cadc table"
+	exit 1;
+      endif
+      # mark the images above distributed
+      imsearch -D CAMERA $camera -D RUNID $run -type object -dist f -trange now -4d -modify dist t
+
+      # send the file to the CADC ftp location
+      cp $datdir/cadc/mcmd.raw.$date.fits /h/ftp/pub/fits_hdrs/
+
+      # update the values to the QSO database
+      cadc2qso $datdir/cadc/mcmd.raw.$date.fits
+
+      breaksw;
+
+     default:
+      echo "no CADC table needed for $camera"
+      breaksw;
+    endsw
+    exit 0;
+endif
+
+if ($1 == "sextract") then
+    switch ($camera)
+     case cfh12k:
+     case megacam:
+     case meganorth:
+      echo "starting elixir sextract"
+      elixir -restart -D mode sextract -D CAMERA $camera -D RUNID $run >>& $logdir/sextract.log &
+      breaksw;
+
+     default:
+      echo "stopping elixir sextract"
+      elixir -stop -D mode sextract
+      breaksw;
+    endsw
+    exit 0;
+endif
+
+echo "command $1 not found"
+exit 1

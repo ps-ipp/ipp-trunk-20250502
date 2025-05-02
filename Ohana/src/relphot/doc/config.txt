@@ -1,0 +1,28 @@
+
+for choosing the bright (tied-down) stars, these are used:
+
+MAG_LIM                 &MAG_LIM        -- faintest stars used
+SIGMA_LIM               &SIGMA_LIM      -- lowest S/N used (sigma = 1/(S/N))
+STAR_SCATTER            &STAR_SCATTER   -- max scatter for a star to be include in the fits 
+IMAGE_SCATTER           &IMAGE_SCATTER  -- max scatter for an image to be kept in the fit
+IMAGE_OFFSET            &IMAGE_OFFSET   -- max zero point offset of an image to be kept in the fit
+STAR_CHISQ              &STAR_CHISQ   -- max chisq for a star  to be include in the fits 
+STAR_TOOFEW             &STAR_TOOFEW   -- star must have more than this good measurements to be used
+IMAGE_TOOFEW            &IMAGE_TOOFEW   -- image must have more than this good measurements to be used
+IMAGE_GOOD_FRACTION     &IMAGE_GOOD_FRACTION   -- image must have more than this (good measurements/all meas) to be used
+
+
+GSCFILE                 GSCFILE   -- source for database sky table if missing
+CATDIR                  CATDIR   -- catdir
+CATMODE                CATMODE   -- output format for DVO tables (should not be used by relphot?)
+CATFORMAT              CATFORMAT   -- output format for DVO tables (should not be used by relphot?)
+PHOTCODE_FILE          MasterPhotcodeFile   -- source for photcode table if missing
+SKY_DEPTH              SKY_DEPTH)) { SKY_DEPTH = 2; } -- output sky partition depth (default is 2, should not be used by relphot)
+ZERO_PT                &ZERO_POINT   -- reference internal zero point, should not be needed (defined by DB)
+
+CAMERA_CONFIG          CameraConfig   -- source of camera description, used for generating correction grid
+MOSAICNAME             MOSAICNAME   -- name to define relationship between chip and camera 
+GRID_TOOFEW            &GRID_TOOFEW   -- correction grid cell must have more than this stars (or is nan)
+RELPHOT_GRID_X         &RELPHOT_GRID_X  -- number of grid cells per chip (x)
+RELPHOT_GRID_Y         &RELPHOT_GRID_Y  -- number of grid cells per chip (y)
+RELPHOT_GRID_BINNING   &RELPHOT_GRID_BINNING  -- ???

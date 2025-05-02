@@ -1,0 +1,71 @@
+#!/usr/bin/env perl
+
+# check the usage
+if ($ARGV[0] eq "-h") { usage (); }
+if ($ARGV[0] eq "-help") { usage (); }
+if (@ARGV != 4) { die "USAGE: fr.medbin (path) (root) (factor) (outpath)\n" }
+
+# assign the command line arguments
+$path = $ARGV[0];
+$root = $ARGV[1];
+$factor = $ARGV[2];
+$outpath = $ARGV[3];
+
+$Nccd = `cameraconfig -Nccd`; chop ($Nccd);
+
+# need some extra here: make the hierarchy needed, check exit status
+if (! -d $outpath) { vsystem ("mkdir -p $outpath"); }
+
+open (MANA, "|mana --norc");
+
+print MANA "macro mkmap\n";
+print MANA " rd a \$1\n";
+print MANA " keyword a NAXIS1 nx\n";
+print MANA " keyword a NAXIS2 ny\n";
+print MANA " medianmap a b {\$nx/$factor} {\$ny/$factor} -range 0.25 0.75\n";
+print MANA " wd b \$2\n";
+print MANA "end\n";
+
+print MANA "macro go\n";
+for ($ccd = 0; $ccd < $Nccd; $ccd++) {
+    $infile = sprintf "%s/%s%02d.fits", $path, $root, $ccd;
+    $outfile  = sprintf "%s/%s%02d.fits", $outpath, $root, $ccd;
+    print MANA " mkmap $infile $outfile\n";
+}
+print MANA " exit 0\n";
+print MANA "end\n";
+print MANA "go\n";
+print MANA "exit 1\n";
+close (MANA);
+if ($?) {
+    print STDERR "ERROR running mana\n";
+    exit 1;
+}
+
+print STDOUT "SUCCESS: finished with fr.detrend\n";
+exit 0;
+
+sub vsystem {
+    print STDERR "@_\n";
+    $status = system ("@_");
+    $status;
+}
+
+sub goodbye {
+    die "@_\n";
+}
+
+sub usage {
+    print "\n";
+    print "USAGE: fr.medbin (path) (root) (factor) (outpath)\n";
+    print " path:   path to MEF image or SPLIT dir\n";
+    print " root:   root name of image (MEF = root.fits, SPLIT = root/rootNN.fits)\n";
+    print " mode:   MEF or SPLIT\n";
+    print " outdir: directory for output results (all split)\n";
+    exit 1;
+}
+
+# mana within perl:  we embed the mana functions within a macro to trap the 
+# exit status.  If mana has an error with one of the steps, it will exit the macros and 
+# the second exit will be called. Otherwise, the "go" macro will perform the exit 0
+# and mana will exit with status 0

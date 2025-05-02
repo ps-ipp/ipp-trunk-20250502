@@ -1,0 +1,92 @@
+
+DVO-2 upgrades the DVO concepts to meet the needs of Pan-STARRS.  The
+main constraints that Pan-STARRS has that DVO-1 cannot satisfy are:
+
+- throughput  : upload ~1e6 stars per image, allowing 5 seconds
+- precision   : DVO tables have a restricted number of bits for some
+	        entries which need to be extended for Pan-STARRS
+- flexibility : DVO uses a rigid concept for the sky layout 
+- parallel    : DVO interfaces are poorly designed for parallel I/O
+
+
+Here are the code changes I envision to get from DVO to DVO-2:
+
+- clean the elixir code organization to unify as many DVO things as
+  possible under a single library used by the related programs.
+
+  * this change would be somewhat productive for reducing the number
+    of APIs and generally clarifying the scope of the existing DVO
+    code. 
+
+- add the concept of the mosaic image which groups a set of chips
+  together.  this will include the concept of astrometric information
+  about the focal plane independent of the individual chips
+
+  * this particular change can be a stop gap to get me working with
+    mosaic astrometry within the DVO-1 framework.  Other changes,
+    listed below, will require a variety of fairly fundamental
+    changes.
+
+  * there is no additional cost to adding the mosaic files to the
+    current system, except that 'addstar' requires NSTARS > 0 (or at
+    least NASTRO > 0).  Everything else will work fine with images
+    that have distortion in them (already demonstrated in the past)
+    and the new work on coordops.c makes reverse lookup of RD_to_XY
+    accurate for Npolyterms > 1.
+
+  * chips within a mosaic framework need to have a matched mosaic
+    image.  the coordinates of the mosaic need to be registered
+    somehow with coordops (as a static entry?  not very robust, but an
+    option.  As an implied coords[0], coords[1] passed to the
+    functions?  this can be merged with the existing definitions by
+    only requiring it for entries with one ctype, but not for another
+    cartesian polynomial term (WRP vs PLY? this would make PLY mean
+    Cartesian, not Zenithal).  This is probably safe since only LONEOS
+    data has used the PLY terms in the past.  on the other hand, why
+    break it.  I could use the term PLY for the mosaic term and WRP vs
+    DIS for the two cartesian concepts.  Not very good naming.
+    Another point is that the old LONOES code uses the older style
+    tables, and probably need to be translated anyway.  I could just
+    define a loneos conversion function which converts PLY to DIS and
+    fixes the data format... (this would also let me remove the old
+    table entries from 'loneos.h', or maybe keep them there and move
+    the loneos.h file to a better name.  dvo.h?  elixir.h? 
+
+    - needed functions:
+
+      * int FindMosaicForImage (Image *images, int entry) 
+
+	returns the matching DIS entry for the given WRP entry
+	(matches by time and photcode? would need to define mosaic
+	photcodes that match the chip photcodes.  define an instrument
+	(camera) code in the Image entry?  does not exist at the
+	moment, but would need to be added (space exists in dummy[20],
+	which is surprisingly unused).
+
+- skydb library APIs : we need a collection of functions to define and
+  work with the sky tiling pattern.  These APIs need to specify things
+  like "given RA,DEC, find all overlapping tables"
+
+- convert all tables to FITS tables (currently only average/measure
+  tables are FITS).  this includes migrating the photcode and other
+  external photometry / astrometry tables into the single database
+  repository, rather than having a global table.
+
+- update the average / measure tables to include enough dynamic range.
+
+- place all tables, including average / measure under the FITS db
+  autocoder 
+
+- add proper motion velocity vectors to the average parameters
+
+- add the concept of orphans as a separate table in addition to the
+  measures
+
+- remove any average mag from the average table / place all average
+  magnitudes in their own table (ie, equivalent to secfilt, but with a
+  new name)
+
+- define a client / server interaction.  each server runs on a
+  specific host, associated with specific data tables through the
+  sky.db tables.  servers on a specific host are only responsible for
+  their own data

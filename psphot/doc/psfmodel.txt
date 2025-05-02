@@ -1,0 +1,62 @@
+
+2007.09.25
+
+  The PSF model has parameters which vary across the image.  This 2D
+  is can be represented as either a polynomial (ordinary or chebychev)
+  or as an image map.  The user requests the maximum X & Y scale
+  (PSF.TREND.NX & PSF.TREND.NY) for the variations, and
+  psphotChoosePSF / pmPSFtry attempt to find the best choice for the
+  scale.  For the polynomial representations, NX and NY are the order
+  of the variation.  For the image map, NX and NY are the size of the
+  image map.
+
+2007.09.21
+
+  there are three places where we can choose to use errors in the fits or not:
+
+  * non-linear fitting of the models to the pixel flux distribution (poissonErrorsPhotLMM)
+  * linear fitting of the models to the pixel flux distribution (poissonErrorsPhotLin)
+  * fitting of the 2D variations in the psf parameters (poissonErrorsParams)
+  * fitting of the 2D variations in the aperture residuals
+
+2007.09.20
+
+  I am upgrading the PSF model to allow the parameter variation to be
+  modeled with pmTrend2D instead of just polynomials.  I am making a
+  list of places to modify the code:
+
+pmPSFAlloc : need a method beyong psfTrendMask to carry in the psf
+options
+
+pmPSF_ModelToFit : no need to change these
+
+update pmPSFBuildSimple to set the parameters of the pmTrend, which
+ever is used.
+
+pmPSFtry.c: some significant re-work!
+
+
+
+pmPSF_IO : need new functions to save / load the trend (psImages)
+
+2006.10.27
+
+  I have been working to fix the PSF modeling in psphot.  The PSF
+  model consists of a flux model for an individual object using an
+  analytical model with a number of parameters.  For a collection of
+  PSF objects, the variation of the parameters as a function of
+  position are then themselves fitted with a model.  The PSF model for
+  a single object consists of a radial profile with a functional form
+  f(z) where a given value of z defines an elliptical coutour of the
+  form z = \frac{x^2}{2\sigma_x^2} + \frac{y^2}{2\sigma_y^2} +
+  \sigma_{xy}xy.
+
+
+
+  The term \sigma_{xy} is difficult to model as a simple function of x
+  and y (eg, a low-order polynomial).  
+
+  A better model can be constructed for
+  \frac{\sigma_{xy}}{(\sigma_x^{-2} + \sigma_y^{-2})^2}, which varies
+  like a^2 \sin 2\theta 
+

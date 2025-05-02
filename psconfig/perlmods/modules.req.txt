@@ -1,0 +1,102 @@
+
+Astro::FITS::CFITSIO
+  64    Astro::FITS::CFITSIO           Astro-FITS-CFITSIO-1.05.tar.gz           0              NONE      NONE
+Cache::File
+Cache::Memcached
+  56    Cache                          Cache-2.04.tar.gz                        0              NONE      NONE
+Carp
+  CORE
+CGI::Pretty
+  34    CGI                            CGI-4.38.tar.gz                          4.38           NONE      NONE
+Config::YAML
+  70    Config::YAML                   Config-YAML-1.42.tar.gz                  0              NONE      NONE
+Cwd
+  CORE
+Data::Dumper
+  CORE
+Data::Validate::URI
+  40    Data::Validate::URI            Data-Validate-URI-0.01.tar.gz            0.01           NONE      NONE
+DateTime
+DateTime::Duration
+  06    DateTime                       DateTime-1.49.tar.gz                     0              NONE      NONE
+DateTime::Format::Strptime
+  11    DateTime::Format::Strptime     DateTime-Format-Strptime-1.75.tar.gz     0              NONE      NONE
+DBI
+  73    DBI                            DBI-1.622.tar.gz                         1.622          NONE      NONE
+Digest::MD5
+  27    Digest::MD5                    Digest-MD5-2.36.tar.gz                   0              NONE      NONE
+Digest::MD5::File
+  38    Digest::MD5::File              Digest-MD5-File-0.05.tar.gz              0.03           NONE      NONE
+Digest::SHA1
+  50    Digest::SHA1                   Digest-SHA1-2.11.tar.gz                  0              NONE      NONE
+Fcntl
+  CORE
+File::Basename
+  CORE
+File::Copy
+  CORE
+File::ExtAttr
+  NOTE: included only by Nebulous-Server/lib/Nebulous/Server.pm and commented out
+  https://cpan.metacpan.org/authors/id/R/RI/RICHDAWE/File-ExtAttr-1.09.tar.gz
+File::Path
+  CORE
+File::Spec
+  CORE
+File::Spec::Functions
+  CORE
+File::stat
+  CORE
+File::Temp
+  CORE
+Getopt::Long
+  CORE
+Getopt::Std
+  CORE
+IO::Handle
+  CORE
+IPC::Cmd
+  CORE
+IPC::Run
+  55    IPC::Run                       IPC-Run-0.80.tar.gz                      0              NONE      NONE
+Log::Log4perl
+  59    Log::Log4perl                  Log-Log4perl-1.49.tar.gz                 0              NONE      NONE
+LWP::UserAgent
+  37    LWP                            libwww-perl-5.805.tar.gz                 0              NONE      NONE
+Math::Trig
+  CORE
+Module::Build
+  00    Module::Build                  Module-Build-0.3601.tar.gz               0.3601         NONE      NONE # special comment here
+Net::Server::Daemonize
+  NOTE : only used by Nebulous-Server :
+  https://cpan.metacpan.org/authors/id/R/RH/RHANDOM/Net-Server-2.009.tar.gz
+Params::Validate
+  02    Params::Validate               Params-Validate-0.96.tar.gz              0.96           NONE      NONE
+Pod::Usage
+  CORE
+POSIX
+  CORE
+SOAP::Lite
+  58    SOAP::Lite                     SOAP-Lite-0.69.v1.tar.gz                 0              NONE      yes,yes,no
+SOAP::Transport::HTTP
+  NOTE : only used by Nebulous-Server :
+SQL::Interp
+  78    SQL::Interp                     SQL-Interp-1.06.tar.gz                  0              NONE      NONE
+Statistics::Descriptive
+  46    Statistics::Descriptive        Statistics-Descriptive-2.6.tar.gz        2.6            NONE      NONE
+Storable
+  CORE
+Sys::Hostname
+  CORE
+Template
+  45    Template                       Template-Toolkit-2.16.tar.gz             0              NONE      n,n
+Term::ReadKey
+  NOTE: only used by DataStoreServer
+Time::HiRes
+  CORE
+Time::Local
+  CORE
+URI
+URI::file
+  21    URI                            URI-1.35.tar.gz                          1.30           NONE      NONE
+YAML
+  42    YAML                           YAML-0.62.tar.gz                         0.58           NONE      y

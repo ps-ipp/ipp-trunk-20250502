@@ -1,0 +1,38 @@
+/** @file ppMergeErrorCodes.c.in
+ *
+ *  @brief
+ *
+ *  @ingroup ppMerge
+ *
+ *  @author IfA
+ *  @version $Revision: 1.2 $ $Name: not supported by cvs2svn $
+ *  @date $Date: 2009-02-01 21:43:05 $
+ *  Copyright 2009 Institute for Astronomy, University of Hawaii
+ */
+
+#include "pslib.h"
+#include "ppMergeErrorCodes.h"
+
+/*
+ * The line
+    { PPMERGE_ERR_$X{ErrorCode}, "$X{ErrorDescription}"},
+ * (without the Xs)
+ * will be replaced by values from errorCodes.dat
+ */
+void ppMergeErrorRegister(void)
+{
+    static psErrorDescription errors[] = {
+       { PPMERGE_ERR_BASE, "First value we use; lower values belong to psLib" },
+       { PPMERGE_ERR_${ErrorCode}, "${ErrorDescription}"},
+    };
+    static int nerror = PPMERGE_ERR_NERROR - PPMERGE_ERR_BASE; ///< number of values in enum
+
+    for (int i = 0; i < nerror; i++) {
+       psErrorDescription *tmp = psAlloc(sizeof(psErrorDescription));
+       p_psMemSetPersistent(tmp, true);
+       *tmp = errors[i];
+       psErrorRegister(tmp, 1);
+       psFree(tmp);			// it's on the internal list
+    }
+    nerror = 0;			                // don't register more than once
+}

@@ -1,0 +1,15 @@
+
+20090611 : adjusting things to allow the readnoise to be an image map for each cell
+
+  * pmReadoutSetVaraince : when variance is created, we are suppling a single CELL.READNOISE value -- change this to an optional image (carried through concepts?)
+
+  I need to:
+
+  * define a format for the readnoise map (image map in SPLIT/MEF format?)
+  * load the readnoise map
+
+  * supply the map for each cell to the pmReadoutSetVariance (pointer to ppImageMap?)
+    pmReadoutSetVariance -> add psImageMap to API (also pmReadoutGenerateVariance)
+
+  * add recipe information to define the source of the READNOISE info.
+

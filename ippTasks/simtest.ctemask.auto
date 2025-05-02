@@ -1,0 +1,39 @@
+
+automate MULTI
+
+# we run in the sequence BLOCK -> CHECK -> LAUNCH -> BLOCK -> CHECK
+# success on CHECK -> LAUNCH
+# failure on BLOCK -> CHECK
+
+# XXX these steps all refer to "@DBNAME@"; they need to be more generic, even for the basic simtest analysis
+
+automate METADATA
+  name       STR BIAS
+  check      STR "regtool -processedexp -exp_type BIAS -inst @CAMERA@ -dbname @DBNAME@"
+  ncheck     S32 5
+  launch     STR "dettool -definebyquery -workdir file://@CWD@/detwork -inst @CAMERA@ -det_type BIAS -select_exp_type BIAS -dbname @DBNAME@"
+  block      STR "dettool -runs -active -det_type BIAS -dbname @DBNAME@"
+END
+
+automate METADATA
+  name       STR DARK
+  check      STR "detselect -search -inst @CAMERA@ -det_type BIAS -dbname @DBNAME@"
+  launch     STR "dettool -definebyquery -workdir file://@CWD@/detwork -inst @CAMERA@ -det_type DARK -select_exp_type DARK -dbname @DBNAME@"
+  block      STR "dettool -runs -active -det_type DARK -dbname @DBNAME@"
+END
+ 
+automate METADATA
+  name       STR SHUTTER
+  check      STR "detselect -search -inst @CAMERA@ -det_type DARK -dbname @DBNAME@"
+  launch     STR "dettool -definebyquery -workdir file://@CWD@/detwork -inst @CAMERA@ -det_type SHUTTER -filter r -select_exp_type SKYFLAT -select_filter r -dbname @DBNAME@"
+  block      STR "dettool -runs -active -det_type SHUTTER -dbname @DBNAME@"
+END
+
+automate METADATA
+  name       STR FLAT-r
+  check      STR "detselect -search -inst @CAMERA@ -det_type SHUTTER -dbname @DBNAME@"
+  launch     STR "dettool -definebyquery -workdir file://@CWD@/detwork -inst @CAMERA@ -det_type FLAT -filter r -select_exp_type SKYFLAT -select_filter r -dbname @DBNAME@"
+  block      STR "dettool -runs -active -det_type FLAT -filter r -dbname @DBNAME@"
+END
+
+# XXX let's build the necessary data, then see how to run the cte mask generation (input is flattened flats)

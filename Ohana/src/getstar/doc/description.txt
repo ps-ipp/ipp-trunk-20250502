@@ -1,0 +1,94 @@
+
+ADDSTAR:
+
+This program takes a photometry file, with astrometry, provided by
+earlier routines and incorporates the stellar measurements into the
+photometry database.  This routine does NOT try to calibrate or check
+the photometry, nor does it try to improve the coordinate
+determinations or calculate chisquares for position or photometry -
+those tasks are performed by other routines.
+
+Addstar starts by loading in the photometry file and converting the
+pixel coordinates to sky coordinates using the astrometry information
+in the header of the file.  It also gets the detection limits and
+stores the image astrometry information.
+
+Next, addstar determines which of all the previous images overlaps
+with this image and also which of the catalog regions overlaps with
+this image.
+
+Addstar considers each catalog region in turn, and compares the
+positions of stars in the catalog with stars in the image.  If a
+catalog star is detected, a new measurement is added to the catalog.
+If a catalog star is not detected, but is in the field of view of this
+image, the detection limit for this image is added to the list of
+measurements as an upper limit.  If the image contains a star which is
+not already included in the catalog, the star is added to the catalog,
+and all previous images are checked to see if they included this
+location.  If so, upper limits are added to the list of measurements.
+
+To deal with blended images, we have taken the philosophy that all
+measurements compatible with the coordinates of a given star should be
+included in the list of measurements.  This assumes that programs or people
+downstream will figure out which is the "correct" measurement.  To
+this end, if a catalog star is consistent with multiple measurements,
+they are all added to the catalog measurement and the measurements are
+given a flag to say that there was blending in the catalog (ie, it is
+probably the catalog star which is a blend).  If multiple catalog
+stars are consistent with the same image star, that measurement is
+added to each catalog star, and given a flag to say that there was
+blending on the image.
+
+After all catalogs have been checked, updated, and written to disk,
+the image is added to the database of images.
+
+The format for a catalog region file is as follows:
+
+-- 
+Header
+--
+Averages
+--
+Measurements
+--
+
+The Header follows the format of a FITS header but always stored with
+3 blocks to speed up read time: 2880 x 3 bytes.  Two important
+keywords in the header: NSTARS & NMEAS
+
+All average values are stored consecutively in a single block.  They
+are written as an array with NSTARS elements of the Average structure
+defined below.  The individual measurements follow the averages as a
+block.  To find a measurement for a given star, you need to get the
+value of the offset for the star.  this is the element number for the
+first measurement of this star, and are followed by next measurements
+for this star, until the value Nm is reached.
+
+Here are the structures being used for the average and measurement
+values:
+
+typedef struct {
+  float R;                    /* RA  in decimal degrees */
+  float D;                    /* DEC in decimal degrees */
+  short int M;                /* thousandths of mag (-32.000 to 32.000 valid range) */
+  unsigned short int Nm;      /* number of measurements */
+  unsigned short int Xp, Xm;  /* chisq values in tenths */
+  unsigned int offset;        /* offset to first measurement */
+} Average;                    /* = 20 bytes / average */
+
+typedef struct {
+  char dR, dD;                /* tenths of arcsec (-12.7 to +12.7 valid range) */
+  short int M;                /* thousandths of mag (-32.000 to 32.000 valid range) */
+  unsigned char dM;           /* thousandths of mag (0.000 -- 0.255 valid range) */
+  float t;                    /* time in seconds (what is reference?) */
+  unsigned int average;       
+  /* reference to corresponding average entry, upper byte stores flags:
+   limit of 16,777,215 stars (Naverage) in a file (=0xFFFFFF) 
+   flags: average & 0x1000000 */
+} Measure;                    /* = 13 bytes / measure */
+
+/* flags for measurements: */
+# define BLEND_IMAGE   0X01000000
+# define BLEND_CATALOG 0X02000000
+# define UPPER_LIMIT   0X04000000
+# define CALIBRATED    0X08000000

@@ -1,0 +1,82 @@
+This table comes from:
+
+ http://hpiers.obspm.fr/eoppc/eop/eopc01/eopc01.1900-2004
+ 
+As referenced in the Pan-STARRS ADD
+
+
+
+                              EOP(IERS) C 01
+                         ----------------------------
+ 
+ EOP(IERS) C 01 is a series of the earth Orientation Parameters given 
+ in the 1997 IERS system at 0.1 year interval (1846 - 1889) and 0.05 year 
+ interval (1890 - now). It is regularly recomputed to take advantage on one 
+ hand of the improvement of the various individual contributions and in the 
+ other hand of the refinement of the analyses procedures. This series is the
+ basis of the IERS system.
+ 
+ 
+ EOP(IERS) C 01 is based on the following data:
+ 
+ 
+ 1993 - now  : IERS solution of x, y, UT1-UTC, LOD, dPsi, dEpsilon (normal points),
+               based on VLBI, LLR, GPS  and SLR.
+               
+ 1980 - 1992 : IERS solution of x, y, UT1-UTC, dPsi, dEpsilon (normal points),
+               based on VLBI, LLR, GPS (from 1992), and SLR.
+
+ 1962 - 1979 : IERS and BIH solutions, giving x, y, UT1-UTC (normal points). 
+               Space techniques are introduced starting with 1969 (LLR: UT)
+               and 1972 (Doppler: polar motion).
+
+ 1900 - 1961 : Vondrak(1995), Solution derived from optical astrometry 
+               analyses the series give polar motion, celestial pole offsets 
+               and Universal Time (since 1956).
+     
+		
+ 
+ 1846 - 1899 :
+
+               The solution derived by L.V. Rikhlova (Fedorov et al., 1976) 
+               from three series of absolute declination programs (Pulkovo, 
+               Greenwhich, Washington). The frequency band of the variations 
+               kept encompasses only the annual and Chandler terms. The y
+               coordinate of the pole is missing from 1858.9 through 1860.9.
+ 
+ 
+ PRECISION AND ACCURACY
+
+ The individual values are accompanied by uncertainties which attempt to 
+ reflect their quality. For the IERS/BIH solutions, they are  derived from the
+ scattering of the independant measurements contributing to each normal point,
+ with added variance taking into account possible systematic errors. For the 
+ earlier period, they are based on the estimations given by Fedorov et al. 
+ (1976), scaled to match the agreement woth the IERS/BIH solution over
+ 1962-1968. In addition some isolated outliers are deweighted (uncertainty
+ multiplied by 3). 
+
+ The following remarks can be made concerning the drift and the annual term
+ before 1962:
+
+ Trend: as a result of the Fedorov et al. treatment, any drift in polar
+        motion existing before 1900 is ignored in the series. For the period
+        starting with 1900, although no external evidence is available for 
+        the pre-1972 polar motion, it should be mentionned that the low 
+        frequency spectrum of polar motion both before and after the advent 
+        of space techniques (giving the possibility of cross-checks) is that
+        pf random walk at a similar level.
+ 
+ Annual term: it is influenced by errors in nutation and local seasonal errors.
+        Comparisons of the Fedorov et al. solution with the IERS/BIH one over 
+        1962 - 1968 suggest that the amplitude of the annual term is accurate
+        to +/- 0.03" over 1900 - 1962.
+ 
+ REFERENCES
+ 
+ - Fedorov,E.P., Korsun,A.A, Mayor,S.P., Pantschenko,N.I., Tarady,V.K., and
+    Yatskiv,Y.S., 1972: Dvizhenie polyusa Zemli s 1890.0 po 1969.0. Naukova 
+    Dumka, Kiev. [English translation of the text available].
+ - Vondrak J., Ron C., Pesek I., Cepek A., 1995, Astron. and Astrophys. 
+    297,899-906.
+ - IERS Annual reports

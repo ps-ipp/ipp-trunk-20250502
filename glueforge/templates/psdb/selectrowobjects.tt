@@ -1,0 +1,31 @@
+psArray *[% table.namespace %]SelectRowObjects(psDB *dbh, const psMetadata *where, unsigned long long limit)
+{
+    psArray         *rowSet;
+    psArray         *returnSet;
+    psU64           i;
+
+    rowSet = psDBSelectRows(dbh, [% table.namespace FILTER upper %]_TABLE_NAME, where, limit);
+    if (!rowSet) {
+        return NULL;
+    }
+
+    // convert psMetadata rows to row objects
+
+    returnSet = psArrayAllocEmpty(rowSet->n);
+
+    for (i = 0; i < rowSet->n; i++) {
+        [% table.object_name %] *object = [% table.namespace %]ObjectFromMetadata(rowSet->data[i]);
+        if (!object) {
+            psFree(object);
+            psFree(returnSet);
+            psError(PS_ERR_UNKNOWN, false, "database error");
+            return NULL;
+        }
+        psArrayAdd(returnSet, 0, object);
+        psFree(object);
+    }
+
+    psFree(rowSet);
+
+    return returnSet;
+}

@@ -1,0 +1,22 @@
+
+Phase 3 pipeline tools:
+
+p3search -define :
+  * examine the raw.exposures tables and select exposures matching the given criteria
+  * add entries which are allowed (mosaic) to the p3.pending table
+
+p3search -quick :
+  * examine the raw.exposures tables and select exposures matching the given criteria
+  * return list of entries for p3 processing
+  * output: lines consisting of:
+    (expID) (p3version) (camera)
+
+p3search -pending :
+  * examine the p3.pending exposures table and select exposures waiting for p3
+  * return list of entries for p3 processing
+  * output: lines consisting of:
+    (expID) (p3version) (camera)
+
+p3search -done :
+  * select completed entries in the p3.pending table
+  * move to the p3.done table

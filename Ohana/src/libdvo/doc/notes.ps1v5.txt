@@ -1,0 +1,27 @@
+
+changes to make:
+
+Average: add: Rstk, Dstk, dRstk,dDstk, Nlensing, Nlensobj, lensingOffset, lensobjOffset, refColor
+Measure: mod: dR,dD -> R,D (change Measure_*_ToInteral to pass Average)
+      	 add: dMap, FluxAp, dFluxAp, (X,Y)off(KH,DCR,GAL)
+SecFilt: add: dMap, NusedKron, NusedAp, MpsfStk, MkronStk, MapStk, *Wrp
+      	 mod: Mstdev, M_20 (to Mmin,short:float),M_80 (to Mmax,short:float),
+         mod: FpsfStk, dFpsfStk, FkronStk, dFronStk (were FluxPSF, dFluxPSF, FluxKron, dFluxKron)
+
+name changes:
+Measure:
+dR,dD -> R,D (done)
+SecFilt
+    out[i].FpsfStk       = in[i].FluxPSF;
+    out[i].dFpsfStk      = in[i].dFluxPSF;
+    out[i].FkronStk      = in[i].FluxKron;
+    out[i].dFkronStk     = in[i].dFluxKron;
+    out[i].Mmin          = in[i].M_20*0.001;      
+    out[i].Mmax          = in[i].M_80*0.001;      
+
+    out[i].FluxPSF     	 = in[i].FpsfStk;
+    out[i].dFluxPSF    	 = in[i].dFpsfStk;
+    out[i].FluxKron    	 = in[i].FkronStk;
+    out[i].dFluxKron   	 = in[i].dFkronStk;
+    out[i].M_20        	 = in[i].Mmin*1000.0;      
+    out[i].M_80        	 = in[i].Mmax*1000.0;      

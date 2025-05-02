@@ -1,0 +1,624 @@
+
+2009.08.02
+
+  ZERO POINTS: addstar currently has a couple of inconsistent ways that it 
+  measures or uses image zero points:
+
+  * the standard zero point: data in the database is saved as M_inst +
+    25.0.  This value is written to the image header and checked when
+    the image is loaded.  This is completely archaic, but removing
+    this concept from the DVO system will require some work and some
+    care.  This value is NOT reflected in the image->Mcal values
+
+  * on-the-fly calibration: addstar was used by CFHT skyprobe to
+    measure the sky transparency.  This calculation was done by
+    measuring the zero point between the Tycho stars in the database
+    and the stars in the image.  Star data is saved in
+    AddToCalibration as they are found (in find_matches, or
+    equivalent).  At the end of the match processing, the zero point
+    for the image was calculated with FindCalibration and saved to the
+    image table but NOT the measure table.  For skyprobe, the stars
+    are normally not saved to the database -- the Tycho stars are kept
+    in the measure & average tables, and used as the reference for the
+    zero point calculation above.
+
+  For Pan-STARRS, the zero point analysis is performed by psastro
+  before we run addstar.  However, there are a few ways we could
+  choose to apply the zero point calculation:
+
+  * use the per-chip zero point reported in the individual chip
+    headers (easy, but fairly wrong)
+
+  * calculate the per-exposure zero point from the chip headers and
+    supply.
+
+  * calculate the per-exposure zero point from the MATCHED_REFS table
+
+  We also need to consider the zero point error.  We currently have
+  only dM (poisson error) + dMcal (calibration error).  We need to
+  divide dMsys into dMcal (photometry calibration error) and dMap
+  (aperture correction error).
+
+  * zero point options:
+    * NOMINAL : set Mcal = 0.0
+    * CHIP_HEADER : each chip has zero point in header
+    * PHU_HEADER : a single exposure-wide value in the header
+    * CHIP_AVERAGE : determine zero point for exposure from chip zero points
+    * MATCHED_REFS : recalculate from table
+
+2009.02.11
+
+  updating DVO tables with more fields: cleaning up the conversions
+  from external formats to the DVO internal formats:  I am changing
+  the APIs to convert directly to the Measure structure, including
+  conversion functions for the compressed fields (ie, pixels carried
+  as short).
+
+  A few remaining issues:
+
+  * t_msec : I've added a field to carry the fractional seconds, but
+    nothing is yet setting this value, and the query functions do not
+    use this value.
+
+  * various fields are reported in either arcseconds or pixels (eg,
+    FWHMx, moments, error in centroid).  These are currently not very
+    consistent, and should be tightened up...
+
+    ** if we store these values in pixels, then cameras with a wide
+       range of plate scales (GPC1 << SkyProbe << AllSky) will all fit
+       in field with a small dynamic range; since we also provide the
+       plate scale (as a float), conversions are easy:
+       GPC1     : 0.26 arcsec / pixel
+       SkyProbe : 4.5 arcsec / pixel
+       AllSky   : 3600.0 arcsec / pixel 
+
+2008.10.11
+
+  updating addstar / dvo to deal better with mosaic / image relationships
+
+  * fix imageID sequencing (DONE)
+  * define imageID -> image lookup
+  * add parentID (for mosaic relationship)
+  * add external ID
+  * add supplied filename (different from 'filename')
+
+  there are two issues involved in mosaic astrometry:  1) we need to
+  have links in the Image table between the chip-level images and
+  their associated mosaic images.  this is provided by the parentID
+  field.  2) the coord transformation functions use a local static
+  variable to supply the associated mosaic coords structure.  this is
+  a weak implementation, but the method for now.
+
+  
+
+2008.02.23
+
+  features I need to add / finish in dvo:
+
+  * detID / objID / imageID
+
+    some questions:
+
+      db_id
+      table_id (chip / warp / stack / diff)
+      chip_id / warp_id / stack_id / diff_id
+      
+      detections from stand-alone analysis would require an alternate sequence?
+      detections without an associated image get image_id = 0
+      
+    * imageID : we will define a new, unique running ID within dvo
+      against which joins are performed.  in addition, I will keep the
+      externally supplied ids as a reference (32bit id + 16bit source)
+
+    * detID : the detection (measure) should carry the imageID + detID as a
+      unique value. 
+
+    * objID : objects will get a unique ID when they are created
+      (sequence in table + table ID? or use the same bits as Maria?)
+
+  * extended measurement tables
+  * SDSS ingest
+  * 2MASS flags
+  
+
+2008.01.31
+
+  Adding extended sources:
+
+  * create a libautocode extended source table description (DONE)
+  * load the extended source measurements:
+    this could be done within LoadStars or as a separate pass over the file, loading the extended source tables
+    * we can call this function only optionally
+    * need to make the association between the psf and ext measurements via det ID
+  * in find_matches, we could/should record the reference from Stars to the matched average entry
+    that would let us use the PSF position to get the average object match:
+
+  * find_matches_extended
+    * loop over extended sources
+    * use ID to find the corresponding Stars entry
+    * use the averef to find the corresponding Average entry
+    * update the extended source table
+
+  * Write out ext sources with the rest of the data
+
+  where do we put the table? require split?
+
+  (160 byte per detection; PS1 will have 5e8 => 400 GB)
+
+2007.01.04
+
+  Use of options.photcode:
+    - M_REFLIST: used to assign a photcode value to the loaded data
+    - M_REFCAT: used to select data from the reference of the given photcode
+    - M_FAKEIMAGE: used to assign a photcode value to the generated data
+    - M_RESORT: unused
+    - M_IMAGE: is used to override or supply the image header photcode
+	       * only valid for single chip runs
+
+  Re: MOSAIC_PHU
+      - the mosaic phu needs to have the time to enable the image/mosaic match
+
+      - NX,NY are used for plotting the mosaic outline.  the center of
+        the mosaic is 0,0, and the mosaic outline is drawn from
+        -NX/2,-NY/2 to NX/2,NY/2.  A problem: NX,NY in Image is using
+        a short int.  If the units of the FPA/TPA coords are microns, this overflows.
+	* change NX,NY to int?
+	* require the use of mm not microns?
+	* for GPC, NX,NY ~ 384000 um excluding gaps
+
+      - only the astrometry, time, and NX,NY are loaded for MOSAIC_PHU headers.
+
+2007.01.03
+
+  I am working on adding the ability to read MEF files containing
+  multiple tables and multiple image headers.  Here are the details:
+
+  SIMPLE CMP:
+    PHU:
+      NAXIS = 2 or
+      SIMPLE = FALSE or
+      TEXTMODE = TRUE (use option; global variable)
+
+  SIMPLE CMF:
+    PHU: 
+      NAXIS = 0
+      NAXIS1 exists, > 0
+      NAXIS2 exists, > 0
+    EXT:
+      EXTNAME = SMPDATA, PS1DATA, etc (defines layout)
+
+  SIMPLE MEF:
+    PHU: 
+      NAXIS = 0
+      NAXIS1 does not exist
+      NAXIS2 does not exist
+      &CTYPE[4] is not "-DIS"
+      EXTEND is true
+    EXT HEAD:
+      EXTTYPE = IMAGE
+      EXTNAME = image.name
+      EXTDATA = table.name
+    EXT DATA:
+      EXTTYPE = SMPDATA, PS1DATA, etc (defines layout)
+      EXTNAME = table.name
+      EXTHEAD = image.name
+
+  MOSAIC MEF:
+    PHU: 
+      NAXIS = 0
+      NAXIS1 does not exist
+      NAXIS2 does not exist
+      &CTYPE[4] is "-DIS"
+      EXTEND is true
+    EXT HEAD:
+      EXTTYPE = IMAGE
+      EXTNAME = image.name
+      EXTDATA = table.name
+    EXT DATA:
+      EXTTYPE = SMPDATA, PS1DATA, etc (defines layout)
+      EXTNAME = table.name
+      EXTHEAD = image.name
+
+  MOSAIC PHU:
+    PHU: 
+      NAXIS = 0
+      NAXIS1 does not exist
+      NAXIS2 does not exist
+      &CTYPE[4] is "-DIS"
+      NEXTEND = 0 or  
+      EXTEND is false
+
+    
+
+2006.04.02
+
+  I am considering an option to insert fake camera images into the
+  database.  The camera would be described with a file specifying the
+  dimensions of each chip (Nx,Ny,pixel scale), the location of each
+  chip in the focal plane, and the optical parameters of the camera
+  (plate scale at center, x,y distortion terms).  Each call to addstar
+  would specify the boresite center:
+
+  addstar -fakeimage ra dec theta
+
+  the camera parameters should be loaded via the config information.
+
+2005.10.24
+
+  I have changed addstar to use the new, more flexible, SkyRegion
+  concept to define the sky layout rather than just the GSCRegion
+  files.  This includes the ability to subdivide the existing
+  GSCRegion concept, and to have a more flexible sky table
+  arrangement.  
+
+  Names of catalog files are a bit tricky.  The SkyRegion functions
+  return base names without fullpath or extensions (ie, n0000/0012).
+  There are a few places in addstar which need the fullname:
+
+  SkyListExitingSubset () requires the path and adds .cpt
+
+  load_pt_catalog () takes the path and adds .cpt.  it also allocates
+  a filename entry for catalog, which is freed later in the loop in
+  addstars
+
+  mkcatalog uses the name in the catalog structure and replaces .cpt
+  with .cpm, .cpn, .cps as needed.
+
+  *** I need to fix the name method: common function to set it once 
+  in the dvo functions.  perhaps a pointer in the SkyRegion structure.
+  This needs some 32/64 bit care, though.  use a long long (or other 
+  type guaranteed to be 64 bit), and case to the appropriate type (size_t) 
+  when it is used?  also needs to be freed.
+
+todo:
+
+  * sky db tools 
+  * parallel servers
+  * threaded addstard
+  * dvo_load daemon
+  * getstar (program and c-client)
+  * parallal / proper-motion data
+  * other additional Average / Measure columns
+  * deal with Myyyy as sky value
+  * better way to interpret flips header info for sky?
+  * fix unlink empty file problem
+  * programs like relphot and dvo need to be provided 
+    with sorted measure tables; add this as a feature 
+    of the load_catalog API?
+
+done:
+
+  o move addstar/gstars to AddstarClientOptions
+  o add thiscode to AddstarClientOptions
+  o address MOSAIC somehow
+  o replace skyprobe mode
+  o complete server db interactions
+  o address the cat & ref modes in client/server
+  o add airmass quality to options
+
+2005.10.19
+
+	I have added the client / server mode, and tested it out to a
+	fair degree.  It handles all of the available addstar modes,
+	including -ref and -cat.  A handful of things still need to be
+	done, including pushing some of the logic to enforce sorting
+	into the dvo load_catalog functions.  Also, I need to correct
+	the idiosyncratic problem with sky vs Myyyy for the skyprobe
+	data.  There are a handful of other improvements that are
+	needed before addstar / DVO is ready for IPP release.
+	However, at this point, it is ready for internal use by the
+	grad students, but not yet ready for CFHT use with Elixir.
+
+2005.10.14
+
+  the current db interactions are somewhat in efficient wrt the image
+  table.  the basic outline is as follows:
+
+  - load image overlaps (needs entire image table)
+  - find detection matches (uses overlap information for missed)
+  - save new image (needs calculated calibration value from detection
+    matches)
+  
+  currently, I access the image table twice, and both times I load the
+  entire thing.  I really only need to append in the second case.  To
+  get to that point, I need to:
+
+  - split image overlaps from image db load
+  - define image partial load (analogous with catalog LOAD_MEAS_META)
+  
+  for the moment, I'm being wasteful so I can defer this issue.
+
+2005.10.13
+
+  I am working to minimize usage of globals and cleanup addstar
+  functions to make them more appropriate for the client / server
+  model.  
+
+  I have dropped save_pt_catalog, and modified load_pt_catalog, as
+  well as the load_catalog functions.  Now, the choice of elements to
+  load is made by setting flags in the catalog structure itself
+  (catalog.catflags).  Thus this information is carried around by the
+  catalog variable.  the load_pt_catalog function now only returns
+  true.  it is now necessary to check the state of the disk file by
+  examining Nave_disk to decide if the file is empty or not.  This is
+  perhaps too limiting: it prevents us from using only one of the
+  catalog tables (say measure without average).  The concern I have is
+  to manage the process of cleaning up the catalogs if no data is
+  added to them:  I don't want addstar to leave behind empty files
+  (plus, I think this breaks the lock/load state logic).  Thus,
+  whenever addstar unlocks / closes a file, if the Nave_disk +
+  Naverage is 0, the file should be unlinked.
+
+2005.10.12
+
+  By friday (2005.10.07), I managed to get the update process
+  working well, and tested it with some example data to demonstrate
+  that the partial update improved speed hugely.  Saturday, I started
+  to work on the client/server separation of addstar.  The first step
+  was to test out socket communication issues.  I set up a simple
+  client/server pair, in which one program listens on a socket while
+  the client connects to the socket and sends some command.  I set up
+  two autocode functions to send and receive complete structures
+  (Send_*, Recv_*) and added these to libautocode.  I have been able
+  to demonstrate sending Stars, Image, and Options to the server.
+
+  The next difficulty is in pulling out the command-line and
+  configuration options.  My original, somewhat lazy, design over-used
+  global variables to pass information between program sections.  This
+  needs to be cleaned up, especially if the server needs to have
+  multiple threads interacting with the db tables.  
+
+  Of the global variables that get set, some simply carry options on
+  how gstars should behave when it loads the data (including the
+  header interpretation information).  This can probably stay in the
+  globals for now.  Another group are configuration information used
+  only by the server-related functions, such as defining the location
+  of the database files and their format, etc.  These can also stay as
+  global, at least for now.  Another set of variables basically pass
+  information from the client to the server on how to behave *this
+  time*.  I have defined the AddstarClientOptions structure to carry
+  these, and will pass them from the client to the server along with
+  the stars and the image data.
+
+  Some outstanding issues:
+
+  sidereal time / latitude
+
+  I am carrying these as globals simply because the image structure
+  did not have them.  This is silly: I can define them as part of the
+  internal image structure without breaking any of the I/O issues.  
+
+  thiscode
+
+  I have been using this as a static photcode structure.  The
+  Send_*/Recv_* mechanisms are better suited to simple structures.  I
+  probably need to change this to just the code, and use the lookup
+  functions to the full structures where needed.  It can be part of
+  the options, and I should re-write functions which use it to accept
+  the options as an argument rather than rely on it as a global.
+
+  mosaic
+
+  this stores the coords structure for a needed mosaic.  this should
+  be kept, filled as needed by the client, and sent to the server with
+  the image.  perhaps it can be moved out of global.
+
+2005.10.06
+
+  I am getting seg faults from find_matches_closest, apparently
+  related to the partial Measure load.  They occur when trying to
+  realloc secfilt.  I tried to debug using the ohana_allocate stuff,
+  but it causes problems because fitsio does not fall under the ohana
+  memory system.  This is fairly bad; I should probably deal with that
+  issue before pursuing the other stuff.  Do I have to make libfits
+  depend on libohana, in which case I should probably split off libdvo
+  from libohana.  That is probably not a bad plan in any case...
+
+2005.10.07
+
+	I have finished the basic implementation of the update mode.
+	I have been able to demonstrate substantial improvements in
+	speed when the number of existing measurements dominates the
+	total number of measurements and the number of averages is
+	typically small compared to the number of measurements (ie,
+	most objects are real, detected in most images, and each new
+	image supplies many new measurements of objects which exist
+	and not many of objects which don't exist already).  The speed
+	gain is significant in this context because the average table
+	is small compared to the measure table; since both update and
+	full-load methods require the complete average table, there is
+	no difference in the load time for the average table.  
+
+	I was having some memory collision problems, and attempting to
+	use the ohana_allocate functions reminded me that the libFITS
+	functions were not supported under ohana_allocate.  This was
+	unhelpful.  I bit the bullet and split libohana into libohana
+	(base functions only, including ohana_allocate) and libdvo
+	(functions based on the libautocode structures).  Doing this
+	allowed me to make libFITS depend on libohana (including
+	ohana_allocate).  BUT, this forced me to change all LDFLAGS
+	entries in ohana to swap -lohana -lFITS for -lFITS -lohana,
+	and to add include <fitsio.h> in some cases.
+
+2005.10.06
+	split / nosort / update
+	I have added a few new concepts to addstar recently: split
+	catalog files, nosort for the measurement table, and
+	update-only.
+
+	split mode
+
+	The split mode is quite straightforeward.  In this mode, each
+	catalog is represented by a set of four files: *.cpt, *.cpm,
+	*.cpn, *.cps.  Each file contains only one FITS table of the
+	data, along with basic header and empty matrix.  Having
+	individual tables for each component of the database lets me
+	add entries without re-writing the entire table.  This should
+	save on I/O operations in the long run.  
+
+	The first file contains the table of averages, and is the file
+	normally identified in the table lookup functions.  The header
+	of this file contains the names of the other table files
+	(paths relative to the directory containing the cpt file).
+	The names and extensions are specified in 'mkcatalog.c'; all
+	other functions use the defined filename references, rather
+	than expecting a naming convention.
+
+	The additional files contain the measures (cpm), missings
+	(cpn), and secfilt (cps) elements of the catalog tables.  
+
+	To facilitate the handling of the additional filenames, file
+	pointers, and headers, Catalog was extended to include
+	pointers to the measure, missing, and secfilt files as
+	additional catalogs.  When the data are loaded into memory,
+	these catalogs are locked (as usual), and file information is
+	stored in the individual Catalog entries; the data segements
+	are all loaded into the main catalog pointers (eg, measures
+	are loaded into catalog[0].measure, rather than
+	catalog[0].measure_catalog[0].measure).
+	
+	The function 'load_catalog' auto-recognizes the SPLIT format
+	by looking for the header keyword MEASURE, identifying the
+	file containing the measures.  The identification of the RAW
+	format and the SPLIT format are not cross-checked: if the
+	NAXIS keyword is set to 2, the file is assumed to be RAW, even
+	if the MEASURE keyword is present.  Careful with this (though
+	there is no reason the main matrix should be used in a basic
+	database table).
+
+	nosort 
+
+	the nosort option by itself provides a minor processing
+	speed-up by deferring the re-sorting of the measurement table
+	until after multiple addstar processes are run.  addstar
+	should not require the measurements to be sorted, so this step
+	can be safetly deferred if only addstars are being performed.
+	the other DVO operations require the sorted table, so the sort
+	must be performed before they are run (either as part of the
+	catalog load, not implemented yet, or with a call to addstar
+	without the -nosort option set.  the real goal of the nosort
+	option is to enable the -update concept in addstar, in which
+	only the new rows are written out; this will only work if
+	addstar can handle unsorted measures. 
+
+	the nosort option required the addition of a 'sorted' element
+	in the Catalog structure to track if the data are sorted or
+	not.  On load, this flag is set based on the value of the
+	header keyword SORTED; if the data is sorted during addstar,
+	the flag is appropriately set, otherwise it is set FALSE be
+	default.  
+
+	The nosort option requires a function which can generate the
+	'next_meas' link sequence based on the measure table.  there
+	is now a function called 'build_meas_link' which generates a
+	correct link list; there is also the pair of functions
+	'init_meas_links' and'init_miss_links' to generate the links
+	in the event that the table is sorted (should be must
+	quicker).
+
+	The 'missing' table is problematic: the LONEOS and ELIXIR
+	formats do not carry an averef entry, thus they do not have
+	enough information to define the links based only on the
+	missing table.  This means we are forced to write out a sorted
+	missing table; the nosort option is invalid for the missing
+	table.  One future upgrade path is to add the averef entry to
+	the PANSTARRS format and then only require the missing table
+	to be sorted if the format is old and does not support
+	-nosort.  (Note also that, for the moment, the missing table
+	has only a single valid format).
+
+	In the process of defining the nosort option, I also cleaned
+	up a bit the find_matches functions to use clearer functions
+	for the links.  
+	
+	update
+
+	The 'update' process in principle allows addstar to
+	substantially reduce the amount of I/O it needs to perform by
+	only requiring addstar to write out new measures and new
+	average/secfilt entries.
+
+	The 'missing' table is problematic: since the format does not
+	support the 'nosort' option, it is not possible to use update
+	with the missing table.  This means we are forced to write out
+	a complete, sorted missing table.  This is currently
+	implemented in update_catalog_split by simply writing out the
+	complete missing table.  In fact, this choice is still flawed
+	because the average table, since it is not written out in full
+	each time, is inconsistent with the missing table: the Nn
+	entries for each average, which identifies the number of
+	missing entries, are not updated.  In practice, this means
+	that the -update option forces the use of the -missed option,
+	though at the moment, this is not forced or checked in any
+	way.
+
+	Note that the 'missed' table contains duplicate information
+	and can, in principle, be completely regenerated at any time.
+	This should be an addstar option: to re-construct the missing
+	table, potentially with constraints on the images which are
+	searched for matches.  
+
+2005.10.04
+	- moved measure/missing list manipulation to separate functions
+	- added concept of sorted / unsorted measure catalog
+	- defined build_meas_links and reorder_measure,missing
+	- some cleanup of both find_matches.c and find_matches_closest.c
+
+2005.10.03:
+	- dropping GSCRegion *region entry from find_matches (unused!)
+	- adding function find_matches_closest (alternate matches)
+
+2005.08.19:
+	changed load_photcode to handle CATMODE and CATFORMAT variations
+	- addstar.h: added CATMODE and CATFORMAT globals
+	- ConfigInit: read CATMODE and CATFORMAT from config
+	- gcatalog: set catalog.catmode from CATMODE
+	- mkcatalog: set CATFORMAT and CATMODE for new catalog
+	- wcatalog: set CATFORMAT for new catalog
+	
+	using full photometry conversions in find_matches
+	added SetZeroPoint to gstars to enable phot conversions
+	
+2005.08.15:
+	cleanup of the minor Wall,Werror messages
+
+2005.03.07 : notes related to new version of addstar
+
+- USNO seems to work fine now:
+
+  addstar -region 9.0 12.0 9.0 12.0 -cat usno -p USNO_RED
+  addstar -region 9.0 12.0 9.0 12.0 -cat usno -p USNO_BLUE
+
+- 2MASS seems to work as well:
+
+  addstar -region 3.0 12.0 12.0 14.0 -cat 2mass -p 2MASS_J
+  addstar -region 3.0 12.0 12.0 14.0 -cat 2mass -p 2MASS_H
+  addstar -region 3.0 12.0 12.0 14.0 -cat 2mass -p 2MASS_K
+
+- both of these are somewhat inefficient since they need to search
+  through the (larger) USNO/2MASS data files for each output ptolemy
+  region file.
+
+- GSC seems to work fine now:
+
+  addstar -region 3.0 12.0 12.0 14.0 -cat gsc 
+  (photcode is not needed here since there is only one)
+
+- images seems to work fine now
+
+- general concerns:
+
+  - RA 0,360 boundary is likely to have problems, especially with
+    region selection
+  - mosaic astrometry concepts still need to be added.
+
+  - average magnitudes are being set incorrectly in addstar (not
+    taking account of the zero-points).  I don't really want to apply
+    the colors here, but I need to do something, perhaps?
+
+    one option is to only apply the correction for the first
+    measurement of an object, unlike the way astrometry works
+    currently.  both of these should be updated based on
+    relphot/uniphot and eqiuvalent relastro/uniastro independently
+    from the addstar step.
+

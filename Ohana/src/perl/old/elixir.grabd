@@ -1,0 +1,159 @@
+#!/usr/bin/env perl
+
+# this daemon creates links for new images in the elixir TMPDIR tree
+# and registers the images in the elixir database, and sends the image 
+# to imstats for processing.
+
+# the standard elixir config system is used to id the TMPDIR and the 
+# appropriate imstats.fifo, etc.
+
+# TMPDIR should be checked on each scan loop, in case the TMPDIR or
+# RUNID is switched
+
+# make sure the appropriate config file is used.
+
+use English;
+
+# check usage
+if (@ARGV != 0) { die "USAGE: elixir.grabd\n"; }
+
+# what do we do about config file?  demand account be set up correctly?
+$fifos = `gconfig FIFOS`; chop ($fifos);
+if ($?) { die "error in config system\n"; }
+
+# check for existing process and exit
+$pidfile = "$fifos/gradb.pid";
+if (-e $pidfile) {
+    $line = `head -1 $pidfile`;
+    ($ohost, $ouser, $opid) = split (" ", $line);
+
+    print STDERR "elixir.grabd is already being run:\n";
+    print STDERR " machine: $ohost\n";
+    print STDERR " user:    $ouser\n";
+    print STDERR " pid:     $opid\n";
+    print STDERR " pidfile: $pidfile\n";
+    exit 1;
+}
+
+# set process lock file:
+$host = `hostname`; chop ($host);
+$user = getlogin;
+open (FILE, ">$pidfile");
+print FILE "$host $user $PID\n";
+close (FILE);
+
+# place this in the config system?
+$srcdir = "/data/kapu/elixir/cfh12k";
+while (-e $pidfile) {
+    grabfiles ();
+    system ("sleep 60");
+}
+
+# clear process lock file:
+unlink ($pidfile);
+exit 0;
+
+
+##########################################################
+
+sub grabfiles () {
+    
+    $rawdir = `gconfig -q RAWDIR`;  chop $rawdir;
+
+    @files = glob ("$srcdir/*");
+    
+    if (! @files) {
+	system ("sleep 60");
+	return;
+    }
+
+    foreach $name (@files) {
+	if (! -l $name) { next; }
+	
+	# find real path
+	$path = convertlink ($name);
+	$file = filename ($path);
+
+	# set new path (skip if it exists)
+	$new = sprintf "%s/%s", $rawdir, $file;
+	if (-e $new) { 
+	    print STDERR "skipping file\n";
+	    next; 
+	}
+	
+	# print "$name -> $path ($file) -> $new\n";
+
+	# link file to rawdir:
+	symlink ($path, $new);
+	
+	# these files always come in as MEF
+	vsystem ("imsort $new");
+	if ($?) { next; }
+	
+	unlink $name
+    }
+}
+
+
+# utilities ##############################################
+sub vsystem {
+    print STDERR "@_\n";
+    my ($status) = system ("@_");
+    $status;
+}
+
+sub filename { 
+
+    my ($path) = $_[0];
+    my (@tmp);
+    
+    @tmp = split ("/", $path);
+    return $tmp[-1];
+}
+
+sub convertlink {
+    my ($link) = $_[0];
+    my ($file);
+
+    while (-l $link) {
+	$file  = readlink ($link);
+	$path1 = path ($link);
+	$path2 = path ($file);
+	
+	unless ($path2 =~ m|^/|) {
+	    $file = "$path1/$file";
+	}	
+	$link = $file;
+    }
+    return ($link);
+}    
+
+sub usage {
+    
+    if (@ARGV == 1) {
+	print STDERR "\n --- user modes ---\n";
+	print STDERR "create (run) (start) (stop)\n";
+	print STDERR "addqso (runid) (qsoid)\n";
+	print STDERR "delqso (qsoid)\n";
+	print STDERR "sched (runid)\n";
+	print STDERR "status\n";
+	&goodbye;
+    }
+    
+    if (@ARGV > 2) { print STDERR "USAGE: prepare.run (help) [mode]\n"; &goodbye; }
+    
+    &goodbye;
+}
+
+sub path {
+
+    my ($file) = $_[0];
+
+    @words = split ("/", $file);
+
+    pop (@words);
+    
+    $path = join ("/", @words);
+
+    return ($path);
+}

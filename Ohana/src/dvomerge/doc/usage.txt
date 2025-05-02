@@ -1,0 +1,121 @@
+
+dvomerge
+
+dvomerge is used to merge dvo databases.  there are two main modes of operation:
+
+* merge two databases into a third, previously absent, database: dvomerge (input1) and (intput2) to (output)
+* merge one database into an existing database : dvomerge (input) into (output)
+
+Note that all dvomerge options may include the -region (RAmin) (RAmax) (DECmin) (DECmax) options
+  to restrict the merge to a portion of the sky.  
+
+The second mode of operation has two minor variants:
+
+* dvomerge (input) into (output) continue
+  the 'continue' option allows the dvomerge process to operate on a
+  fraction of the sky, in the assumption that an initial merge was
+  performed (with the 'into' mode).  The 'continue' is needed to tell
+  dvomerge that the images of the two databases have already been
+  merged; in this case, dvomerge will examine the image tables and
+  determine the mapping of image IDs from the state of the output
+  database. 
+
+* dvomerge (input) into (output) from (list)
+  the 'from' variant is equivalent to the 'continue' variant, but in
+  this case the catalog tables to be merged are specified in the list
+  file.  The file contains one catalog file per line, with the name
+  giving the directory and filename of the cpt files, without the
+  catdir component (eg, n0000/0001.01.cpt).  
+
+Threads : threading support is available for dvomerge .. into, except
+for the 'from' mode.  Add the option '-threads N' to specify the
+number of threads to be used.  Each thread handles a separate catalog
+table (read from disk, calculate the merge, write to disk).  With only
+a few threads, it is easy to saturate the disk I/O system, at which
+point the threading does not improve the speed of the merge process.
+
+Some other words of warning: 
+
+* dvomerge does not attempt to check for previous merges (successful
+  or not).  A re-run of dvomerge will simply duplicate the data
+  previously merged.  You must track your own results: which cpt files
+  were merged in a given run.
+
+* the region option selects the cpt files which touch the region.  to
+  select exactly the cpt files you want, reduce the region by a small
+  amount to avoid overlapping neighboring regions.  For example, if
+  you want to include only a specific cpt file with RA,DEC bounds of
+  0.0 - 1.0, 2.5 - 3.5, you might use -region 0.01 0.99 2.51 3.49
+
+* the cpt headers define their boundaries (RA0, RA1, DEC0, DEC1).
+
+* the merged dvo database is not sorted (indexed).  To use it with the
+  dvo shell or programs like relphot or relastro, it is necessary to
+  re-index with addstar -resort -D CATDIR (catdir).  (Note that
+  addstar -resort is also now able to use multiple threads: add the
+  -threads N option).
+
+dvorepair
+
+dvorepair can be used to fix damaged dvo databases.  Repair is
+possible because the measurement tables (cpm) and the image table
+together contain all of the information needed to regenerate the
+average (cpt) and secfilt (cps) tables.  
+
+dvorepair has several modes of operation:
+
+* dvorepair -images-vs-measures (catdir) (Ntol)
+
+  this mode scans the database and compares the number of detections
+  tied to a specific image (in the measure tables) with the number of
+  detections claimed by that image (in the average table).  Images
+  which have too few detections are reported to standard out.  The
+  value of Ntol specifies the number of detections which can be
+  dropped -- a few missing detections for a given image is not
+  catastrophic.  
+
+* dvorepair -delete-image-list (catdir) (list) 
+
+  this mode accepts the list of bad images as reported by the
+  -images-vs-measures mode.  It then scans the database and deletes
+  all detections associated with the deleted images.  It also repairs
+  the average (cpt) and secfilt (cps) tables so they are consistent
+  with the repaired measurement tables.  The repaired output tables do
+  not overwrite the existing tables; instead they are written with the
+  suffix ".fixed".  It is up to the user to find and replace the
+  original files with the .fixed version.
+
+  Note that the user may edit the output list from -images-vs-measures
+  and choose not to delete images as desired.  But be careful: the
+  format of the lines of the input file must match the original output
+  format.
+
+  Note that a repaired database is not indexed: you must run addstar
+  -resort to re-index the database.
+
+* dvorepair -fix-images (catdir) (list)
+
+  This mode accepts the same for list file as -delete-image-list, and
+  in this case, deletes the images from the image table (as opposed to
+  the detections).
+
+* dvorepair -fix-cpt (images) (list)
+
+  This mode accepts a list of corrupted cpt files and rebuilds the
+  average and secfilt tables from the measurements.  Instead of a
+  (catdir), the inputs are the full path or relative path to the image
+  table and a list of the full or relative paths to the cpt files
+  which are broken, ** with the .cpt extension removed**.
+
+  Again, repaired cpt, cps, cpm files are saved with the extension .fixed.
+
+dvoverify
+
+dvoverify will scan a dvo database or subset (by region) and verify
+the database integrity.  At the moment, the only check it makes is to
+verify that the tables are FITS compliant.  (ie, no check is made for
+internal consistency of the number of average, measure, or secfilt
+entries).
+
+
+ 

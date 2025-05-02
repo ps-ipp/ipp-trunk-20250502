@@ -1,0 +1,82 @@
+
+2011.05.10
+
+  Looking into them memory usage of relphot:
+  AverageTiny = 32 bytes (including 8 byte padding)
+  MeasureTiny = 56 bytes (including 8 byte padding)
+  Image Indexes:
+    bin   : Nmeasure * off_t
+    clist : Nmeasure * off_t
+    mlist : Nmeasure * off_t
+  Mosaic Indexes:
+    bin   : Nmeasure * off_t
+    clist : Nmeasure * off_t
+    mlist : Nmeasure * off_t
+  Total:
+    32 bytes * Naverage (values)
+    56 bytes * Nmeasure (values)
+    64 bytes * Nmeasure (indexes)
+
+  In my test run, I have 3.3M average + 37.6M measure:
+    2.1GB values
+    2.2GB indexes
+
+  This matches the memory usage graph.  But, after the indexes have
+  been loaded, the memory footprint grows (slowly) by another 1GB as
+  the processing runs along.
+
+
+using 23153493 of 640663697 stars (192585953 of 289672671 measurements)
+using  3306896 of  48399614 stars ( 37582679 of 193863612 measurements)
+
+
+
+2011.04.12
+
+  I have modified the code to operate on multiple filter at a time,
+  and to have a limited density, with the goal of running the analysis
+  on a huge area.  However, we are somewhat limited by the fact that the
+  'measure' and 'average' structures are huge and have far more than
+  is needed for just the relphot (or even relastro) analysis.  
+
+  I am exploring the idea of using a stripped-down structure in the
+  relphot analysis -- it would be assigned in bcatalog.
+
+  Here are the elements we actually need in relphot proper:
+
+average: 
+  FIELD R,              RA,          double,          RA,                           decimal degrees 
+  FIELD D,              DEC,         double,          DEC,                          decimal degrees 
+  FIELD Nmeasure,       NMEASURE,    unsigned short,  number of psf measurements
+  FIELD measureOffset,  OFF_MEASURE, int,             offset to first psf measurement
+  FIELD flags,          FLAGS,       uint32_t,        average object flags (star; ghost; etc)
+  = 2*8 + 2 + 4 + 4 = 26 bytes
+
+measure:
+  FIELD dR,             D_RA,         float,          RA offset,                	    arcsec
+  FIELD dD,             D_DEC,        float,          DEC offset,               	    arcsec
+  FIELD M,              MAG,          float,          catalog mag,       	       	    mag
+  FIELD Mcal,           M_CAL,        float,          image cal mag,	            mag
+
+  FIELD dM,             MAG_ERR,      float,          mag error,                      mag
+  FIELD airmass,        AIRMASS,      float,          (airmass - 1),		    airmass
+  FIELD Xccd,           X_CCD,        float,          X coord on chip,                pixels
+  FIELD Yccd,           Y_CCD,        float,          Y coord on chip,                pixels
+
+  FIELD t,              TIME,         int,   	      time in seconds (UNIX)
+  FIELD averef,         AVE_REF,      unsigned int,   reference to average entry      
+  FIELD imageID,        IMAGE_ID,     unsigned int,   reference to DVO image ID
+  FIELD dbFlags,        DB_FLAGS,     unsigned int,   flags supplied by analysis in database
+  FIELD photcode,       PHOTCODE,     unsigned short, photcode
+  = 8*4 + 4*4 + 2 = 50 bytes
+
+  (note that psfQual and photFlags are only used in bcatalog to select measurements)
+
+eg, 1 year 3 pi has 1 average and 20 measures per object (and 8 secfilt entries)
+
+* current: 112 + 8*24 + 20*148 = 3264 bytes / star
+* propose: 26  + 8*24 + 20*50  = 1218 bytes / star
+
+for the full 3pi area, in 30GB, we could use 820 stars per square
+degree (5740 per exposure), as opposed to the current limit of 300
+(2100 per exposure).

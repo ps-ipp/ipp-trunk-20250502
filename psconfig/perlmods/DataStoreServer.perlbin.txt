@@ -1,0 +1,15 @@
+      1 Carp
+      5 DBI
+      1 Digest::MD5::File
+      3 dsdbh
+      1 File::Basename
+      2 File::Copy
+      3 Getopt::Long
+      3 Pod::Usage
+      2 PS::IPP::Config
+      2 PS::IPP::Metadata::Config
+      1 PS::IPP::Metadata::List
+      1 PS::IPP::Metadata::Stats
+      6 strict
+      1 Term::ReadKey
+      6 warnings

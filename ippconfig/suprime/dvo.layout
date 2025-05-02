@@ -1,0 +1,27 @@
+# this file defines the layout of the mosaic imager:
+
+# NCCD 40  # this needs work: sometimes 36, sometimes 40
+NCCD 10
+NAXIS1 2048
+NAXIS2 4225
+
+MOSAIC_X 5
+MOSAIC_Y 2
+
+# lines need to contain:
+
+CHIPID_KEYWORD EXTNAME
+
+# ID     CHIPID xoffset yoffset xflip yflip datasec         biassec            Xo      Yo      theta
+nausicaa  XY01	      23      3     1	  0 [520:2264,49:4225] [521:568,1:48]  0       0       0
+kiki	  XY11        2121    2	    1	  0 [520:2264,49:4225] [521:568,1:48]  0       0       0
+fio	  XY21	      4221    0	    1	  0 [520:2264,49:4225] [521:568,1:48]  0       0       0
+sophie	  XY00	      0	      4207  1	  0 [520:2264,49:4225] [521:568,1:48]  0       0       0
+sheeta	  XY10	      2095    4229  1	  0 [520:2264,49:4225] [521:568,1:48]  0       0       0
+satsuki	  XY20	      4208    4254  1	  0 [520:2264,49:4225] [521:568,1:48]  0       0       0
+chihiro	  XY41	      8429    65    1	  0 [520:2264,49:4225] [521:568,1:48]  0       0       0
+clarisse  XY31	      6337    26    1	  0 [520:2264,49:4225] [521:568,1:48]  0       0       0
+ponyo	  XY40	      8405    4253  1	  0 [520:2264,49:4225] [521:568,1:48]  0       0       0
+san	  XY30	      6315    4252  1	  0 [520:2264,49:4225] [521:568,1:48]  0       0       0
+# can we use header to find biassec
+USE_BIASSEC 1

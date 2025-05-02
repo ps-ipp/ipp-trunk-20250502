@@ -1,0 +1,2441 @@
+/** @file  pmSourceIO.c
+ *
+ *  @author EAM, IfA
+ *
+ *  @version $Revision: 1.3 $ $Name: not supported by cvs2svn $
+ *  @date $Date: 2009-02-18 02:44:19 $
+ *
+ *  Copyright 2004 Maui High Performance Computing Center, University of Hawaii
+ *
+ */
+
+#ifdef HAVE_CONFIG_H
+#include <config.h>
+#endif
+
+#include <stdio.h>
+#include <math.h>
+#include <string.h>
+#include <pslib.h>
+
+#include "pmConfig.h"
+#include "pmDetrendDB.h"
+
+#include "pmHDU.h"
+#include "pmFPA.h"
+#include "pmFPALevel.h"
+#include "pmFPAview.h"
+#include "pmFPAfile.h"
+
+#include "pmTrend2D.h"
+#include "pmResiduals.h"
+#include "pmGrowthCurve.h"
+#include "pmSpan.h"
+#include "pmFootprintSpans.h"
+#include "pmFootprint.h"
+#include "pmPeaks.h"
+#include "pmMoments.h"
+#include "pmModelFuncs.h"
+#include "pmModelClass.h"
+#include "pmModel.h"
+#include "pmModelUtils.h"
+#include "pmSourceMasks.h"
+#include "pmSourceExtendedPars.h"
+#include "pmSourceDiffStats.h"
+#include "pmSourceSatstar.h"
+#include "pmSourceLensing.h"
+#include "pmSource.h"
+#include "pmSourceFitModel.h"
+#include "pmPSF.h"
+#include "pmPSFtry.h"
+
+#include "pmSourceIO.h"
+#include "pmSourceOutputs.h"
+
+// panstarrs-style FITS table output (header + table in 1st extension)
+// this format consists of a header derived from the image header
+// followed by a zero-size matrix, followed by the table data
+
+/** this file is used to generate c-code for a number of different formats.  the perl program
+ ** 'mksource.pl' reads this template file and generates an output file for one of the named
+ ** formats, e.g., PS1_V1 or PS1_DV4 (see list in mksource.pl).  
+
+ ** Any instances of the word @CMFMODE@ are replaced by the named version of the format.
+
+ ** Any line which starts with a command of the form: @COMMAND[,COMMAND...]@ is kept or removed
+ ** from the output c-code depending on the commands.  These may be: ALL (lines are kept for
+ ** all formats) or the name of a format.  A line with just a plain format will be kept only
+ ** for that format.  The format name may be optionally proceded by >, <, <=, >=, ! or =.  In
+ ** these cases, the line is kept if the format is greater / lesser / not the same, etc as the
+ ** listed format.  The sequence of formats is defined for series (V, SV, DV) in mksource.pl so
+ ** that, e.g., >PS1_V3 would include e.g., PS1_V4 and PS1_V5, but not PS1_DV4.  The number in
+ ** a series may be replaced with ? to stand for the full set.  The format 
+ ** commands may be grouped on a line separated by commas.  Note that only ! (not) is
+ ** restrictive: only this rule will reduce the number of matches.  So for example,
+ ** @ALL,<PS1_DV3@ will have the effect of @ALL@ since any format >= PS1_DV3 will be matched by
+ ** ALL.  But @ALL,!PS1_DV3@ will generate a line for any format except PS1_DV3.
+
+ **/ 
+
+bool pmSourcesWrite_CMF_@CMFMODE@_New (psFits *fits, pmReadout *readout, psArray *sources, psMetadata *imageHeader, psMetadata *tableHeader, char *extname, psMetadata *recipe)
+{
+    // fprintf (stderr, "writing with %s\n", __func__);
+    PS_ASSERT_PTR_NON_NULL(fits, false);
+    PS_ASSERT_PTR_NON_NULL(sources, false);
+    PS_ASSERT_PTR_NON_NULL(extname, false);
+
+    pmChip *chip = readout->parent->parent;
+
+    // if the sequence is defined, write these in seq order; otherwise
+    // write them in S/N order:
+    if (sources->n > 0) {
+        pmSource *source = (pmSource *) sources->data[0];
+        if (source->seq == -1) {
+            // let's write these out in S/N order
+            sources = psArraySort (sources, pmSourceSortByFlux);
+        } else {
+            sources = psArraySort (sources, pmSourceSortBySeq);
+        }
+    }
+
+    float magOffset; 
+    float zeroptErr; 
+    float fwhmMajor; 
+    float fwhmMinor;
+    pmSourceOutputsCommonValues (&magOffset, &zeroptErr, &fwhmMajor, &fwhmMinor, readout, imageHeader);
+
+    // before we can generate the table structure, we need to know if certain fields were measured.
+    // this information is not available a priori, so we need to check all sources
+    
+    bool haveLensingOBJsmear = false;
+    bool haveLensingOBJshear = false;
+    bool haveLensingPSFsmear = false;
+    bool haveLensingPSFshear = false;
+    bool haveLensingPSF      = false;
+
+    for (int i = 0; (i < sources->n) && !haveLensingOBJsmear && !haveLensingOBJshear && !haveLensingPSFsmear && !haveLensingPSFshear && !haveLensingPSF; i++) {
+        // this is the source associated with this image
+        pmSource *thisSource = sources->data[i];
+
+        // this is the "real" version of this source 
+        pmSource *source = thisSource->parent ? thisSource->parent : thisSource;
+
+	if (source->lensingOBJ && source->lensingOBJ->smear) haveLensingOBJsmear = true;
+	if (source->lensingOBJ && source->lensingOBJ->shear) haveLensingOBJshear = true;
+	if (source->lensingPSF && source->lensingPSF->smear) haveLensingPSFsmear = true;
+	if (source->lensingPSF && source->lensingPSF->shear) haveLensingPSFshear = true;
+	if (source->lensingPSF                             ) haveLensingPSF      = true;
+    }
+
+    /************ generate the table columns *****************/
+
+    // before we allocate the table, generate an empty array of table columns and generate them
+    psArray *tableColumns = psArrayAllocEmpty (100);
+
+    // add the named / typed columns to the collection of columns
+    @ALL@                       psFitsTableColumnAdd (tableColumns, "IPP_IDET",         PS_DATA_U32); // "IPP detection identifier index"
+    @ALL@                       psFitsTableColumnAdd (tableColumns, "X_PSF",            PS_DATA_F32); // "PSF x coordinate"
+    @ALL@                       psFitsTableColumnAdd (tableColumns, "Y_PSF",            PS_DATA_F32); // "PSF y coordinate"
+    @ALL@                       psFitsTableColumnAdd (tableColumns, "X_PSF_SIG",        PS_DATA_F32); // "Sigma in PSF x coordinate"
+    @ALL@                       psFitsTableColumnAdd (tableColumns, "Y_PSF_SIG",        PS_DATA_F32); // "Sigma in PSF y coordinate"
+
+    // NOTE: pre-PS1_V2, we only reported RA & DEC in floats for reference, not precision
+    @PS1_V1@                    psFitsTableColumnAdd (tableColumns, "RA_PSF",           PS_DATA_F32); // "PSF RA coordinate (degrees)"
+    @PS1_V1@                    psFitsTableColumnAdd (tableColumns, "DEC_PSF",          PS_DATA_F32); // "PSF DEC coordinate (degrees)"
+
+    @ALL@                       psFitsTableColumnAdd (tableColumns, "POSANGLE",         PS_DATA_F32); // "position angle at source (degrees)"
+    @ALL@                       psFitsTableColumnAdd (tableColumns, "PLTSCALE",         PS_DATA_F32); // "plate scale at source (arcsec/pixel)"
+    @ALL@                       psFitsTableColumnAdd (tableColumns, "PSF_INST_MAG",     PS_DATA_F32); // "PSF fit instrumental magnitude"
+    @ALL@                       psFitsTableColumnAdd (tableColumns, "PSF_INST_MAG_SIG", PS_DATA_F32); // "Sigma of PSF instrumental magnitude"
+
+    @ALL,!PS1_V1,!PS1_V2@       psFitsTableColumnAdd (tableColumns, "PSF_INST_FLUX",    PS_DATA_F32); // "PSF fit instrumental flux (counts)"
+    @ALL,!PS1_V1,!PS1_V2@       psFitsTableColumnAdd (tableColumns, "PSF_INST_FLUX_SIG", PS_DATA_F32); // "Sigma of PSF instrumental flux"
+
+    @ALL@                       psFitsTableColumnAdd (tableColumns, "AP_MAG",           PS_DATA_F32); // "magnitude in standard aperture"
+    @>PS1_V2,PS1_SV?,>PS1_DV1@  psFitsTableColumnAdd (tableColumns, "AP_MAG_RAW",       PS_DATA_F32); // "magnitude in reported aperture"
+    @ALL@                       psFitsTableColumnAdd (tableColumns, "AP_MAG_RADIUS",    PS_DATA_F32); // "radius used for aperture mags"
+    @>PS1_DV1,>PS1_V3,>PS1_SV1@ psFitsTableColumnAdd (tableColumns, "AP_FLUX",          PS_DATA_F32); // "instrumental flux in standard aperture"
+    @>PS1_DV1,>PS1_V3,>PS1_SV1@ psFitsTableColumnAdd (tableColumns, "AP_FLUX_SIG",      PS_DATA_F32); // "aperture flux error"
+    @>PS1_V4,>PS1_SV2,>PS1_DV3@ psFitsTableColumnAdd (tableColumns, "AP_NPIX",          PS_DATA_S32); // "aperture unmasked pixels"
+
+    @<PS1_V3,PS1_SV1,PS1_DV?@   psFitsTableColumnAdd (tableColumns, "PEAK_FLUX_AS_MAG", PS_DATA_F32); // "Peak flux expressed as magnitude"
+
+    @ALL@                       psFitsTableColumnAdd (tableColumns, "CAL_PSF_MAG",      PS_DATA_F32); // "PSF Magnitude using supplied calibration"
+    @ALL@                       psFitsTableColumnAdd (tableColumns, "CAL_PSF_MAG_SIG",  PS_DATA_F32); // "measured scatter of zero point calibration"
+
+    // NOTE: RA & DEC (both double) need to be on an 8-byte boundary...
+    @ALL,!PS1_V1@               psFitsTableColumnAdd (tableColumns, "RA_PSF",           PS_DATA_F64); // "PSF RA coordinate (degrees)"
+    @ALL,!PS1_V1@               psFitsTableColumnAdd (tableColumns, "DEC_PSF",          PS_DATA_F64); // "PSF DEC coordinate (degrees)"
+
+    @>=PS1_V3,>PS1_SV1@         psFitsTableColumnAdd (tableColumns, "PEAK_FLUX_AS_MAG", PS_DATA_F32); // "Peak flux expressed as magnitude"
+    @ALL@                       psFitsTableColumnAdd (tableColumns, "SKY",              PS_DATA_F32); // "Sky level"
+    @ALL@                       psFitsTableColumnAdd (tableColumns, "SKY_SIGMA",        PS_DATA_F32); // "Sigma of sky level"
+    @ALL@                       psFitsTableColumnAdd (tableColumns, "PSF_CHISQ",        PS_DATA_F32); // "Chisq of PSF-fit"
+    @ALL@                       psFitsTableColumnAdd (tableColumns, "CR_NSIGMA",        PS_DATA_F32); // "Nsigma deviations from PSF to CF"
+    @ALL@                       psFitsTableColumnAdd (tableColumns, "EXT_NSIGMA",       PS_DATA_F32); // "Nsigma deviations from PSF to EXT"
+
+    // PSF shape parameters:
+    @ALL@                       psFitsTableColumnAdd (tableColumns, "PSF_MAJOR",        PS_DATA_F32); // "PSF width (major axis)"
+    @ALL@                       psFitsTableColumnAdd (tableColumns, "PSF_MINOR",        PS_DATA_F32); // "PSF width (minor axis)"
+    @ALL@                       psFitsTableColumnAdd (tableColumns, "PSF_THETA",        PS_DATA_F32); // "PSF orientation angle"
+    @>PS1_V4,>PS1_SV2,>PS1_DV3@ psFitsTableColumnAdd (tableColumns, "PSF_CORE",         PS_DATA_F32); // "k term if defined"
+    @>PS1_V4,>PS1_SV2,>PS1_DV3@ psFitsTableColumnAdd (tableColumns, "PSF_FWHM_MAJ",     PS_DATA_F32); // "PSF FWHM (major axis)"
+    @>PS1_V4,>PS1_SV2,>PS1_DV3@ psFitsTableColumnAdd (tableColumns, "PSF_FWHM_MIN",     PS_DATA_F32); // "PSF FWHM (minor axis)"
+
+    // psf data quality
+    @ALL@                       psFitsTableColumnAdd (tableColumns, "PSF_QF",           PS_DATA_F32); // "PSF coverage/quality factor (bad)"
+    @>PS1_V2,PS1_SV?,>PS1_DV1@  psFitsTableColumnAdd (tableColumns, "PSF_QF_PERFECT",   PS_DATA_F32); // "PSF coverage/quality factor (poor)"
+    @ALL@                       psFitsTableColumnAdd (tableColumns, "PSF_NDOF",         PS_DATA_S32); // "degrees of freedom"
+    @ALL@                       psFitsTableColumnAdd (tableColumns, "PSF_NPIX",         PS_DATA_S32); // "number of pixels in fit"
+
+    @ALL@                       psFitsTableColumnAdd (tableColumns, "MOMENTS_XX",       PS_DATA_F32); // "second moments (X^2)"
+    @ALL@                       psFitsTableColumnAdd (tableColumns, "MOMENTS_XY",       PS_DATA_F32); // "second moments (X*Y)"
+    @ALL@                       psFitsTableColumnAdd (tableColumns, "MOMENTS_YY",       PS_DATA_F32); // "second moments (Y*Y)"
+    @>PS1_V2,PS1_SV?@           psFitsTableColumnAdd (tableColumns, "MOMENTS_M3C",      PS_DATA_F32); // "third momemt cos theta"
+    @>PS1_V2,PS1_SV?@           psFitsTableColumnAdd (tableColumns, "MOMENTS_M3S",      PS_DATA_F32); // "third momemt sin theta"
+    @>PS1_V2,PS1_SV?@           psFitsTableColumnAdd (tableColumns, "MOMENTS_M4C",      PS_DATA_F32); // "fourth momemt cos theta"
+    @>PS1_V2,PS1_SV?@           psFitsTableColumnAdd (tableColumns, "MOMENTS_M4S",      PS_DATA_F32); // "fourth momemt sin theta"
+  
+    // Lensing parameters are only written if they are measured
+    if (haveLensingOBJsmear) {
+        @>PS1_V4@               psFitsTableColumnAdd (tableColumns, "LENS_X11_SM_OBJ",  PS_DATA_F32); // "smear polarizability element (objects)"
+        @>PS1_V4@               psFitsTableColumnAdd (tableColumns, "LENS_X12_SM_OBJ",  PS_DATA_F32); // "smear polarizability element (objects)"
+        @>PS1_V4@               psFitsTableColumnAdd (tableColumns, "LENS_X22_SM_OBJ",  PS_DATA_F32); // "smear polarizability element (objects)"
+        @>PS1_V4@               psFitsTableColumnAdd (tableColumns, "LENS_E1_SM_OBJ",   PS_DATA_F32); // "smear polarizability element (objects)"
+        @>PS1_V4@               psFitsTableColumnAdd (tableColumns, "LENS_E2_SM_OBJ",   PS_DATA_F32); // "smear polarizability element (objects)"
+    }
+    if (haveLensingOBJshear) {
+        @>PS1_V4@               psFitsTableColumnAdd (tableColumns, "LENS_X11_SH_OBJ",  PS_DATA_F32); // "shear polarizability element (objects)"
+        @>PS1_V4@               psFitsTableColumnAdd (tableColumns, "LENS_X12_SH_OBJ",  PS_DATA_F32); // "shear polarizability element (objects)"
+        @>PS1_V4@               psFitsTableColumnAdd (tableColumns, "LENS_X22_SH_OBJ",  PS_DATA_F32); // "shear polarizability element (objects)"
+        @>PS1_V4@               psFitsTableColumnAdd (tableColumns, "LENS_E1_SH_OBJ",   PS_DATA_F32); // "shear polarizability element (objects)"
+        @>PS1_V4@               psFitsTableColumnAdd (tableColumns, "LENS_E2_SH_OBJ",   PS_DATA_F32); // "shear polarizability element (objects)"
+    }
+    if (false) {
+        // do not bother to save these as they are equivalent to Mxx,Mxy,Myy above
+        @>PS1_V4@               psFitsTableColumnAdd (tableColumns, "LENS_E1_OBJ",      PS_DATA_F32); // "shear polarizability element (objects)"
+        @>PS1_V4@               psFitsTableColumnAdd (tableColumns, "LENS_E2_OBJ",      PS_DATA_F32); // "shear polarizability element (objects)"
+    }
+
+    if (haveLensingPSFsmear) {
+        @>PS1_V4@               psFitsTableColumnAdd (tableColumns, "LENS_X11_SM_PSF",  PS_DATA_F32); // "smear polarizability element (PSFs)"
+        @>PS1_V4@               psFitsTableColumnAdd (tableColumns, "LENS_X12_SM_PSF",  PS_DATA_F32); // "smear polarizability element (PSFs)"
+        @>PS1_V4@               psFitsTableColumnAdd (tableColumns, "LENS_X22_SM_PSF",  PS_DATA_F32); // "smear polarizability element (PSFs)"
+        @>PS1_V4@               psFitsTableColumnAdd (tableColumns, "LENS_E1_SM_PSF",   PS_DATA_F32); // "smear polarizability element (PSFs)"
+        @>PS1_V4@               psFitsTableColumnAdd (tableColumns, "LENS_E2_SM_PSF",   PS_DATA_F32); // "smear polarizability element (PSFs)"
+    }
+    if (haveLensingPSFshear) {
+        @>PS1_V4@               psFitsTableColumnAdd (tableColumns, "LENS_X11_SH_PSF",  PS_DATA_F32); // "shear polarizability element (PSFs)"
+        @>PS1_V4@               psFitsTableColumnAdd (tableColumns, "LENS_X12_SH_PSF",  PS_DATA_F32); // "shear polarizability element (PSFs)"
+        @>PS1_V4@               psFitsTableColumnAdd (tableColumns, "LENS_X22_SH_PSF",  PS_DATA_F32); // "shear polarizability element (PSFs)"
+        @>PS1_V4@               psFitsTableColumnAdd (tableColumns, "LENS_E1_SH_PSF",   PS_DATA_F32); // "shear polarizability element (PSFs)"
+        @>PS1_V4@               psFitsTableColumnAdd (tableColumns, "LENS_E2_SH_PSF",   PS_DATA_F32); // "shear polarizability element (PSFs)"
+    }
+    if (haveLensingPSF) {
+        @>PS1_V4@               psFitsTableColumnAdd (tableColumns, "LENS_E1_PSF",      PS_DATA_F32); // "shear polarizability element (PSFs)"
+        @>PS1_V4@               psFitsTableColumnAdd (tableColumns, "LENS_E2_PSF",      PS_DATA_F32); // "shear polarizability element (PSFs)"
+    }
+
+    // if lensing params exist also include the backmapped chipID and chip coordinates
+    if (haveLensingPSF) {
+        @>PS1_V4@               psFitsTableColumnAdd (tableColumns, "SRC_CHIP_NUM",     PS_DATA_S16); // "id of warp input chip"
+        @>PS1_V4@               psFitsTableColumnAdd (tableColumns, "SRC_CHIP_X",       PS_DATA_S16); // "x coord in warp input chip"
+        @>PS1_V4@               psFitsTableColumnAdd (tableColumns, "SRC_CHIP_Y",       PS_DATA_S16); // "y coord in warp input chip"
+        @>PS1_V4@               psFitsTableColumnAdd (tableColumns, "PADDING3",         PS_DATA_S16); // "more padding"
+    }
+
+    @>PS1_V2,PS1_SV?,>PS1_DV1@  psFitsTableColumnAdd (tableColumns, "MOMENTS_R1",       PS_DATA_F32); // "first radial moment"
+    @>PS1_V2,PS1_SV?,>PS1_DV1@  psFitsTableColumnAdd (tableColumns, "MOMENTS_RH",       PS_DATA_F32); // "half radial moment"
+    @>PS1_V2,PS1_SV?,>PS1_DV1@  psFitsTableColumnAdd (tableColumns, "KRON_FLUX",        PS_DATA_F32); // "Kron Flux (in 2.5 R1)"
+    @>PS1_V2,PS1_SV?,>PS1_DV1@  psFitsTableColumnAdd (tableColumns, "KRON_FLUX_ERR",    PS_DATA_F32); // "Kron Flux Error"
+    @>PS1_V2,PS1_SV?,>PS1_DV1@  psFitsTableColumnAdd (tableColumns, "KRON_FLUX_INNER",  PS_DATA_F32); // "Kron Flux (in 1.0 R1)"
+    @>PS1_V2,PS1_SV?,>PS1_DV1@  psFitsTableColumnAdd (tableColumns, "KRON_FLUX_OUTER",  PS_DATA_F32); // "Kron Flux (in 4.0 R1)"
+
+    @>PS1_V3@                   psFitsTableColumnAdd (tableColumns, "SKY_LIMIT_RAD",    PS_DATA_F32); // "Radius where object hits sky"
+    @>PS1_V3@                   psFitsTableColumnAdd (tableColumns, "SKY_LIMIT_FLUX",   PS_DATA_F32); // "Flux / pix where object hits sky"
+    @>PS1_V3@                   psFitsTableColumnAdd (tableColumns, "SKY_LIMIT_SLOPE",  PS_DATA_F32); // "d(Flux/pix)/dRadius where object hits sky"
+
+    @>PS1_DV4@                  psFitsTableColumnAdd (tableColumns, "SRC_CHIP_NUM",     PS_DATA_S16); // "id of warp input chip"
+    @>PS1_DV4@                  psFitsTableColumnAdd (tableColumns, "SRC_CHIP_X",       PS_DATA_S16); // "x coord in warp input chip"
+    @>PS1_DV4@                  psFitsTableColumnAdd (tableColumns, "SRC_CHIP_Y",       PS_DATA_S16); // "y coord in warp input chip"
+    @>PS1_DV4@                  psFitsTableColumnAdd (tableColumns, "PADDING3",         PS_DATA_S16); // "more padding"
+
+    @PS1_DV?@                   psFitsTableColumnAdd (tableColumns, "DIFF_NPOS",        PS_DATA_S32); // "nPos (n pix > 3 sigma)"
+    @PS1_DV?@                   psFitsTableColumnAdd (tableColumns, "DIFF_FRATIO",      PS_DATA_F32); // "fPos / (fPos + fNeg)"
+    @PS1_DV?@                   psFitsTableColumnAdd (tableColumns, "DIFF_NRATIO_BAD",  PS_DATA_F32); // "nPos / (nPos + nNeg)"
+    @PS1_DV?@                   psFitsTableColumnAdd (tableColumns, "DIFF_NRATIO_MASK", PS_DATA_F32); // "nPos / (nPos + nMask)"
+    @PS1_DV?@                   psFitsTableColumnAdd (tableColumns, "DIFF_NRATIO_ALL",  PS_DATA_F32); // "nPos / (nGood + nMask + nBad)"
+
+    @>PS1_DV1@                  psFitsTableColumnAdd (tableColumns, "DIFF_R_P",         PS_DATA_F32); // "distance to positive match source"
+    @>PS1_DV1@                  psFitsTableColumnAdd (tableColumns, "DIFF_SN_P",        PS_DATA_F32); // "signal-to-noise of pos match src"
+    @>PS1_DV1@                  psFitsTableColumnAdd (tableColumns, "DIFF_R_M",         PS_DATA_F32); // "distance to negative match source"
+    @>PS1_DV1@                  psFitsTableColumnAdd (tableColumns, "DIFF_SN_M",        PS_DATA_F32); // "signal-to-noise of neg match src"
+
+    @ALL@                       psFitsTableColumnAdd (tableColumns, "FLAGS",            PS_DATA_U32); // "psphot analysis flags"
+    @>PS1_V2,PS1_SV?,>PS1_DV1@  psFitsTableColumnAdd (tableColumns, "FLAGS2",           PS_DATA_U32); // "psphot analysis flags"
+    @PS1_V3,PS1_SV2@            psFitsTableColumnAdd (tableColumns, "PADDING2",         PS_DATA_S32); // "more padding"
+    @ALL@                       psFitsTableColumnAdd (tableColumns, "N_FRAMES",         PS_DATA_U16); // "Number of frames overlapping source center"
+
+    @ALL@                       psFitsTableColumnAdd (tableColumns, "PADDING",          PS_DATA_S16); // "more padding"
+
+    // note that this definition is inconsistent with the definition in
+    // Ohana/src/libautocode/def.  This version creates a table with data not
+    // properly aligned with the 8-byte boundaries. The structure defined by
+    // libautocode does this, but has a different order of elements (and adds
+    // padding2 to fix things). We have generated may files with PS1_SV1 as is, so
+    // I'll leave it. But in future a PS1_SV2 should be forced to match
+    // libautocode. Note that addstar knows to detect the alternate version of
+    // PS1_SV1 and correctly interpret its fields.
+
+    // EXT_NSIGMA will be NAN if: 1) contour ellipse is imaginary; 2) source is not
+    // subtracted
+
+    // CR_NSIGMA will be NAN if: 1) source is not subtracted; 2) source is on the image
+    // edge; 3) any pixels in the 3x3 peak region are masked;
+
+    // generate an FITS table using the array of columns defined above, with space for all rows
+    psFitsTable *table = psFitsTableCreate (tableColumns, sources->n);
+    psFree (tableColumns); // we are now done with the definition of the table columns
+
+    /************ write the data to the table *****************/
+
+    // we write out PSF-fits for all sources, regardless of quality.  the source flags tell us the state
+    // by the time we call this function, all values should be assigned.  let's use asserts to be sure in some cases.
+    for (int i = 0; i < sources->n; i++) {
+        // this is the source associated with this image
+        pmSource *thisSource = sources->data[i];
+
+        // this is the "real" version of this source 
+        pmSource *source = thisSource->parent ? thisSource->parent : thisSource;
+
+        // If source->seq is -1, source was generated in this analysis.  If source->seq is
+        // not -1, source was read from elsewhere: in the latter case, preserve the source
+        // ID.  source.seq is used instead of source.id since the latter is a const
+        // generated on Alloc, and would thus be wrong for read in sources.
+        if (source->seq == -1) {
+            source->seq = i;
+        }
+
+        // set the 'best' values for various output fields:
+        pmSourceOutputs outputs;
+        pmSourceOutputsSetValues (&outputs, source, chip, fwhmMajor, fwhmMinor, magOffset);
+
+        pmSourceOutputsMoments moments;
+        pmSourceOutputsSetMoments (&moments, source);
+
+        @PS1_DV?@ pmSourceDiffStats diffStats;
+        @PS1_DV?@ pmSourceDiffStatsInit(&diffStats);
+        @PS1_DV?@ if (source->diffStats) { diffStats = *source->diffStats;}
+
+        // the psMetadataAdd entry and the double quotes are used by grep to select the output fields for automatic documentation
+        // This set of psMetadataAdd Entries marks the "----" "Start of the PSF segment"
+        @ALL@                       psFitsTableSetU32 (table, i, "IPP_IDET",          source->seq);                     // "IPP detection identifier index",            
+        @ALL@                       psFitsTableSetF32 (table, i, "X_PSF",             outputs.xPos);                    // "PSF x coordinate",                          
+        @ALL@                       psFitsTableSetF32 (table, i, "Y_PSF",             outputs.yPos);                    // "PSF y coordinate",                          
+        @ALL@                       psFitsTableSetF32 (table, i, "X_PSF_SIG",         outputs.xErr);                    // "Sigma in PSF x coordinate",                 
+        @ALL@                       psFitsTableSetF32 (table, i, "Y_PSF_SIG",         outputs.yErr);                    // "Sigma in PSF y coordinate",                 
+
+        // NOTE: pre-PS1_V2, we only reported RA & DEC in floats for reference, not precision		                
+        @PS1_V1@                    psFitsTableSetF32 (table, i, "RA_PSF",            outputs.ra);                      // "PSF RA coordinate (degrees)",                
+        @PS1_V1@                    psFitsTableSetF32 (table, i, "DEC_PSF",           outputs.dec);                     // "PSF DEC coordinate (degrees)",               
+
+        @ALL@                       psFitsTableSetF32 (table, i, "POSANGLE",          outputs.posAngle);                // "position angle at source (degrees)",        
+        @ALL@                       psFitsTableSetF32 (table, i, "PLTSCALE",          outputs.pltScale);                // "plate scale at source (arcsec/pixel)",      
+        @ALL@                       psFitsTableSetF32 (table, i, "PSF_INST_MAG",      source->psfMag);                  // "PSF fit instrumental magnitude",            
+        @ALL@                       psFitsTableSetF32 (table, i, "PSF_INST_MAG_SIG",  source->psfMagErr);               // "Sigma of PSF instrumental magnitude",       
+
+        @ALL,!PS1_V1,!PS1_V2@       psFitsTableSetF32 (table, i, "PSF_INST_FLUX",     source->psfFlux);                 // "PSF fit instrumental flux (counts)",        
+        @ALL,!PS1_V1,!PS1_V2@       psFitsTableSetF32 (table, i, "PSF_INST_FLUX_SIG", source->psfFluxErr);              // "Sigma of PSF instrumental flux",            
+
+        @ALL@                       psFitsTableSetF32 (table, i, "AP_MAG",            source->apMag);                   // "magnitude in standard aperture",            
+        @>PS1_V2,PS1_SV?,>PS1_DV1@  psFitsTableSetF32 (table, i, "AP_MAG_RAW",        source->apMagRaw);                // "magnitude in reported aperture",            
+        @ALL@                       psFitsTableSetF32 (table, i, "AP_MAG_RADIUS",     source->apRadius);                // "radius used for aperture mags",             
+        @>PS1_DV1,>PS1_V3,>PS1_SV1@ psFitsTableSetF32 (table, i, "AP_FLUX",           source->apFlux);                  // "instrumental flux in standard aperture",    
+        @>PS1_DV1,>PS1_V3,>PS1_SV1@ psFitsTableSetF32 (table, i, "AP_FLUX_SIG",       source->apFluxErr);               // "aperture flux error",                       
+        @>PS1_V4,>PS1_SV2,>PS1_DV3@ psFitsTableSetS32 (table, i, "AP_NPIX",           source->apNpixels);               // "aperture unmasked pixels",                  
+
+        @<PS1_V3,PS1_SV1,PS1_DV?@   psFitsTableSetF32 (table, i, "PEAK_FLUX_AS_MAG",  outputs.peakMag);                 // "Peak flux expressed as magnitude"
+
+        @ALL@                       psFitsTableSetF32 (table, i, "CAL_PSF_MAG",       outputs.calMag);                  // "PSF Magnitude using supplied calibration",  
+        @ALL@                       psFitsTableSetF32 (table, i, "CAL_PSF_MAG_SIG",   zeroptErr);                       // "measured scatter of zero point calibration",
+
+        // NOTE: RA & DEC (both double) need to be on an 8-byte boundary...				         
+        @ALL,!PS1_V1@               psFitsTableSetF64 (table, i, "RA_PSF",            outputs.ra);                      // "PSF RA coordinate (degrees)",               
+        @ALL,!PS1_V1@               psFitsTableSetF64 (table, i, "DEC_PSF",           outputs.dec);                     // "PSF DEC coordinate (degrees)",              
+
+        @>=PS1_V3,>PS1_SV1@         psFitsTableSetF32 (table, i, "PEAK_FLUX_AS_MAG",  outputs.peakMag);                 // "Peak flux expressed as magnitude",          
+        @ALL@                       psFitsTableSetF32 (table, i, "SKY",               source->sky);                     // "Sky level",                                 
+        @ALL@                       psFitsTableSetF32 (table, i, "SKY_SIGMA",         source->skyErr);                  // "Sigma of sky level",                        
+
+        @ALL@                       psFitsTableSetF32 (table, i, "PSF_CHISQ",         outputs.chisq);                   // "Chisq of PSF-fit",                          
+        @ALL@                       psFitsTableSetF32 (table, i, "CR_NSIGMA",         source->crNsigma);                // "Nsigma deviations from PSF to CF",          
+        @ALL@                       psFitsTableSetF32 (table, i, "EXT_NSIGMA",        source->extNsigma);               // "Nsigma deviations from PSF to EXT",         
+
+        // PSF shape parameters:
+        @ALL@                       psFitsTableSetF32 (table, i, "PSF_MAJOR",         outputs.psfMajor);                // "PSF width (major axis)",                    
+        @ALL@                       psFitsTableSetF32 (table, i, "PSF_MINOR",         outputs.psfMinor);                // "PSF width (minor axis)",                    
+        @ALL@                       psFitsTableSetF32 (table, i, "PSF_THETA",         outputs.psfTheta);                // "PSF orientation angle",                     
+        @>PS1_V4,>PS1_SV2,>PS1_DV3@ psFitsTableSetF32 (table, i, "PSF_CORE",          outputs.psfCore);                 // "k term if defined",                         
+
+	// I use a look-up table and linear interpolation to map PSF_MAJOR,PSF_MINOR + PSF_CORE to FWHM values
+        @>PS1_V4,>PS1_SV2,>PS1_DV3@ psFitsTableSetF32 (table, i, "PSF_FWHM_MAJ",      outputs.psfMajorFWHM);            // "PSF FWHM (major axis)",                     
+        @>PS1_V4,>PS1_SV2,>PS1_DV3@ psFitsTableSetF32 (table, i, "PSF_FWHM_MIN",      outputs.psfMinorFWHM);            // "PSF FWHM (minor axis)",                     
+
+        // psf data quality
+        @ALL@                       psFitsTableSetF32 (table, i, "PSF_QF",            source->pixWeightNotBad);         // "PSF coverage/quality factor (bad)",         
+        @>PS1_V2,PS1_SV?,>PS1_DV1@  psFitsTableSetF32 (table, i, "PSF_QF_PERFECT",    source->pixWeightNotPoor);        // "PSF coverage/quality factor (poor)",        
+        @ALL@                       psFitsTableSetS32 (table, i, "PSF_NDOF",          outputs.nDOF);                    // "degrees of freedom",                        
+        @ALL@                       psFitsTableSetS32 (table, i, "PSF_NPIX",          outputs.nPix);                    // "number of pixels in fit",                   
+
+        @ALL@                       psFitsTableSetF32 (table, i, "MOMENTS_XX",        moments.Mxx);                     // "second moments (X^2)",                      
+        @ALL@                       psFitsTableSetF32 (table, i, "MOMENTS_XY",        moments.Mxy);                     // "second moments (X*Y)",                      
+        @ALL@                       psFitsTableSetF32 (table, i, "MOMENTS_YY",        moments.Myy);                     // "second moments (Y*Y)",                      
+
+        @>PS1_V2,PS1_SV?@           psFitsTableSetF32 (table, i, "MOMENTS_M3C",       moments.M_c3);                    // "third momemt cos theta",                    
+        @>PS1_V2,PS1_SV?@           psFitsTableSetF32 (table, i, "MOMENTS_M3S",       moments.M_s3);                    // "third momemt sin theta",                    
+        @>PS1_V2,PS1_SV?@           psFitsTableSetF32 (table, i, "MOMENTS_M4C",       moments.M_c4);                    // "fourth momemt cos theta",                   
+        @>PS1_V2,PS1_SV?@           psFitsTableSetF32 (table, i, "MOMENTS_M4S",       moments.M_s4);                    // "fourth momemt sin theta",                   
+
+        // Lensing parameters:
+        if (source->lensingOBJ && source->lensingOBJ->smear) {
+            @>PS1_V4@               psFitsTableSetF32 (table, i, "LENS_X11_SM_OBJ",   source->lensingOBJ->smear->X11);  // "smear polarizability element (objects)",     
+            @>PS1_V4@               psFitsTableSetF32 (table, i, "LENS_X12_SM_OBJ",   source->lensingOBJ->smear->X12);  // "smear polarizability element (objects)",     
+            @>PS1_V4@               psFitsTableSetF32 (table, i, "LENS_X22_SM_OBJ",   source->lensingOBJ->smear->X22);  // "smear polarizability element (objects)",     
+            @>PS1_V4@               psFitsTableSetF32 (table, i, "LENS_E1_SM_OBJ",    source->lensingOBJ->smear->e1);   // "smear polarizability element (objects)",     
+            @>PS1_V4@               psFitsTableSetF32 (table, i, "LENS_E2_SM_OBJ",    source->lensingOBJ->smear->e2);   // "smear polarizability element (objects)",     
+        }
+        if (source->lensingOBJ && source->lensingOBJ->shear) {
+            @>PS1_V4@               psFitsTableSetF32 (table, i, "LENS_X11_SH_OBJ",   source->lensingOBJ->shear->X11);  // "shear polarizability element (objects)",     
+            @>PS1_V4@               psFitsTableSetF32 (table, i, "LENS_X12_SH_OBJ",   source->lensingOBJ->shear->X12);  // "shear polarizability element (objects)",     
+            @>PS1_V4@               psFitsTableSetF32 (table, i, "LENS_X22_SH_OBJ",   source->lensingOBJ->shear->X22);  // "shear polarizability element (objects)",     
+            @>PS1_V4@               psFitsTableSetF32 (table, i, "LENS_E1_SH_OBJ",    source->lensingOBJ->shear->e1);   // "shear polarizability element (objects)",     
+            @>PS1_V4@               psFitsTableSetF32 (table, i, "LENS_E2_SH_OBJ",    source->lensingOBJ->shear->e2);   // "shear polarizability element (objects)",     
+        }
+        if (false && source->lensingOBJ) {
+            // do not bother to save these as they are equivalent to Mxx,Mxy,Myy above
+            @>PS1_V4@               psFitsTableSetF32 (table, i, "LENS_E1_PSF",       source->lensingOBJ->e1);          // "shear polarizability element (objects)",     
+            @>PS1_V4@               psFitsTableSetF32 (table, i, "LENS_E2_PSF",       source->lensingOBJ->e2);          // "shear polarizability element (objects)",     
+        }
+
+        if (source->lensingPSF && source->lensingPSF->smear) {
+            @>PS1_V4@               psFitsTableSetF32 (table, i, "LENS_X11_SM_PSF",   source->lensingPSF->smear->X11);  // "smear polarizability element (objects)",     
+            @>PS1_V4@               psFitsTableSetF32 (table, i, "LENS_X12_SM_PSF",   source->lensingPSF->smear->X12);  // "smear polarizability element (objects)",     
+            @>PS1_V4@               psFitsTableSetF32 (table, i, "LENS_X22_SM_PSF",   source->lensingPSF->smear->X22);  // "smear polarizability element (objects)",     
+            @>PS1_V4@               psFitsTableSetF32 (table, i, "LENS_E1_SM_PSF",    source->lensingPSF->smear->e1);   // "smear polarizability element (objects)",     
+            @>PS1_V4@               psFitsTableSetF32 (table, i, "LENS_E2_SM_PSF",    source->lensingPSF->smear->e2);   // "smear polarizability element (objects)",     
+        }
+        if (source->lensingPSF && source->lensingPSF->shear) {
+            @>PS1_V4@               psFitsTableSetF32 (table, i, "LENS_X11_SH_PSF",   source->lensingPSF->shear->X11);  // "shear polarizability element (objects)",     
+            @>PS1_V4@               psFitsTableSetF32 (table, i, "LENS_X12_SH_PSF",   source->lensingPSF->shear->X12);  // "shear polarizability element (objects)",     
+            @>PS1_V4@               psFitsTableSetF32 (table, i, "LENS_X22_SH_PSF",   source->lensingPSF->shear->X22);  // "shear polarizability element (objects)",     
+            @>PS1_V4@               psFitsTableSetF32 (table, i, "LENS_E1_SH_PSF",    source->lensingPSF->shear->e1);   // "shear polarizability element (objects)",     
+            @>PS1_V4@               psFitsTableSetF32 (table, i, "LENS_E2_SH_PSF",    source->lensingPSF->shear->e2);   // "shear polarizability element (objects)",     
+        }
+        if (source->lensingPSF) {
+            @>PS1_V4@               psFitsTableSetF32 (table, i, "LENS_E1_PSF",       source->lensingPSF->e1);          // "shear polarizability element (objects)",     
+            @>PS1_V4@               psFitsTableSetF32 (table, i, "LENS_E2_PSF",       source->lensingPSF->e2);          // "shear polarizability element (objects)",     
+        }
+
+        // if lensing params exist also include the backmapped chipID and chip coordinates
+        if (source->lensingPSF && source->lensingPSF->shear) {
+            @>PS1_V4@               psFitsTableSetS16 (table, i, "SRC_CHIP_NUM",      source->chipNum);                 // "id of warp input chip",       
+            @>PS1_V4@               psFitsTableSetS16 (table, i, "SRC_CHIP_X",        source->chipX);                   // "x coord in warp input chip",  
+            @>PS1_V4@               psFitsTableSetS16 (table, i, "SRC_CHIP_Y",        source->chipY);                   // "y coord in warp input chip",  
+            @>PS1_V4@               psFitsTableSetS16 (table, i, "PADDING3",          0);                               // "more padding",                
+        }
+
+        @>PS1_V2,PS1_SV?,>PS1_DV1@  psFitsTableSetF32 (table, i, "MOMENTS_R1",        moments.Mrf);                     // "first radial moment",                        
+        @>PS1_V2,PS1_SV?,>PS1_DV1@  psFitsTableSetF32 (table, i, "MOMENTS_RH",        moments.Mrh);                     // "half radial moment",                         
+        @>PS1_V2,PS1_SV?,>PS1_DV1@  psFitsTableSetF32 (table, i, "KRON_FLUX",         moments.Krf);                     // "Kron Flux (in 2.5 R1)",                      
+        @>PS1_V2,PS1_SV?,>PS1_DV1@  psFitsTableSetF32 (table, i, "KRON_FLUX_ERR",     moments.dKrf);                    // "Kron Flux Error",                            
+        @>PS1_V2,PS1_SV?,>PS1_DV1@  psFitsTableSetF32 (table, i, "KRON_FLUX_INNER",   moments.Kinner);                  // "Kron Flux (in 1.0 R1)",                      
+        @>PS1_V2,PS1_SV?,>PS1_DV1@  psFitsTableSetF32 (table, i, "KRON_FLUX_OUTER",   moments.Kouter);                  // "Kron Flux (in 4.0 R1)",                      
+        @>PS1_V3@                   psFitsTableSetF32 (table, i, "SKY_LIMIT_RAD",     source->skyRadius);               // "Radius where object hits sky",               
+        @>PS1_V3@                   psFitsTableSetF32 (table, i, "SKY_LIMIT_FLUX",    source->skyFlux);                 // "Flux / pix where object hits sky",           
+        @>PS1_V3@                   psFitsTableSetF32 (table, i, "SKY_LIMIT_SLOPE",   source->skySlope);                // "d(Flux/pix)/dRadius where object hits sky",  
+
+        @>PS1_DV4@                  psFitsTableSetS16 (table, i, "SRC_CHIP_NUM",      source->chipNum);                 // "id of warp input chip",       
+        @>PS1_DV4@                  psFitsTableSetS16 (table, i, "SRC_CHIP_X",        source->chipX);                   // "x coord in warp input chip",  
+        @>PS1_DV4@                  psFitsTableSetS16 (table, i, "SRC_CHIP_Y",        source->chipY);                   // "y coord in warp input chip",  
+        @>PS1_DV4@                  psFitsTableSetS16 (table, i, "PADDING3",          0);                               // "more padding",                
+
+        @PS1_DV?@                   psFitsTableSetS32 (table, i, "DIFF_NPOS",         diffStats.nGood);                 // "nPos (n pix > 3 sigma)",                     
+        @PS1_DV?@                   psFitsTableSetF32 (table, i, "DIFF_FRATIO",       diffStats.fRatio);                // "fPos / (fPos + fNeg)",                       
+        @PS1_DV?@                   psFitsTableSetF32 (table, i, "DIFF_NRATIO_BAD",   diffStats.nRatioBad);             // "nPos / (nPos + nNeg)",                       
+        @PS1_DV?@                   psFitsTableSetF32 (table, i, "DIFF_NRATIO_MASK",  diffStats.nRatioMask);            // "nPos / (nPos + nMask)",                      
+        @PS1_DV?@                   psFitsTableSetF32 (table, i, "DIFF_NRATIO_ALL",   diffStats.nRatioAll);             // "nPos / (nGood + nMask + nBad)",              
+
+        @>PS1_DV1@                  psFitsTableSetF32 (table, i, "DIFF_R_P",          diffStats.Rp);                    // "distance to positive match source",  
+        @>PS1_DV1@                  psFitsTableSetF32 (table, i, "DIFF_SN_P",         diffStats.SNp);                   // "signal-to-noise of pos match src",   
+        @>PS1_DV1@                  psFitsTableSetF32 (table, i, "DIFF_R_M",          diffStats.Rm);                    // "distance to negative match source",  
+        @>PS1_DV1@                  psFitsTableSetF32 (table, i, "DIFF_SN_M",         diffStats.SNm);                   // "signal-to-noise of neg match src",   
+
+        @ALL@                      psFitsTableSetU32 (table, i, "FLAGS",              source->mode);                    // "psphot analysis flags",                      
+        @>PS1_V2,PS1_SV?,>PS1_DV1@ psFitsTableSetU32 (table, i, "FLAGS2",             source->mode2);                   // "psphot analysis flags",                      
+        @PS1_V3,PS1_SV2@           psFitsTableSetS32 (table, i, "PADDING2",           0);                               // "padding",                                    
+
+        @ALL@                      psFitsTableSetU16 (table, i, "N_FRAMES",           source->nFrames);                 // "Number of frames overlapping source center", 
+        @ALL@                      psFitsTableSetS16 (table, i, "PADDING",            0);                               // "padding",                                    
+    }
+
+    // XXX why do we make a copy here to be supplemented with the masks?  why not do this in the calling function?
+    psMetadata *header = psMetadataCopy(NULL, tableHeader);
+    pmSourceMasksHeader(header);
+
+    psTrace ("pmFPAfile", 5, "writing ext data %s\n", extname);
+    if (!psFitsWriteTableNew(fits, header, table, extname)) {
+        psError(psErrorCodeLast(), false, "writing ext data %s\n", extname);
+        psFree(table);
+        psFree(header);
+        return false;
+    }
+    psFree(table);
+    psFree(header);
+
+    return true;
+}
+
+bool pmSourcesWrite_CMF_@CMFMODE@_Old (psFits *fits, pmReadout *readout, psArray *sources, psMetadata *imageHeader, psMetadata *tableHeader, char *extname, psMetadata *recipe)
+{
+    // fprintf (stderr, "writing with %s\n", __func__);
+    PS_ASSERT_PTR_NON_NULL(fits, false);
+    PS_ASSERT_PTR_NON_NULL(sources, false);
+    PS_ASSERT_PTR_NON_NULL(extname, false);
+
+    psArray *table;
+    psMetadata *row;
+
+    pmChip *chip = readout->parent->parent;
+
+    // if the sequence is defined, write these in seq order; otherwise
+    // write them in S/N order:
+    if (sources->n > 0) {
+        pmSource *source = (pmSource *) sources->data[0];
+        if (source->seq == -1) {
+            // let's write these out in S/N order
+            sources = psArraySort (sources, pmSourceSortByFlux);
+        } else {
+            sources = psArraySort (sources, pmSourceSortBySeq);
+        }
+    }
+
+    table = psArrayAllocEmpty (sources->n);
+
+    float magOffset; 
+    float zeroptErr; 
+    float fwhmMajor; 
+    float fwhmMinor;
+    pmSourceOutputsCommonValues (&magOffset, &zeroptErr, &fwhmMajor, &fwhmMinor, readout, imageHeader);
+
+    // we write out PSF-fits for all sources, regardless of quality.  the source flags tell us the state
+    // by the time we call this function, all values should be assigned.  let's use asserts to be sure in some cases.
+    for (int i = 0; i < sources->n; i++) {
+        // this is the source associated with this image
+        pmSource *thisSource = sources->data[i];
+
+        // this is the "real" version of this source 
+        pmSource *source = thisSource->parent ? thisSource->parent : thisSource;
+
+        // If source->seq is -1, source was generated in this analysis.  If source->seq is
+        // not -1, source was read from elsewhere: in the latter case, preserve the source
+        // ID.  source.seq is used instead of source.id since the latter is a const
+        // generated on Alloc, and would thus be wrong for read in sources.
+        if (source->seq == -1) {
+            source->seq = i;
+        }
+
+        // set the 'best' values for various output fields:
+        pmSourceOutputs outputs;
+        pmSourceOutputsSetValues (&outputs, source, chip, fwhmMajor, fwhmMinor, magOffset);
+
+        pmSourceOutputsMoments moments;
+        pmSourceOutputsSetMoments (&moments, source);
+
+        @PS1_DV?@ pmSourceDiffStats diffStats;
+        @PS1_DV?@ pmSourceDiffStatsInit(&diffStats);
+        @PS1_DV?@ if (source->diffStats) {
+        @PS1_DV?@     diffStats = *source->diffStats;
+        @PS1_DV?@ }
+
+        row = psMetadataAlloc ();
+
+        // the psMetadataAdd entry and the double quotes are used by grep to select the output fields for automatic documentation
+        // This set of psMetadataAdd Entries marks the "----" "Start of the PSF segment"
+        @ALL@                     psMetadataAdd (row, PS_LIST_TAIL, "IPP_IDET",         PS_DATA_U32, "IPP detection identifier index",             source->seq);
+        @ALL@                     psMetadataAdd (row, PS_LIST_TAIL, "X_PSF",            PS_DATA_F32, "PSF x coordinate",                           outputs.xPos);
+        @ALL@                     psMetadataAdd (row, PS_LIST_TAIL, "Y_PSF",            PS_DATA_F32, "PSF y coordinate",                           outputs.yPos);
+        @ALL@                     psMetadataAdd (row, PS_LIST_TAIL, "X_PSF_SIG",        PS_DATA_F32, "Sigma in PSF x coordinate",                  outputs.xErr);
+        @ALL@                     psMetadataAdd (row, PS_LIST_TAIL, "Y_PSF_SIG",        PS_DATA_F32, "Sigma in PSF y coordinate",                  outputs.yErr);
+
+        // NOTE: pre-PS1_V2, we only reported RA & DEC in floats for reference, not precision
+        @PS1_V1@                  psMetadataAdd (row, PS_LIST_TAIL, "RA_PSF",           PS_DATA_F32, "PSF RA coordinate (degrees)",                outputs.ra);
+        @PS1_V1@                  psMetadataAdd (row, PS_LIST_TAIL, "DEC_PSF",          PS_DATA_F32, "PSF DEC coordinate (degrees)",               outputs.dec);
+
+        @ALL@                     psMetadataAdd (row, PS_LIST_TAIL, "POSANGLE",         PS_DATA_F32, "position angle at source (degrees)",         outputs.posAngle);
+        @ALL@                     psMetadataAdd (row, PS_LIST_TAIL, "PLTSCALE",         PS_DATA_F32, "plate scale at source (arcsec/pixel)",       outputs.pltScale);
+        @ALL@                     psMetadataAdd (row, PS_LIST_TAIL, "PSF_INST_MAG",     PS_DATA_F32, "PSF fit instrumental magnitude",             source->psfMag);
+        @ALL@                     psMetadataAdd (row, PS_LIST_TAIL, "PSF_INST_MAG_SIG", PS_DATA_F32, "Sigma of PSF instrumental magnitude",        source->psfMagErr);
+
+        @ALL,!PS1_V1,!PS1_V2@     psMetadataAdd (row, PS_LIST_TAIL, "PSF_INST_FLUX",    PS_DATA_F32, "PSF fit instrumental flux (counts)",         source->psfFlux);
+        @ALL,!PS1_V1,!PS1_V2@     psMetadataAdd (row, PS_LIST_TAIL, "PSF_INST_FLUX_SIG",PS_DATA_F32, "Sigma of PSF instrumental flux",             source->psfFluxErr);
+
+        @ALL@                       psMetadataAdd (row, PS_LIST_TAIL, "AP_MAG",           PS_DATA_F32, "magnitude in standard aperture",             source->apMag);
+        @>PS1_V2,PS1_SV?,>PS1_DV1@  psMetadataAdd (row, PS_LIST_TAIL, "AP_MAG_RAW",       PS_DATA_F32, "magnitude in reported aperture",             source->apMagRaw);
+        @ALL@                       psMetadataAdd (row, PS_LIST_TAIL, "AP_MAG_RADIUS",    PS_DATA_F32, "radius used for aperture mags",              source->apRadius);
+        @>PS1_DV1,>PS1_V3,>PS1_SV1@ psMetadataAdd (row, PS_LIST_TAIL, "AP_FLUX",          PS_DATA_F32, "instrumental flux in standard aperture",     source->apFlux);
+        @>PS1_DV1,>PS1_V3,>PS1_SV1@ psMetadataAdd (row, PS_LIST_TAIL, "AP_FLUX_SIG",      PS_DATA_F32, "aperture flux error",                        source->apFluxErr);
+        @>PS1_V4,>PS1_SV2,>PS1_DV3@ psMetadataAdd (row, PS_LIST_TAIL, "AP_NPIX",          PS_DATA_S32, "aperture unmasked pixels",                   source->apNpixels);
+
+        @<PS1_V3,PS1_SV1,PS1_DV?@ psMetadataAdd (row, PS_LIST_TAIL, "PEAK_FLUX_AS_MAG", PS_DATA_F32, "Peak flux expressed as magnitude",           outputs.peakMag);
+
+        @ALL@                     psMetadataAdd (row, PS_LIST_TAIL, "CAL_PSF_MAG",      PS_DATA_F32, "PSF Magnitude using supplied calibration",   outputs.calMag);
+        @ALL@                     psMetadataAdd (row, PS_LIST_TAIL, "CAL_PSF_MAG_SIG",  PS_DATA_F32, "measured scatter of zero point calibration", zeroptErr);
+        
+        // NOTE: RA & DEC (both double) need to be on an 8-byte boundary...
+        @ALL,!PS1_V1@             psMetadataAdd (row, PS_LIST_TAIL, "RA_PSF",           PS_DATA_F64, "PSF RA coordinate (degrees)",                outputs.ra);
+        @ALL,!PS1_V1@             psMetadataAdd (row, PS_LIST_TAIL, "DEC_PSF",          PS_DATA_F64, "PSF DEC coordinate (degrees)",               outputs.dec);
+
+        @>=PS1_V3,>PS1_SV1@       psMetadataAdd (row, PS_LIST_TAIL, "PEAK_FLUX_AS_MAG", PS_DATA_F32, "Peak flux expressed as magnitude",           outputs.peakMag);
+        @ALL@                     psMetadataAdd (row, PS_LIST_TAIL, "SKY",              PS_DATA_F32, "Sky level",                                  source->sky);
+        @ALL@                     psMetadataAdd (row, PS_LIST_TAIL, "SKY_SIGMA",        PS_DATA_F32, "Sigma of sky level",                         source->skyErr);
+
+        @ALL@                     psMetadataAdd (row, PS_LIST_TAIL, "PSF_CHISQ",        PS_DATA_F32, "Chisq of PSF-fit",                           outputs.chisq);
+        @ALL@                     psMetadataAdd (row, PS_LIST_TAIL, "CR_NSIGMA",        PS_DATA_F32, "Nsigma deviations from PSF to CF",           source->crNsigma);
+        @ALL@                     psMetadataAdd (row, PS_LIST_TAIL, "EXT_NSIGMA",       PS_DATA_F32, "Nsigma deviations from PSF to EXT",          source->extNsigma);
+
+        // PSF shape parameters:
+        @ALL@                     psMetadataAdd (row, PS_LIST_TAIL, "PSF_MAJOR",        PS_DATA_F32, "PSF width (major axis)",                     outputs.psfMajor);
+        @ALL@                     psMetadataAdd (row, PS_LIST_TAIL, "PSF_MINOR",        PS_DATA_F32, "PSF width (minor axis)",                     outputs.psfMinor);
+        @ALL@                     psMetadataAdd (row, PS_LIST_TAIL, "PSF_THETA",        PS_DATA_F32, "PSF orientation angle",                      outputs.psfTheta);
+        @>PS1_V4,>PS1_SV2,>PS1_DV3@ psMetadataAdd (row, PS_LIST_TAIL, "PSF_CORE",         PS_DATA_F32, "k term if defined",                          outputs.psfCore);
+
+        // I use a look-up table and linear interpolation to map PSF_MAJOR,PSF_MINOR + PSF_CORE to FWHM values
+        @>PS1_V4,>PS1_SV2,>PS1_DV3@ psMetadataAdd (row, PS_LIST_TAIL, "PSF_FWHM_MAJ",        PS_DATA_F32, "PSF FWHM (major axis)",                   outputs.psfMajorFWHM);
+        @>PS1_V4,>PS1_SV2,>PS1_DV3@ psMetadataAdd (row, PS_LIST_TAIL, "PSF_FWHM_MIN",        PS_DATA_F32, "PSF FWHM (minor axis)",                   outputs.psfMinorFWHM);
+
+        // psf data quality
+        @ALL@                     psMetadataAdd (row, PS_LIST_TAIL, "PSF_QF",           PS_DATA_F32, "PSF coverage/quality factor (bad)",          source->pixWeightNotBad);
+        @>PS1_V2,PS1_SV?,>PS1_DV1@ psMetadataAdd (row, PS_LIST_TAIL, "PSF_QF_PERFECT",   PS_DATA_F32, "PSF coverage/quality factor (poor)",         source->pixWeightNotPoor);
+        @ALL@                     psMetadataAdd (row, PS_LIST_TAIL, "PSF_NDOF",         PS_DATA_S32, "degrees of freedom",                         outputs.nDOF);
+        @ALL@                     psMetadataAdd (row, PS_LIST_TAIL, "PSF_NPIX",         PS_DATA_S32, "number of pixels in fit",                    outputs.nPix);
+
+        @ALL@                     psMetadataAdd (row, PS_LIST_TAIL, "MOMENTS_XX",       PS_DATA_F32, "second moments (X^2)",                       moments.Mxx);
+        @ALL@                     psMetadataAdd (row, PS_LIST_TAIL, "MOMENTS_XY",       PS_DATA_F32, "second moments (X*Y)",                       moments.Mxy);
+        @ALL@                     psMetadataAdd (row, PS_LIST_TAIL, "MOMENTS_YY",       PS_DATA_F32, "second moments (Y*Y)",                       moments.Myy);
+
+        @>PS1_V2,PS1_SV?@         psMetadataAdd (row, PS_LIST_TAIL, "MOMENTS_M3C",      PS_DATA_F32, "third momemt cos theta",                     moments.M_c3);
+        @>PS1_V2,PS1_SV?@         psMetadataAdd (row, PS_LIST_TAIL, "MOMENTS_M3S",      PS_DATA_F32, "third momemt sin theta",                     moments.M_s3);
+        @>PS1_V2,PS1_SV?@         psMetadataAdd (row, PS_LIST_TAIL, "MOMENTS_M4C",      PS_DATA_F32, "fourth momemt cos theta",                    moments.M_c4);
+        @>PS1_V2,PS1_SV?@         psMetadataAdd (row, PS_LIST_TAIL, "MOMENTS_M4S",      PS_DATA_F32, "fourth momemt sin theta",                    moments.M_s4);
+
+        // Lensing parameters:
+        if (source->lensingOBJ && source->lensingOBJ->smear) {
+          @>PS1_V4@               psMetadataAdd (row, PS_LIST_TAIL, "LENS_X11_SM_OBJ",  PS_DATA_F32, "smear polarizability element (objects)",     source->lensingOBJ->smear->X11);
+          @>PS1_V4@               psMetadataAdd (row, PS_LIST_TAIL, "LENS_X12_SM_OBJ",  PS_DATA_F32, "smear polarizability element (objects)",     source->lensingOBJ->smear->X12);
+          @>PS1_V4@               psMetadataAdd (row, PS_LIST_TAIL, "LENS_X22_SM_OBJ",  PS_DATA_F32, "smear polarizability element (objects)",     source->lensingOBJ->smear->X22);
+          @>PS1_V4@               psMetadataAdd (row, PS_LIST_TAIL, "LENS_E1_SM_OBJ",   PS_DATA_F32, "smear polarizability element (objects)",     source->lensingOBJ->smear->e1);
+          @>PS1_V4@               psMetadataAdd (row, PS_LIST_TAIL, "LENS_E2_SM_OBJ",   PS_DATA_F32, "smear polarizability element (objects)",     source->lensingOBJ->smear->e2);
+        }
+        if (source->lensingOBJ && source->lensingOBJ->shear) {
+          @>PS1_V4@               psMetadataAdd (row, PS_LIST_TAIL, "LENS_X11_SH_OBJ",  PS_DATA_F32, "shear polarizability element (objects)",     source->lensingOBJ->shear->X11);
+          @>PS1_V4@               psMetadataAdd (row, PS_LIST_TAIL, "LENS_X12_SH_OBJ",  PS_DATA_F32, "shear polarizability element (objects)",     source->lensingOBJ->shear->X12);
+          @>PS1_V4@               psMetadataAdd (row, PS_LIST_TAIL, "LENS_X22_SH_OBJ",  PS_DATA_F32, "shear polarizability element (objects)",     source->lensingOBJ->shear->X22);
+          @>PS1_V4@               psMetadataAdd (row, PS_LIST_TAIL, "LENS_E1_SH_OBJ",   PS_DATA_F32, "shear polarizability element (objects)",     source->lensingOBJ->shear->e1); 
+          @>PS1_V4@               psMetadataAdd (row, PS_LIST_TAIL, "LENS_E2_SH_OBJ",   PS_DATA_F32, "shear polarizability element (objects)",     source->lensingOBJ->shear->e2); 
+        }
+        if (false && source->lensingOBJ) {
+          // do not bother to save these as they are equivalent to Mxx,Mxy,Myy above
+          @>PS1_V4@               psMetadataAdd (row, PS_LIST_TAIL, "LENS_E1_PSF",      PS_DATA_F32, "shear polarizability element (objects)",     source->lensingOBJ->e1); 
+          @>PS1_V4@               psMetadataAdd (row, PS_LIST_TAIL, "LENS_E2_PSF",      PS_DATA_F32, "shear polarizability element (objects)",     source->lensingOBJ->e2); 
+        }
+
+        if (source->lensingPSF && source->lensingPSF->smear) {
+          @>PS1_V4@               psMetadataAdd (row, PS_LIST_TAIL, "LENS_X11_SM_PSF",  PS_DATA_F32, "smear polarizability element (objects)",     source->lensingPSF->smear->X11);
+          @>PS1_V4@               psMetadataAdd (row, PS_LIST_TAIL, "LENS_X12_SM_PSF",  PS_DATA_F32, "smear polarizability element (objects)",     source->lensingPSF->smear->X12);
+          @>PS1_V4@               psMetadataAdd (row, PS_LIST_TAIL, "LENS_X22_SM_PSF",  PS_DATA_F32, "smear polarizability element (objects)",     source->lensingPSF->smear->X22);
+          @>PS1_V4@               psMetadataAdd (row, PS_LIST_TAIL, "LENS_E1_SM_PSF",   PS_DATA_F32, "smear polarizability element (objects)",     source->lensingPSF->smear->e1); 
+          @>PS1_V4@               psMetadataAdd (row, PS_LIST_TAIL, "LENS_E2_SM_PSF",   PS_DATA_F32, "smear polarizability element (objects)",     source->lensingPSF->smear->e2); 
+        }
+        if (source->lensingPSF && source->lensingPSF->shear) {
+          @>PS1_V4@               psMetadataAdd (row, PS_LIST_TAIL, "LENS_X11_SH_PSF",  PS_DATA_F32, "shear polarizability element (objects)",     source->lensingPSF->shear->X11);
+          @>PS1_V4@               psMetadataAdd (row, PS_LIST_TAIL, "LENS_X12_SH_PSF",  PS_DATA_F32, "shear polarizability element (objects)",     source->lensingPSF->shear->X12);
+          @>PS1_V4@               psMetadataAdd (row, PS_LIST_TAIL, "LENS_X22_SH_PSF",  PS_DATA_F32, "shear polarizability element (objects)",     source->lensingPSF->shear->X22);
+          @>PS1_V4@               psMetadataAdd (row, PS_LIST_TAIL, "LENS_E1_SH_PSF",   PS_DATA_F32, "shear polarizability element (objects)",     source->lensingPSF->shear->e1); 
+          @>PS1_V4@               psMetadataAdd (row, PS_LIST_TAIL, "LENS_E2_SH_PSF",   PS_DATA_F32, "shear polarizability element (objects)",     source->lensingPSF->shear->e2); 
+        }
+        if (source->lensingPSF) {
+          @>PS1_V4@               psMetadataAdd (row, PS_LIST_TAIL, "LENS_E1_PSF",      PS_DATA_F32, "shear polarizability element (objects)",     source->lensingPSF->e1); 
+          @>PS1_V4@               psMetadataAdd (row, PS_LIST_TAIL, "LENS_E2_PSF",      PS_DATA_F32, "shear polarizability element (objects)",     source->lensingPSF->e2); 
+        }
+
+        // if lensing params exist also include the backmapped chipID and chip coordinates
+        if (source->lensingPSF && source->lensingPSF->shear) {
+            @>PS1_V4@               psMetadataAdd (row, PS_LIST_TAIL, "SRC_CHIP_NUM",   PS_DATA_S16, "id of warp input chip",     source->chipNum); 
+            @>PS1_V4@               psMetadataAdd (row, PS_LIST_TAIL, "SRC_CHIP_X",    PS_DATA_S16, "x coord in warp input chip",     source->chipX); 
+            @>PS1_V4@               psMetadataAdd (row, PS_LIST_TAIL, "SRC_CHIP_Y",    PS_DATA_S16, "y coord in warp input chip",     source->chipY); 
+            @>PS1_V4@               psMetadataAdd (row, PS_LIST_TAIL, "PADDING3",      PS_DATA_S16, "more padding", 0);
+        }
+
+        @>PS1_V2,PS1_SV?,>PS1_DV1@ psMetadataAdd (row, PS_LIST_TAIL, "MOMENTS_R1",       PS_DATA_F32, "first radial moment",                        moments.Mrf);
+        @>PS1_V2,PS1_SV?,>PS1_DV1@ psMetadataAdd (row, PS_LIST_TAIL, "MOMENTS_RH",       PS_DATA_F32, "half radial moment",                         moments.Mrh);
+        @>PS1_V2,PS1_SV?,>PS1_DV1@ psMetadataAdd (row, PS_LIST_TAIL, "KRON_FLUX",        PS_DATA_F32, "Kron Flux (in 2.5 R1)",                      moments.Krf);
+        @>PS1_V2,PS1_SV?,>PS1_DV1@ psMetadataAdd (row, PS_LIST_TAIL, "KRON_FLUX_ERR",    PS_DATA_F32, "Kron Flux Error",                            moments.dKrf);
+        @>PS1_V2,PS1_SV?,>PS1_DV1@ psMetadataAdd (row, PS_LIST_TAIL, "KRON_FLUX_INNER",  PS_DATA_F32, "Kron Flux (in 1.0 R1)",                      moments.Kinner);
+        @>PS1_V2,PS1_SV?,>PS1_DV1@ psMetadataAdd (row, PS_LIST_TAIL, "KRON_FLUX_OUTER",  PS_DATA_F32, "Kron Flux (in 4.0 R1)",                      moments.Kouter);
+
+        @>PS1_V3@                 psMetadataAdd (row, PS_LIST_TAIL, "SKY_LIMIT_RAD",    PS_DATA_F32, "Radius where object hits sky",               source->skyRadius);
+        @>PS1_V3@                 psMetadataAdd (row, PS_LIST_TAIL, "SKY_LIMIT_FLUX",   PS_DATA_F32, "Flux / pix where object hits sky",           source->skyFlux);
+        @>PS1_V3@                 psMetadataAdd (row, PS_LIST_TAIL, "SKY_LIMIT_SLOPE",  PS_DATA_F32, "d(Flux/pix)/dRadius where object hits sky",  source->skySlope);
+
+        @>PS1_DV4@                psMetadataAdd (row, PS_LIST_TAIL, "SRC_CHIP_NUM",     PS_DATA_S16, "id of warp input chip",                      source->chipNum); 
+        @>PS1_DV4@                psMetadataAdd (row, PS_LIST_TAIL, "SRC_CHIP_X",       PS_DATA_S16, "x coord in warp input chip",                 source->chipX); 
+        @>PS1_DV4@                psMetadataAdd (row, PS_LIST_TAIL, "SRC_CHIP_Y",       PS_DATA_S16, "y coord in warp input chip",                 source->chipY); 
+        @>PS1_DV4@                psMetadataAdd (row, PS_LIST_TAIL, "PADDING3",         PS_DATA_S16, "more padding", 0);
+
+        @PS1_DV?@                 psMetadataAdd (row, PS_LIST_TAIL, "DIFF_NPOS",        PS_DATA_S32, "nPos (n pix > 3 sigma)",                     diffStats.nGood);
+        @PS1_DV?@                 psMetadataAdd (row, PS_LIST_TAIL, "DIFF_FRATIO",      PS_DATA_F32, "fPos / (fPos + fNeg)",                       diffStats.fRatio);
+        @PS1_DV?@                 psMetadataAdd (row, PS_LIST_TAIL, "DIFF_NRATIO_BAD",  PS_DATA_F32, "nPos / (nPos + nNeg)",                       diffStats.nRatioBad);
+        @PS1_DV?@                 psMetadataAdd (row, PS_LIST_TAIL, "DIFF_NRATIO_MASK", PS_DATA_F32, "nPos / (nPos + nMask)",                      diffStats.nRatioMask);
+        @PS1_DV?@                 psMetadataAdd (row, PS_LIST_TAIL, "DIFF_NRATIO_ALL",  PS_DATA_F32, "nPos / (nGood + nMask + nBad)",              diffStats.nRatioAll);
+
+        @>PS1_DV1@                        psMetadataAdd (row, PS_LIST_TAIL, "DIFF_R_P",         PS_DATA_F32, "distance to positive match source",          diffStats.Rp);
+        @>PS1_DV1@                        psMetadataAdd (row, PS_LIST_TAIL, "DIFF_SN_P",        PS_DATA_F32, "signal-to-noise of pos match src",           diffStats.SNp);
+        @>PS1_DV1@                        psMetadataAdd (row, PS_LIST_TAIL, "DIFF_R_M",         PS_DATA_F32, "distance to negative match source",          diffStats.Rm);
+        @>PS1_DV1@                        psMetadataAdd (row, PS_LIST_TAIL, "DIFF_SN_M",        PS_DATA_F32, "signal-to-noise of neg match src",           diffStats.SNm);
+
+        @ALL@                      psMetadataAdd (row, PS_LIST_TAIL, "FLAGS",            PS_DATA_U32, "psphot analysis flags",                      source->mode);
+        @>PS1_V2,PS1_SV?,>PS1_DV1@ psMetadataAdd (row, PS_LIST_TAIL, "FLAGS2",           PS_DATA_U32, "psphot analysis flags",                      source->mode2);
+        @PS1_V3,PS1_SV2@           psMetadataAdd (row, PS_LIST_TAIL, "PADDING2",         PS_DATA_S32, "more padding", 0);
+        @PS1_SV?@
+
+          // note that this definition is inconsistent with the definition in
+          // Ohana/src/libautocode/def.  This version creates a table with data not
+          // properly aligned with the 8-byte boundaries. The structure defined by
+          // libautocode does this, but has a different order of elements (and adds
+          // padding2 to fix things). We have generated may files with PS1_SV1 as is, so
+          // I'll leave it. But in future a PS1_SV2 should be forced to match
+          // libautocode. Note that addstar knows to detect the alternate version of
+          // PS1_SV1 and correctly interpret its fields.
+
+        @ALL@                     psMetadataAdd (row, PS_LIST_TAIL, "N_FRAMES",         PS_DATA_U16, "Number of frames overlapping source center", source->nFrames);
+        @ALL@                     psMetadataAdd (row, PS_LIST_TAIL, "PADDING",          PS_DATA_S16, "padding", 0);
+
+        psArrayAdd (table, 100, row);
+        psFree (row);
+
+        // EXT_NSIGMA will be NAN if: 1) contour ellipse is imaginary; 2) source is not
+        // subtracted
+
+        // CR_NSIGMA will be NAN if: 1) source is not subtracted; 2) source is on the image
+        // edge; 3) any pixels in the 3x3 peak region are masked;
+    }
+
+    // XXX why do we make a copy here to be supplemented with the masks?  why not do this in the calling function?
+    psMetadata *header = psMetadataCopy(NULL, tableHeader);
+    pmSourceMasksHeader(header);
+
+    if (table->n == 0) {
+        if (!psFitsWriteBlank(fits, header, extname)) {
+            psError(psErrorCodeLast(), false, "Unable to write blank sources file.");
+            psFree(table);
+            psFree(header);
+            return false;
+        }
+        psFree(table);
+        psFree(header);
+        return true;
+    }
+
+    psTrace ("pmFPAfile", 5, "writing ext data %s\n", extname);
+    if (!psFitsWriteTable(fits, header, table, extname)) {
+        psError(psErrorCodeLast(), false, "writing ext data %s\n", extname);
+        psFree(table);
+        psFree(header);
+        return false;
+    }
+    psFree(table);
+    psFree(header);
+
+    return true;
+}
+
+bool pmSourcesWrite_CMF_@CMFMODE@ (psFits *fits, pmReadout *readout, psArray *sources, psMetadata *imageHeader, psMetadata *tableHeader, char *extname, psMetadata *recipe)
+{
+  // bool status = pmSourcesWrite_CMF_@CMFMODE@_Old (fits, readout, sources, imageHeader, tableHeader, extname, recipe);
+     bool status = pmSourcesWrite_CMF_@CMFMODE@_New (fits, readout, sources, imageHeader, tableHeader, extname, recipe);
+    return status;
+}
+
+// read in a readout from the fits file
+psArray *pmSourcesRead_CMF_@CMFMODE@_New (psFits *fits, psMetadata *header)
+{
+    // fprintf (stderr, "reading with %s\n", __func__);
+
+    PS_ASSERT_PTR_NON_NULL(fits, false);
+    PS_ASSERT_PTR_NON_NULL(header, false);
+
+    bool status;
+    psF32 *PAR, *dPAR;
+    psEllipseAxes axes;
+
+    // define PSF model type
+    int defaultModelType = pmModelClassGetType ("PS_MODEL_GAUSS");
+    int modelType = -1;
+
+    // if header does not define the model, default to a gaussian
+    char *PSF_NAME = psMetadataLookupStr (&status, header, "PSFMODEL");
+    if (PSF_NAME != NULL) {
+        modelType = pmModelClassGetType (PSF_NAME);
+    }
+    // work around bug in psphotFullForce
+    if (modelType < 0) {
+    	modelType = defaultModelType;
+    }
+    // assert (modelType > -1);
+
+    // do we expect to find lensing parameters?
+    bool haveLensOBJ = psMetadataLookupBool (&status, header, "LENS_OBJ");
+    bool haveLensPSF = psMetadataLookupBool (&status, header, "LENS_PSF");
+
+    // We get the size of the table, and allocate the array of sources first because the table
+    // is large and ephemeral --- when the table gets blown away, whatever is allocated after
+    // the table is read blocks the free.  In fact, it's better to read the table row by row.
+    long numSources = psFitsTableSize(fits); // Number of sources in table
+    psArray *sources = psArrayAlloc(numSources); // Array of sources, to return
+
+    // reads full table into memory
+    psFitsTable *table = psFitsReadTableNew (fits);
+
+    // convert the table to the pmSource entries
+    for (int i = 0; i < numSources; i++) {
+        pmSource *source = pmSourceAlloc ();
+        pmModel *model = pmModelAlloc (modelType);
+        source->modelPSF  = model;
+        source->type = PM_SOURCE_TYPE_STAR; // XXX this should be added to the flags
+
+        // NOTE: A SEGV here because "model" is NULL is probably caused by not initialising the models.
+        PAR = model->params->data.F32;
+        dPAR = model->dparams->data.F32;
+
+	@ALL@                       source->seq                 = psFitsTableGetU32 (&status, table, i, "IPP_IDET");
+	@ALL@                       PAR[PM_PAR_XPOS]            = psFitsTableGetF32 (&status, table, i, "X_PSF");
+	@ALL@                       PAR[PM_PAR_YPOS]            = psFitsTableGetF32 (&status, table, i, "Y_PSF");
+	@ALL@                       dPAR[PM_PAR_XPOS]           = psFitsTableGetF32 (&status, table, i, "X_PSF_SIG");
+	@ALL@                       dPAR[PM_PAR_YPOS]           = psFitsTableGetF32 (&status, table, i, "Y_PSF_SIG");
+	@ALL@                       axes.major                  = psFitsTableGetF32 (&status, table, i, "PSF_MAJOR");
+	@ALL@                       axes.minor                  = psFitsTableGetF32 (&status, table, i, "PSF_MINOR");
+	@ALL@                       axes.theta                  = psFitsTableGetF32 (&status, table, i, "PSF_THETA");
+	@ALL@                       axes.theta                  = axes.theta * PS_RAD_DEG;
+	
+	@>PS1_V4,>PS1_SV2,>PS1_DV3@ if (model->params->n > PM_PAR_7) {
+	@>PS1_V4,>PS1_SV2,>PS1_DV3@     PAR[PM_PAR_7]           = psFitsTableGetF32 (&status, table, i, "PSF_CORE");
+	@>PS1_V4,>PS1_SV2,>PS1_DV3@ } 
+
+	@ALL@                       PAR[PM_PAR_SKY]             = psFitsTableGetF32 (&status, table, i, "SKY");
+	@ALL@                       dPAR[PM_PAR_SKY]            = psFitsTableGetF32 (&status, table, i, "SKY_SIGMA");
+	@ALL@                       source->sky                 = PAR[PM_PAR_SKY];
+	@ALL@                       source->skyErr              = dPAR[PM_PAR_SKY];
+
+        // XXX use these to determine PAR[PM_PAR_I0]?
+	@ALL@                       source->psfMag              = psFitsTableGetF32 (&status, table, i, "PSF_INST_MAG");
+	@ALL@                       source->psfMagErr           = psFitsTableGetF32 (&status, table, i, "PSF_INST_MAG_SIG");
+	@ALL@                       source->apMag               = psFitsTableGetF32 (&status, table, i, "AP_MAG");
+	@>PS1_V2,PS1_SV?,>PS1_DV1@  source->apMagRaw            = psFitsTableGetF32 (&status, table, i, "AP_MAG_RAW");
+	@>PS1_DV1,>PS1_V3,>PS1_SV1@ source->apFlux              = psFitsTableGetF32 (&status, table, i, "AP_FLUX");
+	@>PS1_DV1,>PS1_V3,>PS1_SV1@ source->apFluxErr           = psFitsTableGetF32 (&status, table, i, "AP_FLUX_SIG");
+
+        // XXX use these to determine PAR[PM_PAR_I0] if they exist?
+	// XXX add these to PS1_SV1?
+	@>PS1_V2,PS1_SV?,PS1_DV?@   source->psfFlux             = psFitsTableGetF32 (&status, table, i, "PSF_INST_FLUX");
+	@>PS1_V2,PS1_SV?,PS1_DV?@   source->psfFluxErr          = psFitsTableGetF32 (&status, table, i, "PSF_INST_FLUX_SIG");
+
+        // XXX this scaling is incorrect: does not include the 2 \pi AREA factor
+	@ALL@     PAR[PM_PAR_I0]                                = (isfinite(source->psfMag)) ? pow(10.0, -0.4*source->psfMag) : NAN;
+	@ALL@     dPAR[PM_PAR_I0]                               = (isfinite(source->psfMag)) ? PAR[PM_PAR_I0] * source->psfMagErr : NAN;
+
+        pmPSF_AxesToModel (PAR, axes, model->class->useReff);
+
+	@ALL@     float peakMag                                 = psFitsTableGetF32 (&status, table, i, "PEAK_FLUX_AS_MAG");
+	@ALL@     float peakFlux                                = (isfinite(peakMag)) ? pow(10.0, -0.4*peakMag) : NAN;
+
+        // recreate the peak to match (xPos, yPos) +/- (xErr, yErr)
+	@ALL@     source->peak = pmPeakAlloc(PAR[PM_PAR_XPOS], PAR[PM_PAR_YPOS], peakFlux, PM_PEAK_LONE);
+	@ALL@     source->peak->rawFlux = peakFlux;
+	@ALL@     source->peak->smoothFlux = peakFlux;
+	@ALL@     source->peak->xf                              = PAR[PM_PAR_XPOS]; // more accurate position
+	@ALL@     source->peak->yf                              = PAR[PM_PAR_YPOS]; // more accurate position
+	@ALL@     source->peak->dx                              = dPAR[PM_PAR_XPOS];
+	@ALL@     source->peak->dy                              = dPAR[PM_PAR_YPOS];
+
+	@ALL@     source->pixWeightNotBad                       = psFitsTableGetF32 (&status, table, i, "PSF_QF");
+	@>PS1_V2,PS1_SV?,>PS1_DV1@ source->pixWeightNotPoor     = psFitsTableGetF32 (&status, table, i, "PSF_QF_PERFECT");
+	@ALL@     source->crNsigma                              = psFitsTableGetF32 (&status, table, i, "CR_NSIGMA");
+	@ALL@     source->extNsigma                             = psFitsTableGetF32 (&status, table, i, "EXT_NSIGMA");
+	@ALL@     source->apRadius                              = psFitsTableGetF32 (&status, table, i, "AP_MAG_RADIUS");
+	@>PS1_V4,>PS1_SV2,>PS1_DV3@ source->apNpixels           = psFitsTableGetS32 (&status, table, i, "AP_NPIX");
+
+        // note that some older versions used PSF_PROBABILITY: this was not well defined.
+	@ALL@     model->chisq                                  = psFitsTableGetF32 (&status, table, i, "PSF_CHISQ");
+	@ALL@     model->nDOF                                   = psFitsTableGetS32 (&status, table, i, "PSF_NDOF");
+	@ALL@     model->nPix                                   = psFitsTableGetS32 (&status, table, i, "PSF_NPIX");
+
+	@ALL@     source->moments = pmMomentsAlloc ();
+	@ALL@     source->moments->Mx = source->peak->xf; // we don't have both Mx,My and xf,yf in the cmf
+	@ALL@     source->moments->My = source->peak->yf; // we don't have both Mx,My and xf,yf in the cmf
+
+	@ALL@     source->moments->Mxx                          = psFitsTableGetF32 (&status, table, i, "MOMENTS_XX");
+	@ALL@     source->moments->Mxy                          = psFitsTableGetF32 (&status, table, i, "MOMENTS_XY");
+	@ALL@     source->moments->Myy                          = psFitsTableGetF32 (&status, table, i, "MOMENTS_YY");
+
+	// XXX we do not save all of the 3rd and 4th moment parameters. when we load in data,
+	// we are storing enough information so the output will be consistent with the input
+	@>PS1_V2,PS1_SV?@ source->moments->Mxxx         = +1.00 * psFitsTableGetF32 (&status, table, i, "MOMENTS_M3C");
+	@>PS1_V2,PS1_SV?@ source->moments->Mxxy         =  0.00;
+	@>PS1_V2,PS1_SV?@ source->moments->Mxyy         =  0.00;
+	@>PS1_V2,PS1_SV?@ source->moments->Myyy         = -1.00 * psFitsTableGetF32 (&status, table, i, "MOMENTS_M3S");
+	@>PS1_V2,PS1_SV?@ source->moments->Mxxxx        = +1.00 * psFitsTableGetF32 (&status, table, i, "MOMENTS_M4C");
+	@>PS1_V2,PS1_SV?@ source->moments->Mxxxy        =  0.00;
+	@>PS1_V2,PS1_SV?@ source->moments->Mxxyy        =  0.00;
+	@>PS1_V2,PS1_SV?@ source->moments->Mxyyy        = -0.25 * psFitsTableGetF32 (&status, table, i, "MOMENTS_M4S");
+	@>PS1_V2,PS1_SV?@ source->moments->Myyyy        =  0.00;
+
+	// Lensing parameters (on read if PS1_V5+)
+	if (haveLensOBJ) {
+	    source->lensingOBJ = pmSourceLensingAlloc ();
+	    source->lensingOBJ->smear = pmLensingParsAlloc();
+	    source->lensingOBJ->shear = pmLensingParsAlloc();
+
+	    @>PS1_V4@ source->lensingOBJ->smear->X11            = psFitsTableGetF32 (&status, table, i, "LENS_X11_SM_OBJ");
+	    @>PS1_V4@ source->lensingOBJ->smear->X12            = psFitsTableGetF32 (&status, table, i, "LENS_X12_SM_OBJ");
+	    @>PS1_V4@ source->lensingOBJ->smear->X22            = psFitsTableGetF32 (&status, table, i, "LENS_X22_SM_OBJ");
+	    @>PS1_V4@ source->lensingOBJ->smear->e1             = psFitsTableGetF32 (&status, table, i, "LENS_E1_SM_OBJ");
+	    @>PS1_V4@ source->lensingOBJ->smear->e2             = psFitsTableGetF32 (&status, table, i, "LENS_E2_SM_OBJ");
+	    @>PS1_V4@ source->lensingOBJ->shear->X11            = psFitsTableGetF32 (&status, table, i, "LENS_X11_SH_OBJ");
+	    @>PS1_V4@ source->lensingOBJ->shear->X12            = psFitsTableGetF32 (&status, table, i, "LENS_X12_SH_OBJ");
+	    @>PS1_V4@ source->lensingOBJ->shear->X22            = psFitsTableGetF32 (&status, table, i, "LENS_X22_SH_OBJ");
+	    @>PS1_V4@ source->lensingOBJ->shear->e1             = psFitsTableGetF32 (&status, table, i, "LENS_E1_SH_OBJ");
+	    @>PS1_V4@ source->lensingOBJ->shear->e2             = psFitsTableGetF32 (&status, table, i, "LENS_E2_SH_OBJ");
+	}
+
+	@>PS1_V4@ source->chipNum                               = psFitsTableGetS16 (&status, table, i, "SRC_CHIP_NUM");
+	@>PS1_V4@ source->chipX                                 = psFitsTableGetS16 (&status, table, i, "SRC_CHIP_X");
+	@>PS1_V4@ source->chipY                                 = psFitsTableGetS16 (&status, table, i, "SRC_CHIP_Y");
+
+	if (haveLensPSF) {
+	    source->lensingPSF = pmSourceLensingAlloc ();
+	    source->lensingPSF->smear = pmLensingParsAlloc();
+	    source->lensingPSF->shear = pmLensingParsAlloc();
+	    
+	    @>PS1_V4@            source->lensingPSF->smear->X11 = psFitsTableGetF32 (&status, table, i, "LENS_X11_SM_PSF");
+	    @>PS1_V4@            source->lensingPSF->smear->X12 = psFitsTableGetF32 (&status, table, i, "LENS_X12_SM_PSF");
+	    @>PS1_V4@            source->lensingPSF->smear->X22 = psFitsTableGetF32 (&status, table, i, "LENS_X22_SM_PSF");
+	    @>PS1_V4@            source->lensingPSF->smear->e1  = psFitsTableGetF32 (&status, table, i, "LENS_E1_SM_PSF");
+	    @>PS1_V4@            source->lensingPSF->smear->e2  = psFitsTableGetF32 (&status, table, i, "LENS_E2_SM_PSF");
+	    @>PS1_V4@            source->lensingPSF->shear->X11 = psFitsTableGetF32 (&status, table, i, "LENS_X11_SH_PSF");
+	    @>PS1_V4@            source->lensingPSF->shear->X12 = psFitsTableGetF32 (&status, table, i, "LENS_X12_SH_PSF");
+	    @>PS1_V4@            source->lensingPSF->shear->X22 = psFitsTableGetF32 (&status, table, i, "LENS_X22_SH_PSF");
+	    @>PS1_V4@            source->lensingPSF->shear->e1  = psFitsTableGetF32 (&status, table, i, "LENS_E1_SH_PSF");
+	    @>PS1_V4@            source->lensingPSF->shear->e2  = psFitsTableGetF32 (&status, table, i, "LENS_E2_SH_PSF");
+	    @>PS1_V4@            source->lensingPSF->e1         = psFitsTableGetF32 (&status, table, i, "LENS_E1_PSF");
+	    @>PS1_V4@            source->lensingPSF->e2         = psFitsTableGetF32 (&status, table, i, "LENS_E2_PSF");
+	}
+
+	@>PS1_V2,PS1_SV?,>PS1_DV1@ source->moments->Mrf         = psFitsTableGetF32 (&status, table, i, "MOMENTS_R1");
+	@>PS1_V2,PS1_SV?,>PS1_DV1@ source->moments->Mrh         = psFitsTableGetF32 (&status, table, i, "MOMENTS_RH");
+	@>PS1_V2,PS1_SV?,>PS1_DV1@ source->moments->KronFlux    = psFitsTableGetF32 (&status, table, i, "KRON_FLUX");
+	@>PS1_V2,PS1_SV?,>PS1_DV1@ source->moments->KronFluxErr = psFitsTableGetF32 (&status, table, i, "KRON_FLUX_ERR");
+	@>PS1_V2,PS1_SV?,>PS1_DV1@ source->moments->KronFinner  = psFitsTableGetF32 (&status, table, i, "KRON_FLUX_INNER");
+	@>PS1_V2,PS1_SV?,>PS1_DV1@ source->moments->KronFouter  = psFitsTableGetF32 (&status, table, i, "KRON_FLUX_OUTER");
+
+	@>PS1_V3@                  source->skyRadius            = psFitsTableGetF32 (&status, table, i, "SKY_LIMIT_RAD");
+	@>PS1_V3@                  source->skyFlux              = psFitsTableGetF32 (&status, table, i, "SKY_LIMIT_FLUX");
+	@>PS1_V3@                  source->skySlope             = psFitsTableGetF32 (&status, table, i, "SKY_LIMIT_SLOPE");
+
+        @PS1_DV?@                  int nPos                     = psFitsTableGetS32 (&status, table, i, "DIFF_NPOS");
+        @PS1_DV?@  if (nPos) {
+        @PS1_DV?@      source->diffStats                        = pmSourceDiffStatsAlloc();
+        @PS1_DV?@      source->diffStats->nGood                 = nPos;
+        @PS1_DV?@      source->diffStats->fRatio                = psFitsTableGetF32 (&status, table, i, "DIFF_FRATIO");
+        @PS1_DV?@      source->diffStats->nRatioBad             = psFitsTableGetF32 (&status, table, i, "DIFF_NRATIO_BAD");
+        @PS1_DV?@      source->diffStats->nRatioMask            = psFitsTableGetF32 (&status, table, i, "DIFF_NRATIO_MASK");
+        @PS1_DV?@      source->diffStats->nRatioAll             = psFitsTableGetF32 (&status, table, i, "DIFF_NRATIO_ALL");
+        
+        @>PS1_DV1@      source->diffStats->Rp                   = psFitsTableGetF32 (&status, table, i, "DIFF_R_P");
+        @>PS1_DV1@      source->diffStats->SNp                  = psFitsTableGetF32 (&status, table, i, "DIFF_SN_P");
+        @>PS1_DV1@      source->diffStats->Rm                   = psFitsTableGetF32 (&status, table, i, "DIFF_R_M");
+        @>PS1_DV1@      source->diffStats->SNm                  = psFitsTableGetF32 (&status, table, i, "DIFF_SN_M");
+        @PS1_DV?@  }
+
+	@ALL@                      source->mode                 = psFitsTableGetU32 (&status, table, i, "FLAGS");
+	@>PS1_V2,PS1_SV?,>PS1_DV1@ source->mode2                = psFitsTableGetU32 (&status, table, i, "FLAGS2");
+	@ALL@                      source->nFrames              = psFitsTableGetU16 (&status, table, i, "N_FRAMES");
+        assert (status);
+
+        sources->data[i] = source;
+    }
+    psFree (table);
+    return sources;
+}
+
+// read in a readout from the fits file
+psArray *pmSourcesRead_CMF_@CMFMODE@_Old (psFits *fits, psMetadata *header)
+{
+    // fprintf (stderr, "reading with %s\n", __func__);
+
+    PS_ASSERT_PTR_NON_NULL(fits, false);
+    PS_ASSERT_PTR_NON_NULL(header, false);
+
+    bool status;
+    psF32 *PAR, *dPAR;
+    psEllipseAxes axes;
+
+    // define PSF model type
+    int defaultModelType = pmModelClassGetType ("PS_MODEL_GAUSS");
+    int modelType = -1;
+
+    // if header does not define the model, default to a gaussian
+    char *PSF_NAME = psMetadataLookupStr (&status, header, "PSFMODEL");
+    if (PSF_NAME != NULL) {
+        modelType = pmModelClassGetType (PSF_NAME);
+    }
+    // work around bug in psphotFullForce
+    if (modelType < 0) {
+        modelType = defaultModelType;
+    }
+    // assert (modelType > -1);
+
+    // do we expect to find lensing parameters?
+    bool haveLensOBJ = psMetadataLookupBool (&status, header, "LENS_OBJ");
+    bool haveLensPSF = psMetadataLookupBool (&status, header, "LENS_PSF");
+
+    // We get the size of the table, and allocate the array of sources first because the table
+    // is large and ephemeral --- when the table gets blown away, whatever is allocated after
+    // the table is read blocks the free.  In fact, it's better to read the table row by row.
+    long numSources = psFitsTableSize(fits); // Number of sources in table
+    psArray *sources = psArrayAlloc(numSources); // Array of sources, to return
+
+    // convert the table to the pmSource entries
+    for (int i = 0; i < numSources; i++) {
+        psMetadata *row = psFitsReadTableRow(fits, i); // Table row
+        if (!row) {
+            psError(psErrorCodeLast(), false, "Unable to read row %d of sources", i);
+            psFree(sources);
+            return NULL;
+        }
+
+        pmSource *source = pmSourceAlloc ();
+        pmModel *model = pmModelAlloc (modelType);
+        source->modelPSF  = model;
+        source->type = PM_SOURCE_TYPE_STAR; // XXX this should be added to the flags
+
+        // NOTE: A SEGV here because "model" is NULL is probably caused by not initialising the models.
+        PAR = model->params->data.F32;
+        dPAR = model->dparams->data.F32;
+
+        @ALL@     source->seq       = psMetadataLookupU32 (&status, row, "IPP_IDET");
+        @ALL@     PAR[PM_PAR_XPOS]  = psMetadataLookupF32 (&status, row, "X_PSF");
+        @ALL@     PAR[PM_PAR_YPOS]  = psMetadataLookupF32 (&status, row, "Y_PSF");
+        @ALL@     dPAR[PM_PAR_XPOS] = psMetadataLookupF32 (&status, row, "X_PSF_SIG");
+        @ALL@     dPAR[PM_PAR_YPOS] = psMetadataLookupF32 (&status, row, "Y_PSF_SIG");
+        @ALL@     axes.major        = psMetadataLookupF32 (&status, row, "PSF_MAJOR");
+        @ALL@     axes.minor        = psMetadataLookupF32 (&status, row, "PSF_MINOR");
+        @ALL@     axes.theta        = psMetadataLookupF32 (&status, row, "PSF_THETA");
+        @ALL@     axes.theta        = axes.theta * PS_RAD_DEG;
+        
+        @>PS1_V4,>PS1_SV2,>PS1_DV3@ if (model->params->n > PM_PAR_7) {
+        @>PS1_V4,>PS1_SV2,>PS1_DV3@     PAR[PM_PAR_7] = psMetadataLookupF32 (&status, row, "PSF_CORE");
+        @>PS1_V4,>PS1_SV2,>PS1_DV3@ } 
+
+        @ALL@     PAR[PM_PAR_SKY]   = psMetadataLookupF32 (&status, row, "SKY");
+        @ALL@     dPAR[PM_PAR_SKY]  = psMetadataLookupF32 (&status, row, "SKY_SIGMA");
+        @ALL@     source->sky       = PAR[PM_PAR_SKY];
+        @ALL@     source->skyErr    = dPAR[PM_PAR_SKY];
+
+        // XXX use these to determine PAR[PM_PAR_I0]?
+        @ALL@     source->psfMag    = psMetadataLookupF32 (&status, row, "PSF_INST_MAG");
+        @ALL@     source->psfMagErr = psMetadataLookupF32 (&status, row, "PSF_INST_MAG_SIG");
+        @ALL@     source->apMag     = psMetadataLookupF32 (&status, row, "AP_MAG");
+        @>PS1_V2,PS1_SV?,>PS1_DV1@  source->apMagRaw  = psMetadataLookupF32 (&status, row, "AP_MAG_RAW");
+        @>PS1_DV1,>PS1_V3,>PS1_SV1@ source->apFlux    = psMetadataLookupF32 (&status, row, "AP_FLUX");
+        @>PS1_DV1,>PS1_V3,>PS1_SV1@ source->apFluxErr = psMetadataLookupF32 (&status, row, "AP_FLUX_SIG");
+
+        // XXX use these to determine PAR[PM_PAR_I0] if they exist?
+        // XXX add these to PS1_SV1?
+        @>PS1_V2,PS1_SV?,PS1_DV?@ source->psfFlux   = psMetadataLookupF32 (&status, row, "PSF_INST_FLUX");
+        @>PS1_V2,PS1_SV?,PS1_DV?@ source->psfFluxErr= psMetadataLookupF32 (&status, row, "PSF_INST_FLUX_SIG");
+
+        // XXX this scaling is incorrect: does not include the 2 \pi AREA factor
+        @ALL@     PAR[PM_PAR_I0]    = (isfinite(source->psfMag)) ? pow(10.0, -0.4*source->psfMag) : NAN;
+        @ALL@     dPAR[PM_PAR_I0]   = (isfinite(source->psfMag)) ? PAR[PM_PAR_I0] * source->psfMagErr : NAN;
+
+        pmPSF_AxesToModel (PAR, axes, model->class->useReff);
+
+        @ALL@     float peakMag     = psMetadataLookupF32 (&status, row, "PEAK_FLUX_AS_MAG");
+        @ALL@     float peakFlux    = (isfinite(peakMag)) ? pow(10.0, -0.4*peakMag) : NAN;
+
+        // recreate the peak to match (xPos, yPos) +/- (xErr, yErr)
+        @ALL@     source->peak = pmPeakAlloc(PAR[PM_PAR_XPOS], PAR[PM_PAR_YPOS], peakFlux, PM_PEAK_LONE);
+        @ALL@     source->peak->rawFlux = peakFlux;
+        @ALL@     source->peak->smoothFlux = peakFlux;
+        @ALL@     source->peak->xf   = PAR[PM_PAR_XPOS]; // more accurate position
+        @ALL@     source->peak->yf   = PAR[PM_PAR_YPOS]; // more accurate position
+        @ALL@     source->peak->dx   = dPAR[PM_PAR_XPOS];
+        @ALL@     source->peak->dy   = dPAR[PM_PAR_YPOS];
+
+        @ALL@     source->pixWeightNotBad = psMetadataLookupF32 (&status, row, "PSF_QF");
+        @>PS1_V2,PS1_SV?,>PS1_DV1@ source->pixWeightNotPoor = psMetadataLookupF32 (&status, row, "PSF_QF_PERFECT");
+        @ALL@     source->crNsigma  = psMetadataLookupF32 (&status, row, "CR_NSIGMA");
+        @ALL@     source->extNsigma = psMetadataLookupF32 (&status, row, "EXT_NSIGMA");
+        @ALL@     source->apRadius  = psMetadataLookupF32 (&status, row, "AP_MAG_RADIUS");
+        @>PS1_V4,>PS1_SV2,>PS1_DV3@ source->apNpixels = psMetadataLookupS32 (&status, row, "AP_NPIX");
+
+        // note that some older versions used PSF_PROBABILITY: this was not well defined.
+        @ALL@     model->chisq      = psMetadataLookupF32 (&status, row, "PSF_CHISQ");
+        @ALL@     model->nDOF       = psMetadataLookupS32 (&status, row, "PSF_NDOF");
+        @ALL@     model->nPix       = psMetadataLookupS32 (&status, row, "PSF_NPIX");
+
+        @ALL@     source->moments = pmMomentsAlloc ();
+        @ALL@     source->moments->Mx = source->peak->xf; // we don't have both Mx,My and xf,yf in the cmf
+        @ALL@     source->moments->My = source->peak->yf; // we don't have both Mx,My and xf,yf in the cmf
+
+        @ALL@     source->moments->Mxx = psMetadataLookupF32 (&status, row, "MOMENTS_XX");
+        @ALL@     source->moments->Mxy = psMetadataLookupF32 (&status, row, "MOMENTS_XY");
+        @ALL@     source->moments->Myy = psMetadataLookupF32 (&status, row, "MOMENTS_YY");
+
+        // XXX we do not save all of the 3rd and 4th moment parameters. when we load in data,
+        // we are storing enough information so the output will be consistent with the input
+        @>PS1_V2,PS1_SV?@ source->moments->Mxxx = +1.0 * psMetadataLookupF32 (&status, row, "MOMENTS_M3C");
+        @>PS1_V2,PS1_SV?@ source->moments->Mxxy = 0.0;
+        @>PS1_V2,PS1_SV?@ source->moments->Mxyy = 0.0;
+        @>PS1_V2,PS1_SV?@ source->moments->Myyy = -1.0 * psMetadataLookupF32 (&status, row, "MOMENTS_M3S");
+
+        @>PS1_V2,PS1_SV?@ source->moments->Mxxxx = +1.00 * psMetadataLookupF32 (&status, row, "MOMENTS_M4C");
+        @>PS1_V2,PS1_SV?@ source->moments->Mxxxy = 0.0;
+        @>PS1_V2,PS1_SV?@ source->moments->Mxxyy = 0.0;
+        @>PS1_V2,PS1_SV?@ source->moments->Mxyyy = -0.25 * psMetadataLookupF32 (&status, row, "MOMENTS_M4S");
+        @>PS1_V2,PS1_SV?@ source->moments->Myyyy = 0.0;
+
+        // Lensing parameters (on read if PS1_V5+)
+        if (haveLensOBJ) {
+          source->lensingOBJ = pmSourceLensingAlloc ();
+          source->lensingOBJ->smear = pmLensingParsAlloc();
+          source->lensingOBJ->shear = pmLensingParsAlloc();
+
+          @>PS1_V4@ source->lensingOBJ->smear->X11 = psMetadataLookupF32 (&status, row, "LENS_X11_SM_OBJ");
+          @>PS1_V4@ source->lensingOBJ->smear->X12 = psMetadataLookupF32 (&status, row, "LENS_X12_SM_OBJ");
+          @>PS1_V4@ source->lensingOBJ->smear->X22 = psMetadataLookupF32 (&status, row, "LENS_X22_SM_OBJ");
+          @>PS1_V4@ source->lensingOBJ->smear->e1  = psMetadataLookupF32 (&status, row, "LENS_E1_SM_OBJ");
+          @>PS1_V4@ source->lensingOBJ->smear->e2  = psMetadataLookupF32 (&status, row, "LENS_E2_SM_OBJ");
+          @>PS1_V4@ source->lensingOBJ->shear->X11 = psMetadataLookupF32 (&status, row, "LENS_X11_SH_OBJ");
+          @>PS1_V4@ source->lensingOBJ->shear->X12 = psMetadataLookupF32 (&status, row, "LENS_X12_SH_OBJ");
+          @>PS1_V4@ source->lensingOBJ->shear->X22 = psMetadataLookupF32 (&status, row, "LENS_X22_SH_OBJ");
+          @>PS1_V4@ source->lensingOBJ->shear->e1  = psMetadataLookupF32 (&status, row, "LENS_E1_SH_OBJ");
+          @>PS1_V4@ source->lensingOBJ->shear->e2  = psMetadataLookupF32 (&status, row, "LENS_E2_SH_OBJ");
+        }
+
+        @>PS1_V4@ source->chipNum = psMetadataLookupS16 (&status, row, "SRC_CHIP_NUM");
+        @>PS1_V4@ source->chipX = psMetadataLookupS16 (&status, row, "SRC_CHIP_X");
+        @>PS1_V4@ source->chipY = psMetadataLookupS16 (&status, row, "SRC_CHIP_Y");
+
+        if (haveLensPSF) {
+          source->lensingPSF = pmSourceLensingAlloc ();
+          source->lensingPSF->smear = pmLensingParsAlloc();
+          source->lensingPSF->shear = pmLensingParsAlloc();
+
+          @>PS1_V4@ source->lensingPSF->smear->X11 = psMetadataLookupF32 (&status, row, "LENS_X11_SM_PSF");
+          @>PS1_V4@ source->lensingPSF->smear->X12 = psMetadataLookupF32 (&status, row, "LENS_X12_SM_PSF");
+          @>PS1_V4@ source->lensingPSF->smear->X22 = psMetadataLookupF32 (&status, row, "LENS_X22_SM_PSF");
+          @>PS1_V4@ source->lensingPSF->smear->e1  = psMetadataLookupF32 (&status, row, "LENS_E1_SM_PSF");
+          @>PS1_V4@ source->lensingPSF->smear->e2  = psMetadataLookupF32 (&status, row, "LENS_E2_SM_PSF");
+          @>PS1_V4@ source->lensingPSF->shear->X11 = psMetadataLookupF32 (&status, row, "LENS_X11_SH_PSF");
+          @>PS1_V4@ source->lensingPSF->shear->X12 = psMetadataLookupF32 (&status, row, "LENS_X12_SH_PSF");
+          @>PS1_V4@ source->lensingPSF->shear->X22 = psMetadataLookupF32 (&status, row, "LENS_X22_SH_PSF");
+          @>PS1_V4@ source->lensingPSF->shear->e1  = psMetadataLookupF32 (&status, row, "LENS_E1_SH_PSF");
+          @>PS1_V4@ source->lensingPSF->shear->e2  = psMetadataLookupF32 (&status, row, "LENS_E2_SH_PSF");
+          @>PS1_V4@ source->lensingPSF->e1         = psMetadataLookupF32 (&status, row, "LENS_E1_PSF");
+          @>PS1_V4@ source->lensingPSF->e2         = psMetadataLookupF32 (&status, row, "LENS_E2_PSF");
+        }
+
+        @>PS1_V2,PS1_SV?,>PS1_DV1@ source->moments->Mrf         = psMetadataLookupF32 (&status, row, "MOMENTS_R1");
+        @>PS1_V2,PS1_SV?,>PS1_DV1@ source->moments->Mrh         = psMetadataLookupF32 (&status, row, "MOMENTS_RH");
+        @>PS1_V2,PS1_SV?,>PS1_DV1@ source->moments->KronFlux    = psMetadataLookupF32 (&status, row, "KRON_FLUX");
+        @>PS1_V2,PS1_SV?,>PS1_DV1@ source->moments->KronFluxErr = psMetadataLookupF32 (&status, row, "KRON_FLUX_ERR");
+        @>PS1_V2,PS1_SV?,>PS1_DV1@ source->moments->KronFinner  = psMetadataLookupF32 (&status, row, "KRON_FLUX_INNER");
+        @>PS1_V2,PS1_SV?,>PS1_DV1@ source->moments->KronFouter  = psMetadataLookupF32 (&status, row, "KRON_FLUX_OUTER");
+
+        @>PS1_V3@ source->skyRadius            = psMetadataLookupF32 (&status, row, "SKY_LIMIT_RAD");
+        @>PS1_V3@ source->skyFlux              = psMetadataLookupF32 (&status, row, "SKY_LIMIT_FLUX");
+        @>PS1_V3@ source->skySlope             = psMetadataLookupF32 (&status, row, "SKY_LIMIT_SLOPE");
+
+        @PS1_DV?@  int nPos = psMetadataLookupS32 (&status, row, "DIFF_NPOS");
+        @PS1_DV?@  if (nPos) {
+        @PS1_DV?@      source->diffStats = pmSourceDiffStatsAlloc();
+        @PS1_DV?@      source->diffStats->nGood      = nPos;
+        @PS1_DV?@      source->diffStats->fRatio     = psMetadataLookupF32 (&status, row, "DIFF_FRATIO");
+        @PS1_DV?@      source->diffStats->nRatioBad  = psMetadataLookupF32 (&status, row, "DIFF_NRATIO_BAD");
+        @PS1_DV?@      source->diffStats->nRatioMask = psMetadataLookupF32 (&status, row, "DIFF_NRATIO_MASK");
+        @PS1_DV?@      source->diffStats->nRatioAll  = psMetadataLookupF32 (&status, row, "DIFF_NRATIO_ALL");
+        
+        @>PS1_DV1@      source->diffStats->Rp         = psMetadataLookupF32 (&status, row, "DIFF_R_P");
+        @>PS1_DV1@      source->diffStats->SNp        = psMetadataLookupF32 (&status, row, "DIFF_SN_P");
+        @>PS1_DV1@      source->diffStats->Rm         = psMetadataLookupF32 (&status, row, "DIFF_R_M");
+        @>PS1_DV1@      source->diffStats->SNm        = psMetadataLookupF32 (&status, row, "DIFF_SN_M");
+        @PS1_DV?@  }
+
+        @ALL@                      source->mode       = psMetadataLookupU32 (&status, row, "FLAGS");
+        @>PS1_V2,PS1_SV?,>PS1_DV1@ source->mode2      = psMetadataLookupU32 (&status, row, "FLAGS2");
+        @ALL@                      source->nFrames    = psMetadataLookupU16 (&status, row, "N_FRAMES");
+        assert (status);
+
+        sources->data[i] = source;
+        psFree(row);
+    }
+
+    return sources;
+}
+
+psArray *pmSourcesRead_CMF_@CMFMODE@ (psFits *fits, psMetadata *header) {
+  // psArray *array = pmSourcesRead_CMF_@CMFMODE@_Old (fits, header);
+      psArray *array = pmSourcesRead_CMF_@CMFMODE@_New (fits, header);
+    return array;
+}
+
+bool pmSourcesWrite_CMF_@CMFMODE@_XSRC (psFits *fits, pmReadout *readout, psArray *sources, psMetadata *imageHeader, char *extname, psMetadata *recipe)
+{
+    bool status;
+    psArray *table;
+    psMetadata *row;
+    psF32 *PAR, *dPAR;
+    psF32 xPos, yPos;
+    psF32 xErr, yErr;
+    int nRow = -1;
+    char keyword1[80], keyword2[80];
+
+    // create a header to hold the output data
+    psMetadata *outhead = psMetadataAlloc ();
+
+    // write the links to the image header
+    psMetadataAddStr (outhead, PS_LIST_TAIL, "EXTNAME", PS_META_REPLACE, "xsrc table extension", extname);
+
+    // we can either write out the petrosian mag errors correctly or inverted (by default, psphot writes them out inverted)
+    bool repairMagErrors = psMetadataLookupBool (&status, recipe, "REPAIR.PETROSIAN.MAG.ERRORS");
+    if (repairMagErrors) {
+      psMetadataAddBool (outhead, PS_LIST_TAIL, "REPAIR.PETROSIAN.MAG.ERRORS", PS_META_REPLACE, "", true);
+    }
+
+    pmChip *chip = readout->parent->parent;
+    pmFPA  *fpa  = chip->parent;
+
+    // zero point corrections
+    bool status1 = false;
+    bool status2 = false;
+    float magOffset = 0.0;
+    float exptime   = psMetadataLookupF32(&status1, fpa->concepts, "FPA.EXPOSURE");
+    float zeropt    = psMetadataLookupF32(&status2, fpa->concepts, "FPA.ZP");
+    if (!isfinite(zeropt)) {
+        zeropt    = psMetadataLookupF32 (&status2, imageHeader, "ZPT_OBS");
+    }
+    if (status1 && status2 && (exptime > 0.0)) {
+        magOffset = zeropt + 2.5*log10(exptime);
+    }
+
+#ifdef SORT_EXTENSIONS_BY_FLUX
+    // let's write these out in S/N order
+    sources = psArraySort (sources, pmSourceSortByFlux);
+#endif
+
+    table = psArrayAllocEmpty (sources->n);
+
+    // which extended source analyses should we perform?
+    bool doAnnuli       = psMetadataLookupBool (&status, recipe, "EXTENDED_SOURCE_ANNULI");
+    bool doPetrosian    = psMetadataLookupBool (&status, recipe, "EXTENDED_SOURCE_PETROSIAN");
+
+    // First look for radial bin definition in readout->analysis ...
+    psVector *radMin = psMetadataLookupPtr (&status, readout->analysis, "RADIAL.ANNULAR.BINS.LOWER");
+    psVector *radMax = psMetadataLookupPtr (&status, readout->analysis, "RADIAL.ANNULAR.BINS.UPPER");
+    if (!radMin) {
+        // .. if not found use the recipe values
+        radMin = psMetadataLookupPtr (&status, recipe, "RADIAL.ANNULAR.BINS.LOWER");
+        radMax = psMetadataLookupPtr (&status, recipe, "RADIAL.ANNULAR.BINS.UPPER");
+    }
+    psAssert(radMin != NULL, "unable to find RADIAL.ANNULAR.BINS.LOWER");
+    psAssert(radMax != NULL, "unable to find RADIAL.ANNULAR.BINS.LOWER");
+    psAssert (radMin->n == radMax->n, "inconsistent annular bins");
+
+    // write the radial profile apertures to header
+    for (int i = 0; i < radMax->n; i++) {
+        sprintf (keyword1, "RMIN_%02d", i);
+        sprintf (keyword2, "RMAX_%02d", i);
+        psMetadataAddF32 (outhead, PS_LIST_TAIL, keyword1, PS_META_REPLACE, "min radius for SB profile", radMin->data.F32[i]);
+        psMetadataAddF32 (outhead, PS_LIST_TAIL, keyword2, PS_META_REPLACE, "max radius for SB profile", radMax->data.F32[i]);
+    }
+
+    // we write out all sources, regardless of quality.  the source flags tell us the state
+    for (int i = 0; i < sources->n; i++) {
+        // this is the source associated with this image
+        pmSource *thisSource = sources->data[i];
+
+        // this is the "real" version of this source 
+        pmSource *source = thisSource->parent ? thisSource->parent : thisSource;
+
+        // skip sources without measurements
+        if (source->extpars == NULL) continue;
+
+        // we require a PSF model fit (ignore the real crud)
+        pmModel *model = source->modelPSF;
+        if (model == NULL) continue;
+
+        // XXX I need to split the extended models from the extended aperture measurements
+        PAR = model->params->data.F32;
+        dPAR = model->dparams->data.F32;
+        xPos = PAR[PM_PAR_XPOS];
+        yPos = PAR[PM_PAR_YPOS];
+        xErr = dPAR[PM_PAR_XPOS];
+        yErr = dPAR[PM_PAR_YPOS];
+
+        row = psMetadataAlloc ();
+
+        // XXX we are not writing out the mode (flags) or the type (psf, ext, etc)
+        // the psMetadataAdd entry and the double quotes are used by grep to select the output fields for automatic documentation
+        // This set of psMetadataAdd Entries marks the "----" "Start of the XSRC segment"
+        psMetadataAdd (row, PS_LIST_TAIL, "IPP_IDET",         PS_DATA_U32, "IPP detection identifier index",             source->seq);
+        psMetadataAdd (row, PS_LIST_TAIL, "X_EXT",            PS_DATA_F32, "EXT model x coordinate",                     xPos);
+        psMetadataAdd (row, PS_LIST_TAIL, "Y_EXT",            PS_DATA_F32, "EXT model y coordinate",                     yPos);
+        psMetadataAdd (row, PS_LIST_TAIL, "X_EXT_SIG",        PS_DATA_F32, "Sigma in EXT x coordinate",                  xErr);
+        psMetadataAdd (row, PS_LIST_TAIL, "Y_EXT_SIG",        PS_DATA_F32, "Sigma in EXT y coordinate",                  yErr);
+
+        float AxialRatio = NAN;
+        float AxialTheta = NAN;
+        pmSourceExtendedPars *extpars = source->extpars;
+        if (extpars) {
+            AxialRatio = extpars->axes.minor / extpars->axes.major;
+            AxialTheta = extpars->axes.theta;
+        }
+        psMetadataAdd (row, PS_LIST_TAIL, "F25_ARATIO",       PS_DATA_F32, "Axial Ratio of radial profile",              AxialRatio);
+        psMetadataAdd (row, PS_LIST_TAIL, "F25_THETA",        PS_DATA_F32, "Angle of radial profile ellipse",                  AxialTheta);
+
+        // Petrosian measurements
+        // XXX insert header data: petrosian ref radius, flux ratio
+        // XXX check flags to see if Pet was measured
+        if (doPetrosian) {
+            pmSourceExtendedPars *extpars = source->extpars;
+            if (extpars) {
+                // XXX note that this mag is either calibrated or instrumental depending on existence of zero point 
+                float mag = (extpars->petrosianFlux > 0.0) ? -2.5*log10(extpars->petrosianFlux) + magOffset : NAN; // XXX zero point
+                // NOTE EAM 20140806 : PETRO_MAG_ERR was inverted!! this allows for it to be repaired
+                float magErr = (extpars->petrosianFlux > 0.0) ? extpars->petrosianFlux / extpars->petrosianFluxErr : NAN; // XXX zero point
+                if (repairMagErrors) {
+                  // I need to add the kron error in quadrature becasue pet_error ignores the object flux
+                  float Krf  = source->moments ? source->moments->KronFlux : NAN;
+                  float dKrf = source->moments ? source->moments->KronFluxErr : NAN;
+                  if (isfinite (Krf) && isfinite (dKrf)) {
+                    magErr = sqrt(PS_SQR(1.0 / magErr) + PS_SQR(dKrf / Krf));
+                  } else {
+                    magErr = 1.0 / magErr;
+                  }
+                }
+                psMetadataAdd (row, PS_LIST_TAIL, "PETRO_MAG",        PS_DATA_F32, "Petrosian Magnitude", mag);
+                psMetadataAdd (row, PS_LIST_TAIL, "PETRO_MAG_ERR",    PS_DATA_F32, "Petrosian Magnitude Error", magErr);
+                psMetadataAdd (row, PS_LIST_TAIL, "PETRO_RADIUS",     PS_DATA_F32, "Petrosian Radius (pix)", extpars->petrosianRadius);
+                psMetadataAdd (row, PS_LIST_TAIL, "PETRO_RADIUS_ERR", PS_DATA_F32, "Petrosian Radius Error (pix)", extpars->petrosianRadiusErr);
+                psMetadataAdd (row, PS_LIST_TAIL, "PETRO_RADIUS_50",     PS_DATA_F32, "Petrosian R50 (pix)", extpars->petrosianR50);
+                psMetadataAdd (row, PS_LIST_TAIL, "PETRO_RADIUS_50_ERR", PS_DATA_F32, "Petrosian R50 Error (pix)", extpars->petrosianR50Err);
+                psMetadataAdd (row, PS_LIST_TAIL, "PETRO_RADIUS_90",     PS_DATA_F32, "Petrosian R90 (pix)", extpars->petrosianR90);
+                psMetadataAdd (row, PS_LIST_TAIL, "PETRO_RADIUS_90_ERR", PS_DATA_F32, "Petrosian R90 Error (pix)", extpars->petrosianR90Err);
+                psMetadataAdd (row, PS_LIST_TAIL, "PETRO_FILL",          PS_DATA_F32, "Petrosian Fill Factor", extpars->petrosianFill);
+                @>PS1_SV3@ psMetadataAddF32 (row, PS_LIST_TAIL, "HALF_LIGHT_RADIUS", 0, "Half Light Radius", extpars->ghalfLightRadius);
+                @>PS1_SV3@ psMetadataAddF32 (row, PS_LIST_TAIL, "G_RT", 0, "total residual Sersic Model", extpars->gRT);
+                @>PS1_SV3@ psMetadataAddF32 (row, PS_LIST_TAIL, "G_RA", 0, "assymetric residual Sersic Model", extpars->gRA);
+                @>PS1_SV3@ psMetadataAddF32 (row, PS_LIST_TAIL, "G_S2", 0, "(un)smoothness paramter residual Sersic Model", extpars->gS2);
+                @>PS1_SV3@ psMetadataAddF32 (row, PS_LIST_TAIL, "G_A", 0, "assymetry index", extpars->gA);
+                @>PS1_SV3@ psMetadataAddF32 (row, PS_LIST_TAIL, "G_BUMPY", 0, "bumpiness", extpars->gbumpy);
+            } else {
+                psMetadataAdd (row, PS_LIST_TAIL, "PETRO_MAG",        PS_DATA_F32, "Petrosian Magnitude",       NAN);
+                psMetadataAdd (row, PS_LIST_TAIL, "PETRO_MAG_ERR",    PS_DATA_F32, "Petrosian Magnitude Error", NAN);
+                psMetadataAdd (row, PS_LIST_TAIL, "PETRO_RADIUS",     PS_DATA_F32, "Petrosian Radius",          NAN);
+                psMetadataAdd (row, PS_LIST_TAIL, "PETRO_RADIUS_ERR", PS_DATA_F32, "Petrosian Radius Error",    NAN);
+                psMetadataAdd (row, PS_LIST_TAIL, "PETRO_RADIUS_50",     PS_DATA_F32, "Petrosian R50 (pix)", NAN);
+                psMetadataAdd (row, PS_LIST_TAIL, "PETRO_RADIUS_50_ERR", PS_DATA_F32, "Petrosian R50 Error (pix)",NAN); 
+                psMetadataAdd (row, PS_LIST_TAIL, "PETRO_RADIUS_90",     PS_DATA_F32, "Petrosian R90 (pix)", NAN);
+                psMetadataAdd (row, PS_LIST_TAIL, "PETRO_RADIUS_90_ERR", PS_DATA_F32, "Petrosian R90 Error (pix)",NAN); 
+                psMetadataAdd (row, PS_LIST_TAIL, "PETRO_FILL",          PS_DATA_F32, "Petrosian Fill Factor", NAN);
+                @>PS1_SV3@ psMetadataAddF32 (row, PS_LIST_TAIL, "HALF_LIGHT_RADIUS", 0, "Half Light Radius", NAN);
+                @>PS1_SV3@ psMetadataAddF32 (row, PS_LIST_TAIL, "G_RT", 0, "total residual Sersic Model", NAN);
+                @>PS1_SV3@ psMetadataAddF32 (row, PS_LIST_TAIL, "G_RA", 0, "assymetric residual Sersic Model", NAN);
+                @>PS1_SV3@ psMetadataAddF32 (row, PS_LIST_TAIL, "G_S2", 0, "(un)smoothness paramter residual Sersic Model", NAN);
+                @>PS1_SV3@ psMetadataAddF32 (row, PS_LIST_TAIL, "G_A", 0, "assymetry index", NAN);
+                @>PS1_SV3@ psMetadataAddF32 (row, PS_LIST_TAIL, "G_BUMPY", 0, "bumpiness", NAN);
+            }
+        }
+
+        // Flux Annuli (if we have extended source measurements, we have these.  only optionally save them)
+        if (doAnnuli) {
+            psVector *radSB   = psVectorAlloc(radMin->n, PS_TYPE_F32);
+            psVector *radFlux = psVectorAlloc(radMin->n, PS_TYPE_F32);
+            psVector *radFill = psVectorAlloc(radMin->n, PS_TYPE_F32);
+            psVectorInit (radSB, NAN);
+            psVectorInit (radFlux, NAN);
+            psVectorInit (radFill, NAN);
+            if (!source->extpars) goto empty_annuli;
+            if (!source->extpars->radProfile) goto empty_annuli;
+            if (!source->extpars->radProfile->binSB) goto empty_annuli;
+            psAssert (source->extpars->radProfile->binSum, "programming error");
+            psAssert (source->extpars->radProfile->binFill, "programming error");
+            psAssert (source->extpars->radProfile->binSB->n <= radFlux->n, "inconsistent vector lengths");
+            psAssert (source->extpars->radProfile->binSum->n <= radFlux->n, "inconsistent vector lengths");
+            psAssert (source->extpars->radProfile->binFill->n <= radFlux->n, "inconsistent vector lengths");
+
+            // copy the data from fluxVal (which is not guaranteed to be the full length) to radFlux
+            for (int j = 0; j < source->extpars->radProfile->binSB->n; j++) {
+                radSB->data.F32[j]   = source->extpars->radProfile->binSB->data.F32[j];
+                radFlux->data.F32[j] = source->extpars->radProfile->binSum->data.F32[j];
+                radFill->data.F32[j] = source->extpars->radProfile->binFill->data.F32[j];
+            }
+
+        empty_annuli:
+            psMetadataAdd (row, PS_LIST_TAIL, "PROF_SB", PS_DATA_VECTOR, "mean surface brightness annuli", radSB);
+            psMetadataAdd (row, PS_LIST_TAIL, "PROF_FLUX", PS_DATA_VECTOR, "flux within annuli", radFlux);
+            psMetadataAdd (row, PS_LIST_TAIL, "PROF_FILL", PS_DATA_VECTOR, "fill factor of annuli", radFill);
+            psFree (radSB);
+            psFree (radFlux);
+            psFree (radFill);
+        }
+        if (nRow < 0) {
+            nRow = row->list->n;
+        } else {
+            psAssert (nRow == row->list->n, "inconsistent row lengths");
+        }
+        psArrayAdd (table, 100, row);
+        psFree (row);
+    }
+    
+    if (table->n == 0) {
+        if (!psFitsWriteBlank (fits, outhead, extname)) {
+            psError(psErrorCodeLast(), false, "Unable to write empty sources file.");
+            psFree(outhead);
+            psFree(table);
+            return false;
+        }
+        psFree (outhead);
+        psFree (table);
+        return true;
+    }
+    
+    psTrace ("pmFPAfile", 5, "writing ext data %s\n", extname);
+    if (!psFitsWriteTable (fits, outhead, table, extname)) {
+        psError(psErrorCodeLast(), false, "writing ext data %s\n", extname);
+        psFree (outhead);
+        psFree(table);
+        return false;
+    }
+    psFree (outhead);
+    psFree (table);
+    
+    return true;
+}
+
+static bool setRadialBinsInAnalysis(pmReadout *readout, psMetadata *tableHeader)
+{
+    if (!readout->analysis) {
+        readout->analysis = psMetadataAlloc();
+    }
+
+    bool status;
+    psVector *oldRMin = psMetadataLookupVector(&status, readout->analysis, "RADIAL.ANNULAR.BINS.LOWER");
+    psVector *oldRMax = psMetadataLookupVector(&status, readout->analysis, "RADIAL.ANNULAR.BINS.UPPER");
+
+    psVector *rMin = psVectorAllocEmpty(20, PS_TYPE_F32);
+    psVector *rMax = psVectorAllocEmpty(20, PS_TYPE_F32);
+
+    for (int i = 0; ; i++) {
+        char key [24];
+        sprintf(key, "RMIN_%02d", i);
+        psF32 rMinVal = psMetadataLookupF32(&status, tableHeader, key);
+        if (!status) {
+            break;
+        }
+        psVectorAppend(rMin, rMinVal);
+
+        sprintf(key, "RMAX_%02d", i);
+        psF32 rMaxVal = psMetadataLookupF32(&status, tableHeader, key);
+        if (!status) {
+            break;
+        }
+        psVectorAppend(rMax, rMaxVal);
+    }
+
+    if (rMin->n != rMax->n) {
+        psError(PS_ERR_UNKNOWN, true, "number of RMIN entries %ld does not equal number of RMAX entries %ld", 
+            rMin->n, rMax->n);
+        return false;
+    }
+
+    if (oldRMin) {
+        if (oldRMin->n != rMin->n) {
+            psError(PS_ERR_UNKNOWN, true, "number of RMIN entries in header: %ld does not equal number of RMAX entries in analysis: %ld", 
+                rMin->n, oldRMin->n);
+            return false;
+        }
+    } else {
+        psMetadataAddVector(readout->analysis, PS_LIST_TAIL, "RADIAL.ANNULAR.BINS.LOWER", PS_META_REPLACE, "", rMin);
+    }
+    psFree(rMin);
+
+    if (oldRMax) {
+        if (oldRMax->n != rMax->n) {
+            psError(PS_ERR_UNKNOWN, true, "number of RMIN entries in header: %ld does not equal number of RMAX entries in analysis: %ld", 
+                rMax->n, oldRMax->n);
+            return false;
+        }
+    } else {
+        psMetadataAddVector(readout->analysis, PS_LIST_TAIL, "RADIAL.ANNULAR.BINS.UPPER", PS_META_REPLACE, "", rMax);
+    }
+    psFree(rMax);
+
+    return true;
+}
+
+bool pmSourcesRead_CMF_@CMFMODE@_XSRC(psFits *fits, pmReadout *readout, psMetadata *hduHeader, psMetadata *tableHeader, psArray *sources, long *sourceIndex)
+{
+    PS_ASSERT_PTR_NON_NULL(fits, false);
+    PS_ASSERT_PTR_NON_NULL(sources, false);
+
+    bool status;
+    long numSources = psFitsTableSize(fits); // Number of sources in table
+    if (numSources == 0) {
+        psError(psErrorCodeLast(), false, "XSRC Table contains no entries\n");
+        return false;
+    }
+
+    // petrosian mags are not saved, we need to calculate fluxes. For this we need exptime and zero point
+    float zeropt = psMetadataLookupF32(&status, hduHeader, "FPA.ZP");
+    float exptime = psMetadataLookupF32(&status, hduHeader, "EXPTIME");
+    float magOffset = zeropt + 2.5*log10(exptime);
+
+    if (!setRadialBinsInAnalysis(readout, tableHeader)) {
+        psError(PS_ERR_UNKNOWN, false, "Failed to save radial bins in analysis");
+        return false;
+    }
+
+    bool repairMagErrors = psMetadataLookupBool (&status, tableHeader, "REPAIR.PETROSIAN.MAG.ERRORS");
+
+    for (long i = 0; i < numSources; i++) {
+        psMetadata *row = psFitsReadTableRow(fits, i); // Table row
+        if (!row) {
+            psError(psErrorCodeLast(), false, "Unable to read row %ld of sources", i);
+            psFree(row);
+            return false;
+        }
+        // Find the source with this sequence number using the sourceIndex. 
+        long seq = psMetadataLookupU32 (&status, row, "IPP_IDET");
+        long j = sourceIndex[seq];
+        psAssert(j >= 0 && j < sources->n, "invalid sourceIndex");
+        pmSource *source = sources->data[j];
+        if (!source) {
+            psError(PS_ERR_UNKNOWN, false, "Failed to find source for row %ld sequence number %ld\n", i, seq);
+            psFree(row);
+            return false;
+        }
+
+        if (!source->extpars) {
+            source->extpars = pmSourceExtendedParsAlloc ();
+        }
+        pmSourceExtendedPars *extpars = source->extpars;
+
+        // Assume that X_EXT Y_EXT and sigmas match the psf src so skip
+
+        // We don't have enough information to calculate the major and minor axis. Set major to 1. Should we scale this by
+        // psf size or something?
+        extpars->axes.major = 1.0;
+        extpars->axes.minor = extpars->axes.major * psMetadataLookupF32(&status, row, "F25_ARATIO");
+        extpars->axes.theta = psMetadataLookupF32(&status, row, "F25_THETA");
+
+        // magErr may have been saved in inverted form
+        float mag = psMetadataLookupF32(&status, row, "PETRO_MAG");
+        float magErr = psMetadataLookupF32(&status, row, "PETRO_MAG_ERR");
+        if (isfinite(mag)) {
+          extpars->petrosianFlux    = pow(10., (magOffset - mag) / 2.5);
+          if (isfinite(magErr)) {
+            if (repairMagErrors) {
+              // I need to add the kron error in quadrature becasue pet_error ignores the object flux
+              float Krf  = source->moments ? source->moments->KronFlux : NAN;
+              float dKrf = source->moments ? source->moments->KronFluxErr : NAN;
+              if (isfinite (Krf) && isfinite (dKrf)) {
+                magErr = 1.0 / sqrt(PS_SQR(magErr) - PS_SQR(dKrf / Krf));
+              } else {
+                magErr = 1.0 / magErr;
+              }
+              extpars->petrosianFluxErr = extpars->petrosianFlux * magErr;
+            } else {
+              extpars->petrosianFluxErr = extpars->petrosianFlux / magErr;
+            }
+          }
+        }
+
+        extpars->petrosianRadius   = psMetadataLookupF32(&status, row, "PETRO_RADIUS");
+        extpars->petrosianRadiusErr= psMetadataLookupF32(&status, row, "PETRO_RADIUS_ERR");
+        extpars->petrosianR50      = psMetadataLookupF32(&status, row, "PETRO_RADIUS_50");
+        extpars->petrosianR50Err   = psMetadataLookupF32(&status, row, "PETRO_RADIUS_50_ERR");
+        extpars->petrosianR90      = psMetadataLookupF32(&status, row, "PETRO_RADIUS_90");
+        extpars->petrosianR90Err   = psMetadataLookupF32(&status, row, "PETRO_RADIUS_90_ERR");
+        extpars->petrosianFill     = psMetadataLookupF32(&status, row, "PETRO_FILL");
+        extpars->ghalfLightRadius  = psMetadataLookupF32(&status, row, "HALF_LIGHT_RADIUS");
+        extpars->gRT               = psMetadataLookupF32(&status, row, "G_RT");
+        extpars->gRA               = psMetadataLookupF32(&status, row, "G_RA");
+        extpars->gS2               = psMetadataLookupF32(&status, row, "G_S2");
+        extpars->gA                = psMetadataLookupF32(&status, row, "G_A");
+        extpars->gbumpy            = psMetadataLookupF32(&status, row, "G_BUMPY");
+
+        psVector *radSB   = psMetadataLookupVector(&status, row, "PROF_SB");
+        psVector *radFlux = psMetadataLookupVector(&status, row, "PROF_FLUX");
+        psVector *radFill = psMetadataLookupVector(&status, row, "PROF_FILL");
+
+        if (radSB && radSB->n > 0) {
+            extpars->radProfile = pmSourceRadialProfileAlloc();
+            extpars->radProfile->binSB   = psMemIncrRefCounter(radSB);
+            extpars->radProfile->binSum   = psMemIncrRefCounter(radFlux);
+            extpars->radProfile->binFill = psMemIncrRefCounter(radFill);
+        }
+
+        psFree(row);
+    }
+
+    return true;
+}
+
+// XXX this layout is still the same as PS1_DEV_1
+bool pmSourcesWrite_CMF_@CMFMODE@_XFIT (psFits *fits, pmReadout *readout, psArray *sources, psMetadata *imageHeader, char *extname)
+{
+
+    psArray *table;
+    psMetadata *row;
+    psF32 *PAR, *dPAR;
+    psF32 xPos, yPos;
+    psF32 xErr, yErr;
+    char name[64];
+
+    pmModelType modelTypeTrail = pmModelClassGetType("PS_MODEL_TRAIL");
+
+    // create a header to hold the output data
+    psMetadata *outhead = psMetadataAlloc ();
+
+    pmModelClassWriteHeader(outhead);
+
+    // write the links to the image header
+    psMetadataAddStr (outhead, PS_LIST_TAIL, "EXTNAME", PS_META_REPLACE, "xsrc table extension", extname);
+
+#ifdef SORT_EXTENSIONS_BY_FLUX
+    // let's write these out in S/N order
+    sources = psArraySort (sources, pmSourceSortByFlux);
+#endif
+
+    float magOffset; 
+    float zeroptErr; 
+    float fwhmMajor; 
+    float fwhmMinor;
+    pmSourceOutputsCommonValues (&magOffset, &zeroptErr, &fwhmMajor, &fwhmMinor, readout, imageHeader);
+
+    // we are writing one row per model; we need to write out same number of columns for each row: find the max Nparams
+    int nParamMax = 0;
+    for (int i = 0; i < sources->n; i++) {
+        // this is the source associated with this image
+        pmSource *thisSource = sources->data[i];
+
+        // this is the "real" version of this source 
+        pmSource *source = thisSource->parent ? thisSource->parent : thisSource;
+
+        if (source->modelFits == NULL) continue;
+        for (int j = 0; j < source->modelFits->n; j++) {
+            pmModel *model = source->modelFits->data[j];
+            assert (model);
+            nParamMax = PS_MAX (nParamMax, model->params->n);
+        }
+    }
+
+    @>PS1_DV2,>PS1_SV3@ pmChip *chip = readout->parent->parent;
+
+    pmModelStatus badModel = PM_MODEL_STATUS_NONE;
+    badModel |= PM_MODEL_STATUS_BADARGS;
+    badModel |= PM_MODEL_STATUS_OFFIMAGE;
+    badModel |= PM_MODEL_STATUS_NAN_CHISQ;
+    badModel |= PM_MODEL_SERSIC_PCM_FAIL_GUESS;
+    badModel |= PM_MODEL_SERSIC_PCM_FAIL_GRID;
+    badModel |= PM_MODEL_PCM_FAIL_GUESS;
+
+    table = psArrayAllocEmpty (sources->n);
+
+    // we write out all sources, regardless of quality.  the source flags tell us the state
+    for (int i = 0; i < sources->n; i++) {
+
+        pmSource *thisSource = sources->data[i];
+
+        // this is the "real" version of this source 
+        pmSource *source = thisSource->parent ? thisSource->parent : thisSource;
+
+        // XXX if no model fits are saved, write out modelEXT?
+        if (source->modelFits == NULL) continue;
+
+        // We have multiple sources : need to flag the one used to subtract the light (the 'best' model)
+        for (int j = 0; j < source->modelFits->n; j++) {
+
+            // choose the convolved EXT model, if available, otherwise the simple one
+            pmModel *model = source->modelFits->data[j];
+            assert (model);
+
+            // pmSourceExtFitPars *extPars = source->extFitPars->data[j];
+            // assert (extPars);
+
+            // skip models which were not actually fitted
+            // XXX 
+            if (model->flags & badModel) continue;
+
+            PAR = model->params->data.F32;
+            dPAR = model->dparams->data.F32;
+            xPos = PAR[PM_PAR_XPOS];
+            yPos = PAR[PM_PAR_YPOS];
+
+            // for the extended source models, we do not always fit the centroid in the non-linear fitting process
+            // current situation (hard-wired into psphotSourceFits.c:psphotFitPCM,
+            // SERSIC, DEV, EXP : X,Y not fitted (PCM and not PCM)
+            // TRAIL : X,Y are fitted
+            // 
+            
+            // XXX this should be based on what happened, not on the model type
+            if (model->type == modelTypeTrail) {
+                xErr = dPAR[PM_PAR_XPOS];
+                yErr = dPAR[PM_PAR_YPOS];
+            } else {
+                // this is definitely an underestimate since it does not
+                // account for the extent of the source
+                xErr = fwhmMajor * model->magErr / 2.35;
+                yErr = fwhmMinor * model->magErr / 2.35;
+            }
+
+            @>PS1_DV2,>PS1_SV3@ psSphere ptSky = {0.0, 0.0, 0.0, 0.0};
+            @>PS1_DV2,>PS1_SV3@ float posAngle = 0.0;
+            @>PS1_DV2,>PS1_SV3@ float pltScale = 0.0;
+            @>PS1_DV2,>PS1_SV3@ pmSourceLocalAstrometry (&ptSky, &posAngle, &pltScale, chip, xPos, yPos);
+            @>PS1_DV2,>PS1_SV3@ double raPos = ptSky.r*PS_DEG_RAD;
+            @>PS1_DV2,>PS1_SV3@ double decPos = ptSky.d*PS_DEG_RAD;
+            @>PS1_DV2,>PS1_SV3@ posAngle *= PS_DEG_RAD;
+            @>PS1_DV2,>PS1_SV3@ pltScale *= PS_DEG_RAD*3600.0;
+
+            float kronFlux = source->moments ? source->moments->KronFlux : NAN;
+            float kronMag = isfinite(kronFlux) ? -2.5*log10(kronFlux) : NAN;
+
+            row = psMetadataAlloc ();
+
+            // the psMetadataAdd entry and the double quotes are used by grep to select the output fields for automatic documentation
+            // This set of psMetadataAdd Entries marks the "----" "Start of the XFIT segment"
+            psMetadataAddU32 (row, PS_LIST_TAIL, "IPP_IDET",         0, "IPP detection identifier index",             source->seq);
+            psMetadataAddF32 (row, PS_LIST_TAIL, "X_EXT",            0, "EXT model x coordinate",                     xPos);
+            psMetadataAddF32 (row, PS_LIST_TAIL, "Y_EXT",            0, "EXT model y coordinate",                     yPos);
+            psMetadataAddF32 (row, PS_LIST_TAIL, "X_EXT_SIG",        0, "Sigma in EXT x coordinate",                  xErr);
+            psMetadataAddF32 (row, PS_LIST_TAIL, "Y_EXT_SIG",        0, "Sigma in EXT y coordinate",                  yErr);
+            @>PS1_SV3@ psMetadataAddF32 (row, PS_LIST_TAIL, "SKY_EXT",        0, "EXT fit sky value",                  PAR ? PAR[PM_PAR_SKY] : NAN);
+            @>PS1_DV2,>PS1_SV3@ psMetadataAddF32 (row, PS_LIST_TAIL, "RA_EXT",           0, "EXT model ra coordinate",                    raPos);
+            @>PS1_DV2,>PS1_SV3@ psMetadataAddF32 (row, PS_LIST_TAIL, "DEC_EXT",          0, "EXT model dec coordinate",                   decPos);
+            @>PS1_DV2@ float instFlux = isfinite(model->mag) ? pow(10.0, -0.4*model->mag) : NAN;
+            @>PS1_DV2@ psMetadataAddF32 (row, PS_LIST_TAIL, "EXT_INST_FLUX",    0, "EXT fit instrumental counts",                instFlux);
+
+            psMetadataAddF32 (row, PS_LIST_TAIL, "EXT_INST_MAG",     0, "EXT fit instrumental magnitude",             model->mag);
+            psMetadataAddF32 (row, PS_LIST_TAIL, "EXT_INST_MAG_SIG", 0, "Sigma of PSF instrumental magnitude",        model->magErr);
+
+            @>PS1_DV2@ float calMag = isfinite(magOffset) ? model->mag + magOffset : NAN;
+            @>PS1_DV2@ psMetadataAdd (row, PS_LIST_TAIL, "EXT_CAL_MAG", PS_DATA_F32, "EXT Magnitude using supplied calibration",   calMag);
+            @>PS1_DV2,PS1_SV?@ psMetadataAdd (row, PS_LIST_TAIL, "EXT_CHISQ",   PS_DATA_F32, "EXT Model Chisq",   model->chisq);
+            @>PS1_DV2,PS1_SV?@ psMetadataAdd (row, PS_LIST_TAIL, "EXT_NDOF",    PS_DATA_S32, "EXT Model num degrees of freedom",   model->nDOF);
+            @>PS1_SV1,PS1_SV?@ psMetadataAdd (row, PS_LIST_TAIL, "EXT_MODEL_TYPE",    PS_DATA_S32, "type for chosen EXT_MODEL",   source->modelEXT ? source->modelEXT->type : -1);
+
+            // EAM : adding for PV2 outputs:
+            @>PS1_SV1@ psMetadataAdd (row, PS_LIST_TAIL, "EXT_FLAGS", PS_DATA_S16, "model fit flags (pmModelStatus)", model->flags);
+
+            @>PS1_DV2@ psMetadataAddF32 (row, PS_LIST_TAIL, "POSANGLE",   0, "position angle at source (degrees)",         posAngle);
+            @>PS1_DV2@ psMetadataAddF32 (row, PS_LIST_TAIL, "PLTSCALE",   0, "plate scale at source (arcsec/pixel)",       pltScale);
+
+            // psMetadataAddF32 (row, PS_LIST_TAIL, "MOMENTS_XX",       0, "second moment in x",                      extPars->Mxx);
+            // psMetadataAddF32 (row, PS_LIST_TAIL, "MOMENTS_XY",       0, "second moment in x,y",                    extPars->Mxy);
+            // psMetadataAddF32 (row, PS_LIST_TAIL, "MOMENTS_YY",       0, "second moment in y",                      extPars->Myy);
+            // psMetadataAddF32 (row, PS_LIST_TAIL, "MOMENTS_R1",       0, "first radial moment",                     extPars->Mrf);
+            // psMetadataAddF32 (row, PS_LIST_TAIL, "MOMENTS_RH",       0, "half radial moment",                      extPars->Mrh);
+
+            psMetadataAddF32 (row, PS_LIST_TAIL, "PSF_INST_MAG",     0, "PSF fit instrumental magnitude",             source->psfMag);
+            psMetadataAddF32 (row, PS_LIST_TAIL, "AP_MAG",           0, "PSF-sized aperture magnitude",               source->apMag);
+            psMetadataAddF32 (row, PS_LIST_TAIL, "KRON_MAG",         0, "Kron Mag",                                   kronMag);
+
+            @PS1_DV0,PS1_DV1@ psMetadataAddF32 (row, PS_LIST_TAIL, "NPARAMS",          0, "number of model parameters",                 model->params->n);
+            @ALL,!PS1_DV0,!PS1_DV1@ psMetadataAddS32 (row, PS_LIST_TAIL, "NPARAMS",          0, "number of model parameters",                 model->params->n);
+            psMetadataAddStr (row, PS_LIST_TAIL, "MODEL_TYPE",       0, "name of model",                              pmModelClassGetName (model->type));
+
+            // XXX these should be major and minor, not 'x' and 'y'
+            if (model->type == pmModelClassGetType("PS_MODEL_TRAIL")) {
+                psMetadataAddF32 (row, PS_LIST_TAIL, "EXT_WIDTH_MAJ",    0, "EXT width (major axis), length for trail", PAR[PM_PAR_LENGTH]);
+                psMetadataAddF32 (row, PS_LIST_TAIL, "EXT_WIDTH_MIN",    0, "EXT width (minor axis), sigma for trail",  PAR[PM_PAR_SIGMA]); // this is not fitted
+                psMetadataAddF32 (row, PS_LIST_TAIL, "EXT_THETA",        0, "EXT orientation angle",                    PAR[PM_PAR_THETA]);
+                psMetadataAddF32 (row, PS_LIST_TAIL, "EXT_WIDTH_MAJ_ERR",0, "EXT width error (major axis)",            dPAR[PM_PAR_LENGTH]);
+                psMetadataAddF32 (row, PS_LIST_TAIL, "EXT_WIDTH_MIN_ERR",0, "EXT width error (minor axis)",            NAN); // this is not fitted, so error is NAN
+                psMetadataAddF32 (row, PS_LIST_TAIL, "EXT_THETA_ERR",    0, "EXT orientation angle (error)",           dPAR[PM_PAR_THETA]);
+            } else {
+                if (!isfinite(PAR[PM_PAR_SXX]) || !isfinite(PAR[PM_PAR_SYY])  || !isfinite(PAR[PM_PAR_SXY])) {
+                    psMetadataAddF32 (row, PS_LIST_TAIL, "EXT_WIDTH_MAJ",     0, "EXT width (SXX, isnan)", PAR[PM_PAR_SXX]);
+                    psMetadataAddF32 (row, PS_LIST_TAIL, "EXT_WIDTH_MIN",     0, "EXT width (SYY, isnan)", PAR[PM_PAR_SYY]);
+                    psMetadataAddF32 (row, PS_LIST_TAIL, "EXT_THETA",         0, "EXT angle (SXY, isnan)", PAR[PM_PAR_SXY]);
+                    psMetadataAddF32 (row, PS_LIST_TAIL, "EXT_WIDTH_MAJ_ERR", 0, "EXT width err (SXX, isnan)", dPAR[PM_PAR_SXX]);
+                    psMetadataAddF32 (row, PS_LIST_TAIL, "EXT_WIDTH_MIN_ERR", 0, "EXT width err (SYY, isnan)", dPAR[PM_PAR_SYY]);
+                    psMetadataAddF32 (row, PS_LIST_TAIL, "EXT_THETA_ERR",     0, "EXT angle err (SXY, isnan)", dPAR[PM_PAR_SXY]);
+                } else {
+                    psEllipseAxes axes = pmPSF_ModelToAxes (PAR, model->class->useReff);
+                    psMetadataAddF32 (row, PS_LIST_TAIL, "EXT_WIDTH_MAJ",    0, "EXT width (major axis), length for trail", axes.major);
+                    psMetadataAddF32 (row, PS_LIST_TAIL, "EXT_WIDTH_MIN",    0, "EXT width (minor axis), sigma for trail",  axes.minor);
+                    psMetadataAddF32 (row, PS_LIST_TAIL, "EXT_THETA",        0, "EXT orientation angle",                    axes.theta);
+                    psMetadataAddF32 (row, PS_LIST_TAIL, "EXT_WIDTH_MAJ_ERR",0, "EXT width error (major axis)",            dPAR[PM_PAR_SXX]);
+                    psMetadataAddF32 (row, PS_LIST_TAIL, "EXT_WIDTH_MIN_ERR",0, "EXT width error (minor axis)",            dPAR[PM_PAR_SYY]);
+                    psMetadataAddF32 (row, PS_LIST_TAIL, "EXT_THETA_ERR",    0, "EXT orientation angle (error)",           dPAR[PM_PAR_SXY]);
+                }
+            }
+
+            // write out the other generic parameters
+            for (int k = 0; k < nParamMax; k++) {
+                if (k == PM_PAR_I0) continue;
+                if (k == PM_PAR_SKY) continue;
+                if (k == PM_PAR_XPOS) continue;
+                if (k == PM_PAR_YPOS) continue;
+                if (k == PM_PAR_SXX) continue;
+                if (k == PM_PAR_SXY) continue;
+                if (k == PM_PAR_SYY) continue;
+
+                snprintf (name, 64, "EXT_PAR_%02d", k);
+               
+                if (k < model->params->n) {
+                    psMetadataAddF32 (row, PS_LIST_TAIL, name, 0, "", model->params->data.F32[k]);
+                } else {
+                    psMetadataAddF32 (row, PS_LIST_TAIL, name, 0, "", NAN);
+                }
+            }
+
+            // optionally, write out the covariance matrix values
+            // XXX do I need to pad this to match the biggest covar matrix?
+            if (false && model->covar) {
+                for (int iy = 0; iy < model->covar->numCols; iy++) {
+                    for (int ix = iy; ix < model->covar->numCols; ix++) {
+                        snprintf (name, 64, "EXT_COVAR_%02d_%02d", iy, ix);
+                        psMetadataAddF32 (row, PS_LIST_TAIL, name, 0, "", model->covar->data.F32[iy][ix]);
+
+                    }
+                }                   
+            }
+            psArrayAdd (table, 100, row);
+            psFree (row);
+        }
+    }
+
+    if (table->n == 0) {
+        if (!psFitsWriteBlank (fits, outhead, extname)) {
+            psError(psErrorCodeLast(), false, "Unable to write empty sources file.");
+            psFree(outhead);
+            psFree(table);
+            return false;
+        }
+        psFree (outhead);
+        psFree (table);
+        return true;
+    }
+
+    psTrace ("pmFPAfile", 5, "writing ext data %s\n", extname);
+    if (!psFitsWriteTable (fits, outhead, table, extname)) {
+        psError(psErrorCodeLast(), false, "writing ext data %s\n", extname);
+        psFree (outhead);
+        psFree(table);
+        return false;
+    }
+    psFree (outhead);
+    psFree (table);
+    return true;
+}
+
+bool pmSourcesRead_CMF_@CMFMODE@_XFIT(psFits *fits, pmReadout *readout, psMetadata *hduHeader, psMetadata *tableHeader, psArray *sources, long *sourceIndex)
+{
+    PS_ASSERT_PTR_NON_NULL(fits, false);
+    PS_ASSERT_PTR_NON_NULL(sources, false);
+
+    bool status;
+    long numSources = psFitsTableSize(fits); // Number of sources in table
+    if (numSources == 0) {
+        psError(psErrorCodeLast(), false, "XFIT Table contains no entries\n");
+        return false;
+    }
+    // set up the lookup table to translate between input model types and output model types
+    // if not defined it is assumed that the tables are the same
+    pmModelClassReadHeader(tableHeader);
+
+    for (long i = 0; i < numSources; i++) {
+        psMetadata *row = psFitsReadTableRow(fits, i); // Table row
+        if (!row) {
+            psError(psErrorCodeLast(), false, "Unable to read row %ld of sources", i);
+            psFree(row);
+            return false;
+        }
+        long seq = psMetadataLookupU32 (&status, row, "IPP_IDET");
+        long j = sourceIndex[seq];
+        psAssert(j >= 0 && j < sources->n, "invalid sourceIndex");
+        pmSource *source = sources->data[j];
+        if (!source) {
+            psError(PS_ERR_UNKNOWN, false, "Failed to find source for row %ld sequence number %ld\n", i, seq);
+            psFree(row);
+            return false;
+        }
+        if (!source->modelFits) {
+            // XXX: where to find the number of models to expect?
+            source->modelFits = psArrayAllocEmpty(5);
+        }
+        psString modelName = psMetadataLookupStr(&status, row, "MODEL_TYPE");
+        if (!modelName) {
+            psError(PS_ERR_UNKNOWN, true, "Failed to find model name for row %ld\n", i);
+            psFree(row);
+            return false;
+        }
+        pmModelType modelType = pmModelClassGetType(modelName);
+        if (modelType < 0) {
+            psError(PS_ERR_UNKNOWN, true, "Failed to find model type for %s\n", modelName);
+            psFree(row);
+            return false;
+        }
+        pmModel *model = pmModelAlloc(modelType);
+
+        psF32 *PAR = model->params->data.F32;
+        psF32 *dPAR = model->dparams->data.F32;
+
+        PAR[PM_PAR_XPOS] = psMetadataLookupF32(&status, row, "X_EXT");
+        PAR[PM_PAR_YPOS] = psMetadataLookupF32(&status, row, "Y_EXT");
+        dPAR[PM_PAR_XPOS] = psMetadataLookupF32(&status, row, "X_EXT_SIG");
+        dPAR[PM_PAR_YPOS] = psMetadataLookupF32(&status, row, "Y_EXT_SIG");
+
+        model->mag = psMetadataLookupF32(&status, row, "EXT_INST_MAG");
+        model->magErr = psMetadataLookupF32(&status, row, "EXT_INST_MAG_SIG");
+
+        model->chisq = psMetadataLookupF32(&status, row, "EXT_CHISQ");
+        model->nDOF = psMetadataLookupF32(&status, row, "EXT_NDOF");
+        model->flags = psMetadataLookupS16(&status, row, "EXT_FLAGS");
+
+        // EXT_MODEL_TYPE gives the model chosen by psphot as the best.
+        // Putting this into the XFIT table makes 3 copies of it (one for each model)
+        // but since we have many fewer XFIT rows than psf rows that is cheaper than putting it
+        // in the psf table.
+        psS32 extModelType = psMetadataLookupS32(&status, row, "EXT_MODEL_TYPE");
+        if (status) {
+            // translate between the type value in xfit and values used by this program
+            extModelType = pmModelClassGetLocalType(extModelType);
+        } else {
+            // older cmfs don't have this column
+            extModelType = -1;
+        } 
+
+        psEllipseAxes axes;
+        axes.major = psMetadataLookupF32(&status, row, "EXT_WIDTH_MAJ");
+        axes.minor = psMetadataLookupF32(&status, row, "EXT_WIDTH_MIN");
+        axes.theta = psMetadataLookupF32(&status, row, "EXT_THETA");
+        if (!pmPSF_AxesToModel(PAR, axes, model->class->useReff)) {
+            // Do we need to fail here or can this happen?
+            psError(PS_ERR_UNKNOWN, false, "Failed to convert psf axes to model");
+            psFree(model);
+            psFree(row);
+            return false;
+        }
+        // XXX: clean this up
+        if (model->params->n > 7) {
+            PAR[7] = psMetadataLookupF32(&status, row, "EXT_PAR_07");
+            // XXX add an error:
+            // dPAR[7] = psMetadataLookupF32(&status, row, "EXT_PAR_07_");
+        }
+
+        // NOTE: we no longer write out the covariance matrix
+        if (false) {
+            // read the covariance matrix
+            int nparams = model->params->n;
+            psImage *covar = psImageAlloc(nparams, nparams, PS_TYPE_F32);
+            for (int y = 0; y < nparams; y++) {
+                for (int x = 0; x < nparams; x++) {
+                    char name[64];
+                    snprintf(name, 64, "EXT_COVAR_%02d_%02d", y, x);
+                    covar->data.F32[y][x] = psMetadataLookupF32(&status, row, name);
+                }
+            }
+            model->covar = covar;
+        }
+
+        // we are only saving the values stored in dPAR[SXX,etc]
+        dPAR[PM_PAR_SXX] = psMetadataLookupF32(&status, row, "EXT_WIDTH_MAJ_ERR");
+        dPAR[PM_PAR_SYY] = psMetadataLookupF32(&status, row, "EXT_WIDTH_MIN_ERR");
+        dPAR[PM_PAR_SXY] = psMetadataLookupF32(&status, row, "EXT_THETA_ERR");
+
+        // other parameters that we need to read
+        PAR[PM_PAR_SKY] = psMetadataLookupF32(&status, row, "SKY_EXT");
+
+        if (modelType == extModelType) {
+            // The software that created this source picked this model as the best of the fits. 
+            // Set the extModel to point to it.
+            // This is important for programs like psastro (skycal) so that its output cmfs
+            // will have valid EXT_MODEL_TYPE
+            psFree(source->modelEXT);
+            source->modelEXT = psMemIncrRefCounter(model);
+            source->type = PM_SOURCE_TYPE_EXTENDED;
+            if (0) {
+                // since FLAGS were read we don't need to do this
+                source->mode |= PM_SOURCE_MODE_EXTMODEL;
+                source->mode |= PM_SOURCE_MODE_NONLINEAR_FIT;
+            }
+        }
+
+        psArrayAdd(source->modelFits, 1, model);
+        psFree(model);
+        psFree(row);
+    }
+
+    return true;
+}
+
+// **** write out the radial flux values for the sources for a given matched-PSF image
+// **** how do we distinguish the matched-PSF images from the non-matched version
+bool pmSourcesWrite_CMF_@CMFMODE@_XRAD(psFits *fits, pmReadout *readout, psArray *sources, psMetadata *imageHeader, char *extname, psMetadata *recipe)
+{
+    bool status = false;
+    psArray *table;
+    psMetadata *row;
+    psF32 xPos, yPos;
+    char keyword1[80], keyword2[80];
+
+    // perform full non-linear fits / extended source analysis?
+    if (!psMetadataLookupBool (&status, recipe, "RADIAL_APERTURES")) {
+        psLogMsg ("psphot", PS_LOG_INFO, "radial apertures were not measured, skipping\n");
+        return true;
+    }
+
+    // create a header to hold the output data
+    psMetadata *outhead = psMetadataAlloc ();
+
+    // write the links to the image header
+    psMetadataAddStr (outhead, PS_LIST_TAIL, "EXTNAME", PS_META_REPLACE, "radial flux table extension", extname);
+
+    // we use this just to define the output vectors (which must be present for all objects)
+    // First look for radial bin definition in readout->analysis ...
+    psVector *radMin = psMetadataLookupPtr (&status, readout->analysis, "RADIAL.ANNULAR.BINS.LOWER");
+    psVector *radMax = psMetadataLookupPtr (&status, readout->analysis, "RADIAL.ANNULAR.BINS.UPPER");
+    if (!radMin) {
+        // .. if not found use the recipe values
+        radMin = psMetadataLookupPtr (&status, recipe, "RADIAL.ANNULAR.BINS.LOWER");
+        radMax = psMetadataLookupPtr (&status, recipe, "RADIAL.ANNULAR.BINS.UPPER");
+    }
+    psAssert (radMin, "this must have been defined and tested earlier!");
+    psAssert (radMax, "this must have been defined and tested earlier!");
+    psAssert (radMin->n == radMax->n, "inconsistent annular bins");
+
+    // write the radial profile apertures to header
+    for (int i = 0; i < radMax->n; i++) {
+      sprintf (keyword1, "RMIN_%02d", i);
+      sprintf (keyword2, "RMAX_%02d", i);
+      psMetadataAddF32 (outhead, PS_LIST_TAIL, keyword1, PS_META_REPLACE, "min radius for SB profile", radMin->data.F32[i]);
+      psMetadataAddF32 (outhead, PS_LIST_TAIL, keyword2, PS_META_REPLACE, "min radius for SB profile", radMax->data.F32[i]);
+    }
+
+    // the FWHM values are available if we measured a psf-matched convolved set
+    psVector *fwhmValues = psMetadataLookupVector(&status, readout->analysis, "STACK.PSF.FWHM.VALUES");
+
+#ifdef SORT_EXTENSIONS_BY_FLUX
+    // let's write these out in S/N order
+    sources = psArraySort (sources, pmSourceSortByFlux);
+#endif
+
+    table = psArrayAllocEmpty (sources->n);
+
+    // we write out all sources, regardless of quality.  the source flags tell us the state
+    for (int i = 0; i < sources->n; i++) {
+
+        // this is the source associated with this image
+        pmSource *thisSource = sources->data[i];
+
+        // this is the "real" version of this source 
+        pmSource *source = thisSource->parent ? thisSource->parent : thisSource;
+
+        // skip sources without radial aper measurements (or insufficient)
+        if (source->radialAper == NULL) continue;
+
+        // psAssert (source->radialAper->n == fwhmValues->n, "inconsistent radial aperture set");
+
+        for (int entry = 0; entry < source->radialAper->n; entry++) {
+
+            // choose the convolved EXT model, if available, otherwise the simple one
+            pmSourceRadialApertures *radialAper = source->radialAper->data[entry];
+            assert (radialAper);
+
+            if (pmSourcePositionUseMoments(source)) {
+                xPos = source->moments->Mx;
+                yPos = source->moments->My;
+            } else {
+                xPos = source->peak->xf;
+                yPos = source->peak->yf;
+            }
+
+            row = psMetadataAlloc ();
+
+            // XXX we are not writing out the mode (flags) or the type (psf, ext, etc)
+            // the psMetadataAdd entry and the double quotes are used by grep to select the output fields for automatic documentation
+            // This set of psMetadataAdd Entries marks the "----" "Start of the XRAD segment"
+            psMetadataAddU32 (row, PS_LIST_TAIL, "IPP_IDET",         0, "IPP detection identifier index",             source->seq);
+            psMetadataAddF32 (row, PS_LIST_TAIL, "X_APER",           0, "Center of aperture measurements",            xPos);
+            psMetadataAddF32 (row, PS_LIST_TAIL, "Y_APER",           0, "Center of aperture measurements",            yPos);
+            if (fwhmValues) {
+                psMetadataAddF32 (row, PS_LIST_TAIL, "PSF_FWHM",         0, "FWHM of matched PSF",                    fwhmValues->data.F32[entry]);
+            } else {
+                psMetadataAddF32 (row, PS_LIST_TAIL, "PSF_FWHM",         0, "image is not FWHM-matched",              NAN);
+            }
+
+            // XXX if we have raw radial apertures, write them out here
+            psVector *radFlux      = psVectorAlloc(radMax->n, PS_TYPE_F32);
+            psVector *radFluxErr   = psVectorAlloc(radMax->n, PS_TYPE_F32);
+            psVector *radFill      = psVectorAlloc(radMax->n, PS_TYPE_F32);
+            psVector *radFluxStdev = psVectorAlloc(radMax->n, PS_TYPE_F32);
+            psVectorInit (radFlux,    NAN);
+            psVectorInit (radFluxErr, NAN);
+            psVectorInit (radFill,    NAN);
+            if (!radialAper->flux) goto write_annuli;
+            if (!radialAper->fill) goto write_annuli;
+            psAssert (radialAper->flux->n <= radFlux->n, "inconsistent vector lengths");
+            psAssert (radialAper->fill->n <= radFlux->n, "inconsistent vector lengths");
+
+            // copy the data from fluxVal (which is not guaranteed to be the full length) to radFlux
+            for (int j = 0; j < radialAper->flux->n; j++) {
+                radFlux->data.F32[j]      = radialAper->flux->data.F32[j];
+                radFluxErr->data.F32[j]   = radialAper->fluxErr->data.F32[j];
+                radFluxStdev->data.F32[j] = radialAper->fluxStdev->data.F32[j];
+                radFill->data.F32[j]      = radialAper->fill->data.F32[j];
+            }
+
+        write_annuli:
+            psMetadataAddVector (row, PS_LIST_TAIL, "APER_FLUX",       PS_META_REPLACE, "flux within annuli",       radFlux);
+            psMetadataAddVector (row, PS_LIST_TAIL, "APER_FLUX_ERR",   PS_META_REPLACE, "flux error in annuli",     radFluxErr);
+            psMetadataAddVector (row, PS_LIST_TAIL, "APER_FLUX_STDEV", PS_META_REPLACE, "flux standard deviation",  radFluxStdev);
+            psMetadataAddVector (row, PS_LIST_TAIL, "APER_FILL",       PS_META_REPLACE, "fill factor of annuli",    radFill);
+            psFree (radFlux);
+            psFree (radFluxErr);
+            psFree (radFluxStdev);
+            psFree (radFill);
+
+            psArrayAdd (table, 100, row);
+            psFree (row);
+        }
+    }
+
+    if (table->n == 0) {
+        if (!psFitsWriteBlank (fits, outhead, extname)) {
+            psError(psErrorCodeLast(), false, "Unable to write empty sources file.");
+            psFree(outhead);
+            psFree(table);
+            return false;
+        }
+        psFree (outhead);
+        psFree (table);
+        return true;
+    }
+
+    psTrace ("pmFPAfile", 5, "writing ext data %s\n", extname);
+    if (!psFitsWriteTable (fits, outhead, table, extname)) {
+        psError(psErrorCodeLast(), false, "writing ext data %s\n", extname);
+        psFree (outhead);
+        psFree(table);
+        return false;
+    }
+    psFree (outhead);
+    psFree (table);
+    return true;
+}
+
+bool pmSourcesRead_CMF_@CMFMODE@_XRAD(psFits *fits, pmReadout *readout, psMetadata *hduHeader, psMetadata *tableHeader, psArray *sources, long *sourceIndex)
+{
+    PS_ASSERT_PTR_NON_NULL(fits, false);
+    PS_ASSERT_PTR_NON_NULL(sources, false);
+
+    bool status;
+    long numSources = psFitsTableSize(fits); // Number of sources in table
+    if (numSources == 0) {
+        psError(psErrorCodeLast(), false, "XRAD Table contains no entries\n");
+        return false;
+    }
+
+    if (!setRadialBinsInAnalysis(readout, tableHeader)) {
+        psError(PS_ERR_UNKNOWN, false, "Failed to save radial bins in analysis");
+        return false;
+    }
+
+    long       seq_first = -1;
+    long       seq_last = -1;
+    psVector   *fwhmValues = psVectorAllocEmpty(10, PS_TYPE_F32);
+    long       max_entries = -1;
+    long       num_entries = -1;
+
+    for (long i = 0; i < numSources; i++) {
+        psMetadata *row = psFitsReadTableRow(fits, i); // Table row
+        if (!row) {
+            psError(psErrorCodeLast(), false, "Unable to read row %ld of sources", i);
+            psFree(row);
+            return false;
+        }
+        long seq = psMetadataLookupU32 (&status, row, "IPP_IDET");
+        long j = sourceIndex[seq];
+        psAssert(j >= 0 && j < sources->n, "invalid sourceIndex");
+        pmSource *source = sources->data[j];
+        if (!source) {
+            psError(PS_ERR_UNKNOWN, false, "Failed to find source for row %ld sequence number %ld\n", i, seq);
+            psFree(row);
+            return false;
+        }
+        if (seq_first == -1) {
+            seq_first = seq;
+        }
+        if (seq == seq_first) {
+            psF32 value = psMetadataLookupF32(&status, row, "PSF_FWHM");
+            psVectorAppend(fwhmValues, value);
+        }
+        if (seq == seq_last) {
+            num_entries++;
+        } else {
+            num_entries = 1;
+            seq_last = seq;
+        }
+        if (num_entries > max_entries) {
+            max_entries = num_entries;
+        }
+
+        if (!source->radialAper) {
+            // XXX: where to find the number of models to expect?
+            source->radialAper = psArrayAllocEmpty(5);
+        }
+        pmSourceRadialApertures *radialAper = pmSourceRadialAperturesAlloc();
+
+        radialAper->flux = psMemIncrRefCounter(psMetadataLookupVector(&status, row, "APER_FLUX"));
+        radialAper->fluxStdev = psMemIncrRefCounter(psMetadataLookupVector(&status, row, "APER_FLUX_STDEV"));
+        radialAper->fluxErr = psMemIncrRefCounter(psMetadataLookupVector(&status, row, "APER_FLUX_ERR"));
+        radialAper->fill = psMemIncrRefCounter(psMetadataLookupVector(&status, row, "APER_FILL"));
+
+        psArrayAdd(source->radialAper, 1, radialAper);
+
+        psFree(radialAper);
+        psFree(row);
+    }
+
+    // check for consistency between the length of fwhmValues and the maximum number of entries for each row
+    if (fwhmValues->n != max_entries) {
+        psError(PS_ERR_PROGRAMMING, true, "number of PSF_FWHM values found %ld does not match expected number: %ld\n",
+            fwhmValues->n, max_entries);
+        psAssert(0, "fixme");
+    }
+
+    if (!readout->analysis) {
+        readout->analysis = psMetadataAlloc();
+    }
+
+    psMetadataAddVector(readout->analysis, PS_LIST_TAIL, "STACK.PSF.FWHM.VALUES", PS_META_REPLACE, "PSF sizes", fwhmValues);
+    psFree(fwhmValues);
+
+    return true;
+}
+
+// XXX where should I record the number of columns??
+bool pmSourcesWrite_CMF_@CMFMODE@_XGAL (psFits *fits, pmReadout *readout, psArray *sources, char *extname, psMetadata *recipe)
+{
+    bool status = false;
+
+    // perform full non-linear fits / extended source analysis?
+    if (!psMetadataLookupBool (&status, recipe, "GALAXY_SHAPES")) {
+        psLogMsg ("psphot", PS_LOG_INFO, "galaxy shapes were not measured, skipping\n");
+        return true;
+    }
+
+    // create a header to hold the output data
+    psMetadata *outhead = psMetadataAlloc ();
+
+    // write the links to the image header
+    psMetadataAddStr (outhead, PS_LIST_TAIL, "EXTNAME", PS_META_REPLACE, "galaxy table extension", extname);
+
+    psF32 Q = psMetadataLookupF32(&status, recipe, "GALAXY_SHAPES_Q");
+    psMetadataAddF32 (outhead, PS_LIST_TAIL, "GALAXY_SHAPES_Q", PS_META_REPLACE, "", Q);
+
+    psF32 NSigma = psMetadataLookupF32(&status, recipe, "GALAXY_SHAPES_NSIGMA");
+    psMetadataAddF32 (outhead, PS_LIST_TAIL, "GALAXY_SHAPES_NSIGMA", PS_META_REPLACE, "", NSigma);
+
+    psF32 clampSN = psMetadataLookupF32(&status, recipe, "GALAXY_SHAPES_CLAMP_SN");
+    psMetadataAddF32 (outhead, PS_LIST_TAIL, "GALAXY_SHAPES_CLAMP_SN", PS_META_REPLACE, "", clampSN);
+
+    // They are probably already in this order but ...
+    sources = psArraySort (sources, pmSourceSortBySeq);
+
+    psArray *table = psArrayAllocEmpty (sources->n);
+
+    for (int i = 0; i < sources->n; i++) {
+
+        pmSource *thisSource = sources->data[i];
+
+        // this is the "real" version of this source 
+        pmSource *source = thisSource->parent ? thisSource->parent : thisSource;
+
+        // if we did not fit the galaxy model, modelFits will be NULL
+        if (source->modelFits == NULL) continue;
+
+        // if we did not fit the galaxy model, galaxyFits will also be NULL
+        if (source->galaxyFits == NULL) continue;
+
+        for (int iModel = 0; iModel < source->modelFits->n; iModel++) {
+            pmModel *model = source->modelFits->data[iModel];
+            if (!model) continue;
+
+            pmSourceGalaxyFits *galaxyFits = NULL;
+            for (int iFit = 0; iFit < source->galaxyFits->n; iFit++) {
+                galaxyFits = source->galaxyFits->data[iFit];
+                if (model->type == galaxyFits->modelType) break;
+                galaxyFits = NULL;
+            }
+
+            if (!galaxyFits) continue;
+
+            // X,Y coordinates are stored with the model parameters
+            psF32 *PAR = model->params->data.F32;
+
+            psMetadata *row = psMetadataAlloc ();
+
+            // we write out the x,y positions so people can link to the psf either way (position or ID)
+            psMetadataAddU32 (row, PS_LIST_TAIL, "IPP_IDET",         0, "IPP detection identifier index", source->seq);
+            psMetadataAddS32 (row, PS_LIST_TAIL, "MODEL_TYPE",       0, "model type",                     galaxyFits->modelType);
+            psMetadataAddF32 (row, PS_LIST_TAIL, "X_FIT",            0, "model x coordinate",             PAR[PM_PAR_XPOS]);
+            psMetadataAddF32 (row, PS_LIST_TAIL, "Y_FIT",            0, "model y coordinate",             PAR[PM_PAR_YPOS]);
+            psMetadataAddF32 (row, PS_LIST_TAIL, "NPIX",             0, "number of pixels for fits",      galaxyFits->nPix);
+            // psMetadataAddS32 (row, PS_LIST_TAIL, "REDUCED_TRIALS",   0, "source has reduced number of trials",      galaxyFits->reducedTrials);
+
+            psVector *Flux = galaxyFits->Flux;
+            psVector *dFlux = galaxyFits->dFlux;
+            psVector *chisq = galaxyFits->chisq;
+
+            psMetadataAddVector (row, PS_LIST_TAIL, "GAL_FLUX",     PS_META_REPLACE, "normalization for galaxy flux", Flux);
+            psMetadataAddVector (row, PS_LIST_TAIL, "GAL_FLUX_ERR", PS_META_REPLACE, "error on normalization", dFlux);
+            psMetadataAddVector (row, PS_LIST_TAIL, "GAL_CHISQ",    PS_META_REPLACE, "galaxy fit chisq", chisq);
+
+            psMetadataAddF32 (row, PS_LIST_TAIL, "FR_MAJOR_MIN",    0, "fractional major axis min",      galaxyFits->fRmajorMin);
+            psMetadataAddF32 (row, PS_LIST_TAIL, "FR_MAJOR_MAX",    0, "fractional major axis max",      galaxyFits->fRmajorMax);
+            psMetadataAddF32 (row, PS_LIST_TAIL, "FR_MAJOR_DEL",    0, "fractional major axis max",      galaxyFits->fRmajorDel);
+            psMetadataAddF32 (row, PS_LIST_TAIL, "FR_MINOR_MIN",    0, "fractional minor axis min",      galaxyFits->fRminorMin);
+            psMetadataAddF32 (row, PS_LIST_TAIL, "FR_MINOR_MAX",    0, "fractional minor axis max",      galaxyFits->fRminorMax);
+            psMetadataAddF32 (row, PS_LIST_TAIL, "FR_MINOR_DEL",    0, "fractional minor axis max",      galaxyFits->fRminorDel);
+
+            psArrayAdd (table, 100, row);
+            psFree (row);
+        }
+    }
+
+    if (table->n == 0) {
+        if (!psFitsWriteBlank (fits, outhead, extname)) {
+            psError(psErrorCodeLast(), false, "Unable to write empty sources file.");
+            psFree(outhead);
+            psFree(table);
+            return false;
+        }
+        psFree (outhead);
+        psFree (table);
+        return true;
+    }
+
+    psTrace ("pmFPAfile", 5, "writing galaxy data %s\n", extname);
+    if (!psFitsWriteTable (fits, outhead, table, extname)) {
+        psError(psErrorCodeLast(), false, "writing galaxy data %s\n", extname);
+        psFree (outhead);
+        psFree(table);
+        return false;
+    }
+    psFree (outhead);
+    psFree (table);
+    return true;
+}
+
+bool pmSourcesRead_CMF_@CMFMODE@_XGAL(psFits *fits, pmReadout *readout, psMetadata *hduHeader, psMetadata *tableHeader, psArray *sources, long *sourceIndex)
+{
+    PS_ASSERT_PTR_NON_NULL(fits, false);
+    PS_ASSERT_PTR_NON_NULL(sources, false);
+
+    bool status;
+    long numSources = psFitsTableSize(fits); // Number of sources in table
+    if (numSources == 0) {
+        psError(psErrorCodeLast(), false, "XGAL Table contains no entries\n");
+        return false;
+    }
+    if (!readout->analysis) {
+        readout->analysis = psMetadataAlloc();
+    }
+    psF32 Q = psMetadataLookupF32(&status, tableHeader, "GALAXY_SHAPES_Q");
+    // XXX: turn this into an assert once we're done
+    if (status) {
+        psMetadataAddF32 (readout->analysis, PS_LIST_TAIL, "GALAXY_SHAPES_Q", PS_META_REPLACE, "", Q);
+
+        psF32 NSigma = psMetadataLookupF32(&status, tableHeader, "GALAXY_SHAPES_NSIGMA");
+        psAssert(status, "missing GALAXY_SHAPES_NSIGMA");
+        psMetadataAddF32 (readout->analysis, PS_LIST_TAIL, "GALAXY_SHAPES_NSIGMA", PS_META_REPLACE, "", NSigma);
+
+        psF32 clampSN = psMetadataLookupF32(&status, tableHeader, "GALAXY_SHAPES_CLAMP_SN");
+        psAssert(status, "missing GALAXY_SHAPES_CLAMP_SN");
+        psMetadataAddF32 (readout->analysis, PS_LIST_TAIL, "GALAXY_SHAPES_CLAMP_SN", PS_META_REPLACE, "", clampSN);
+    }
+
+    for (long i = 0; i < numSources; i++) {
+        psMetadata *row = psFitsReadTableRow(fits, i); // Table row
+        if (!row) {
+            psError(psErrorCodeLast(), false, "Unable to read row %ld of sources", i);
+            psFree(row);
+            return false;
+        }
+        // Find the source with this sequence number. 
+        // XXX: I am assuming that sources is sorted in order of seq
+        long seq = psMetadataLookupU32 (&status, row, "IPP_IDET");
+        long j = sourceIndex[seq];
+        psAssert(j >= 0 && j < sources->n, "invalid sourceIndex");
+
+        pmSource *source = sources->data[j];
+        if (!source) {
+            psError(PS_ERR_UNKNOWN, false, "Failed to find source for row %ld sequence number %ld\n", i, seq);
+            psFree(row);
+            return false;
+        }
+
+        int modelType = psMetadataLookupS32 (&status,    row, "MODEL_TYPE");
+        psVector *Flux  = psMetadataLookupVector(&status, row, "GAL_FLUX");
+        psVector *dFlux = psMetadataLookupVector(&status, row, "GAL_FLUX_ERR");
+        psVector *chisq = psMetadataLookupVector(&status, row, "GAL_CHISQ");
+
+        if (Flux && Flux->n > 0) {
+            if (!source->galaxyFits) {
+                source->galaxyFits = psArrayAllocEmpty(1);
+            }
+
+            pmSourceGalaxyFits *galaxyFits = pmSourceGalaxyFitsAlloc();
+
+            psArrayAdd(source->galaxyFits, 1, galaxyFits);
+
+            psFree(galaxyFits);
+            galaxyFits->modelType = modelType;
+            galaxyFits->nPix = psMetadataLookupF32(&status, row, "NPIX");
+
+            galaxyFits->fRmajorMin = psMetadataLookupF32(&status, row, "FR_MAJOR_MIN");
+            galaxyFits->fRmajorMax = psMetadataLookupF32(&status, row, "FR_MAJOR_MAX");
+            galaxyFits->fRmajorDel = psMetadataLookupF32(&status, row, "FR_MAJOR_DEL");
+            galaxyFits->fRminorMin = psMetadataLookupF32(&status, row, "FR_MINOR_MIN");
+            galaxyFits->fRminorMax = psMetadataLookupF32(&status, row, "FR_MINOR_MAX");
+            galaxyFits->fRminorDel = psMetadataLookupF32(&status, row, "FR_MINOR_DEL");
+
+            psFree(galaxyFits->Flux);
+            galaxyFits->Flux  = psMemIncrRefCounter(Flux);
+            psFree(galaxyFits->dFlux);
+            galaxyFits->dFlux = psMemIncrRefCounter(dFlux);
+            psFree(galaxyFits->chisq);
+            galaxyFits->chisq = psMemIncrRefCounter(chisq);
+        }
+
+        psFree(row);
+    }
+
+    return true;
+}

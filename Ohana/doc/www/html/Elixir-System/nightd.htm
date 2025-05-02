@@ -1,0 +1,94 @@
+<meta name=file  content=nightd>
+<meta name=title content=nightd user's guide>
+<meta name=page  content=nightd>
+
+<p>
+The nightd daemon is a easily-customized daemon which performs a
+defined set of tasks on a nightly basis.  The program behavior is
+defined by the resource file, loaded at the start of execution.  The
+program can have any name, and loads the resource file with the name
+~/.programrc; ie, the implementation used by elixir to control the
+night elixir real-time systems is called 'ert' and it loads the file
+~/.ertrc.  
+
+<pre>
+HOME      /h/skyprobe
+
+DATA_PATH $HOME/data
+PID_FILE  $HOME/.skyprobe.pid
+LOG_FILE  $HOME/sp_daemon.log
+
+CCD_TEMP -20
+EXPTIME   30
+
+INIT_COMMAND sp_command cool $CCD_TEMP
+INIT_COMMAND sp_command init $DATA_PATH/&DATE
+MAIN_COMMAND sp_command expose $EXPTIME $DATA_PATH/&DATE/sp_&DATE_&TIME.fits
+DONE_COMMAND sp_command warm
+
+NIGHT_START 18:00
+NIGHT_STOP  06:00
+
+PERIOD 60
+TIMEOUT 300
+</pre>
+
+<p>
+Above is shown a typical nightd configuration script.  The nightd
+configuration defines commands and execution time scales.  The start
+and end times of the night are defined by the entries NIGHT_START and
+NIGHT_STOP.  The nightd configuration script defines three classes of
+commands: INIT, MAIN, DONE.  The INIT commands are executed in the
+order listed in the configuration script at the start of the night,
+while the DONE commands are executed at the end of the night.  The
+MAIN commands are executed on a regular basis from START to STOP using
+the interval defined by PERIOD (seconds).  The program monitors these
+processes and checks for completion within the TIMEOUT period;
+otherwise, the command is sent the kill signal.  
+
+<p>
+The entries PID_FILE and LOG_FILE are required entries. The PID_FILE
+stores the process id, user and machine for the given nightd
+implementation, and prevents multiple intances of the same process.
+The LOG_FILE is used for all error messages.  The other entries in the
+configuration script define variables to be use elsewhere in the
+script.  There are a few special variables: \&DATE, \&TIME, ???, which
+are expanded by nightd before the execution.
+
+<p>
+The nightd program takes several possible arguments on the command
+line:
+
+<pre>
+nightd start
+nightd stop
+nightd status
+nightd config
+</pre>
+
+<p>
+The 'start' command starts up the nightd program.  Currently, nightd
+does not fork itself into the background, so it is necessary to place
+it in the background manually (nightd start &).  It is not necessary
+to redirect the output; nightd will send all data to LOG_FILE if it
+can be opened and written to.  On start, nightd will check for the
+existence of the PID_FILE and give an error to stdout (not LOG_FILE)
+if it exists; only one implementation may run at a time.  Currently,
+nightd does not check for the existence of the process identified in
+the PID_FILE.  It is necessary for the user to confirm that such a
+process exists on the named machine.
+
+<p>
+The 'stop' command halts execution of the given nightd program.  It
+uses the information in the PID_FILE to remotely log onto the machine
+where the process is being executed and send the STOP signal.  Nightd
+will give an error if there is no PID_FILE, implying no currently
+running nightd.  It is necessary to have rsh access between machines
+for this to work.
+
+<p>
+The status command shows the pid information for the currently running
+nightd, or says that it is not running.
+
+<p>
+

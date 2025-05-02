@@ -1,0 +1,9 @@
+
+  buffers
+
+  buffers gives information about the currently allocated buffers.  
+A * next to the filename means the data has been altered from the
+originally read in image.
+
+  See also: memory
+

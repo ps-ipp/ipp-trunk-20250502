@@ -1,0 +1,14 @@
+[% USE format -%]
+[% indented = format('%-15s %s') -%]
+[% table.object_name %] *[% table.namespace %]ObjectFromMetadata(psMetadata *md)
+{
+
+[% INCLUDE lookup_from_metadata -%]
+
+    return [% table.object_name %]Alloc(
+[%- SET i = 0 -%]
+[% FOREACH item = table.columns -%]
+[% IF i == 0 -%][%- i = 1 -%][% ELSE %], [% END -%]
+[% item.name %]
+[%- END -%]);
+}

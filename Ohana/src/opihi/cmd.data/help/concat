@@ -1,0 +1,7 @@
+
+   concat v1 v2
+
+   Concatenates the values of vector v1 to the end of vector
+    v2, increasing the length of v2.
+
+   See also: subset, set

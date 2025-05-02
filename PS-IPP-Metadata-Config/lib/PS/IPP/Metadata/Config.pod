@@ -1,0 +1,137 @@
+=pod
+
+=head1 NAME
+
+PS::IPP::Metadata::Config - Parses the psMetadata config language
+
+=head1 SYNOPSIS
+
+    use PS::IPP::Metadata::Config;
+
+    my $mdparser = PS::IPP::Metadata::Config->new;
+    $mdparser->overwrite( 1 );
+
+    my $config = $mdparser->parse( $example );
+
+=head1 DESCRIPTION
+
+Parses the psMetadata configuration language into an AoH parse tree.
+
+=head1 USAGE
+
+=head2 Import Parameters
+
+This module accepts no arguments to it's C<import> method and exports no
+I<symbols>.
+
+=head2 Methods
+
+=head3 Constructors
+
+=over 4
+
+=item * new
+
+Accepts no parameters and returns a L<PS::IPP::Metadata::Config> object.
+
+=back
+
+=head3 Object Methods
+
+=over 4
+
+=item * overwrite
+
+Controls the behavior of the parser when encountering keys that have been
+defined more then once.  A true value instructs the parser to discard all but
+the latest declaration and a false value will preserve the first key parsed.
+Accepts 0, 1, or undef.
+
+Defaults to undef.
+
+=item * parse
+
+Accepts a string.  Returns an AoH structure on success or undef on failure.
+
+The format of the returned structure is as follows:
+
+    [
+        {
+            'comment'   => 'This is a comment',
+            'value'     => '123456789',
+            'name'      => 'Bob',
+            'type'      => 'U64',
+            'class'     => 'scalar'
+        },
+        {
+            'comment'   => 'These are prime numbers',
+            'value'     => [
+                            '2',
+                            '3'
+                        ],
+            'name'      => '@primes',
+            'type'      => 'U8',
+            'class'     => 'vector'
+        },
+        ...
+    ]
+
+=back
+
+=head1 DEVELOPER NOTES
+
+Currently, "multiple symbols" are translated into "STR" vectors as the
+appropriate behavior isn't clear in the psLib SDRS.
+
+The parser does not have complete support for all of C99's floating point
+constants or any support for complex numbers.
+
+None of the "extended" config language syntax, as defined in the SDRS, is
+supported.
+
+=head1 REFERENCES
+
+=over 4
+
+=item PSDC-430-007
+
+Pan-STARRS PS-1 IPP Library Supplementary Design Requirements Specification
+(SDRS): Section 5.3.4, "Configuration Files".
+
+=back
+
+=head1 CREDITS
+
+Just me, myself, and I.
+
+=head1 SUPPORT
+
+Please contact the author directly via e-mail.
+
+=head1 AUTHOR
+
+Joshua Hoblitt <jhoblitt@cpan.org>
+
+=head1 COPYRIGHT
+
+Copyright (C) 2005  Joshua Hoblitt.  All rights reserved.
+
+This program is free software; you can redistribute it and/or modify it under
+the terms of the GNU General Public License as published by the Free Software
+Foundation; either version 2 of the License, or (at your option) any later
+version.
+
+This program is distributed in the hope that it will be useful, but WITHOUT ANY
+WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A
+PARTICULAR PURPOSE.  See the GNU General Public License for more details.
+
+You should have received a copy of the GNU General Public License along with
+this program; if not, write to the Free Software Foundation, Inc., 59 Temple
+Place - Suite 330, Boston, MA  02111-1307, USA.
+
+The full text of the license can be found in the LICENSE file included with
+this module, or in the L<perlgpl> Pod as supplied with Perl 5.8.1 and later.
+
+=head1 SEE ALSO
+
+=cut

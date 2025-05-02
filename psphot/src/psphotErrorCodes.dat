@@ -1,0 +1,19 @@
+#
+# This file is used to generate psphotErrorClasses.h
+#
+BASE = 3000		First value we use
+UNKNOWN			Unknown PM error code
+NOT_IMPLEMENTED		Desired feature is not yet implemented
+FITS			Problem in FITS I/O
+FITS_WCS		Error interpreting FITS WCS information
+PHOTOM			Problem in photometry
+PSF			Problem in PSF
+APERTURE		Problem with aperture photometry
+SKY			Problem in sky determination
+IO			Problem in data I/O
+# these errors correspond to standard exit conditions
+ARGUMENTS               Incorrect arguments
+SYS                     System error
+CONFIG                  Problem in configure files
+PROG                    Programming error
+DATA                    invalid data

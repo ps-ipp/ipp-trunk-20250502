@@ -1,0 +1,20 @@
+
+- delstar 1.6 : 
+  * converted to gfits APIs (forces libfits 1.6)
+  * converted to new DVO APIs (forces libdvo 1.3)
+  * removed unused code
+
+- delstar 1.5 : 2006.03.26
+  * dropped IMAGE_CATALOG from config
+  * convert to dvo_image_lock,unlock
+
+- delstar 1.4 : 2006.01.06
+  * major work to support SkyRegions
+  * cleaned up signed/unsigned inconsistencies
+
+2005.10.20 : delstar.1-3
+
+    This release keeps delstar in sync with addstar v1.3.  Support is
+    added for the different modes and formats, and for the new
+    internal data types (eg, mags, not millimags).
+

@@ -1,0 +1,15 @@
+
+   input (filename)
+
+   execute a series of commands given in the file.
+
+   Two special examples:  
+   ~/.manarc is loaded on startup, which give the user a place to
+   define personal macros, or interesting variables, etc.
+
+   If mana is called in the form "mana file", the file is loaded
+   (after .manarc) before the user is given the command-line prompt.
+   This can be used to invoke mana in a shell script, but care should
+   be taken in a shell-script that the file ends with the word "exit"
+   or "quit", or strange things may happen...
+

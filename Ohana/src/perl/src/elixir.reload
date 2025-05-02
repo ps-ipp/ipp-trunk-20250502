@@ -1,0 +1,57 @@
+#!/usr/bin/env perl
+
+if (@ARGV != 1) { die "USAGE: elixir.reload (elixir)\n"; }
+
+$elixir = $ARGV[0];
+
+# if an elixir is not running, start it, send output to $logdir/$elixir.log
+$logdir = `gconfig LOGDIR`; chop $logdir;
+if ($?) { die "error getting LOGDIR from configuration system\n"; }
+chdir $logdir;
+
+$pidfile = `gconfig -D mode $elixir global.pid`; chop ($pidfile);
+if ($?) { die "error getting PID from configuration system - is elixir $elixir defined?\n"; }
+
+# check that elixir is running
+if (! -f $pidfile) { &launch ($elixir, $logdir); }
+
+# load pid information
+open (FILE, "$pidfile");
+@list = <FILE>;
+close (FILE);
+
+($name, $pid)     = split (" ", $list[0]);
+($name, $user)    = split (" ", $list[1]);
+($name, $machine) = split (" ", $list[2]);
+
+# check that this process exists?
+@list = `rsh $machine /bin/ps -A -o pid,cmd`;
+$dead = 1;
+foreach $line (@list) {
+    ($rpid, $cmd) = split (" ", $line);
+    if (($rpid == $pid) && ($cmd =~ /elixir/)) {
+	$dead = 0;
+	print STDERR "elixir $elixir is running as $pid on $machine\n";
+	last;
+    }
+}
+if ($dead) { 
+    unlink ($pidfile);
+    &launch ($elixir, $logdir); 
+}
+
+# send USR1 signal to process:
+print STDERR "restarting process $pid\n";
+system ("rsh $machine kill -USR1 $pid");
+exit 0;
+
+sub launch {
+
+    my ($elixir) = $_[0];
+    my ($logdir) = $_[1];
+
+    # if elixir is not running, start it
+    print STDERR "starting elixir $elixir\n"; 
+    system ("elixir -D mode $elixir >& $logdir/$elixir.log &");
+    exit 0;
+}

@@ -1,0 +1,29 @@
+
+  wd (buffer) (filename) [BITPIX]
+
+  wd writes a buffer to the specified file in FITS format.  (You may
+need quotes around the filename if there are any /'s in the path).
+The FITS keyword BITPIX may be specified.  Valid values are 8, 16, 32
+(integer formats) and -32, -64 (floating point formats).  If BITPIX is
+unspecified, the original value of the image is used.  The image is
+converted blindly to the format and written out.  This may mean that
+values are rounded (integers), or wrapped by the range of the number
+of bits.  Also beware of the issue of signed vs unsigned images.
+
+  See Also: rd
+
+bitpix  bzero  bscale  file range     data range
+16      0      1       -32k : 32k     -32k : 32k
+16	32k    1       -32k : 32k        0 : 64k
+16	0      2       -32k : 32k     -64k : 64k
+16	0      0.001   -32k : 32k     -32. : 32.
+32	0      1       -2e9 : 2e9     -2e9 : 2e9
+8	0      1       -128 : 128     -128 : 128
+
+so for example, a file with a data range of -128k to +128k written
+with bitpix 16, bzero 0, bscale 1 will have all data outside -32k :
++32k wrapped back in that range.
+
+note: on write, bzero is subtracted from the data before the data is
+      divided by bscale.
+

@@ -1,0 +1,8 @@
+/** Deletes a [% table.name %] table
+ *
+ * @return true on success
+ */
+
+bool [% table.namespace %]DropTable(
+    psDB            *dbh                ///< Database handle
+);

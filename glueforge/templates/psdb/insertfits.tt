@@ -1,0 +1,34 @@
+bool [% table.namespace %]InsertFits(psDB *dbh, const psFits *fits)
+{
+    psArray         *rowSet;
+
+    // move to (the first?) extension named  [% table.namespace FILTER upper %]_TABLE_NAME
+    if (!psFitsMoveExtName(fits, [% table.namespace FILTER upper %]_TABLE_NAME)) {
+        psError(PS_ERR_UNKNOWN, true, "failed to find FITS extension %s", [% table.namespace FILTER upper %]_TABLE_NAME);
+        return false;
+    }
+
+    // check HDU type
+    if (psFitsGetExtType(fits) != PS_FITS_TYPE_BINARY_TABLE)  {
+        psError(PS_ERR_UNKNOWN, true, "FITS HDU type is not PS_FITS_TYPE_BINARY_TABLE");
+        return false;
+    }
+
+    // read fits table
+    rowSet = psFitsReadTable(fits);
+    if (!rowSet) {
+        psError(PS_ERR_UNKNOWN, true, "FITS read error or FITS table is empty");
+        psFree(rowSet);
+        return false;
+    }
+
+    if (!psDBInsertRows(dbh, [% table.namespace FILTER upper %]_TABLE_NAME, rowSet)) {
+        psError(PS_ERR_UNKNOWN, false, "databse insert failed");
+        psFree(rowSet);
+        return false;
+    }
+
+    psFree(rowSet);
+
+    return true;
+}

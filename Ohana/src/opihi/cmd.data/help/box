@@ -1,0 +1,11 @@
+
+  box [-n Nwindow]
+
+  draw a coordinate box on the current kapa window, or on the window
+specified by -n (0 - 4).
+
+  See also: Kapa
+
+
+
+  

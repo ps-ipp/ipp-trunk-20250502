@@ -1,0 +1,27 @@
+m4_version_prereq([2.59])
+
+AT_INIT
+
+###
+[% INCLUDE alloc_at.tt %]
+###
+[% INCLUDE init_at.tt %]
+###
+[% INCLUDE cleanup_at.tt %]
+###
+[% INCLUDE createtable_at.tt %]
+###
+[% INCLUDE droptable_at.tt %]
+###
+[% INCLUDE insert_at.tt %]
+###
+[% INCLUDE insertobject_at.tt %]
+###
+[% INCLUDE insertfits_at.tt %]
+###
+[% INCLUDE selectrowsfits_at.tt %]
+###
+[% INCLUDE metadatafromobject_at.tt %]
+###
+[% INCLUDE objectfrommetadata_at.tt %]
+###

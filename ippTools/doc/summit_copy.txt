@@ -1,0 +1,49 @@
+The summit copy phase (phase Z or pz) consists of three basic steps.
+Discovering what exposures and available, discovering what image files are
+associated with those exposures, and the downloading of image files.  All
+"external" communication with the DataStore is done with three utilities;
+pzgetexp, pzgetimfiles & dsget.  While local state information is accessed and
+updated via the 'pztool' utility.
+
+The basic work follow is:
+
+pzgetexp retrieves a list of all of the exposures (filesets) available from a
+DataStore "product".  If any previously unknown file exposures are found they
+are added to the pzPendingExp tables and the summitExp table.  New entries to
+the summitExp table have a imfile value of NULL as this information can't yet
+be known.  If any exposures are already in the summitExp table the most recent
+exp_id is used to constrain the result set requested from the DataStore.
+
+    ./pzgetexp -uri http://otis/ds/skyprobe/ -inst skyprobe -telescope ps1
+
+The results of pzgetexp and accessible with pztool -pendingexp`.  Which will
+return a list of new exposures from the pzPendingExp table.
+
+    ./pztool -pendingexp
+
+The output of which is used to invoke pzgetimfiles.
+
+pzgetimfiles retrieves a list of all of the imfiles (files) in an exposure
+(fileset) from the DataStore.  It then updates the imfiles count in the
+summitExp table and adds each imfile to the pzPendingImfile table.
+
+./pzgetimfiles -uri http://otis/ds/skyprobe/sep8_twi_05/ -filesetid sep8_twi_05 -inst skyprobe -telescope ps1
+
+pztool -pendingimfile returns the list of imfiles that need to be downloaded.
+
+    ./pztool -pendingimfile
+
+The results of which are used to invoke dsget and pztool -copydone after dsget
+completes it's download.
+
+dsget from the 'DataStore' package takes the follow parameters.
+
+    dsget --uri <uri> --filename <filename> [--bytes <nbytes>] [--md5 <hex>]
+
+Where "filename" may be either just a filename relative to the CWD or a fully
+qualified path.  After dsget has copied the file pztool -copydone needs to be
+invoked
+
+    ./pztool -copydone -exp_id sep8_twi_03 -inst skyprobe -telescope ps1 -class chip -class_id sep8_twi_03.fits -uri file///data/alala/sep8_twi_03.fits
+
+And then we're Pau.

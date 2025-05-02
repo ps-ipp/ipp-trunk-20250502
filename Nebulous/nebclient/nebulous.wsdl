@@ -1,0 +1,462 @@
+<?xml version="1.0"?>
+<definitions name="NebulousServer"
+    targetNamespace="urn:Nebulous/Server/SOAP"
+    xmlns:tns="urn:Nebulous/Server/SOAP"
+    xmlns:soap="http://schemas.xmlsoap.org/wsdl/soap/"
+    xmlns:enc="http://schemas.xmlsoap.org/soap/encoding/"
+    xmlns:xsd="http://www.w3.org/2001/XMLSchema"
+    xmlns="http://schemas.xmlsoap.org/wsdl/"
+    xmlns:ns="urn:Nebulous/Server/SOAP">
+
+    <types>
+        <schema xmlns="http://www.w3.org/2001/XMLSchema"
+            targetNamespace="urn:Nebulous/Server/SOAP"
+            xmlns:wsdl="http://schemas.xmlsoap.org/wsdl/"
+            xmlns:soapenc="http://schemas.xmlsoap.org/soap/encoding/">
+ 
+            <complexType name="ArrayOfString">
+                <complexContent>
+                    <restriction base="soapenc:Array">
+                        <attribute ref="soapenc:arrayType" 
+                            wsdl:arrayType="string[]"/>
+                    </restriction>
+                </complexContent>
+            </complexType>
+        </schema>
+    </types>
+
+    <message name="create_objectRequest">
+        <part name="key" type="xsd:string" />
+        <part name="volume" type="xsd:string" />
+    </message>
+    <message name="create_objectResponse">
+        <part name="result" type="xsd:string" />
+    </message>
+
+    <message name="rename_objectRequest">
+        <part name="key1" type="xsd:string" />
+        <part name="key2" type="xsd:string" />
+    </message>
+    <message name="rename_objectResponse">
+        <part name="result" type="xsd:int" />
+    </message>
+
+    <message name="swap_objectsRequest">
+        <part name="key1" type="xsd:string" />
+        <part name="key2" type="xsd:string" />
+    </message>
+    <message name="swap_objectsResponse">
+        <part name="result" type="xsd:string" />
+    </message>
+
+    <message name="replicate_objectRequest">
+        <part name="key" type="xsd:string" />
+        <part name="volume" type="xsd:string" />
+    </message>
+    <message name="replicate_objectResponse">
+        <part name="result" type="xsd:string" />
+    </message>
+
+    <message name="lock_objectRequest">
+        <part name="key" type="xsd:string" />
+        <part name="type" type="xsd:string" />
+    </message>
+    <message name="lock_objectResponse">
+        <part name="result" type="xsd:int" />
+    </message>
+
+    <message name="unlock_objectRequest">
+        <part name="key" type="xsd:string" />
+        <part name="type" type="xsd:string" />
+    </message>
+    <message name="unlock_objectResponse">
+        <part name="result" type="xsd:int" />
+    </message>
+
+    <message name="setxattr_objectRequest">
+        <part name="key" type="xsd:string" />
+        <part name="name" type="xsd:string" />
+        <part name="value" type="xsd:string" />
+        <part name="flags" type="xsd:string" />
+    </message>
+    <message name="setxattr_objectResponse">
+        <part name="result" type="xsd:int" />
+    </message>
+
+    <message name="getxattr_objectRequest">
+        <part name="key" type="xsd:string" />
+        <part name="name" type="xsd:string" />
+    </message>
+    <message name="getxattr_objectResponse">
+        <part name="result" type="xsd:string" />
+    </message>
+
+    <message name="listxattr_objectRequest">
+        <part name="key" type="xsd:string" />
+    </message>
+    <message name="listxattr_objectResponse">
+        <part name="result" type="tns:ArrayOfString" />
+    </message>
+
+    <message name="removexattr_objectRequest">
+        <part name="key" type="xsd:string" />
+        <part name="name" type="xsd:string" />
+    </message>
+    <message name="removexattr_objectResponse">
+        <part name="result" type="xsd:int" />
+    </message>
+
+    <message name="find_objectsRequest">
+        <part name="pattern" type="xsd:string" />
+    </message>
+    <message name="find_objectsResponse">
+        <!-- fixme -->
+        <part name="result" type="tns:ArrayOfString" />
+    </message>
+
+    <message name="find_instancesRequest">
+        <part name="key" type="xsd:string" />
+        <part name="volume" type="xsd:string" />
+    </message>
+    <message name="find_instancesResponse">
+        <!-- fixme -->
+        <part name="result" type="tns:ArrayOfString" />
+    </message>
+
+    <message name="delete_instanceRequest">
+        <part name="key" type="xsd:string" />
+        <part name="uri" type="xsd:string" />
+    </message>
+    <message name="delete_instanceResponse">
+        <part name="result" type="xsd:int" />
+    </message>
+
+    <message name="stat_objectRequest">
+        <part name="key" type="xsd:string" />
+    </message>
+    <message name="stat_objectResponse">
+        <!-- fixme -->
+        <part name="result" type="tns:ArrayOfString" />
+    </message>
+
+    <message name="chmod_objectRequest">
+        <part name="key" type="xsd:string" />
+        <part name="mode" type="xsd:int" />
+    </message>
+    <message name="chmod_objectResponse">
+        <!-- fixme -->
+        <part name="result" type="xsd:int" />
+    </message>
+
+    <message name="prune_objectRequest">
+        <part name="key" type="xsd:string" />
+    </message>
+    <message name="prune_objectResponse">
+        <!-- fixme -->
+        <part name="result" type="xsd:int" />
+    </message>
+
+
+    <portType name="Nebulous/Server/SOAPPort">
+        <operation name="create_object">
+            <input  message="tns:create_objectRequest" />
+            <output message="tns:create_objectResponse" />
+            <!--
+                <fault name="" message="" />
+            -->
+        </operation>
+        <operation name="rename_object">
+            <input  message="tns:rename_objectRequest" />
+            <output message="tns:rename_objectResponse" />
+            <!--
+                <fault name="" message="" />
+            -->
+        </operation>
+        <operation name="swap_objects">
+            <input  message="tns:swap_objectsRequest" />
+            <output message="tns:swap_objectsResponse" />
+            <!--
+                <fault name="" message="" />
+            -->
+        </operation>
+        <operation name="replicate_object">
+            <input  message="tns:replicate_objectRequest" />
+            <output message="tns:replicate_objectResponse" />
+            <!--
+                <fault name="" message="" />
+            -->
+        </operation>
+        <operation name="lock_object">
+            <input  message="tns:lock_objectRequest" />
+            <output message="tns:lock_objectResponse" />
+            <!--
+                <fault name="" message="" />
+            -->
+        </operation>
+        <operation name="unlock_object">
+            <input  message="tns:unlock_objectRequest" />
+            <output message="tns:unlock_objectResponse" />
+            <!--
+                <fault name="" message="" />
+            -->
+        </operation>
+        <operation name="setxattr_object">
+            <input  message="tns:setxattr_objectRequest" />
+            <output message="tns:setxattr_objectResponse" />
+            <!--
+                <fault name="" message="" />
+            -->
+        </operation>
+        <operation name="getxattr_object">
+            <input  message="tns:getxattr_objectRequest" />
+            <output message="tns:getxattr_objectResponse" />
+            <!--
+                <fault name="" message="" />
+            -->
+        </operation>
+        <operation name="listxattr_object">
+            <input  message="tns:listxattr_objectRequest" />
+            <output message="tns:listxattr_objectResponse" />
+            <!--
+                <fault name="" message="" />
+            -->
+        </operation>
+        <operation name="removexattr_object">
+            <input  message="tns:removexattr_objectRequest" />
+            <output message="tns:removexattr_objectResponse" />
+            <!--
+                <fault name="" message="" />
+            -->
+        </operation>
+        <operation name="find_objects">
+            <input  message="tns:find_objectsRequest" />
+            <output message="tns:find_objectsResponse" />
+            <!--
+                <fault name="" message="" />
+            -->
+        </operation>
+        <operation name="find_instances">
+            <input  message="tns:find_instancesRequest" />
+            <output message="tns:find_instancesResponse" />
+            <!--
+                <fault name="" message="" />
+            -->
+        </operation>
+        <operation name="delete_instance">
+            <input  message="tns:delete_instanceRequest" />
+            <output message="tns:delete_instanceResponse" />
+            <!--
+                <fault name="" message="" />
+            -->
+        </operation>
+        <operation name="stat_object">
+            <input  message="tns:stat_objectRequest" />
+            <output message="tns:stat_objectResponse" />
+            <!--
+                <fault name="" message="" />
+            -->
+        </operation>
+        <operation name="chmod_object">
+            <input  message="tns:chmod_objectRequest" />
+            <output message="tns:chmod_objectResponse" />
+            <!--
+                <fault name="" message="" />
+            -->
+        </operation>
+        <operation name="prune_object">
+            <input  message="tns:prune_objectRequest" />
+            <output message="tns:prune_objectResponse" />
+            <!--
+                <fault name="" message="" />
+            -->
+        </operation>
+    </portType>
+
+
+    <binding name="SOAP" type="tns:Nebulous/Server/SOAPPort">
+        <soap:binding style="rpc" transport="http://schemas.xmlsoap.org/soap/http" />
+        <operation name="create_object">
+            <soap:operation soapAction="urn:Nebulous/Server/SOAP#create_object" />
+            <input>
+                <soap:body use="encoded" namespace="urn:Nebulous/Server/SOAP"
+                    encodingStyle="http://schemas.xmlsoap.org/soap/encoding/" />
+            </input>
+            <output>
+                <soap:body use="encoded" namespace="urn:Nebulous/Server/SOAP"
+                    encodingStyle="http://schemas.xmlsoap.org/soap/encoding/" />
+            </output>
+        </operation>
+        <operation name="rename_object">
+            <soap:operation soapAction="urn:Nebulous/Server/SOAP#rename_object" />
+            <input>
+                <soap:body use="encoded" namespace="urn:Nebulous/Server/SOAP"
+                    encodingStyle="http://schemas.xmlsoap.org/soap/encoding/" />
+            </input>
+            <output>
+                <soap:body use="encoded" namespace="urn:Nebulous/Server/SOAP"
+                    encodingStyle="http://schemas.xmlsoap.org/soap/encoding/" />
+            </output>
+        </operation>
+        <operation name="swap_objects">
+            <soap:operation soapAction="urn:Nebulous/Server/SOAP#swap_objects" />
+            <input>
+                <soap:body use="encoded" namespace="urn:Nebulous/Server/SOAP"
+                    encodingStyle="http://schemas.xmlsoap.org/soap/encoding/" />
+            </input>
+            <output>
+                <soap:body use="encoded" namespace="urn:Nebulous/Server/SOAP"
+                    encodingStyle="http://schemas.xmlsoap.org/soap/encoding/" />
+            </output>
+        </operation>
+        <operation name="replicate_object">
+            <soap:operation soapAction="urn:Nebulous/Server/SOAP#replicate_object" />
+            <input>
+                <soap:body use="encoded" namespace="urn:Nebulous/Server/SOAP"
+                    encodingStyle="http://schemas.xmlsoap.org/soap/encoding/" />
+            </input>
+            <output>
+                <soap:body use="encoded" namespace="urn:Nebulous/Server/SOAP"
+                    encodingStyle="http://schemas.xmlsoap.org/soap/encoding/" />
+            </output>
+        </operation>
+        <operation name="lock_object">
+            <soap:operation soapAction="urn:Nebulous/Server/SOAP#lock_object" />
+            <input>
+                <soap:body use="encoded" namespace="urn:Nebulous/Server/SOAP"
+                    encodingStyle="http://schemas.xmlsoap.org/soap/encoding/" />
+            </input>
+            <output>
+                <soap:body use="encoded" namespace="urn:Nebulous/Server/SOAP"
+                    encodingStyle="http://schemas.xmlsoap.org/soap/encoding/" />
+            </output>
+        </operation>
+        <operation name="unlock_object">
+            <soap:operation soapAction="urn:Nebulous/Server/SOAP#unlock_object" />
+            <input>
+                <soap:body use="encoded" namespace="urn:Nebulous/Server/SOAP"
+                    encodingStyle="http://schemas.xmlsoap.org/soap/encoding/" />
+            </input>
+            <output>
+                <soap:body use="encoded" namespace="urn:Nebulous/Server/SOAP"
+                    encodingStyle="http://schemas.xmlsoap.org/soap/encoding/" />
+            </output>
+        </operation>
+        <operation name="setxattr_object">
+            <soap:operation soapAction="urn:Nebulous/Server/SOAP#setxattr_object" />
+            <input>
+                <soap:body use="encoded" namespace="urn:Nebulous/Server/SOAP"
+                    encodingStyle="http://schemas.xmlsoap.org/soap/encoding/" />
+            </input>
+            <output>
+                <soap:body use="encoded" namespace="urn:Nebulous/Server/SOAP"
+                    encodingStyle="http://schemas.xmlsoap.org/soap/encoding/" />
+            </output>
+        </operation>
+        <operation name="getxattr_object">
+            <soap:operation soapAction="urn:Nebulous/Server/SOAP#getxattr_object" />
+            <input>
+                <soap:body use="encoded" namespace="urn:Nebulous/Server/SOAP"
+                    encodingStyle="http://schemas.xmlsoap.org/soap/encoding/" />
+            </input>
+            <output>
+                <soap:body use="encoded" namespace="urn:Nebulous/Server/SOAP"
+                    encodingStyle="http://schemas.xmlsoap.org/soap/encoding/" />
+            </output>
+        </operation>
+        <operation name="listxattr_object">
+            <soap:operation soapAction="urn:Nebulous/Server/SOAP#listxattr_object" />
+            <input>
+                <soap:body use="encoded" namespace="urn:Nebulous/Server/SOAP"
+                    encodingStyle="http://schemas.xmlsoap.org/soap/encoding/" />
+            </input>
+            <output>
+                <soap:body use="encoded" namespace="urn:Nebulous/Server/SOAP"
+                    encodingStyle="http://schemas.xmlsoap.org/soap/encoding/" />
+            </output>
+        </operation>
+        <operation name="removexattr_object">
+            <soap:operation soapAction="urn:Nebulous/Server/SOAP#removexattr_object" />
+            <input>
+                <soap:body use="encoded" namespace="urn:Nebulous/Server/SOAP"
+                    encodingStyle="http://schemas.xmlsoap.org/soap/encoding/" />
+            </input>
+            <output>
+                <soap:body use="encoded" namespace="urn:Nebulous/Server/SOAP"
+                    encodingStyle="http://schemas.xmlsoap.org/soap/encoding/" />
+            </output>
+        </operation>
+        <operation name="find_objects">
+            <soap:operation soapAction="urn:Nebulous/Server/SOAP#find_objects" />
+            <input>
+                <soap:body use="encoded" namespace="urn:Nebulous/Server/SOAP"
+                    encodingStyle="http://schemas.xmlsoap.org/soap/encoding/" />
+            </input>
+            <output>
+                <soap:body use="encoded" namespace="urn:Nebulous/Server/SOAP"
+                    encodingStyle="http://schemas.xmlsoap.org/soap/encoding/" />
+            </output>
+        </operation>
+        <operation name="find_instances">
+            <soap:operation soapAction="urn:Nebulous/Server/SOAP#find_instances" />
+            <input>
+                <soap:body use="encoded" namespace="urn:Nebulous/Server/SOAP"
+                    encodingStyle="http://schemas.xmlsoap.org/soap/encoding/" />
+            </input>
+            <output>
+                <soap:body use="encoded" namespace="urn:Nebulous/Server/SOAP"
+                    encodingStyle="http://schemas.xmlsoap.org/soap/encoding/" />
+            </output>
+        </operation>
+        <operation name="delete_instance">
+            <soap:operation soapAction="urn:Nebulous/Server/SOAP#delete_instance" />
+            <input>
+                <soap:body use="encoded" namespace="urn:Nebulous/Server/SOAP"
+                    encodingStyle="http://schemas.xmlsoap.org/soap/encoding/" />
+            </input>
+            <output>
+                <soap:body use="encoded" namespace="urn:Nebulous/Server/SOAP"
+                    encodingStyle="http://schemas.xmlsoap.org/soap/encoding/" />
+            </output>
+        </operation>
+        <operation name="stat_object">
+            <soap:operation soapAction="urn:Nebulous/Server/SOAP#stat_object" />
+            <input>
+                <soap:body use="encoded" namespace="urn:Nebulous/Server/SOAP"
+                    encodingStyle="http://schemas.xmlsoap.org/soap/encoding/" />
+            </input>
+            <output>
+                <soap:body use="encoded" namespace="urn:Nebulous/Server/SOAP"
+                    encodingStyle="http://schemas.xmlsoap.org/soap/encoding/" />
+            </output>
+        </operation>
+        <operation name="chmod_object">
+            <soap:operation soapAction="urn:Nebulous/Server/SOAP#chmod_object" />
+            <input>
+                <soap:body use="encoded" namespace="urn:Nebulous/Server/SOAP"
+                    encodingStyle="http://schemas.xmlsoap.org/soap/encoding/" />
+            </input>
+            <output>
+                <soap:body use="encoded" namespace="urn:Nebulous/Server/SOAP"
+                    encodingStyle="http://schemas.xmlsoap.org/soap/encoding/" />
+            </output>
+        </operation>
+        <operation name="prune_object">
+            <soap:operation soapAction="urn:Nebulous/Server/SOAP#prune_object" />
+            <input>
+                <soap:body use="encoded" namespace="urn:Nebulous/Server/SOAP"
+                    encodingStyle="http://schemas.xmlsoap.org/soap/encoding/" />
+            </input>
+            <output>
+                <soap:body use="encoded" namespace="urn:Nebulous/Server/SOAP"
+                    encodingStyle="http://schemas.xmlsoap.org/soap/encoding/" />
+            </output>
+        </operation>
+    </binding>
+
+
+    <service name="Nebulous/Server/SOAP">
+        <port name="Nebulous/Server/SOAPPort" binding="tns:SOAP">
+            <soap:address location="http://localhost:80/nebulous" />
+        </port>
+    </service>
+</definitions>

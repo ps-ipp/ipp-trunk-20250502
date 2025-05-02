@@ -1,0 +1,8 @@
+
+  erase (overlay)
+
+  "erase" erases all objects on the specified overlay.  
+  Valid overlays may be: all, red, green, blue, yellow.
+
+  See also: load, save, contour
+

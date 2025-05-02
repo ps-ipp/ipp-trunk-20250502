@@ -1,0 +1,156 @@
+#!/usr/bin/env perl
+# this program takes a list template, with CCDNUM substituted for the 
+# CCD number.  each file contains a list of statistics for each image.  The program
+# loads the names, then for each frame, it goes through the CCDNUM entries
+# and loads the appropriate statistics, writing them to the output file
+#
+# this program returns immediately if all CCDNUM entries are not found.
+# the previous function, detstats, must not create the *.stats file until the 
+# process is done.  similarly, this program deletes the *.stats files to avoid 
+# confusion on a second pass
+
+@ccdn = split (" ", `cameraconfig -ccdn`);
+@ccds = split (" ", `cameraconfig -ccds`);
+if ($?) { die "ERROR: configuration problem\n"; }
+
+sub vsystem {
+    print STDERR "@_\n";
+    $status = system ("@_");
+    $status;
+}
+
+sub goodbye {
+    die "@_\n";
+}
+
+if (@ARGV != 3) { die "ERROR: USAGE: mosaic.stats (name) (out) (type)\n" }
+
+$type = "\U$ARGV[2]\E";
+
+# load option list of ccds to skip (specific to run/camera)
+$CHIPSKIP     = `gconfig CHIP_SKIP_LIST`; chop $CHIPSKIP;
+@chipskip = ();
+if (-e $CHIPSKIP) { 
+    open (FILE, $CHIPSKIP);
+    @chipskip = <FILE>;
+    close (FILE);
+    foreach $chip (@chipskip) { chop $chip; }
+}
+
+# modify the list of ccds to exclude chipskip entries
+$N = @ccds;
+CCD: for ($i = 0; $i < $N; $i++) {
+    $ccds = shift @ccds;
+    $ccdn = shift @ccdn;
+
+    foreach $skip (@chipskip) { if ($skip eq $ccds) { next CCD; } }
+    push @ccds, $ccds;
+    push @ccdn, $ccdn;
+}
+
+# check for the existence of each input file, exit if non-existent
+foreach $ccd (@ccdn) {
+    $name = $ARGV[0];
+    $name =~ s/CCDNUM/$ccd/;
+    unless (-r $name) {
+	print STDERR "ERROR: can't find $name\n";
+	exit (0);
+    }
+}
+
+# load in stats from files (Nlist*Nccd entries)
+# each file contains stats for a single ccd, for all N files
+foreach $ccd (@ccdn) {
+    $name = $ARGV[0];
+    $name =~ s/CCDNUM/$ccd/;
+
+    open (FILE, $name);
+    @$ccd = <FILE>;
+    close (FILE);
+
+    if ($ccd eq $ccdn[0]) { $Nline = @$ccd; }
+    if (@$ccd != $Nline) { die "ERROR mis-matched file lengths\n"; }
+}    
+
+$dawn = 0;
+$dusk = 1;
+@pdate = ();
+@ptwil = ();
+$Nperiod = 0;
+@period = ();
+
+open (OUTPUT, ">$ARGV[1]");
+for ($i = 0; $i < $Nline; $i++) {
+
+    $mean  = 0;
+    $medn  = 0;
+    $sig12 = 0;
+    $sig22 = 0;
+    $mean2 = 0;
+    $mbin  = 0;
+    $sbin2 = 0;
+    $mbin2 = 0;
+
+    foreach $ccd (@ccdn) {
+	$line = $$ccd[$i];
+	chop ($line);
+	@words = split (" ", $line);
+	$file = $words[0];
+	$date = $words[1];
+	$time = $words[2];
+	$stat = $words[9];
+	$mean  += $words[3];
+	$medn  += $words[4];
+	$sig12 += $words[5]*$words[5];
+	$sig22 += $words[6]*$words[6];
+	$mean2 += $words[3]*$words[3];
+
+	$mbin  += $words[7];
+	$sbin2 += $words[8]*$words[8];
+	$mbin2 += $words[7]*$words[7];
+    }
+    $N = @ccdn;
+
+    # identify even or morn twilight
+    @words = split (':', $time);
+    if (($words[0] > 12) && ($words[0] < 24)) {
+	$twilite = $dawn;
+    } else {
+	$twilite = $dusk;
+    }
+    $ThisPeriod = -1;
+    for ($j = 0; $j < $Nperiod; $j++) {
+	if (($pdate[$j] eq $date) && ($ptwil[$j] == $twilite)) {
+	    $ThisPeriod = $j;
+	    last;
+	}
+    }
+    if ($ThisPeriod == -1) {
+	$ThisPeriod = $Nperiod;
+	@pdate = (@pdate, $date);
+	@ptwil = (@ptwil, $twilite);
+	$Nperiod ++;
+    }
+    @period = (@period, $ThisPeriod);
+
+    # determine global statistics
+    $Mean  = $mean / $N;
+    $Medn  = $medn / $N;
+    $Mbin  = $mbin / $N;
+
+    if ($type eq "FLAT") {
+      $Sig1  = sqrt ($sig12 / $N + $mean2 / $N - $Mean*$Mean) / abs ($Mean);
+      $Sig2  = sqrt ($sig22 / $N + $mean2 / $N - $Mean*$Mean) / abs ($Mean);
+      $Sbin  = sqrt ($sbin2 / $N + $mbin2 / $N - $Mbin*$Mbin) / abs ($Mbin);
+    } else {
+      $Sig1  = sqrt ($sig12 / $N + $mean2 / $N - $Mean*$Mean);
+      $Sig2  = sqrt ($sig22 / $N + $mean2 / $N - $Mean*$Mean);
+      $Sbin  = sqrt ($sbin2 / $N + $mbin2 / $N - $Mbin*$Mbin);
+    }      
+
+    printf OUTPUT "%6s %10s %11s %7.1f %7.1f %6.4f %6.4f %7.1f %6.4f %d %s %d %d\n", 
+    $file, $date, $time, $Mean, $Medn, $Sig1, $Sig2, $Mbin, $Sbin, $period[$i], $pdate[$period[$i]], $ptwil[$period[$i]], $stat;
+
+}    
+close (OUTPUT);
+print STDERR "SUCCESS\n";

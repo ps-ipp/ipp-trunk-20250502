@@ -1,0 +1,1 @@
+SELECT stackSumSkyfile.* FROM stackSumSkyfile

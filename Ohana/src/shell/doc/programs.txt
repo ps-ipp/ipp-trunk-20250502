@@ -1,0 +1,61 @@
+block			: x
+checkdisks		: x
+ckastro			: x
+dads.cleanup		: x
+dads.remef		: x
+dads.split		: +
+doflips			: x
+dumptape		: x
+elixir.fork		: x
+fits2jpeg		: x
+flatten.flips		: +
+flatten.subaru		: x (fake)
+gettemps		: x
+gopsfphot		: x
+gosexphot		: +
+imstats			: +
+merge.lists		: x
+mk2d			: x
+normalize		: x
+normalize.invert	: x
+phot.by.night		: x
+pt.export		: x
+rm.elixir		: x
+setpath			: x
+sexstats		: x
+detstats		: x
+
+getfocus		: [which chips should be camera-dependent]
+getseeing		: [which chip should be camera-dependent]
+mkjpeg			: [scale and ccd list should be camera-dependend]
+
+mk.ptlist		: - [ccds in list need to be ID, not N - add option to imsearch?]
+el_plots		: - (in script mana/elixir)
+
+skyprobe should have its own minimal config file
+
+skyprobephot		: [cleanup up config reference]
+sp_expose		: x
+split.mef		: x
+spphot			: [abstract RAWDIR, etc?]
+sp_plots		: [abstract plot directory?]
+
+mkfringe stuff:
+
+fr.fitstats		: +
+fr.imstats		: +
+fr.mkimage		: 
+fr.mkrough		: 
+fr.mkstats		: 
+fr.smooth		: 
+fr.stats		: 
+getfringe		: 
+defringe		: - (not very clean; might work)
+fr.defringe		: - (some major issues..)
+
+
+already checked:
+
+mode.imstats
+mode.sextract
+mode.flips

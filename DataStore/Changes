@@ -1,0 +1,60 @@
+Revision history for Perl module DataStore
+
+0.08
+    - add --copies option to dsget
+    - have dsget set "user.copies" xattr on files downloaded into Nebulous
+    - change dsget to flush() & sync() downloaded files
+    - change ds*ls utilties to always return the HTTP status code - 300 as the
+      exit status
+    - add --xattr flag to dsget
+
+0.07 Mon May 12 12:04:24 HST 2008
+    - add --timeout option to all ds*ls utilties and other minor doc changes
+    - add the ability to all DataStore::* classes that handle HTTP to pass
+      options directly to LWP::UserAgent
+    - add support for checksumming compressed fits files
+    - Change DateStore::File to handle passing args to LWP::UserAgent
+    - change dsget to return the HTTP status code on failure
+    - remove use of parse_neb_key() from dsget
+    - dsget doc updates
+    - fix error reporting bug is dsfilesetls
+    - change dsget to overwrite existing Nebulous keys
+    - trap exceptions from DateStore::File::Parse in DataStore::FileSet being
+      caused by empty file lists
+
+0.06 Thu Feb  1 13:57:56 HST 2007
+    - fix dsleech to handle valid but empty filesets
+    - change dsfilesetls to output "extra" fields
+    - add --overwrite option to dsleech
+    - distcheck fixes
+
+0.05 Fri Sep  1 11:28:13 HST 2006
+    - add --recall, --remember, & rcfile support to dsleech
+    - add a dep on YAML 0.58
+
+0.04 Thu Aug 31 13:01:59 HST 2006
+    - allow upper & lower case characters in DataStore fields
+    - change from lower to upper case all fileset types
+    - change DataStore::File to always return a DataStore::Response (even when
+      there is a problem with the retrieved file)
+    - add dsleech script
+
+0.03 Wed Aug 30 12:46:00 HST 2006
+    - fix a bug in dsproductls where ->status was being called on a
+      DataStore::Response instead of ->status_line
+    - Added a Root object and associated Product::Parser to query the root of
+      the datastore.
+    - The 'is_success' field in a Response now gets its value carried over from
+      the HTTP::Response as intended.
+    - The 'data' field in a Response can now be undef to indicate that no
+      records were parsed.
+    - Root::request, Product::request, FileSet::request now always return a
+      Response object.
+    - FileSets and Files will now have any additional non-standard fields
+      parsed into the @extra array.
+    - Updated tests.
+
+0.01 Thu Feb 23 13:55:57 2006
+    - original version; created by ExtUtils::ModuleMaker 0.44
+
+

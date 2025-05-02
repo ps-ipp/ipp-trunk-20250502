@@ -1,0 +1,17 @@
+
+I have divided the (non-user) functions into classes. 
+
+- conversions can be placed in a single library
+
+- graph and image (tv) functions can be placed in a library
+
+- the opihi shell functions can go into a third library
+
+- the dvo-related functions can go into a fourth
+
+- i need to clean up the mana and dimm misc functions, and put them in libraries 
+
+- the user functions also need to go into some libraries.
+
+- how do I have the library add its functions to the command list?
+

@@ -1,0 +1,165 @@
+/** @file  psErrorCodes.c
+ *
+ *  @brief Contains the error codes for the error classes
+ *
+ *  @ingroup ErrorHandling
+ *
+ *  @author Robert DeSonia, MHPCC
+ *
+ *  @version $Revision: 1.9 $ $Name: not supported by cvs2svn $
+ *  @date $Date: 2007-02-07 01:21:54 $
+ *
+ *  Copyright 2004-2005 Maui High Performance Computing Center, University of Hawaii
+ */
+
+#include <string.h>
+
+#include "psError.h"
+#include "psErrorCodes.h"
+#include "psList.h"
+#include "psMemory.h"
+
+
+
+static psErrorDescription staticErrorCodes[] = {
+            {PS_ERR_NONE,"not an error"},
+            {PS_ERR_BASE,"base error"},
+            {PS_ERR_${ErrorCode},"${ErrorDescription}"},
+            {PS_ERR_N_ERR_CLASSES,"error classes end marker"}
+        };
+
+static psList* dynamicErrorCodes = NULL;
+static const psErrorDescription* getErrorDescription(psErrorCode code);
+
+
+static const psErrorDescription* getErrorDescription(psErrorCode code)
+{
+    // first, search the static error codes
+
+    psS32 n = 0;
+    while(staticErrorCodes[n].code != PS_ERR_N_ERR_CLASSES &&
+            staticErrorCodes[n].code != code) {
+        n++;
+    }
+
+    if (staticErrorCodes[n].code == code) {
+        return &staticErrorCodes[n];
+    } else {
+        psErrorDescription* desc;
+        // make sure there is a list to search
+        if (dynamicErrorCodes == NULL) {
+            return NULL;
+        }
+
+        // search dynamic list of error descriptions before giving up.
+        psListIterator* iter = psListIteratorAlloc(dynamicErrorCodes,PS_LIST_HEAD,true);
+        while ((desc = (psErrorDescription*)psListGetAndIncrement(iter)) != NULL) {
+            if (desc->code == code) {
+                psFree(iter);
+                return desc;
+            }
+        }
+        psFree(iter);
+    }
+    return NULL;
+}
+
+static void freeErrorDescription(psErrorDescription* err)
+{
+    psFree(err->description);
+}
+
+psErrorDescription* psErrorDescriptionAlloc(psErrorCode code,
+        const char *description)
+{
+    psErrorDescription* err = psAlloc(sizeof(psErrorDescription));
+    err->code = code;
+    if (description == NULL) {
+        err->description = NULL;
+    } else {
+        err->description = psAlloc(sizeof(char)*strlen(description)+1);
+        strcpy((char*)err->description,description);
+    }
+
+    psMemSetDeallocator(err,(psFreeFunc)freeErrorDescription);
+    return err;
+}
+
+
+const char *psErrorCodeString(psErrorCode code)
+{
+    // Check input argument is non-negative
+    if ( code < 0 ) {
+        return NULL;
+    }
+
+    const psErrorDescription* desc = getErrorDescription(code);
+
+    if (desc == NULL) {
+        return NULL;
+    }
+
+    return desc->description;
+}
+
+void psErrorRegister(const psErrorDescription* errors,
+                     int errorCode)
+{
+    if (errorCode < 1) {
+        return;
+    }
+
+    if (errors == NULL) {
+        psError(PS_ERR_BAD_PARAMETER_NULL, true,
+                _("Specified psErrorDescription pointer can not be NULL."));
+        return;
+    }
+
+    if (dynamicErrorCodes == NULL) {
+        dynamicErrorCodes = psListAlloc(NULL);
+        psMemSetPersistent(dynamicErrorCodes,true);
+
+        psMemSetPersistent(dynamicErrorCodes->iterators,true);
+        psMemSetPersistent(dynamicErrorCodes->iterators->data,true);
+        for (int i = 0; i < dynamicErrorCodes->iterators->n;i++) {
+            psMemSetPersistent(dynamicErrorCodes->iterators->data[i],true);
+        }
+    }
+
+    for (psS32 i = 0; i < errorCode; i++) {
+        psErrorDescription* err = psErrorDescriptionAlloc(
+                                      errors[i].code, errors[i].description);
+        psMemSetPersistent(err,true);
+        psMemSetPersistent((psPtr)err->description,true);
+        if (! psListAdd(dynamicErrorCodes,
+                        PS_LIST_HEAD,
+                        err) ) {
+
+            psError(PS_ERR_UNKNOWN, false,
+                    _("Failed to add input psErrorDescription at array index %d."),
+                    i);
+        }
+        psMemSetPersistent(dynamicErrorCodes->head,true);
+        psFree(err);
+    }
+}
+
+bool p_psErrorUnregister(psErrorCode code)
+{
+    // Check input argument is non-negative
+    if ( code < 0 ) {
+        return false;
+    }
+
+    const psErrorDescription* desc = getErrorDescription(code);
+
+    if (desc == NULL) {
+        return false;
+    }
+
+    if (dynamicErrorCodes == NULL) {
+        return false;
+    }
+
+    return psListRemoveData(dynamicErrorCodes,(psPtr)desc);
+}

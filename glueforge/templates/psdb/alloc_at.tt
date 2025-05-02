@@ -1,0 +1,6 @@
+AT_SETUP([[% table.object_name %]Alloc()])
+AT_KEYWORDS([[% table.object_name %]Alloc])
+
+AT_CHECK([alloc])
+
+AT_CLEANUP

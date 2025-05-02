@@ -1,0 +1,25 @@
+
+command-line options from imregister:
+-split	     - OK
+-noreg	     - OK
+
+command-line options from imsearch:
+-type	     - ok
+-etime	     - ok
+-mode	     - ok
+-ccd	     - ok
+-filter	     - ok
+-name	     - ok
+
+-treg	     -ok
+-seq	     -ok
+-pt	     -ok
+-table	     -ok
+-bintable    -ok
+-del	     -ok
+-delete	     -ok
+-newpath     -ok
+-mef2split   -ok 
+-split2mef   -ok
+
+

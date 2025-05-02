@@ -1,0 +1,1 @@
+SELECT staticskyResult.* FROM staticskyResult

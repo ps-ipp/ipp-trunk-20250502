@@ -1,0 +1,3 @@
+SELECT
+    detNormalizedExp.*
+FROM detNormalizedExp

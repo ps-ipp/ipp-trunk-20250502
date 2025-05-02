@@ -1,0 +1,273 @@
+
+Pantasks interacts with a parallel job manager.  The current version
+is 'pcontrol', but we would like to allow interactions with condor as
+well.  This file documents the pantasks / controller interactions and
+the requirements for implementing a condor (or other) interface.
+
+Some terminology:
+
+* controller : the abstract concept of the software or system which
+  manages parallel jobs for pantasks.
+
+* pcontrol : the default (Ohana-native) controller implementation
+
+Pantasks Controller Commands.  
+
+The following commands are available within the pantasks shell to send
+commands to the controller.  Within the pantasks shell, these are
+invoked with "controller (command) [options]".  When running the
+pcontrol shell on its own, these commands are called directly.
+
+* check job (jobID)
+* check host (hostID)
+
+check on the status of a single job or host.  the jobID or hostID is
+an integer value [1].  The return is a block of information giving the
+status and some other infomation.  
+
+For 'host', the return is of the form:
+
+host (state)
+STATUS 1
+
+where (state) is one of IDLE, BUSY, RESP, DONE, DOWN, OFF.
+
+For 'job', the return is of the form:
+
+STATUS (status)
+EXITST (Nexit)
+STDOUT (Nbytes)
+STDERR (Nbytes)
+DTIME  (elapsed time)
+
+where:
+
+(status) is one of PENDING, BUSY, DONE, EXIT, CRASH
+(Nexit) is the exit status of the command (ie, as if it were run on
+	the UNIX command line).
+(Nbytes) is the size of the standard out and standard error buffers
+	 from the job
+(elapsed time) is the number of seconds it took to run the command;
+	 this is only set on exit.
+
+* exit
+
+Tell the controller to exit.  In pantasks, it is necessary to give this command in
+the form 'controller exit TRUE'.
+
+* host [options] : manipulate hosts managed by the controller.  The
+following commands may be given:
+
+  * host add (hostname) [-threads N] : add a new connection to the host
+    (hostname).  The optional -threads N argument specifies the default
+    value for this machine for the @MAX_THREADS@ directive.  A job sent
+    to this machine with @MAX_THREADS@ in the command line will have
+    that value replaced by "-threads N" for this machine, were N is the
+    value specified in this host add command.
+  
+  * host on (hostname) : tell the controller to activate the specified
+    host
+  
+  * host off (hostname) : tell the contoller to de-activate the
+    specified host
+  
+  * host check (hostname) : check the status of the given host by
+    hostname (returns 'host (hostname) is (status)' where (status) is
+    one of the list given above for check host
+  
+  * host retry (hostname) : tell the controller to re-attempt a
+    connection to the specified machine NOW (if the connection failed,
+    pcontrol attempts to connect with an increasingly long timeout.  If
+    the timeout is long, but the user knows the machine is now alive,
+    they may desire to force a connection attempt sooner rather than
+    waiting for the timeout to complete).
+  
+  * host delete (hostname) : remove the named host from the list of
+    managed hosts.
+
+Note that the controller manages connections to host machines by
+name. Multiple connections are not generally tied together -- as far
+as pantasks normally is aware, they are not related.  Thus, if a given
+session has N connections to a given machine (host add was called N
+times), then manipulation of the state of the machine may require N
+calls of the same function.  (Note that commands which change a
+machine state, such as 'on', 'off', 'delete' only affect machines in
+the appropriate state.  eg, 'host on ipp050' is invalid if ipp050 is not
+currently off.
+
+* hoststack (stack) : list the hosts in the given 'stack'.  A
+  collection of hosts in a given state is called a 'stack' of hosts.
+  This command lists all of the hosts in one of the stacks.  Stack
+  names are case-insensitive and may be one of the following:
+
+  * IDLE : machines which are currently unoccupied with processing
+  * BUSY : machines which are currently active
+  * RESP : machines which are currently active and responding to
+           another command
+  * DONE : machines which have completed a job, but are not yet ready
+    	   to accept a new job.
+  * DOWN : machines which are currently unresponsive (pcontrol will
+    	   try to reconnect after an interval)
+  * OFF  : machines which are currently off (pcontrol will not try to reconnect)
+
+The response to this command is a list of the machines (a series of
+lines each with ID NAME on a single line).
+
+* jobstack (stack) : list the jobs in the given 'stack'.  Like the
+  hosts, a collection of jobs in a given state is called a 'stack' of
+  jobs.  This command lists all of the jobs in one of the stacks.
+  Stack names are case-insensitive and may be one of the following
+
+  * PENDING : job is waiting for a host
+  * BUSY    : job is running on a host
+  * RESP    : job is running on a host, and responding to another command
+  * DONE    : job has finished, but its completion state has not yet
+    	      been assessed
+  * EXIT    : job finished with a valid exit status (ie, no abort or segfault)
+  * CRASH   : job aborted or segfaulted
+  * KILL    : kill has been requested for the job
+
+* machines : list the status of the hosts by unique machine name.
+  This command is one of the few which work with the multiple
+  connections to a single named machine as the same connection.  The
+  command lists the number of connections to the give machine, the
+  number of jobs currently running on that host, and the number of
+  jobs running on another host which requested the given host. 
+
+* parameters : set several pcontrol internal parameters.  this
+  function lets the user interact with the pcontrol shell and set some
+  internal state variables. The 3 currently allowed options are:
+
+  * parameters connect_time (time) : set the maximum time a pclient is
+    kept alive before pcontrol attempts to reset the connection (time
+    in seconds?)
+  * parameters wanthost_wait (time) : set the amount of time pcontrol
+    will wait before sending a job to a host other than the desired
+    host (time in seconds)
+  * parameters unwanted_host_jobs (Njobs) : set the number of jobs
+    allowed to run which desire a specific host.  this parameters
+    prevents pcontrol from overloading some specific machine due to
+    I/O operations when the process operation is elsewhere.
+
+ * output : print the bufers which carry the controller output.  when
+   pcontrol starts up, the output can be redirected to a file.  if it
+   is not redirected, it is stored by pantasks.  the buffer is not
+   normally dumped in a regular fashion, and can fill the pantasks
+   memory usage.  this command dumps the output to pantasks, and can
+   also flush the buffer (if the "flush" option is given).
+
+ * run : set the run level for the controller.  the command is of the
+   form "run (level)".  pcontrol may be in one of 4 run levels: 
+   * all : all normal pcontrol ops (this is aslo set with no optional
+     	   argument to the run command).
+   * reap : keep the machines running (maintain comms and turn on/off
+     	    as needed) and harvest results from jobs, but do not spawn
+   	    new jobs.
+   * hosts : manage the machines, but do not manage jobs (spawn or
+     	     harvest).
+   * none  : stop all pcontrol processing
+
+ * status : report the current status of the controller: list all
+   known jobs and all known hosts, giving their status.
+
+ * stop : stop all pcontrol processing (equivalent to "run none")
+
+ * verbose : turn on verbose mode for pcontrol (output to pcontrol.log
+   or use "controller output").
+
+ * version : print version info for pcontrol
+
+ * pulse : in non-threaded pcontrol mode (deprecated), set the
+   readline timeout.
+  
+[1] : note that the command 'controller status' includes the job and
+host ID values in the form X.X.X.X where X is a hexidecimal number.
+Unfortunately, pcontrol does not understand this format for the IDs
+for the 'check' command.   
+
+--
+
+Pantasks / Controller Interactions
+
+Pantasks Threads & Controller Interactions
+
+Pantasks has a server/client mode and a stand-alone mode.  These share
+the bulk of code, but there are some minor difference.  In stand-alone
+mode, there are 3 active threads.  The main thread interprets the
+commands (accepted by readline); a second thread manages the tasks and
+jobs known to pantasks; the third thread manages interactions with the
+parallel controller.   In server/client mode, a fourth thread manages
+the communcations with the remote clients.  
+
+The task/job thread is responsible for monitoring the task rules and
+constructing the commands which corresponds to jobs when appropriate.
+Those jobs which are defined to be local are executed on the local
+machine, while remote jobs are sent to the thread which interacts with
+the parallel controller.
+
+The primary job of the controller thread is to monitor the status of
+jobs submitted to the controller and to harvest jobs which have
+finished.  A secondary job is to flush the stdout and stderr buffers
+of the pantasks / pcontrol connection.  
+
+Jobs are submitted to the controller directly by the Task/Job thread.
+Other operations, check as manual checks of the job status are
+performed by the main thread.
+
+Commands send to pcontrol:
+
+In addition to the user-level commands discussed above, the following
+messages are sent to the controller:
+
+* jobstack exit : the controller thread checks for the set of completed
+  jobs (which did not crash) by sending this command.  The response is
+  a list of jobs ready for harvest.
+
+* jobstack crash : the controller thread checks for the set of
+  complete jobs which crashed by sending this command.  The response
+  is a list of jobs ready for harvest.
+
+* delete : jobs which have completed and for which the stderr/stdout
+  have been received can be deleted from the controller.  For
+  'pcontrol', this is necessary to free up resources managing the
+  specific job.
+
+* check job : once the controller gets a list of jobs which have
+  exited or crashed, pantasks loops over those jobs, harvesting their
+  results.  this command is used to get the needed stats (size of
+  stderr buffer, size of stdout buffer, exit status, etc).  
+
+* job : Submit a job to the controller.  this command is used by the
+  function SubmitControllerJob to send a new job to the controller.
+  the function appends options such as +host, -nice as needed.  the
+  function expects to receive a job ID from the controller for future
+  interactions.
+
+* quit : shutdown the controller
+
+---
+
+pantasks & condor
+
+There are three classes of pcontrol operations which pantasks
+currently perform:
+
+* submit jobs to pcontrol
+* detect completion and harvest job output
+* manage the hosts used by pcontrol
+
+The communication between pantasks and pcontrol uses a pipe; pcontrol
+is run as a forked child of pantasks.  The communication is done via
+text blocks with fairly minimal hand-shaking.  
+
+If pantasks is integrated with condor, it is critical that it be able
+to perform the first two of these functions.  It is not required that
+pantasks manage the condor hosts.
+
+Condor client / server interaction could be performed via forked
+commands or we could use the SOAP interface.  I suspect that SOAP will
+be more effective for the high-rate job harvesting process.
+
+However jobs are submitted to condor, it is critical that condor be
+able to respect the limit on the number of mistargeted jobs currently
+active.

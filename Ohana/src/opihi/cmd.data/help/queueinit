@@ -1,0 +1,4 @@
+
+   queueinit (name)
+
+   Creates a queue (name) with an initial size of 0

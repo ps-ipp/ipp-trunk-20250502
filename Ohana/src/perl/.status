@@ -1,0 +1,60 @@
+elixir status
+elixir flips
+elixir ptolemy
+nav
+nav
+!radec -hms
+region 168.148 6.9777 1.0
+catalog -g -m 14 20
+catalog -g -all -m 14 20
+style -pt 1
+region 168.148 6.9777 1.0
+catalog -g -all -m 14 20
+region 168.148 6.9777 0.3
+region 168.148 6.9777 1.0
+region 168.148 6.9777 0.3
+catalog -g -all -m 14 20
+catalog -g -all -m 10 15
+region 168.148 6.9777 0.3
+catalog -g -all -m 10 15
+nav
+pmeasure -all -m 16 22
+nav
+pmeasure -all -m 16 22
+style -pt 2
+c
+elixir flips
+elixir ptolemy
+elixir flips
+elixir complete
+elixir complete -time
+elixir complete -time
+na
+region
+region 30 0 90 ait
+style -c red; cgrid
+style -c black; images
+box
+region 30 0 90 ait
+style -c red; cgrid
+region 40 0 90 ait
+style -c red; cgrid
+style -c black; images
+clear
+style -c red; cgrid
+style -c black; images
+jpeg -g -name /h/eugene/spplots/allsky.png
+elixir complete
+elixir complete
+elixir complete -time
+elixir complete -time
+elixir complete -time
+elixir complete
+elixir complete
+echo {2500*60/11}
+echo {2500*60/11/3600}
+elixir complte
+elixir complete
+elixir complete -time
+elixir complete
+elixir complete -kill

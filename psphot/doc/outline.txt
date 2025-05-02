@@ -1,0 +1,56 @@
+
+Here is a summary outline of the steps taken by psphotReadout:
+
+* setup (choose recipe, readout, etc)
+
+* create mask and weight images if needed
+
+* construct a background model image and subtract it
+
+* generate the significance image (smoothed by small Gaussian)
+
+* find peaks and associated footprints
+
+* create sources for each peak and measure moments
+  - scan over several window sigma values and choose an optimal window size
+  - at this stage, the moments are aimed at identifying psf-like objects
+
+* identify blended sources by proximity and valley depth
+
+* crude source classification guess based on moments & saturated pixels
+  - major goal is to identify the psf-stars
+  - allows for 2D variations in the psf 
+
+* use the selected PSF candidate stars to generate a PSF model	
+  - fits PSF model parameters as a function of position
+  - uses psfMag - apMag to choose order of 2D  (minimize systematic error in this value)
+  - generates a PSF residual image & optional 2D variations
+
+* fit all detected sources to the psf model (linear fit for normalization only)
+
+* high-quality source classification
+  - uses Mxx, Myy, psfMag - moment->Sum (equiv to apMags) 
+  * should the extended / psf cut be a function of galactic latitude?
+  * should the cosmic ray / psf cut be a function of galactic latitude?
+
+* non-linear fit for all brighter sources to single psf, double psf, or extended source model
+  - sources identified as extended above are fitted with extended source model
+  * are group / clumps of sources being fitted in the best way?
+  * is the psf-model ap mag being measured in an appropriate-size aperture?
+  * is the criterion for choosing between 2 psfs and extended source OK?
+  * is the test for double psf OK? (uses moments to guess starting positions)
+  
+* subtract, re-detect, measure faint sources (PSF-only)
+
+* optional extended source aperture-like measurements (petrosian, etc)
+
+* optional extended source non-linear fits (Sersic, etc)
+
+* measure psfMag-apMag correcion (2D)
+  * convert analysis to use systematic error measurement 
+
+* generate magnitudes
+
+* measure detection efficiency
+
+* output

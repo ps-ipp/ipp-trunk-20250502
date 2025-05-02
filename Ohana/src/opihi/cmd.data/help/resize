@@ -1,0 +1,6 @@
+
+   resize Nx Ny
+
+   change the size of the Kii window to have image dimensions Nx x
+   Ny.  
+

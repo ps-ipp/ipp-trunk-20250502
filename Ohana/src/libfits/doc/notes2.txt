@@ -1,0 +1,51 @@
+
+complete list of FITS table APIs:
+
+int fits_create_table (Header *header, FTable *table) 
+int fits_create_Theader (Header *header, char *type)  - create empty extension header 
+int fits_create_table_header (Header *header, char *type, char *extname) - create valid table header
+
+int fits_define_bintable_column (Header *header, char *format, char *label, char *comment, char *unit, double bscale, double bzero)
+int fits_define_table_column (Header *header, char *format, char *label, char *comment, char *unit) - 
+
+int fits_get_bintable_column (Header *header, FTable *table, char *label, void **data)
+int fits_get_table_column (Header *header, FTable *table, char *label, void **data)
+
+int fits_set_bintable_column (Header *header, FTable *table, char *label, void *data, int Nrow)
+int fits_set_table_column (Header *header, FTable *table, char *label, void *data, int Nrow)
+
+int fits_read_table (char *filename, Table *table)
+int fits_read_ftable (char *filename, FTable *table, char *extname)
+int fits_fread_ftable (FILE *f, FTable *table, char *extname)
+int fits_fread_vtable (FILE *f, VTable *table, char *extname, int Nrow, int *row)
+
+int fits_read_Theader (char *filename, Header *Theader)
+int fits_load_Theader (FILE *f, Header *Theader)
+int fits_fread_Theader (FILE *f, Header *Theader)
+
+int fits_bintable_format (char *format, char *type, int *Nval, int *Nbytes)
+int fits_table_format (char *format, char *type, int *Nval, int *Nbytes)
+
+  interpret table column format values.  
+  format - input column format value (TFORM), output C-style printing format
+  type   - char, int, float, double : use to case pointers
+  Nval   - number of entries 
+  Nbytes - bytes per entry
+
+int fits_table_to_vtable (FTable *ftable, VTable *vtable, int start, int Nkeep)
+
+int fits_add_rows (FTable *table, char *data, int Nrow, int Nbytes)
+int fits_vadd_rows (VTable *table, char *data, int Nrow, int Nbytes)
+int fits_delete_rows (FTable *table, int Nstart, int Nrow)
+
+int fits_write_table (char *filename, FTable *table)
+int fits_fwrite_table (FILE *f, FTable *table)
+int fits_fwrite_vtable (FILE *f, VTable *table)
+
+int fits_write_Theader (char *filename, Header *header)
+int fits_fwrite_Theader (FILE *f, Header *header)
+
+void fits_get_table_column (table, X, mode, values)  - REMOVED
+void fits_get_table_value (table, X, Y, mode, value) - REMOVED
+int fits_table_column (Table *table, char *field, char *mode,...) - REMOVED
+

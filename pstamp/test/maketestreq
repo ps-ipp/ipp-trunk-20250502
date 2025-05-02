@@ -1,0 +1,160 @@
+#!/bin/env perl
+###
+### maketest
+###
+###     Program to take a text format postage stamp request specification
+###     and generate a postage stamp request fits file and optionally submit it for processing
+###
+
+use warnings;
+use strict;
+
+use Getopt::Long qw( GetOptions ) ; # :config auto_help auto_version gnu_getopt );
+use Pod::Usage qw( pod2usage );
+use PS::IPP::Config qw( :standard );
+use PS::IPP::PStamp::RequestFile qw( :standard );
+use PS::IPP::PStamp::Job qw( :standard );
+use File::Temp qw(tempfile);
+use File::Basename qw(basename);
+use IPC::Cmd 0.36 qw( can_run run );
+use Carp;
+use POSIX;
+
+my $missing_tools;
+my $pstamp_request_file  = can_run('pstamp_request_file')  or (warn "Can't find required program pstamp_request_file"  and $missing_tools = 1);
+my $pstamptool  = can_run('pstamptool')  or (warn "Can't find required program pstamptool"  and $missing_tools = 1);
+my $pstampdump  = can_run('pstampdump')  or (warn "Can't find required program pstampdump"  and $missing_tools = 1);
+if ($missing_tools) {
+    warn("Can't find required tools.");
+    exit ($PS_EXIT_CONFIG_ERROR);
+}
+
+
+my ($input, $submit, $listfile, $delete, $simple, $tag_req_name, $req_name, $email);
+my ($dbname, $dbserver);
+my ($save_temps, $verbose);
+
+my $req_name_base = 'test.';
+my $label = 'TEST';
+my $outdir = $ENV{PWD};
+
+GetOptions(
+    'input|i=s'         => \$input,
+    'outdir=s'          => \$outdir,
+    'submit|s'          => \$submit,
+    'req_name=s'        => \$req_name,
+    'req_name_base=s'   => \$req_name_base,
+    'tag_req_name'      => \$tag_req_name,
+    'label=s'           => \$label,
+    'email=s'           => \$email,
+    'username=s'        => \$email, # I always forget what the option is
+
+    'dbname=s'           => \$dbname,
+    'dbserver=s'         => \$dbserver,
+
+    'listfile|l'        => \$listfile,
+    'simple'            => \$simple,
+    'delete'            => \$delete,        # delete request file (after listing perhaps disabled if $submit
+
+    'verbose|v'         => \$verbose,
+    'save-temps'        => \$save_temps,
+) or pod2usage(2);
+
+pod2usage( -msg => "Unknown option: @ARGV", -exitval => 2 ) if @ARGV;
+
+pod2usage( -msg => "Required options: --input") 
+    unless (defined $input) ;
+pod2usage( -msg => "Required options: --req_name or --req_name_base") 
+    unless (defined $req_name or defined $req_name_base);
+
+die ("Input file $input not found\n") unless (-e $input);
+die ("Input file $input not readable\n") unless (-r $input);
+
+if (!$dbname or !$dbserver) {
+    my $ipprc = PS::IPP::Config->new('GPC1');
+
+    if (!$dbserver) {
+        $dbserver =  metadataLookupStr($ipprc->{_siteConfig}, 'PS_DBSERVER');
+        die ("couldn't find dbserver in site.config\n") unless $dbserver;
+    }
+    if (!$dbname) {
+        $dbname =  metadataLookupStr($ipprc->{_siteConfig}, 'PS_DBNAME');
+        die ("couldn't find dbname in site.config\n") unless $dbname;
+    }
+}
+$pstamptool .= " -dbserver $dbserver -dbname $dbname";
+
+
+# if request name was not supplied make one
+if (!$req_name) {
+    if ($tag_req_name) {
+        # use the input file name with .txt removed as the tag
+        my $tag = $input;
+        $tag =~ s/\.txt$//;
+        $req_name_base = "$req_name_base$tag.";
+    }
+    my $datestr = strftime "%Y%m%dT%H%M%S", gmtime;
+    $req_name .= $req_name_base . $datestr;
+}
+
+my $table_extension = 'tbl';
+
+if (! ($outdir =~ /^\//) ) {
+    # turn relative path into absolute
+    $outdir = $ENV{PWD} . "/$outdir";
+}
+
+my $request_file_name = "$outdir/$req_name.$table_extension";
+
+# build the request fits table
+{
+    my $command = "$pstamp_request_file --input $input --output $request_file_name";
+    $command .= " --req_name $req_name" if $req_name;
+    $command .= " --email $email" if $email;
+    my ( $success, $error_code, $full_buf, $stdout_buf, $stderr_buf ) =
+        run(command => $command, verbose => $verbose);
+    unless ($success) {
+        print STDERR @$stderr_buf;
+        exit $error_code >> 8;
+    }
+}
+die ("cannot find request file $request_file_name\n") unless -e $request_file_name;
+
+# optionally use pstampdump to show the contents of the request file
+if ($listfile) {
+    my $command = "$pstampdump -header $request_file_name";
+    $command .= " -simple" if $simple;
+    my ( $success, $error_code, $full_buf, $stdout_buf, $stderr_buf ) =
+        run(command => $command, verbose => $verbose);
+    unless ($success) {
+        print STDERR @$stderr_buf;
+        exit $error_code >> 8;
+    }
+    print join "", @$stdout_buf;
+}
+
+# optionally submit the request by adding it to the database.
+# Note that once the request has been processed the request file is copied to the postage stamp working
+# directories so these files may be deleted.
+if ($submit) {
+    my $command = "$pstamptool -addreq -uri $request_file_name -label $label";
+    $command .= " -username $email" if $email;
+    my ( $success, $error_code, $full_buf, $stdout_buf, $stderr_buf ) =
+        run(command => $command, verbose => $verbose);
+    unless ($success) {
+        print STDERR @$stderr_buf;
+        exit $error_code >> 8;
+    }
+    my $output = join "", @$stdout_buf;
+    print "RequestFile $request_file_name submitted. req_id $output";
+} else {
+    # we aren't submitting the file that we just built
+    # optionally delete it
+    if ($delete) {
+        unlink $request_file_name or die "failed to delete request file $request_file_name\n";
+    } else {
+        print "RequestFile $request_file_name\n";
+    }
+}
+
+exit 0;

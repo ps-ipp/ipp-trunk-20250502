@@ -1,0 +1,349 @@
+#!/usr/bin/env perl
+
+# global vars:
+$atmach  = "druid.cfht.hawaii.edu";
+$runlist = "";
+@runlist = ();
+
+# check usage
+if (@ARGV < 1) {
+    print STDOUT "USAGE: mkrun (mode) [arguments]\n";
+    print STDOUT " mkrun help gives a complete list\n";
+    &goodbye;
+}
+if ($ARGV[0] eq "help") { &usage; }
+
+&set_globals;
+
+# call appropriate command
+if ($ARGV[0] eq "create") { &create (@ARGV); }
+if ($ARGV[0] eq "addqso") { &addqso (@ARGV); }
+if ($ARGV[0] eq "delqso") { &delqso (@ARGV); }
+if ($ARGV[0] eq "status") { &status; }
+if ($ARGV[0] eq "sched")  { &sched  (@ARGV); }
+
+print STDOUT "invalid mkrun command\n";
+exit 1;
+
+sub status {
+
+    &load_runlist;
+    foreach $line (@runlist) {
+	print STDOUT "$line\n";
+    }
+    exit 0;
+}
+
+############
+sub create {
+
+    my (@argv) = @_;
+    
+    if (@argv != 4) {
+	print STDOUT "USAGE: mkrun create (run) (start) (stop)\n";
+	exit 2;
+    }
+
+    $runid = $argv[1];
+    $start = $argv[2];
+    $stop  = $argv[3];
+
+    &load_runlist;
+    
+    $line = grab_runline ($runid);
+    ($Orunid, $Ostart, $Ostop, $qrunid) = split (" ", $line);
+    $line = mk_runline ($runid, $start, $stop, $qrunid);
+    insert_runline ($line);
+
+    &save_runlist;
+    exit 0;
+}
+
+############
+sub addqso {
+
+    my (@argv) = @_;
+    
+    if (@argv != 3) {
+	print STDOUT "USAGE: mkrun addqso (run) (qsorun)\n";
+	exit 2;
+    }
+
+    $runid = $argv[1];
+    $qrunid  = $argv[2];
+
+    &load_runlist;
+    
+    $line = grab_runline ($runid);
+    if ($line eq "") { 
+	print STDERR "run id $runid not in run list\n";
+	exit 1;
+    }
+    ($runid, $start, $stop, $Oqrunid) = split (" ", $line, 4);
+    if ($Oqrunid) {
+	$qrunid = $Oqrunid . " " . $qrunid;
+    } 
+
+    $line = mk_runline ($runid, $start, $stop, $qrunid);
+    insert_runline ($line);
+
+    &save_runlist;
+    exit 0;
+}
+
+############
+sub delqso {
+    my (@argv) = @_;
+    if (@argv != 2) {
+	print STDOUT "USAGE: mkrun addqso (qsorun)\n";
+	exit 2;
+    }
+
+    $qrunid  = $argv[1];
+
+    &load_runlist;
+    
+    # find listed qrunid
+    $match = "";
+  SEARCH:
+    foreach $line (@runlist) {
+	if ($line =~ /^\#/) { next; } # skip commented lines
+	($tmp, $tmp, $tmp, $qlist) = split (" ", $line, 4);
+	@qlist = split (" ", $qlist);
+	foreach $qid (@qlist) {
+	    if ($qrunid ne $qid) { next; }
+	    $match = $line;
+	    last SEARCH;
+	}
+    }
+    if ($match eq "") {
+	print STDERR "QSO run id $qrunid not found in run list\n";
+	exit 1;
+    }
+
+    # recreate $qlist without $qrunid
+    $qlist = "";
+    foreach $qid (@qlist) {
+	if ($qid eq $qrunid) { next; }
+	$qlist = $qlist . $qid . " ";
+    }
+
+    ($runid, $start, $stop) = split (" ", $match);
+
+    $line = mk_runline ($runid, $start, $stop, $qlist);
+    insert_runline ($line);
+
+    &save_runlist;
+    exit 0;
+}
+
+##############
+
+sub sched {
+    my (@argv) = @_;
+    if (@argv != 2) {
+	print STDOUT "USAGE: mkrun sched (runid)\n";
+	exit 2;
+    }
+
+    $runid  = $argv[1];
+    &load_runlist;
+    
+    $line = grab_runline ($runid);
+    ($runid, $start, $stop, $qlist) = split (" ", $line, 4);
+
+    at_loop ($runid, $start, $stop);
+    
+    exit 0;
+}
+
+##############
+sub at_loop {
+    my ($runid, $start, $stop);
+    $runid = $_[0];
+    $start = $_[1];
+    $stop  = $_[2];
+    
+    $mjd_start = date_to_mjd ($start);
+    $mjd_stop  = date_to_mjd ($stop);
+
+    $Nday = $mjd_stop - $mjd_start;
+
+    ($year, $month, $day) = $start =~ /(\d+)\/(\d+)\/(\d+)/;
+    for ($Day = -1; $Day < $Nday; $Day++) {
+	
+	# 'at' needs date in format MM/DD/YYYY or DD.MM.YYYY
+	$tday = $day + $Day;
+	$date = `date -d $year/$month/$tday +%m/%d/%Y`; chop ($date);
+
+	if ($Day == -1) {
+	    atcommand ("clear.rawdir -current >& /h/eugene/cfh12k/logs/clear.log &", "10:00", $date);
+	}
+
+	if ($Day == 0) {
+	    atcommand ("echo RUNID $runid > /h/cfh12k/elixir.run", "10:00", $date);
+	    atcommand ("mkdetrend create $runid $start $stop >& /h/eugene/cfh12k/logs/mkdetrend.log", "10:05", $date);
+	    atcommand ("mkfringe config $runid >& /h/eugene/cfh12k/logs/mkdetrend.log", "10:10", $date);
+	    atcommand ("mkfringe mkconfig $runid >& /h/eugene/cfh12k/logs/mkdetrend.log", "10:15", $date);
+	    
+	    atcommand ("elixir -D mode imstats >& /h/eugene/cfh12k/logs/imstats.log &", "15:00", $date);
+	    atcommand ("elixir -D mode sextract >& /h/eugene/cfh12k/logs/ptolemy.log &", "15:00", $date);
+	    atcommand ("gettemps &", "15:00", $date);
+	    atcommand ("elixir.report &", "15:00", $date);
+	}
+
+	if (($Day > 0) && ($Day < 4)) {
+	    atcommand ("mkdetrend init >& /h/eugene/cfh12k/logs/mkdetrend.log; mkdetrend run >& /h/eugene/cfh12k/logs/mkdetrend.log", "07:00", $date);
+	}
+	if ($Day >= 4) {
+	    atcommand ("mkdetrend update >& /h/eugene/cfh12k/logs/mkdetrend.log", "07:00", $date);
+	}
+	if ($Day > 0) {
+	    # atcommand ("clear /h/cfh12k/images/elixir", "12:00", $date);
+	}
+    }
+}
+
+####### runlist utilities ############################
+sub load_runlist {
+    open (FILE, "$runlist");
+    @runlist = <FILE>;
+    foreach $line (@runlist) {
+	chop ($line);
+    }
+    close (FILE);
+}    
+
+sub save_runlist {
+    open (FILE, ">$runlist");
+    foreach $line (@runlist) {
+	print FILE "$line\n";
+    }
+    close (FILE);
+}    
+
+sub grab_runline {
+    my ($id) = $_[0];
+    my ($line);
+    my ($runid);
+
+    foreach $line (@runlist) {
+	if ($line =~ /^\#/) { next; } # skip commented lines
+	($runid) = split (" ", $line);
+	if ($runid ne $id) { next; }
+	return ($line);
+    }
+    return ("");
+}
+    
+sub insert_runline {
+    my ($runline) = $_[0];
+    my ($line);
+    my ($runid, $id);
+
+    # match the run id lines
+    ($id) = split (" ", $runline);
+    foreach $line (@runlist) {
+	if ($line =~ /^\#/) { next; } # skip commented lines
+	($runid) = split (" ", $line);
+	if ($runid ne $id) { next; }
+	$line = $runline;
+	return 1;
+    }
+    @runlist = (@runlist, $runline);
+    return 0;
+}
+
+sub mk_runline {
+    my ($runid, $start, $stop, $qrunid, $line);
+    $runid  = $_[0];
+    $start  = $_[1];
+    $stop   = $_[2];
+    $qrunid = $_[3];
+
+    $start = date_format ($start);
+    $stop  = date_format ($stop);
+    $line = sprintf "%s %s %s  %s", $runid, $start, $stop, $qrunid;
+    return ($line);
+}
+
+# utilities ##############################################
+
+sub atcommand {
+    my ($cmd, $time, $date);
+    $cmd = $_[0];
+    $time = $_[1];
+    $date = $_[2];
+
+    $line = sprintf "echo %s | at %s %s", $cmd, $time, $date;
+    print STDOUT "$line\n";
+}
+
+
+sub vsystem {
+    # print STDERR "@_\n";
+    my($status) = system ("@_");
+    $status;
+}
+
+sub goodbye {
+    die "@_\n";
+}
+
+sub date_format {
+    my ($date) = $_[0];
+    my ($year, $month, $day);
+
+    ($year, $month, $day) = $date =~ /(\d+)\/(\d+)\/(\d+)/;
+    $date = sprintf "%4d/%02d/%02d", $year, $month, $day;
+    return ($date);
+}
+
+sub date_to_mjd {
+    my ($date) = $_[0];
+    my ($year, $month, $day, $mjd);
+
+    ($year, $month, $day) = $date =~ /(\d+)\/(\d+)\/(\d+)/;
+    $mjd = get_mjd ($year, $month, $day);
+
+    return ($mjd);
+}
+
+sub get_mjd {
+
+    my($year) = $_[0];
+    my($month) = $_[1];
+    my($day) = $_[2];
+
+    my($jd) = $day - 32075 + int (1461*($year + 4800 + int (($month - 14)/12))/4)
+	+ int(367*($month - 2 - int(($month - 14)/12)*12)/12)
+	    - int(3*int(($year + 4900 + int(($month - 14)/12))/100)/4) - 0.5 - 2400000.5;
+    
+
+    return ($jd);
+
+}
+
+sub set_globals {
+
+    # this should come fron the config system
+#    $runlist = "/data/milo/eugene/elixir/refs/cfh12k.runs";
+    $runlist = "/h/eugene/test.runs";
+}
+
+sub usage {
+    
+    if (@ARGV == 1) {
+	print STDERR "\n --- user modes ---\n";
+	print STDERR "create (run) (start) (stop)\n";
+	print STDERR "addqso (runid) (qsoid)\n";
+	print STDERR "delqso (qsoid)\n";
+	print STDERR "sched (runid)\n";
+	print STDERR "status\n";
+	&goodbye;
+    }
+    
+    if (@ARGV > 2) { print STDERR "USAGE: prepare.run (help) [mode]\n"; &goodbye; }
+    
+    &goodbye;
+}

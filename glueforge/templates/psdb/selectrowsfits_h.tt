@@ -1,0 +1,16 @@
+/** Selects up to limit from the database and returns them in a binary FITS table
+ *
+ * This function assumes an empty psFits object and will create a FITS table
+ * as the first extension.
+ *
+ *  See psDBSelectRows() for documentation on the format of where.
+ *
+ * @return true on success
+ */
+
+bool [% table.namespace %]SelectRowsFits(
+    psDB            *dbh,               ///< Database handle
+    psFits          *fits,              ///< psFits object
+    const psMetadata *where,            ///< Row match criteria
+    unsigned long long limit            ///< Maximum number of elements to return
+);

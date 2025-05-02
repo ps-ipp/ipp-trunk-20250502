@@ -1,0 +1,10 @@
+# Expression for the Y coordinate of the CIP in the GCRS based on the IAU2000A 
+# precession-nutation model 
+# 
+# --------------------------------------------------------------------------------------------------------------
+# 
+# Y = polynomial part + non-polynomial part
+# 
+# --------------------------------------------------------------------------------------------------------------
+# Polynomial part (unit microarcsecond)
+-6950.78 -25381.99 -22407250.99 +1842.28 +1113.06 +0.99

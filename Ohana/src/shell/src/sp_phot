@@ -1,0 +1,148 @@
+#!/bin/csh -f
+
+# USAGE: sp_phot (filename.fits) 
+
+# this script has a few goals:
+# 1) make a copy of the unreduced image in RAWDIR
+# 2) run skyproberedccd, produce a reduced image
+# 3) run skyprobephot (sextractor) on image
+# 4) run imclean on result, place smp file in SMPDIR
+# 5) run gastro on smp file 
+# 6) run addstar on smp to add to CATDIR
+
+# run this process on 'druid' instead of 'ohia'?
+
+set DBMACHINE = `gconfig DBMACHINE`
+set PROCNAME  = sp_phot
+set MAXTIME   = 300
+
+set args=""
+set setdate=1
+set testrun=0
+while ($#argv)
+ switch ($1)
+  case -date: 
+   set setdate=0;
+   shift;
+   set DATE=$1;
+   breaksw;
+  default:
+   set args=($args $1);
+   breaksw;
+ endsw
+ shift
+end
+
+if ("$args[1]" == "") then
+  echo "USAGE: sp_phot (filename.fits) [-date YYYYMMDD]";
+  echo "USAGE: sp_phot (test)";
+  exit 2;
+endif
+
+if ($args[1] == "test") set testrun = 1
+
+# kill off other processes with this name, and their children
+# but only if they've run for more than $MAXTIME
+set list=`/bin/ps -eo pid,user,comm | awk -v n=$PROCNAME -v m=$$ '($3==n)&&($1!=m){print $1}'`
+foreach pid ($list)
+  set etime=`/bin/ps -eo pid,etime | awk -v n=$pid '($1==n){{m=substr($2,1,2)}{s=substr($2,4,2)}{print m*60+s}}'`
+  if ($etime < $MAXTIME) continue
+  echo "kill $pid ($etime)"
+  set children=`/bin/ps -eo pid,ppid | awk -v p=$pid '($2==p){print $1}'`
+  kill $pid
+  foreach child ($children)
+    echo "kill $child (child)"
+    kill $child
+  end
+end
+
+if ($setdate) then
+  set DATE=`date -u +%Y%m%d`
+endif
+
+set spdir = `gconfig SKYPROBE_DIR`
+if ($?) then 
+  echo "problem with config system: missing SKYPROBE_DIR"
+  exit 1;
+endif
+set RAWDIR = "$spdir/rawdir/$DATE"
+set SMPDIR = "$spdir/smpdir/$DATE"
+set TYCHO  = "$spdir/tycho" 
+
+# check that directories exist
+if (! -d $RAWDIR) then
+  mkdir -p $RAWDIR
+  if ($status) then
+    echo "can't create save directory $RAWDIR";
+    exit 1;
+  endif
+endif
+if (! -d $SMPDIR) then
+  mkdir -p $SMPDIR
+  if ($status) then
+    echo "can't create save directory $SMPDIR";
+    exit 1;
+  endif
+endif
+
+set raw=$args[1]
+if ($testrun) then
+ set raw = /h/skyprobe/data/Refs/sample.fits
+endif
+
+set root=`echo $raw | awk -F/ '{print $NF}' | sed s/.fits//`
+
+cp $raw $RAWDIR/
+if ($status) then
+  echo "warning: can't make copy of image $raw"
+endif
+
+skyproberedccd $raw $SMPDIR/$root.flt
+if ($status) goto cleanup;
+
+# skyprobephot $SMPDIR/$root.flt $SMPDIR/$root.sx
+sp_sexphot $SMPDIR/$root.flt $SMPDIR/$root.sx
+if ($status) goto cleanup;
+
+# need to have a generic method of introducing the correct photcode
+# based on both camera and filter
+imclean -sex -p SKYPROBE.V $SMPDIR/$root.flt $SMPDIR/$root.sx $SMPDIR/$root.smp 
+if ($status) goto cleanup;
+
+# use the tycho data only to do astrometry
+# rsh -n $DBMACHINE gastro -D CATDIR $TYCHO $SMPDIR/$root.smp
+echo gastro -D CATDIR $TYCHO $SMPDIR/$root.smp
+gastro -D CATDIR $TYCHO $SMPDIR/$root.smp
+# if ($status) goto cleanup;
+
+# rsh -n $DBMACHINE addstar -skyprobe -image -cal TYCHO_V TYCHO_B $SMPDIR/$root.smp 
+addstar -skyprobe -image -cal $SMPDIR/$root.smp 
+# if ($status) goto cleanup;
+
+if ($testrun) then
+ set N = `imphotsearch -name sample | wc -l`
+ imphotsearch -name sample
+ if ($status) then
+   echo "failure to find image in db"
+   exit 2;
+ endif
+ if ($N == 0) then
+   echo "failure to write image to db"
+   exit 1;
+ endif
+ echo delstar $SMPDIR/$root.smp 
+ delstar $SMPDIR/$root.smp 
+ if ($status) then
+   echo "failure to remove test image from db"
+   exit 2;
+ endif
+endif
+
+rm -f $SMPDIR/$root.flt 
+rm -f $SMPDIR/$root.sx
+exit 0;
+
+cleanup:
+rm -f $SMPDIR/$root.flt 
+rm -f $SMPDIR/$root.sx
+exit 1;

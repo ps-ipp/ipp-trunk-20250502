@@ -1,0 +1,632 @@
+ipphosts MULTI
+
+# In this file, we assign all storage hosts to chip and skycells any
+# hosts which are having problems are removed as active volumes from
+# nebulous.  data targeted to those machines are simply re-distributed
+# randomly.  the only exception is ipp004, which is the DVO db host
+
+# I've allocated hosts based on disk size. 
+# 40TB => 2 units of skycells
+# 20TB => 1 unit of skycells
+# Each host gets one OTA/chip of data.
+# These hosts are skipped:
+# ipp004 : dvo
+# ipp005 : dvo
+# ipp026 : crashes
+# ipp029 : crashes
+# ipp045 : reference cat
+##
+## now focus on new storage nodes only 12/18/14
+## -- focus on lower used nodes as well, limit 067-081 since warp,stack,diff permament
+## -- MD also typically x1--x8, 10--80 -- so need to try and balance that.. 
+## -- easier if raise the count to 90, then 00-10,90-100 map the same for MD as low
+ipphosts METADATA
+  camera STR skycell
+  count S32  90 
+  sky00 STR  ipp067.0
+  sky01 STR  ipp068.0
+  sky02 STR  ipp069.0
+  sky03 STR  ipp070.0
+  sky04 STR  ipp071.0
+  sky05 STR  ipp072.0
+  sky06 STR  ipp073.0
+  sky07 STR  ipp074.0
+  sky08 STR  ipp075.0
+  sky09 STR  ipp076.0
+  sky10 STR  ipp077.0
+  sky11 STR  ipp078.0
+
+  sky12 STR  ipp077.0
+  sky13 STR  ipp071.0
+  sky14 STR  ipp072.0
+  sky15 STR  ipp073.0
+  sky16 STR  ipp074.0
+  sky17 STR  ipp075.0
+
+  sky18 STR  ipp079.0
+  sky19 STR  ipp080.0
+  sky20 STR  ipp081.0
+
+  sky21 STR  ipp089.0
+  sky22 STR  ipp088.0
+  sky23 STR  ipp087.0
+  sky24 STR  ipp086.0
+  sky25 STR  ipp085.0
+  sky26 STR  ipp084.0
+  sky27 STR  ipp083.0
+  sky28 STR  ipp082.0
+
+  sky29 STR  ipp067.0
+  sky30 STR  ipp068.0
+
+  sky31 STR  ipp095.0
+  sky32 STR  ipp095.0
+  sky33 STR  ipp093.0
+  sky34 STR  ipp093.0
+  sky35 STR  ipp090.0
+  sky36 STR  ipp090.0
+  sky37 STR  ipp089.0
+  sky38 STR  ipp088.0
+
+  sky39 STR  ipp069.0
+  sky40 STR  ipp070.0
+
+  sky41 STR  ipp087.0
+  sky42 STR  ipp086.0
+  sky43 STR  ipp085.0
+  sky44 STR  ipp084.0
+  sky45 STR  ipp083.0
+  sky46 STR  ipp082.0
+  sky47 STR  ipp095.0
+  sky48 STR  ipp095.0
+
+  sky49 STR  ipp071.0
+  sky50 STR  ipp072.0
+
+  sky51 STR  ipp093.0
+  sky52 STR  ipp093.0
+  sky53 STR  ipp090.0
+  sky54 STR  ipp090.0
+  sky55 STR  ipp089.0
+  sky56 STR  ipp088.0
+  sky57 STR  ipp087.0
+  sky58 STR  ipp086.0
+
+  sky59 STR  ipp073.0
+  sky60 STR  ipp074.0
+
+  sky61 STR  ipp085.0
+  sky62 STR  ipp084.0
+  sky63 STR  ipp083.0
+  sky64 STR  ipp082.0
+  sky65 STR  ipp095.0
+  sky66 STR  ipp095.0
+  sky67 STR  ipp093.0
+  sky68 STR  ipp093.0
+
+  sky69 STR  ipp075.0
+  sky70 STR  ipp076.0
+
+  sky71 STR  ipp090.0
+  sky72 STR  ipp090.0
+  sky73 STR  ipp089.0
+  sky74 STR  ipp088.0
+  sky75 STR  ipp087.0
+  sky76 STR  ipp086.0
+  sky77 STR  ipp085.0
+  sky78 STR  ipp084.0
+
+  sky79 STR  ipp077.0
+  sky80 STR  ipp078.0
+  sky81 STR  ipp079.0
+
+  sky82 STR  ipp076.0
+  sky83 STR  ipp077.0
+  sky84 STR  ipp078.0
+  sky85 STR  ipp079.0
+  sky86 STR  ipp080.0
+  sky87 STR  ipp081.0
+
+  sky88 STR  ipp080.0
+  sky89 STR  ipp081.0
+END
+
+# These are ordered oddly to prevent excessive targetting shuffles.
+## now focus on new storage nodes only 12/18/14
+## -- no limit loading on lower 067-081 since chips transient 
+ipphosts METADATA
+  camera STR GPC1
+  XY01  STR  ipp095
+  XY02  STR  ipp095
+  XY03  STR  ipp093
+  XY04  STR  ipp093
+  XY05  STR  ipp090
+  XY06  STR  ipp090
+  XY10  STR  ipp089
+  XY11  STR  ipp088
+  XY12  STR  ipp087
+  XY13  STR  ipp086
+  XY14  STR  ipp085
+  XY15  STR  ipp084
+  XY16  STR  ipp083
+  XY17  STR  ipp082
+  XY20  STR  ipp081
+  XY21  STR  ipp080
+  XY22  STR  ipp079
+  XY23  STR  ipp078
+  XY24  STR  ipp077
+  XY25  STR  ipp076
+  XY26  STR  ipp075
+  XY27  STR  ipp074
+  XY30  STR  ipp073
+  XY31  STR  ipp072
+  XY32  STR  ipp071
+  XY33  STR  ipp070
+  XY34  STR  ipp069
+  XY35  STR  ipp068
+  XY36  STR  ipp067
+
+  XY37  STR  ipp095
+  XY40  STR  ipp095
+  XY41  STR  ipp093
+  XY42  STR  ipp093
+  XY43  STR  ipp090
+  XY44  STR  ipp090
+  XY45  STR  ipp089
+  XY46  STR  ipp088
+  XY47  STR  ipp087
+  XY50  STR  ipp086
+  XY51  STR  ipp085
+  XY52  STR  ipp084
+  XY53  STR  ipp083
+  XY54  STR  ipp082
+  XY55  STR  ipp081
+  XY56  STR  ipp080
+  XY57  STR  ipp079
+  XY60  STR  ipp078
+  XY61  STR  ipp077
+  XY62  STR  ipp076
+  XY63  STR  ipp075
+  XY64  STR  ipp074
+  XY65  STR  ipp073
+  XY66  STR  ipp072
+  XY67  STR  ipp071
+  XY71  STR  ipp070
+  XY72  STR  ipp069
+  XY73  STR  ipp068
+  XY74  STR  ipp067
+
+  XY75  STR  ipp087
+  XY76  STR  ipp084
+END
+
+## focus nightly processing ota on disks with more space 12/18/14
+## -- ipp066 and lower just raw ota products until full
+## -- shouldn't be used for reprocessing?
+ipphosts METADATA
+  camera STR gpc1
+  ota01  STR  ipp067
+  ota02  STR  ipp068
+  ota03  STR  ipp069
+  ota04  STR  ipp070
+  ota05  STR  ipp071
+  ota06  STR  ipp072
+  ota10  STR  ipp073
+  ota11  STR  ipp074
+  ota12  STR  ipp075
+  ota13  STR  ipp076
+  ota14  STR  ipp077
+  ota15  STR  ipp078
+  ota16  STR  ipp079
+  ota17  STR  ipp080
+  ota20  STR  ipp081
+  ota21  STR  ipp082
+  ota22  STR  ipp083
+  ota23  STR  ipp084
+  ota24  STR  ipp085
+  ota25  STR  ipp086
+  ota26  STR  ipp087
+  ota27  STR  ipp088
+  ota30  STR  ipp089
+  ota31  STR  ipp090
+  ota32  STR  ipp090
+  ota33  STR  ipp093
+  ota34  STR  ipp093
+  ota35  STR  ipp095
+  ota36  STR  ipp095
+
+  ota37  STR  ipp067
+  ota40  STR  ipp068
+  ota41  STR  ipp069
+  ota42  STR  ipp070
+  ota43  STR  ipp071
+  ota44  STR  ipp072
+  ota45  STR  ipp073
+  ota46  STR  ipp074
+  ota47  STR  ipp075
+  ota50  STR  ipp076
+  ota51  STR  ipp077
+  ota52  STR  ipp078
+  ota53  STR  ipp079
+  ota54  STR  ipp080
+  ota55  STR  ipp081
+  ota56  STR  ipp082
+  ota57  STR  ipp083
+  ota60  STR  ipp084
+  ota61  STR  ipp085
+  ota62  STR  ipp086
+  ota63  STR  ipp087
+  ota64  STR  ipp088
+  ota65  STR  ipp089
+  ota66  STR  ipp090
+  ota67  STR  ipp090
+  ota71  STR  ipp093
+  ota72  STR  ipp093
+  ota73  STR  ipp095
+  ota74  STR  ipp095
+
+  ota75  STR  ipp060
+  ota76  STR  ipp060
+END
+
+ipphosts METADATA
+  camera STR distribution
+  count  S32  26
+  0      STR ipp021
+  1      STR ipp023
+  2      STR ipp024
+  3      STR ipp026
+  4      STR ipp028
+  5      STR ipp029
+  6      STR ipp030
+  7      STR ipp031
+  8      STR ipp032
+  9      STR ipp033
+ 10      STR ipp034
+ 11      STR ipp035
+ 12      STR ipp036
+ 13      STR ipp038
+ 14      STR ipp039
+ 15      STR ipp040
+ 16      STR ipp041
+ 17      STR ipp043
+ 18      STR ipp044
+ 19      STR ipp045
+ 20      STR ipp046
+ 21      STR ipp047
+ 22      STR ipp048
+ 23      STR ipp050
+ 24      STR ipp051
+ 25      STR ipp052
+END
+
+ipphosts METADATA
+  camera STR dist_chip
+  count S32   60
+
+  XY01  STR  ipp010
+  XY02  STR  ipp011
+  XY03  STR  ipp006
+  XY04  STR  ipp054
+
+  XY05  STR  ipp007
+  XY06  STR  ipp055
+  XY10  STR  ipp008
+  XY11  STR  ipp056
+
+  XY12  STR  ipp009
+  XY13  STR  ipp057
+  XY14  STR  ipp058
+  XY15  STR  ipp059
+
+  XY16  STR  ipp012
+  XY17  STR  ipp060
+  XY20  STR  ipp013
+  XY21  STR  ipp014
+
+  XY22  STR  ipp061
+  XY23  STR  ipp015
+  XY24  STR  ipp016
+  XY25  STR  ipp062
+
+  XY26  STR  ipp064
+  XY27  STR  ipp065
+  XY30  STR  ipp066
+  XY31  STR  ipp020
+
+  XY32  STR  ipp063
+  XY33  STR  ipp021
+  XY34  STR  ipp023
+  XY35  STR  ipp013
+
+  XY36  STR  ipp024
+  XY37  STR  ipp019
+  XY40  STR  ipp025
+  XY41  STR  ipp018
+
+  XY42  STR  ipp017
+  XY43  STR  ipp015
+  XY44  STR  ipp027
+  XY45  STR  ipp028
+
+  XY46  STR  ipp029
+  XY47  STR  ipp030
+  XY50  STR  ipp031
+  XY51  STR  ipp032
+
+  XY52  STR  ipp033
+  XY53  STR  ipp034
+  XY54  STR  ipp035
+  XY55  STR  ipp036
+
+  XY56  STR  ipp037
+  XY57  STR  ipp038
+  XY60  STR  ipp039
+  XY61  STR  ipp040
+
+  XY62  STR  ipp041
+  XY63  STR  ipp042
+  XY64  STR  ipp043
+  XY65  STR  ipp044
+
+  XY66  STR  ipp046
+  XY67  STR  ipp047
+  XY71  STR  ipp048
+  XY72  STR  ipp049
+
+  XY73  STR  ipp050
+  XY74  STR  ipp051
+  XY75  STR  ipp052
+  XY76  STR  ipp053
+END
+
+ipphosts METADATA
+  camera STR dist_skycell
+  count S32  86
+  sky00 STR  ipp006
+  sky01 STR  ipp006 
+  sky02 STR  ipp007
+  sky03 STR  ipp007
+  sky04 STR  ipp008
+  sky05 STR  ipp008
+  sky06 STR  ipp009
+  sky07 STR  ipp009
+  sky08 STR  ipp010
+  sky09 STR  ipp010
+  sky10 STR  ipp011
+  sky11 STR  ipp011 
+  sky12 STR  ipp012
+  sky13 STR  ipp012
+  sky14 STR  ipp013
+  sky15 STR  ipp013
+  sky16 STR  ipp014
+  sky17 STR  ipp014
+  sky18 STR  ipp015
+  sky19 STR  ipp015
+  sky20 STR  ipp016
+  sky21 STR  ipp016 
+  sky22 STR  ipp017
+  sky23 STR  ipp017
+  sky24 STR  ipp018
+  sky25 STR  ipp018
+  sky26 STR  ipp019
+  sky27 STR  ipp019
+  sky28 STR  ipp020
+  sky29 STR  ipp020
+  sky30 STR  ipp021
+  sky31 STR  ipp021 
+  sky32 STR  ipp023
+  sky33 STR  ipp024
+  sky34 STR  ipp025
+  sky35 STR  ipp027
+  sky36 STR  ipp028
+  sky37 STR  ipp030
+  sky38 STR  ipp031
+  sky39 STR  ipp032
+  sky40 STR  ipp033
+  sky41 STR  ipp034 
+  sky42 STR  ipp035
+  sky43 STR  ipp036
+  sky44 STR  ipp037
+  sky45 STR  ipp038
+  sky46 STR  ipp039
+  sky47 STR  ipp040
+  sky48 STR  ipp041
+  sky49 STR  ipp042
+  sky50 STR  ipp043
+  sky51 STR  ipp044
+  sky52 STR  ipp046 
+  sky53 STR  ipp047
+  sky54 STR  ipp048
+  sky55 STR  ipp049
+  sky56 STR  ipp050
+  sky57 STR  ipp051
+  sky58 STR  ipp052
+  sky59 STR  ipp053
+  sky60 STR  ipp054
+  sky61 STR  ipp054
+  sky62 STR  ipp055 
+  sky63 STR  ipp055
+  sky64 STR  ipp056
+  sky65 STR  ipp056
+  sky66 STR  ipp057
+  sky67 STR  ipp057
+  sky68 STR  ipp058
+  sky69 STR  ipp058
+  sky70 STR  ipp059
+  sky71 STR  ipp059
+  sky72 STR  ipp060 
+  sky73 STR  ipp060
+  sky74 STR  ipp061
+  sky75 STR  ipp061
+  sky76 STR  ipp062
+  sky77 STR  ipp062
+  sky78 STR  ipp063
+  sky79 STR  ipp063
+  sky80 STR  ipp064
+  sky81 STR  ipp064
+  sky82 STR  ipp065
+  sky83 STR  ipp065
+  sky84 STR  ipp066
+  sky85 STR  ipp066
+END
+
+ipphosts METADATA
+  camera STR STARE
+
+  ota01  STR  stare00
+  ota02  STR  stare01
+  ota03  STR  stare02
+  ota04  STR  stare04
+	            
+  ota05  STR  stare00
+  ota06  STR  stare01
+  ota10  STR  stare02
+  ota11  STR  stare04
+	            
+  ota12  STR  stare00
+  ota13  STR  stare01
+  ota14  STR  stare02
+  ota15  STR  stare04
+	            
+  ota16  STR  stare00
+  ota17  STR  stare01
+  ota20  STR  stare02
+  ota21  STR  stare04
+	            
+  ota22  STR  stare00
+  ota23  STR  stare01
+  ota24  STR  stare02
+  ota25  STR  stare04
+	            
+  ota26  STR  stare00
+  ota27  STR  stare01
+  ota30  STR  stare02
+  ota31  STR  stare04
+	            
+  ota32  STR  stare00
+  ota33  STR  stare01
+  ota34  STR  stare02
+  ota35  STR  stare04
+	            
+  ota36  STR  stare00
+  ota37  STR  stare01
+  ota40  STR  stare02
+  ota41  STR  stare04
+	            
+  ota42  STR  stare00
+  ota43  STR  stare01
+  ota44  STR  stare02
+  ota45  STR  stare04
+	            
+  ota46  STR  stare00
+  ota47  STR  stare01
+  ota50  STR  stare02
+  ota51  STR  stare04
+	            
+  ota52  STR  stare00
+  ota53  STR  stare01
+  ota54  STR  stare02
+  ota55  STR  stare04
+	            
+  ota56  STR  stare00
+  ota57  STR  stare01
+  ota60  STR  stare02
+  ota61  STR  stare04
+	            
+  ota62  STR  stare00
+  ota63  STR  stare01
+  ota64  STR  stare02
+  ota65  STR  stare04
+	            
+  ota66  STR  stare00
+  ota67  STR  stare01
+  ota71  STR  stare02
+  ota72  STR  stare04
+	            
+  ota73  STR  stare00
+  ota74  STR  stare01
+  ota75  STR  stare02
+  ota76  STR  stare04
+END
+
+
+# Backup of old stare allocation setup.
+# ipphosts METADATA
+#   camera STR STARE
+
+#   ota01  STR  ipp010
+#   ota02  STR  ipp010
+#   ota03  STR  ipp010
+#   ota04  STR  ipp010
+	            
+#   ota05  STR  ipp011
+#   ota06  STR  ipp011
+#   ota10  STR  ipp011
+#   ota11  STR  ipp011
+	            
+#   ota12  STR  ipp012
+#   ota13  STR  ipp012
+#   ota14  STR  ipp012
+#   ota15  STR  ipp012
+	            
+#   ota16  STR  ipp013
+#   ota17  STR  ipp013
+#   ota20  STR  ipp013
+#   ota21  STR  ipp013
+	            
+#   ota22  STR  ipp014
+#   ota23  STR  ipp014
+#   ota24  STR  ipp014
+#   ota25  STR  ipp014
+	            
+#   ota26  STR  ipp015
+#   ota27  STR  ipp015
+#   ota30  STR  ipp015
+#   ota31  STR  ipp015
+	            
+#   ota32  STR  ipp016
+#   ota33  STR  ipp016
+#   ota34  STR  ipp016
+#   ota35  STR  ipp016
+	            
+#   ota36  STR  ipp017
+#   ota37  STR  ipp017
+#   ota40  STR  ipp017
+#   ota41  STR  ipp017
+	            
+#   ota42  STR  ipp018
+#   ota43  STR  ipp018
+#   ota44  STR  ipp018
+#   ota45  STR  ipp018
+	            
+#   ota46  STR  ipp019
+#   ota47  STR  ipp019
+#   ota50  STR  ipp019
+#   ota51  STR  ipp019
+	            
+#   ota52  STR  ipp020
+#   ota53  STR  ipp020
+#   ota54  STR  ipp020
+#   ota55  STR  ipp020
+	            
+#   ota56  STR  ipp021
+#   ota57  STR  ipp021
+#   ota60  STR  ipp021
+#   ota61  STR  ipp021
+	            
+#   ota62  STR  ipp010
+#   ota63  STR  ipp011
+#   ota64  STR  ipp012
+#   ota65  STR  ipp013
+	            
+#   ota66  STR  ipp014
+#   ota67  STR  ipp015
+#   ota71  STR  ipp016
+#   ota72  STR  ipp017
+	            
+#   ota73  STR  ipp018
+#   ota74  STR  ipp019
+#   ota75  STR  ipp020
+#   ota76  STR  ipp021
+# END

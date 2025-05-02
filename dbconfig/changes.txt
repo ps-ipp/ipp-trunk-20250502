@@ -1,0 +1,2633 @@
+-- How to manually change the database between versions via mySQL commands.
+-- 
+-- This file is generated manually, and may not be complete.
+
+
+-- Version 1.1.20 --> 1.1.21:
+
+alter table camProcessedExp drop nastro;
+alter table camProcessedExp add (fwhm double, fwhm_range double, n_stars int(11), n_extended int(11), n_cr int(11), n_astrom int(11));
+alter table chipProcessedImfile add column (bias double, bias_stdev double, fringe_0 double, fringe_1 double, fringe_2 double, sigma_ra double, sigma_dec double, ap_resid double, ap_resid_stdev double, fwhm double, fwhm_range double, n_stars int(11), n_extended int(11), n_cr int(11), n_astrom int(11));
+alter table warpSkyfile add column path_base varchar(255) NULL DEFAULT NULL after uri;
+alter table diffSkyfile add column path_base varchar(255) NULL DEFAULT NULL after uri;
+alter table stackSumSkyfile add column path_base varchar(255) NULL DEFAULT NULL after uri;
+
+
+-- Version 1.1.22 --> 1.1.23
+-- Adding support for reduction classes (which are used to specify recipes for parts of the pipeline).
+-- Adding 'reduction' to detRun
+-- Renaming 'recipe' in {chip,cam}{Pending,Processed}Exp to 'reduction'
+
+alter table detRun add column reduction varchar(64) NULL DEFAULT NULL after exp_type;
+alter table chipPendingExp change column recipe reduction varchar(64);
+alter table chipProcessedExp change column recipe reduction varchar(64);
+alter table camPendingExp change column recipe reduction varchar(64);
+alter table camProcessedExp change column recipe reduction varchar(64);
+
+-- Version ??? --> 1.1.29
+
+alter table warpSkyfile add column ignored tinyint after good_frac;
+
+--
+-- The following set of changes were applied to update the gpc1 database on 2008/02/07
+--
+
+alter table calDB change column catdir dvodb varchar(64);
+
+alter table camProcessedExp change column fwhm fwhm_major float;
+alter table camProcessedExp change column fwhm_range fwhm_minor float;
+
+-- In order to keep the column order correct this is split up below
+--alter table camProcessedExp add column ( bias float, bias_stdev float, fringe_0 float, fringe_1 float, fringe_2 float, ap_resid float, ap_resid_stdev float, dtime_detrend float, dtime_photom float, dtime_astrom float, hostname varchar(64) );
+
+alter table camProcessedExp add column bias float after bg_mean_stdev;
+alter table camProcessedExp add column bias_stdev float after bias;
+alter table camProcessedExp add column fringe_0 float after bias_stdev;
+alter table camProcessedExp add column fringe_1 float after fringe_0;
+alter table camProcessedExp add column fringe_2 float after fringe_1;
+alter table camProcessedExp add column ap_resid float after sigma_dec;
+alter table camProcessedExp add column ap_resid_stdev float after ap_resid;
+alter table camProcessedExp add column dtime_detrend float after fwhm_minor;
+alter table camProcessedExp add column dtime_photom float after dtime_detrend;
+alter table camProcessedExp add column dtime_astrom float after dtime_photom;
+alter table camProcessedExp add column hostname varchar(64) after dtime_astrom;
+
+
+alter table chipProcessedImfile change column fwhm fwhm_major float;
+alter table chipProcessedImfile change column fwhm_range fwhm_minor float;
+
+-- In order to keep the column order correct this is split up below
+-- alter table chipProcessedImfile add column ( zp_mean float, zp_stdev float, dtime_detrend float, dtime_photom float, dtime_astrom float, hostname varchar(64) );
+
+alter table chipProcessedImfile add column zp_mean float after ap_resid_stdev;
+alter table chipProcessedImfile add column zp_stdev float after zp_mean;
+alter table chipProcessedImfile add column dtime_detrend float after fwhm_minor;
+alter table chipProcessedImfile add column dtime_photom float after dtime_detrend;
+alter table chipProcessedImfile add column dtime_astrom float after dtime_photom;
+alter table chipProcessedImfile add column hostname varchar(64) after dtime_astrom;
+
+
+-- In order to keep the column order correct this is split up below
+-- alter table diffSkyfile add column ( dtime_diff float, hostname varchar(64) );
+alter table diffSkyfile add column dtime_diff float after bg_stdev;
+alter table diffSkyfile add column hostname varchar(64) after dtime_diff;
+alter table diffSkyfile change column good_frac good_frac float;
+
+alter table flatcorrRun add column filter varchar(64) after dvodb;
+
+alter table stackSumSkyfile change column good_frac good_frac float;
+
+-- alter table stackSumSkyfile add column ( dtime_stack float, hostname varchar(64) );
+alter table stackSumSkyfile add column dtime_stack float after bg_stdev;
+alter table stackSumSkyfile add column hostname varchar(64) after dtime_stack;
+
+-- alter table warpSkyfile add column ( dtime_warp float, hostname varchar(64) );
+alter table warpSkyfile add column dtime_warp float after bg_stdev;
+alter table warpSkyfile add column hostname varchar(64) after dtime_warp;
+
+alter table warpSkyfile change column good_frac good_frac float;
+
+alter table newExp add column dvodb varchar(255) after reduction;
+alter table newExp add column tess_id varchar(64) after dvodb;
+alter table rawExp add column dvodb varchar(255) after reduction;
+alter table rawExp add column tess_id varchar(64) after dvodb;
+alter table chipRun add column tess_id varchar(64) after dvodb;
+alter table camRun add column tess_id varchar(64) after dvodb;
+alter table warpRun add column tess_id varchar(64) after dvodb;
+
+alter table camRun add column end_stage varchar(64) after tess_id;
+alter table chipRun add column end_stage varchar(64) after tess_id;
+alter table warpRun add column end_stage varchar(64) after tess_id;
+alter table newExp add column end_stage varchar(64) after tess_id;
+alter table rawExp add column end_stage varchar(64) after tess_id;
+alter table camRun add key (end_stage);
+alter table chipRun add key (end_stage);
+alter table warpRun add key (end_stage);
+alter table newExp add key (end_stage);
+alter table rawExp add key (end_stage);
+
+alter table warpRun add column workdir_state varchar(64) after workdir;
+alter table warpRun add key (workdir_state);
+
+alter table pzDoneImfile add column fault smallint(6);
+
+-- end of changes to 1.1.29
+
+alter table newExp add column label varchar(64) after end_stage;
+
+-- 1.1.30
+
+drop table pzDoneExp;
+drop table pzDoneImfile;
+drop table pzPendingExp;
+drop table pzPendingImfile;
+alter table flatcorrRun add column region VARCHAR(255) after stats;
+
+-- 1.1.31
+
+ALTER TABLE warpRun ADD COLUMN cam_id BIGINT AFTER warp_id;
+ALTER TABLE warpRun ADD KEY(cam_id);
+ALTER TABLE warpRun ADD KEY(warp_id, cam_id);
+ALTER TABLE warpRun ADD CONSTRAINT FOREIGN KEY(cam_id) REFERENCES
+camRun(cam_id);
+ALTER TABLE warpRun ADD COLUMN magiced TINYINT AFTER registered;
+ALTER TABLE warpSkyCellMap DROP FOREIGN KEY warpSkyCellMap_ibfk_1;
+UPDATE warpRun JOIN warpInputExp USING(warp_id) SET warpRun.cam_id =
+warpInputExp.cam_id WHERE warpRun.warp_id = warpInputExp.warp_id;
+ALTER TABLE warpSkyCellMap ADD CONSTRAINT FOREIGN KEY(warp_id, cam_id)
+REFERENCES warpRun(warp_id, cam_id);
+DROP TABLE warpInputExp;
+
+-- 1.1.32
+ALTER TABLE warpRun ADD COLUMN label VARCHAR(64) AFTER workdir_state;
+ALTER TABLE warpRun ADD KEY(label);
+CREATE TABLE warpMask (label VARCHAR(64), PRIMARY KEY(label)) ENGINE=innodb;
+
+-- 1.1.33
+ALTER TABLE summitExp ADD COLUMN fault smallint(6) NOT NULL AFTER imfiles;
+ALTER TABLE summitExp ADD KEY(fault);
+
+-- 1.1.34
+ALTER TABLE rawImfile ADD KEY(exp_name);
+
+-- 1.1.35
+ALTER TABLE rawImfile ADD INDEX UNQIUE(exp_id, tmp_class_id);
+
+-- 1.1.36
+ALTER TABLE warpSkyfile ADD COLUMN (xmin INT, xmax INT, ymin INT, ymax INT);
+ALTER TABLE diffSkyfile ADD COLUMN (stamps_num INT, stamps_rms FLOAT, sources INT);
+ALTER TABLE rawImfile ADD COLUMN hostname VARCHAR(64) AFTER object;
+ALTER TABLE rawExp ADD COLUMN hostname VARCHAR(64) AFTER object;
+
+-- 1.1.37
+ALTER TABLE pzDataStore ADD COLUMN epoch TIMESTAMP DEFAULT CURRENT_TIMESTAMP AFTER uri;
+ALTER TABLE summitExp ADD COLUMN epoch TIMESTAMP DEFAULT CURRENT_TIMESTAMP AFTER fault;
+ALTER TABLE summitImfile ADD COLUMN epoch TIMESTAMP DEFAULT CURRENT_TIMESTAMP AFTER uri;
+ALTER TABLE pzDownloadExp ADD COLUMN epoch TIMESTAMP DEFAULT CURRENT_TIMESTAMP AFTER state;
+ALTER TABLE pzDownloadImfile ADD COLUMN epoch TIMESTAMP DEFAULT CURRENT_TIMESTAMP AFTER fault;
+ALTER TABLE newExp ADD COLUMN epoch TIMESTAMP DEFAULT CURRENT_TIMESTAMP AFTER label;
+ALTER TABLE newImfile ADD COLUMN epoch TIMESTAMP DEFAULT CURRENT_TIMESTAMP AFTER uri;
+ALTER TABLE rawExp ADD COLUMN epoch TIMESTAMP DEFAULT CURRENT_TIMESTAMP AFTER fault;
+ALTER TABLE rawImfile ADD COLUMN epoch TIMESTAMP DEFAULT CURRENT_TIMESTAMP AFTER fault;
+
+-- 1.1.38
+
+-- convert from utf8 -> latin1 for performance/space gains
+SET FOREIGN_KEY_CHECKS=0;
+ALTER TABLE calDB CONVERT TO CHARACTER SET latin1;
+ALTER TABLE calRun CONVERT TO CHARACTER SET latin1;
+ALTER TABLE camMask CONVERT TO CHARACTER SET latin1;
+ALTER TABLE camProcessedExp CONVERT TO CHARACTER SET latin1;
+ALTER TABLE camRun CONVERT TO CHARACTER SET latin1;
+ALTER TABLE chipMask CONVERT TO CHARACTER SET latin1;
+ALTER TABLE chipProcessedImfile CONVERT TO CHARACTER SET latin1;
+ALTER TABLE chipRun CONVERT TO CHARACTER SET latin1;
+ALTER TABLE detInputExp CONVERT TO CHARACTER SET latin1;
+ALTER TABLE detNormalizedExp CONVERT TO CHARACTER SET latin1;
+ALTER TABLE detNormalizedImfile CONVERT TO CHARACTER SET latin1;
+ALTER TABLE detNormalizedStatImfile CONVERT TO CHARACTER SET latin1;
+ALTER TABLE detProcessedExp CONVERT TO CHARACTER SET latin1;
+ALTER TABLE detProcessedImfile CONVERT TO CHARACTER SET latin1;
+ALTER TABLE detRegisteredImfile CONVERT TO CHARACTER SET latin1;
+ALTER TABLE detResidExp CONVERT TO CHARACTER SET latin1;
+ALTER TABLE detResidImfile CONVERT TO CHARACTER SET latin1;
+ALTER TABLE detRun CONVERT TO CHARACTER SET latin1;
+ALTER TABLE detRunSummary CONVERT TO CHARACTER SET latin1;
+ALTER TABLE detStackedImfile CONVERT TO CHARACTER SET latin1;
+ALTER TABLE diffInputSkyfile CONVERT TO CHARACTER SET latin1;
+ALTER TABLE diffRun CONVERT TO CHARACTER SET latin1;
+ALTER TABLE diffSkyfile CONVERT TO CHARACTER SET latin1;
+ALTER TABLE fakeMask CONVERT TO CHARACTER SET latin1;
+ALTER TABLE fakeProcessedImfile CONVERT TO CHARACTER SET latin1;
+ALTER TABLE fakeRun CONVERT TO CHARACTER SET latin1;
+ALTER TABLE flatcorrExp CONVERT TO CHARACTER SET latin1;
+ALTER TABLE flatcorrRun CONVERT TO CHARACTER SET latin1;
+ALTER TABLE guidePendingExp CONVERT TO CHARACTER SET latin1;
+ALTER TABLE magicInputSkyfile CONVERT TO CHARACTER SET latin1;
+ALTER TABLE magicMask CONVERT TO CHARACTER SET latin1;
+ALTER TABLE magicNodeResult CONVERT TO CHARACTER SET latin1;
+ALTER TABLE magicRun CONVERT TO CHARACTER SET latin1;
+ALTER TABLE magicSkyfileMask CONVERT TO CHARACTER SET latin1;
+ALTER TABLE magicTree CONVERT TO CHARACTER SET latin1;
+ALTER TABLE newExp CONVERT TO CHARACTER SET latin1;
+ALTER TABLE newImfile CONVERT TO CHARACTER SET latin1;
+ALTER TABLE pstampDataStore CONVERT TO CHARACTER SET latin1;
+ALTER TABLE pstampJob CONVERT TO CHARACTER SET latin1;
+ALTER TABLE pstampRequest CONVERT TO CHARACTER SET latin1;
+ALTER TABLE pzDataStore CONVERT TO CHARACTER SET latin1;
+ALTER TABLE pzDownloadExp CONVERT TO CHARACTER SET latin1;
+ALTER TABLE pzDownloadImfile CONVERT TO CHARACTER SET latin1;
+ALTER TABLE rawExp CONVERT TO CHARACTER SET latin1;
+ALTER TABLE rawImfile CONVERT TO CHARACTER SET latin1;
+ALTER TABLE stackInputSkyfile CONVERT TO CHARACTER SET latin1;
+ALTER TABLE stackRun CONVERT TO CHARACTER SET latin1;
+ALTER TABLE stackSumSkyfile CONVERT TO CHARACTER SET latin1;
+ALTER TABLE summitExp CONVERT TO CHARACTER SET latin1;
+ALTER TABLE summitImfile CONVERT TO CHARACTER SET latin1;
+ALTER TABLE warpMask CONVERT TO CHARACTER SET latin1;
+ALTER TABLE warpRun CONVERT TO CHARACTER SET latin1;
+ALTER TABLE warpSkyCellMap CONVERT TO CHARACTER SET latin1;
+ALTER TABLE warpSkyfile CONVERT TO CHARACTER SET latin1;
+SET FOREIGN_KEY_CHECKS=1;
+
+-- first use of fake* tables
+-- drop and recreate any fake* tables created prior to this point
+
+DROP TABLE IF EXISTS fakeRun;
+CREATE TABLE fakeRun (
+    fake_id BIGINT AUTO_INCREMENT,
+    cam_id BIGINT,
+    state VARCHAR(64),
+    workdir VARCHAR(255),
+    label VARCHAR(64),
+    reduction VARCHAR(64),
+    expgroup VARCHAR(64),
+    dvodb VARCHAR(255),
+    tess_id VARCHAR(64),
+    end_stage VARCHAR(64),
+    epoch TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY(fake_id),
+    KEY(cam_id),
+    KEY(state),
+    KEY(label),
+    KEY(expgroup),
+    KEY(end_stage),
+    INDEX(fake_id, cam_id),
+    FOREIGN KEY (cam_id)
+        REFERENCES camRun(cam_id))
+ENGINE=innodb DEFAULT CHARSET=latin1;
+
+DROP TABLE IF EXISTS fakeProcessedImfile;
+CREATE TABLE fakeProcessedImfile (
+    fake_id BIGINT AUTO_INCREMENT,
+    exp_id BIGINT(20),
+    class_id VARCHAR(64),
+    uri VARCHAR(255),
+    dtime_fake FLOAT,
+    hostname VARCHAR(64),
+    path_base VARCHAR(255),
+    fault SMALLINT NOT NULL,
+    epoch TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY(fake_id, exp_id, class_id),
+    KEY(fault),
+    FOREIGN KEY (fake_id)
+        REFERENCES fakeRun(fake_id),
+    FOREIGN KEY(exp_id, class_id)
+        REFERENCES rawImfile(exp_id, class_id)
+) ENGINE=innodb DEFAULT CHARSET=latin1;
+
+DROP TABLE IF EXISTS fakeMask;
+CREATE TABLE fakeMask (
+    label VARCHAR(64),
+    PRIMARY KEY(label))
+ENGINE=innodb DEFAULT CHARSET=latin1;
+
+-- re-normalize camProcessedExp table
+-- unrelated to other changes
+ALTER TABLE camProcessedExp DROP FOREIGN KEY camProcessedExp_ibfk_1;
+ALTER TABLE camProcessedExp DROP COLUMN chip_id;
+ALTER TABLE camProcessedExp ADD FOREIGN KEY (cam_id) REFERENCES camRun (cam_id);
+
+-- insert fakeRun betwen camRun and warpRun
+-- populate fakeRun/fakeProcessedImfile
+-- then heal the foreign key references
+
+CREATE TEMPORARY TABLE warpCamMap (
+    warp_id BIGINT,
+    cam_id  BIGINT,
+    PRIMARY KEY(warp_id),
+    KEY(cam_id)
+) ENGINE=MEMORY;
+
+INSERT INTO warpCamMap SELECT warp_id, cam_id FROM warpRun;
+
+ALTER TABLE warpRun drop FOREIGN KEY warpRun_ibfk_1;
+ALTER TABLE warpSkyCellMap DROP FOREIGN KEY warpSkyCellMap_ibfk_1;
+
+ALTER TABLE warpRun change COLUMN cam_id fake_id BIGINT(20) DEFAULT NULL;
+ALTER TABLE warpSkyCellMap DROP COLUMN cam_id;
+
+SET FOREIGN_KEY_CHECKS=0;
+ALTER TABLE warpRun ADD FOREIGN KEY (fake_id) REFERENCES fakeRun (fake_id);
+SET FOREIGN_KEY_CHECKS=1;
+ALTER TABLE warpSkyCellMap ADD FOREIGN KEY (warp_id) REFERENCES warpRun(warp_id);
+
+INSERT INTO fakeRun
+SELECT
+    NULL,
+    camRun.cam_id,
+    'stop',
+    workdir,
+    label,
+    reduction,
+    expgroup,
+    dvodb, 
+    tess_id, 
+    end_stage, 
+    NULL 
+FROM camRun
+JOIN warpCamMap
+    using(cam_id);
+
+INSERT INTO fakeProcessedImfile
+SELECT
+    fake_id,
+    chipRun.exp_id,
+    class_id,
+    uri,
+    0,
+    hostname,
+    path_base, 
+    fault, 
+    NULL
+FROM fakeRun
+JOIN camRun
+    USING(cam_id)
+JOIN chipRun
+    USING(chip_id)
+JOIN chipProcessedImfile
+    USING(chip_id);
+
+UPDATE warpRun, fakeRun, warpCamMap
+SET warpRun.fake_id = fakeRun.fake_id
+WHERE warpRun.warp_id = warpCamMap.warp_id
+    AND warpCamMap.cam_id = fakeRun.fake_id;
+
+DROP TABLE warpCamMap;
+
+
+-- new values for chipRun.state
+
+update chipRun set state = 'new' where state = 'run';
+update chipRun set state = 'full' where state = 'stop';
+
+-- from eam_branch_20080806
+-- add 'data_state' to detrend tables
+
+alter table detProcessedImfile      add column data_state varchar(64) after path_base;
+alter table detProcessedExp         add column data_state varchar(64) after path_base;
+alter table detStackedImfile        add column data_state varchar(64) after user_5;
+alter table detNormalizedStatImfile add column data_state varchar(64) after norm;
+alter table detNormalizedImfile     add column data_state varchar(64) after path_base;
+alter table detNormalizedExp 	    add column data_state varchar(64) after path_base;
+alter table detResidImfile 	    add column data_state varchar(64) after path_base;
+alter table detResidExp 	    add column data_state varchar(64) after path_base;
+alter table detRunSummary 	    add column data_state varchar(64) after iteration;
+alter table detRegisteredImfile     add column data_state varchar(64) after path_base;
+
+update camRun set state = 'new' where state = 'run';
+update camRun set state = 'full' where state = 'stop';
+
+update fakeRun set state = 'new' where state = 'run';
+update fakeRun set state = 'full' where state = 'stop';
+
+update warpRun set state = 'new' where state = 'run';
+update warpRun set state = 'full' where state = 'stop';
+
+update stackRun set state = 'new' where state = 'run';
+update stackRun set state = 'full' where state = 'stop';
+
+update diffRun set state = 'new' where state = 'run';
+update diffRun set state = 'full' where state = 'stop';
+
+-- not sure when 'filter' was added to stackRun, but it is needed now:
+
+alter table stackRun add column filter varchar(64) after tess_id;
+
+-- changes to the flatcorr tables : no valid flatcorr tables have been created to date expect my tests
+-- this sql just drops and recreates the flatcorrRun with the correct layout
+
+delete from flatcorrExp;
+delete from flatcorrRun;
+
+drop table flatcorrExp;
+drop table flatcorrRun;
+
+CREATE TABLE flatcorrRun (
+        corr_id BIGINT AUTO_INCREMENT,
+        dvodb VARCHAR(64),
+        filter VARCHAR(64),
+        state VARCHAR(64),
+        workdir VARCHAR(255),
+        label VARCHAR(64),
+        reduction VARCHAR(64),
+        region VARCHAR(64),
+        hostname VARCHAR(64),
+        fault SMALLINT NOT NULL,
+        PRIMARY KEY(corr_id),
+        KEY(corr_id)
+) ENGINE=innodb DEFAULT CHARSET=latin1;
+
+CREATE TABLE flatcorrChipLink (
+        corr_id BIGINT,
+        chip_id BIGINT,
+        PRIMARY KEY(corr_id, chip_id),
+        FOREIGN KEY (corr_id)  REFERENCES  flatcorrRun(corr_id),
+        FOREIGN KEY (chip_id)  REFERENCES  chipRun(chip_id)
+) ENGINE=innodb DEFAULT CHARSET=latin1;
+
+CREATE TABLE flatcorrCamLink (
+        corr_id BIGINT,
+        chip_id BIGINT,
+        cam_id BIGINT,
+        PRIMARY KEY(corr_id, chip_id, cam_id),
+        FOREIGN KEY (corr_id)  REFERENCES  flatcorrRun(corr_id),
+        FOREIGN KEY (chip_id)  REFERENCES  chipRun(chip_id),
+        FOREIGN KEY (cam_id)  REFERENCES  camRun(cam_id)
+) ENGINE=innodb DEFAULT CHARSET=latin1;
+
+-- I initially defined flatcorrCamLin without the chip_id entry.  this
+-- command corrects for that, but should not be needed widely.
+-- ALTER TABLE flatcorrCamLink ADD COLUMN chip_id BIGINT AFTER corr_id;
+-- alter table flatcorrRun add column hostname varchar(64) after region;
+-- alter table flatcorrRun add column fault smallint after hostname;
+-- alter table flatcorrRun add column reduction varchar(64) after stats;
+
+-- changes to the chip tables to support cleanup and reprocessing
+
+ALTER TABLE chipProcessedImfile ADD COLUMN data_state VARCHAR(64) AFTER class_id;
+UPDATE chipProcessedImfile SET data_state = 'full';
+
+-- I have added 'label' and 'reduction' entries to stack and diff
+
+ALTER TABLE stackRun ADD COLUMN label VARCHAR(64) AFTER workdir;
+ALTER TABLE stackRun ADD COLUMN reduction VARCHAR(64) AFTER label;
+
+ALTER TABLE stackSumSkyfile add column data_state varchar(64) after path_base;
+UPDATE stackSumSkyfile SET data_state = 'full';
+
+alter table diffRun add column label varchar(64) after workdir;
+alter table diffRun add column reduction varchar(64) after label;
+
+ALTER TABLE diffSkyfile add column data_state varchar(64) after path_base;
+UPDATE diffSkyfile SET data_state = 'full';
+
+ALTER TABLE warpSkyfile add column data_state varchar(64) after path_base;
+UPDATE warpSkyfile SET data_state = 'full';
+
+ALTER TABLE fakeProcessedImfile add column data_state varchar(64) after path_base;
+update fakeProcessedImfile set data_state ='full';
+
+-- adding ref_det_id and ref_iter to detRun and detResidImfile
+
+ALTER TABLE detResidImfile add column ref_det_id bigint after iteration;
+ALTER TABLE detResidImfile add column ref_iter int after ref_det_id;
+
+ALTER TABLE detRun change column parent ref_det_id bigint;
+ALTER TABLE detRun add column ref_iter int after ref_det_id;
+
+-- populate ref_det_id and ref_iter 
+UPDATE detResidImfile SET ref_det_id = det_id, ref_iter = iteration;
+
+-- Next we drop the old constraint and add the new one
+ALTER TABLE detResidImfile DROP FOREIGN KEY detResidImfile_ibfk_3;
+ALTER TABLE detResidImfile add FOREIGN KEY  (ref_det_id, ref_iter)
+    REFERENCES  detNormalizedExp(det_id, iteration);
+
+--- Additions for stack/diff QA by PAP.
+ALTER TABLE diffSkyfile ADD COLUMN stamps_mean FLOAT AFTER stamps_num;
+ALTER TABLE diffSkyfile ADD COLUMN dtime_match FLOAT AFTER dtime_diff;
+ALTER TABLE diffSkyfile ADD COLUMN dtime_phot FLOAT AFTER dtime_match;
+
+ALTER TABLE stackSumSkyfile ADD COLUMN dtime_match_mean FLOAT AFTER dtime_stack;
+ALTER TABLE stackSumSkyfile ADD COLUMN dtime_match_stdev FLOAT AFTER dtime_match_mean;
+ALTER TABLE stackSumSkyfile ADD COLUMN dtime_initial FLOAT AFTER dtime_match_stdev;
+ALTER TABLE stackSumSkyfile ADD COLUMN dtime_reject FLOAT AFTER dtime_initial;
+ALTER TABLE stackSumSkyfile ADD COLUMN dtime_final FLOAT AFTER dtime_reject;
+ALTER TABLE stackSumSkyfile ADD COLUMN dtime_phot FLOAT AFTER dtime_final;
+ALTER TABLE stackSumSkyfile ADD COLUMN match_mean FLOAT AFTER dtime_phot;
+ALTER TABLE stackSumSkyfile ADD COLUMN match_stdev FLOAT AFTER match_mean;
+ALTER TABLE stackSumSkyfile ADD COLUMN match_rms FLOAT AFTER match_stdev;
+ALTER TABLE stackSumSkyfile ADD COLUMN stamps_mean FLOAT AFTER match_rms;
+ALTER TABLE stackSumSkyfile ADD COLUMN stamps_stdev FLOAT AFTER stamps_mean;
+ALTER TABLE stackSumSkyfile ADD COLUMN stamps_min INT AFTER stamps_stdev;
+ALTER TABLE stackSumSkyfile ADD COLUMN reject_images INT AFTER stamps_min;
+ALTER TABLE stackSumSkyfile ADD COLUMN reject_pix_mean FLOAT AFTER reject_images;
+ALTER TABLE stackSumSkyfile ADD COLUMN reject_pix_stdev FLOAT AFTER reject_pix_mean;
+ALTER TABLE stackSumSkyfile ADD COLUMN sources INT AFTER reject_pix_stdev;
+ALTER TABLE stackSumSkyfile DROP COLUMN data_state;
+ALTER TABLE diffSkyfile DROP COLUMN data_state;
+
+-- Adding the new solar-system info (sun & moon data)
+ALTER TABLE rawExp CHANGE COLUMN solang sun_angle FLOAT;
+ALTER TABLE rawExp ADD COLUMN sun_alt    FLOAT AFTER sun_angle;
+ALTER TABLE rawExp ADD COLUMN moon_angle FLOAT AFTER sun_alt;
+ALTER TABLE rawExp ADD COLUMN moon_alt   FLOAT AFTER moon_angle;
+ALTER TABLE rawExp ADD COLUMN moon_phase FLOAT AFTER moon_alt;
+
+ALTER TABLE rawImfile ADD COLUMN sun_angle  FLOAT AFTER object;
+ALTER TABLE rawImfile ADD COLUMN sun_alt    FLOAT AFTER sun_angle;
+ALTER TABLE rawImfile ADD COLUMN moon_angle FLOAT AFTER sun_alt;
+ALTER TABLE rawImfile ADD COLUMN moon_alt   FLOAT AFTER moon_angle;
+ALTER TABLE rawImfile ADD COLUMN moon_phase FLOAT AFTER moon_alt;
+
+CREATE TABLE pstampProject (
+        proj_id BIGINT AUTO_INCREMENT,
+        state VARCHAR(64),
+        dbname VARCHAR(64),
+        dvodb VARCHAR(64),
+        camera VARCHAR(64),
+        telescope VARCHAR(64),
+        need_magic TINYINT,
+        PRIMARY KEY(proj_id),
+        KEY(proj_id)
+) ENGINE=innodb DEFAULT CHARSET=latin1;
+
+
+-- Reusing astrometry time field since ppImage doesn't do that any more
+ALTER TABLE chipProcessedImfile CHANGE COLUMN dtime_astrom dtime_total FLOAT;
+
+-- Deleting fields requiring astrometric matching from chipProcessedImfile
+ALTER TABLE chipProcessedImfile DROP COLUMN sigma_ra;
+ALTER TABLE chipProcessedImfile DROP COLUMN sigma_dec;
+ALTER TABLE chipProcessedImfile DROP COLUMN zp_mean;
+ALTER TABLE chipProcessedImfile DROP COLUMN zp_stdev;
+ALTER TABLE chipProcessedImfile DROP COLUMN n_astrom;
+
+-- No need to propagate processing times from chip to camera
+ALTER TABLE camProcessedExp DROP COLUMN dtime_detrend;
+ALTER TABLE camProcessedExp DROP COLUMN dtime_photom;
+ALTER TABLE camProcessedExp DROP COLUMN dtime_astrom;
+
+-- Add "dtime_script" to processing results
+ALTER TABLE chipProcessedImfile ADD COLUMN dtime_script FLOAT AFTER dtime_total;
+ALTER TABLE camProcessedExp ADD COLUMN dtime_script FLOAT AFTER fwhm_minor;
+ALTER TABLE fakeProcessedImfile ADD COLUMN dtime_script FLOAT AFTER dtime_fake;
+ALTER TABLE warpSkyfile ADD COLUMN dtime_script FLOAT AFTER dtime_warp;
+ALTER TABLE stackSumSkyfile ADD COLUMN dtime_script FLOAT AFTER dtime_phot;
+ALTER TABLE diffSkyfile ADD COLUMN dtime_script FLOAT AFTER dtime_phot;
+
+* 1.1.40
+
+-- Add moments statistics (M2, M3, M4)
+
+ALTER TABLE chipProcessedImfile ADD COLUMN iq_m2     FLOAT AFTER fwhm_minor;
+ALTER TABLE chipProcessedImfile ADD COLUMN iq_m2_err FLOAT AFTER iq_m2;
+ALTER TABLE chipProcessedImfile ADD COLUMN iq_m2_lq  FLOAT AFTER iq_m2_err;
+ALTER TABLE chipProcessedImfile ADD COLUMN iq_m2_uq  FLOAT AFTER iq_m2_lq;
+
+ALTER TABLE chipProcessedImfile ADD COLUMN iq_m2c     FLOAT AFTER iq_m2_uq;
+ALTER TABLE chipProcessedImfile ADD COLUMN iq_m2c_err FLOAT AFTER iq_m2c;
+ALTER TABLE chipProcessedImfile ADD COLUMN iq_m2c_lq  FLOAT AFTER iq_m2c_err;
+ALTER TABLE chipProcessedImfile ADD COLUMN iq_m2c_uq  FLOAT AFTER iq_m2c_lq;
+
+ALTER TABLE chipProcessedImfile ADD COLUMN iq_m2s     FLOAT AFTER iq_m2c_uq;
+ALTER TABLE chipProcessedImfile ADD COLUMN iq_m2s_err FLOAT AFTER iq_m2s;
+ALTER TABLE chipProcessedImfile ADD COLUMN iq_m2s_lq  FLOAT AFTER iq_m2s_err;
+ALTER TABLE chipProcessedImfile ADD COLUMN iq_m2s_uq  FLOAT AFTER iq_m2s_lq;
+
+ALTER TABLE chipProcessedImfile ADD COLUMN iq_m3     FLOAT AFTER iq_m2s_uq;
+ALTER TABLE chipProcessedImfile ADD COLUMN iq_m3_err FLOAT AFTER iq_m3;
+ALTER TABLE chipProcessedImfile ADD COLUMN iq_m3_lq  FLOAT AFTER iq_m3_err;
+ALTER TABLE chipProcessedImfile ADD COLUMN iq_m3_uq  FLOAT AFTER iq_m3_lq;
+
+ALTER TABLE chipProcessedImfile ADD COLUMN iq_m4     FLOAT AFTER iq_m3_uq;
+ALTER TABLE chipProcessedImfile ADD COLUMN iq_m4_err FLOAT AFTER iq_m4;
+ALTER TABLE chipProcessedImfile ADD COLUMN iq_m4_lq  FLOAT AFTER iq_m4_err;
+ALTER TABLE chipProcessedImfile ADD COLUMN iq_m4_uq  FLOAT AFTER iq_m4_lq;
+
+ALTER TABLE chipProcessedImfile ADD COLUMN n_psfstars INT AFTER n_stars;
+ALTER TABLE chipProcessedImfile ADD COLUMN n_iqstars INT AFTER n_psfstars;
+
+
+ALTER TABLE camProcessedExp ADD COLUMN iq_m2      FLOAT AFTER fwhm_minor;
+ALTER TABLE camProcessedExp ADD COLUMN iq_m2_err  FLOAT AFTER iq_m2;
+ALTER TABLE camProcessedExp ADD COLUMN iq_m2_lq   FLOAT AFTER iq_m2_err;
+ALTER TABLE camProcessedExp ADD COLUMN iq_m2_uq   FLOAT AFTER iq_m2_lq;
+
+ALTER TABLE camProcessedExp ADD COLUMN iq_m2c     FLOAT AFTER iq_m2_uq;
+ALTER TABLE camProcessedExp ADD COLUMN iq_m2c_err FLOAT AFTER iq_m2c;
+ALTER TABLE camProcessedExp ADD COLUMN iq_m2c_lq  FLOAT AFTER iq_m2c_err;
+ALTER TABLE camProcessedExp ADD COLUMN iq_m2c_uq  FLOAT AFTER iq_m2c_lq;
+
+ALTER TABLE camProcessedExp ADD COLUMN iq_m2s     FLOAT AFTER iq_m2c_uq;
+ALTER TABLE camProcessedExp ADD COLUMN iq_m2s_err FLOAT AFTER iq_m2s;
+ALTER TABLE camProcessedExp ADD COLUMN iq_m2s_lq  FLOAT AFTER iq_m2s_err;
+ALTER TABLE camProcessedExp ADD COLUMN iq_m2s_uq  FLOAT AFTER iq_m2s_lq;
+
+ALTER TABLE camProcessedExp ADD COLUMN iq_m3      FLOAT AFTER iq_m2s_uq;
+ALTER TABLE camProcessedExp ADD COLUMN iq_m3_err  FLOAT AFTER iq_m3;
+ALTER TABLE camProcessedExp ADD COLUMN iq_m3_lq   FLOAT AFTER iq_m3_err;
+ALTER TABLE camProcessedExp ADD COLUMN iq_m3_uq   FLOAT AFTER iq_m3_lq;
+
+ALTER TABLE camProcessedExp ADD COLUMN iq_m4      FLOAT AFTER iq_m3_uq;
+ALTER TABLE camProcessedExp ADD COLUMN iq_m4_err  FLOAT AFTER iq_m4;
+ALTER TABLE camProcessedExp ADD COLUMN iq_m4_lq   FLOAT AFTER iq_m4_err;
+ALTER TABLE camProcessedExp ADD COLUMN iq_m4_uq   FLOAT AFTER iq_m4_lq;
+
+ALTER TABLE camProcessedExp ADD COLUMN n_psfstars INT AFTER n_stars;
+ALTER TABLE camProcessedExp ADD COLUMN n_iqstars INT AFTER n_psfstars;
+
+* 1.1.41
+
+ALTER TABLE camProcessedExp ADD COLUMN dtime_astrom FLOAT AFTER dtime_script;
+ALTER TABLE camProcessedExp ADD COLUMN dtime_addstar FLOAT AFTER dtime_astrom;
+
+* 1.1.42
+
+ALTER TABLE diffSkyfile ADD COLUMN norm FLOAT AFTER stamps_rms;
+ALTER TABLE diffSkyfile ADD COLUMN bg_diff FLOAT AFTER norm;
+ALTER TABLE diffSkyfile ADD COLUMN kernel_x FLOAT AFTER bg_diff;
+ALTER TABLE diffSkyfile ADD COLUMN kernel_y FLOAT AFTER kernel_x;
+ALTER TABLE diffSkyfile ADD COLUMN kernel_xx FLOAT AFTER kernel_y;
+ALTER TABLE diffSkyfile ADD COLUMN kernel_xy FLOAT AFTER kernel_xx;
+ALTER TABLE diffSkyfile ADD COLUMN kernel_yy FLOAT AFTER kernel_xy;
+
+* 1.1.43
+
+ALTER TABLE rawExp ADD COLUMN obs_mode VARCHAR(64) AFTER comment;
+ALTER TABLE rawExp ADD COLUMN obs_group VARCHAR(64) AFTER obs_mode;
+
+ALTER TABLE rawImfile ADD COLUMN obs_mode VARCHAR(64) AFTER comment;
+ALTER TABLE rawImfile ADD COLUMN obs_group VARCHAR(64) AFTER obs_mode;
+
+* 1.1.44
+
+ALTER TABLE chipProcessedImfile ADD COLUMN fwhm_major_lq FLOAT AFTER fwhm_major;
+ALTER TABLE chipProcessedImfile ADD COLUMN fwhm_major_uq FLOAT AFTER fwhm_major_lq;
+
+ALTER TABLE chipProcessedImfile ADD COLUMN fwhm_minor_lq FLOAT AFTER fwhm_minor;
+ALTER TABLE chipProcessedImfile ADD COLUMN fwhm_minor_uq FLOAT AFTER fwhm_minor_lq;
+
+ALTER TABLE chipProcessedImfile ADD COLUMN iq_fwhm_major     FLOAT AFTER fwhm_minor_uq;
+ALTER TABLE chipProcessedImfile ADD COLUMN iq_fwhm_major_err FLOAT AFTER iq_fwhm_major;
+ALTER TABLE chipProcessedImfile ADD COLUMN iq_fwhm_minor     FLOAT AFTER iq_fwhm_major_err;
+ALTER TABLE chipProcessedImfile ADD COLUMN iq_fwhm_minor_err FLOAT AFTER iq_fwhm_minor;
+
+ALTER TABLE camProcessedExp ADD COLUMN fwhm_major_lq 	 FLOAT AFTER fwhm_major;
+ALTER TABLE camProcessedExp ADD COLUMN fwhm_major_uq 	 FLOAT AFTER fwhm_major_lq;
+
+ALTER TABLE camProcessedExp ADD COLUMN fwhm_minor_lq 	 FLOAT AFTER fwhm_minor;
+ALTER TABLE camProcessedExp ADD COLUMN fwhm_minor_uq 	 FLOAT AFTER fwhm_minor_lq;
+
+ALTER TABLE camProcessedExp ADD COLUMN iq_fwhm_major     FLOAT AFTER fwhm_minor_uq;
+ALTER TABLE camProcessedExp ADD COLUMN iq_fwhm_major_err FLOAT AFTER iq_fwhm_major;
+ALTER TABLE camProcessedExp ADD COLUMN iq_fwhm_minor     FLOAT AFTER iq_fwhm_major_err;
+ALTER TABLE camProcessedExp ADD COLUMN iq_fwhm_minor_err FLOAT AFTER iq_fwhm_minor;
+
+ALTER TABLE flatcorrRun ADD COLUMN camera VARCHAR(64) AFTER dvodb;
+ALTER TABLE flatcorrRun ADD COLUMN telescope VARCHAR(64) AFTER camera;
+ALTER TABLE flatcorrRun ADD COLUMN epoch TIMESTAMP DEFAULT CURRENT_TIMESTAMP AFTER telescope;
+
+* 1.1.45
+
+ALTER TABLE camProcessedExp CHANGE COLUMN zp_mean  zpt_obs   FLOAT;
+ALTER TABLE camProcessedExp CHANGE COLUMN zp_stdev zpt_stdev FLOAT;
+ALTER TABLE camProcessedExp ADD COLUMN    zpt_lq	     FLOAT AFTER zpt_stdev;
+ALTER TABLE camProcessedExp ADD COLUMN    zpt_uq 	     FLOAT AFTER zpt_lq;
+
+* 1.1.46
+
+ALTER TABLE pzDownloadImfile ADD COLUMN hostname varchar(64) after epoch;
+ALTER TABLE flatcorrRun ADD COLUMN det_type varchar(64) after corr_id;
+ALTER TABLE flatcorrChipLink ADD COLUMN include tinyint after chip_id;
+ALTER TABLE flatcorrCamLink ADD COLUMN include tinyint after cam_id;
+
+ALTER TABLE rawImfile ADD COLUMN ignored TINYINT DEFAULT 0 AFTER moon_phase;
+
+-- add new tables to control magic de-streaking
+CREATE TABLE magicDSRun (
+        magic_ds_id BIGINT AUTO_INCREMENT,
+        magic_id BIGINT,
+        state VARCHAR(64),
+        stage VARCHAR(64),
+        outroot VARCHAR(255),
+        recoveryroot VARCHAR(255),
+        re_place TINYINT,
+        remove TINYINT,
+        PRIMARY KEY(magic_ds_id),
+        KEY(magic_ds_id),
+        KEY(state),
+        FOREIGN KEY (magic_id)  REFERENCES  magicRun(magic_id)
+) ENGINE=innodb DEFAULT CHARSET=latin1;
+
+CREATE TABLE magicDSFile (
+    magic_ds_id BIGINT,
+    component VARCHAR(64),
+    backup_path_base VARCHAR(255),
+    recovery_path_base VARCHAR(255),
+    fault SMALLINT,
+    PRIMARY KEY(magic_ds_id, component),
+    KEY(fault),
+    FOREIGN KEY (magic_ds_id) REFERENCES magicDSRun(magic_ds_id)
+) ENGINE=innodb DEFAULT CHARSET=latin1;
+
+-- add to the run table to make the queries far less expensive
+alter table magicDSRun add column stage_id BIGINT after stage;
+alter table magicDSRun add column cam_id BIGINT after stage_id;
+
+--  Version: 1.1.47
+
+-- WARNING WARNING WARNING
+-- Updating a database which has populated diffRun's requires editing
+-- the contents of the tables in a way that cannot be expresed here.
+-- The script tools/collapsdiffinputs.pl does the appropriate edits
+-- and should be run at the spot indicated below
+
+-- fix order of workdir to match pxadmin_create_tables.sql
+ALTER TABLE diffRun CHANGE COLUMN workdir workdir VARCHAR(255) AFTER state;
+
+-- add exposure id to diffRun
+ALTER TABLE diffRun ADD COLUMN exp_id BIGINT;
+ALTER TABLE diffRun ADD FOREIGN KEY (exp_id) REFERENCES rawExp(exp_id);
+ALTER TABLE diffRun DROP COLUMN skycell_id;
+
+-- add unique ids for each image and flags that indicate whether the image has been
+-- magic destreaked
+ALTER TABLE diffSkyfile ADD COLUMN skycell_id VARCHAR(64) AFTER diff_id;
+ALTER TABLE diffSkyfile DROP PRIMARY KEY, ADD PRIMARY KEY (diff_id, skycell_id);
+ALTER TABLE diffSkyfile ADD COLUMN diff_image_id BIGINT NOT NULL AUTO_INCREMENT, ADD KEY(diff_image_id);
+ALTER TABLE diffSkyfile ADD COLUMN magicked TINYINT;
+
+-- drop existing foreign key constraints
+ALTER TABLE diffInputSkyfile drop FOREIGN KEY diffInputSkyfile_ibfk_1;
+ALTER TABLE diffInputSkyfile drop FOREIGN KEY diffInputSkyfile_ibfk_2;
+ALTER TABLE diffInputSkyfile drop FOREIGN KEY diffInputSkyfile_ibfk_3;
+
+ALTER TABLE diffInputSkyfile DROP COLUMN kind;
+ALTER TABLE diffInputSkyfile CHANGE COLUMN skycell_id skycell_id VARCHAR(64) AFTER diff_id;
+
+
+ALTER TABLE diffInputSkyfile CHANGE COLUMN warp_id warp1 BIGINT;
+ALTER TABLE diffInputSkyfile ADD COLUMN stack1 BIGINT AFTER warp1, ADD KEY(stack1);
+ALTER TABLE diffInputSkyfile ADD COLUMN warp2 BIGINT AFTER stack1, ADD KEY(warp2);
+ALTER TABLE diffInputSkyfile CHANGE COLUMN stack_id stack2 BIGINT AFTER warp2;
+
+-- WARNING WARNING
+-- If you have existing diff runs they must be converted
+
+-- run the script collapse_diffinputs.pl here.
+
+--        collapse_diffinputs.pl dbname dbuser dbpass dbhost
+
+DELETE FROM diffInputSkyfile where template = 1;
+
+ALTER TABLE diffInputSkyfile DROP PRIMARY KEY;
+ALTER TABLE diffInputSkyfile ADD PRIMARY KEY (diff_id, skycell_id);
+ALTER TABLE diffInputSkyfile DROP COLUMN template;
+
+ALTER TABLE diffInputSkyfile ADD FOREIGN KEY (diff_id) REFERENCES diffRun(diff_id);
+
+ALTER TABLE diffInputSkyfile ADD FOREIGN KEY (warp1, skycell_id, tess_id) REFERENCES warpSkyfile(warp_id, skycell_id, tess_id);
+ALTER TABLE diffInputSkyfile ADD FOREIGN KEY (warp2, skycell_id, tess_id) REFERENCES warpSkyfile(warp_id, skycell_id, tess_id);
+
+ALTER TABLE diffInputSkyfile ADD FOREIGN KEY (stack1) REFERENCES stackRun(stack_id);
+ALTER TABLE diffInputSkyfile ADD FOREIGN KEY (stack2) REFERENCES stackRun(stack_id); 
+
+
+-- add unique ids for each image and flags that indicate whether the image has been
+-- magic destreaked
+ALTER TABLE warpRun DROP COLUMN magiced;
+
+ALTER TABLE warpSkyfile ADD COLUMN warp_image_id BIGINT NOT NULL AUTO_INCREMENT, ADD KEY(warp_image_id);
+ALTER TABLE warpSkyfile ADD COLUMN magicked TINYINT;
+
+ALTER TABLE chipProcessedImfile ADD COLUMN chip_image_id BIGINT NOT NULL AUTO_INCREMENT, ADD KEY(chip_image_id);
+ALTER TABLE chipProcessedImfile ADD COLUMN magicked TINYINT;
+
+ALTER TABLE rawImfile ADD COLUMN raw_image_id BIGINT NOT NULL AUTO_INCREMENT, ADD KEY(raw_image_id);
+ALTER TABLE rawImfile ADD COLUMN magicked TINYINT;
+
+-- magic adaptations to diff reorginization
+ALTER TABLE magicRun ADD COLUMN diff_id BIGINT AFTER exp_id;
+ALTER TABLE magicRun ADD CONSTRAINT FOREIGN KEY(diff_id) REFERENCES diffRun(diff_id);
+ALTER TABLE magicRun ADD CONSTRAINT FOREIGN KEY(exp_id) REFERENCES rawExp(exp_id);
+ALTER TABLE magicInputSkyfile DROP PRIMARY KEY, ADD PRIMARY KEY(magic_id, diff_id, node);
+
+-- Version: 1.1.48
+
+ALTER TABLE chipProcessedImfile DROP COLUMN chip_image_id;
+ALTER TABLE diffSkyfile DROP COLUMN diff_image_id;
+ALTER TABLE warpSkyfile DROP COLUMN warp_image_id;
+
+ALTER TABLE diffInputSkyfile ADD COLUMN diff_skyfile_id BIGINT AUTO_INCREMENT, ADD KEY(diff_id, skycell_id), ADD KEY(diff_skyfile_id);
+
+CREATE TABLE chipImfile (
+     chip_id BIGINT,
+     class_id VARCHAR(64),
+     chip_imfile_id BIGINT AUTO_INCREMENT,
+     PRIMARY KEY(chip_id, class_id),
+     KEY(chip_imfile_id),
+     FOREIGN KEY (chip_id) REFERENCES  chipRun(chip_id))
+ENGINE=innodb DEFAULT CHARSET=latin1;
+
+CREATE TABLE warpImfile (
+     warp_id BIGINT,
+     skycell_id VARCHAR(64),
+     warp_skyfile_id BIGINT AUTO_INCREMENT,
+     PRIMARY KEY(warp_id, skycell_id),
+     KEY(warp_skyfile_id),
+     FOREIGN KEY (warp_id) REFERENCES  warpRun(warp_id))
+ENGINE=innodb DEFAULT CHARSET=latin1;
+
+INSERT INTO chipImfile
+   SELECT chip_id, class_id, 0
+   FROM rawImfile JOIN chipRun USING(exp_id)
+   LEFT JOIN chipImfile USING(chip_id, class_id)
+   WHERE chipImfile.class_id IS NULL;
+
+INSERT INTO warpImfile 
+    SELECT DISTINCT warp_id, skycell_id, 0 
+    FROM warpSkyCellMap LEFT JOIN warpImfile USING(warp_id, skycell_id)
+    WHERE warpImfile.skycell_id IS NULL;
+
+-- Version: 1.1.49 (change detrend sequence)
+
+show create table detResidImfile;
+alter table detResidImfile drop foreign key detResidImfile_ibfk_3;
+
+
+-- Version: 1.1.50  magic and distribution changes
+
+ALTER TABLE magicDSRun ADD COLUMN label VARCHAR(64) after cam_id;
+ALTER TABLE magicDSRun ADD KEY(label);
+
+-- replace null values for magicked flags with zero
+UPDATE rawImfile SET magicked = 0 WHERE magicked IS NULL;
+UPDATE chipProcessedImfile SET magicked = 0 WHERE magicked IS NULL;
+UPDATE warpSkyfile SET magicked = 0 WHERE magicked IS NULL;
+UPDATE diffSkyfile SET magicked = 0 WHERE magicked IS NULL;
+
+CREATE TABLE distRun (
+    dist_id     BIGINT AUTO_INCREMENT,
+    target_id   BIGINT,
+    stage       VARCHAR(64),
+    stage_id    BIGINT,
+    label       VARCHAR(64),
+    outroot     VARCHAR(255),
+    clean       TINYINT,
+    state       VARCHAR(64),
+    time_stamp  TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    fault       SMALLINT,
+    PRIMARY KEY(dist_id),
+    KEY(state),
+    KEY(label),
+    FOREIGN KEY(target_id) REFERENCES distTarget(target_id)
+)  ENGINE=innodb DEFAULT CHARSET=latin1;
+
+CREATE TABLE distComponent (
+    dist_id     BIGINT, 
+    component   VARCHAR(64),
+    bytes       INT,
+    md5sum      VARCHAR(32),
+    state       VARCHAR(64),
+    name        VARCHAR(255),
+    fault       SMALLINT,
+    PRIMARY KEY(dist_id, component),
+    KEY(state),
+    FOREIGN KEY(dist_id) REFERENCES distRun(dist_id)
+)  ENGINE=innodb DEFAULT CHARSET=latin1;
+
+
+-- change state fields to match the rest of the system
+UPDATE magicRun SET state = 'new' WHERE state = 'run';
+UPDATE magicRun SET state = 'full' WHERE state = 'stop';
+UPDATE magicDSRun SET state = 'new' WHERE state = 'run';
+UPDATE magicDSRun SET state = 'full' WHERE state = 'stop';
+
+ALTER TABLE rawExp ADD COLUMN magicked TINYINT;
+ALTER TABLE chipRun ADD COLUMN magicked TINYINT;
+ALTER TABLE warpRun ADD COLUMN magicked TINYINT;
+ALTER TABLE diffRun ADD COLUMN magicked TINYINT;
+
+update rawExp  SET magicked = 0;
+update chipRun SET magicked = 0;
+update warpRun SET magicked = 0;
+update diffRun SET magicked = 0;
+
+-- The following only applies to the gpc1 database (and recent copies)
+update chipRun SET magicked = 1 where chip_id = 11955;
+
+
+-- Version 1.1.51
+
+-- Distribution updates
+CREATE TABLE distTarget (
+    target_id   BIGINT AUTO_INCREMENT,
+    obs_mode    VARCHAR(64),
+    stage       VARCHAR(64),
+    clean       TINYINT,
+    state       VARCHAR(64),
+    comment     VARCHAR(255),
+    PRIMARY KEY(target_id)
+)  ENGINE=innodb DEFAULT CHARSET=latin1;
+
+CREATE TABLE rcDSProduct (
+    prod_id     BIGINT AUTO_INCREMENT,
+    name        VARCHAR(64),
+    dbname      VARCHAR(64),
+    dbhost      VARCHAR(64),
+    prod_root   VARCHAR(255),
+    PRIMARY KEY(prod_id)
+)  ENGINE=innodb DEFAULT CHARSET=latin1;
+
+CREATE TABLE rcDestination (
+    dest_id     BIGINT AUTO_INCREMENT,
+    prod_id     BIGINT,
+    name        VARCHAR(64),
+    status_uri  VARCHAR(255),
+    comment     VARCHAR(255),
+    last_fileset VARCHAR(255),
+    state       VARCHAR(64),
+    PRIMARY KEY(dest_id),
+    FOREIGN KEY(prod_id) REFERENCES rcDSProduct(prod_id)
+)  ENGINE=innodb DEFAULT CHARSET=latin1;
+
+CREATE TABLE rcInterest (
+    int_id      BIGINT AUTO_INCREMENT,
+    dest_id     BIGINT,
+    target_id   BIGINT,
+    prod_id     BIGINT,
+    state       VARCHAR(64),
+    PRIMARY KEY(int_id),
+    FOREIGN KEY(dest_id) REFERENCES rcDestination(dest_id),
+    FOREIGN KEY(target_id) REFERENCES distTarget(target_id),
+    FOREIGN KEY(prod_id) REFERENCES rcDSProduct(prod_id)
+)  ENGINE=innodb DEFAULT CHARSET=latin1;
+
+CREATE TABLE rcDSFileset (
+    fs_id       BIGINT AUTO_INCREMENT,
+    dist_id     BIGINT,
+    prod_id     BIGINT,
+    name        VARCHAR(64),
+    state       VARCHAR(64),
+    registered  TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY(fs_id),
+    FOREIGN KEY(dist_id) REFERENCES distRun(dist_id),
+    FOREIGN KEY(prod_id) REFERENCES rcDSProduct(prod_id)
+)  ENGINE=innodb DEFAULT CHARSET=latin1;
+
+CREATE TABLE rcRun (
+    rc_id       BIGINT AUTO_INCREMENT,
+    fs_id       BIGINT,
+    dest_id     BIGINT,
+    state       VARCHAR(64),
+    registered  TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY(rc_id),
+    FOREIGN KEY(fs_id) REFERENCES rcDSFileset(fs_id),
+    FOREIGN KEY(dest_id) REFERENCES rcDestination(dest_id)
+)  ENGINE=innodb DEFAULT CHARSET=latin1;
+
+ALTER TABLE distRun ADD COLUMN no_magic TINYINT AFTER clean;
+
+
+-- Adding data quality flags
+DROP TABLE guidePendingExp;
+ALTER TABLE diffSkyfile ADD COLUMN quality SMALLINT NOT NULL DEFAULT 0 AFTER fault;
+ALTER TABLE stackSumSkyfile ADD COLUMN quality SMALLINT NOT NULL DEFAULT 0 AFTER fault;
+ALTER TABLE warpSkyfile ADD COLUMN quality SMALLINT NOT NULL DEFAULT 0 AFTER fault;
+ALTER TABLE camProcessedExp ADD COLUMN quality SMALLINT NOT NULL DEFAULT 0 AFTER fault;
+ALTER TABLE chipProcessedImfile ADD COLUMN quality SMALLINT NOT NULL DEFAULT 0 AFTER fault;
+ALTER TABLE rawImfile ADD COLUMN quality SMALLINT NOT NULL DEFAULT 0 AFTER fault;
+
+
+ALTER TABLE diffSkyfile ADD KEY(quality);
+ALTER TABLE stackSumSkyfile ADD KEY(quality);
+ALTER TABLE warpSkyfile ADD KEY(quality);
+ALTER TABLE camProcessedExp ADD KEY(quality);
+ALTER TABLE chipProcessedImfile ADD KEY(quality);
+ALTER TABLE rawImfile ADD KEY(quality);
+
+UPDATE TABLE warpSkyfile SET quality = 8007 WHERE ignored != 0;
+ALTER TABLE warpSkyfile DROP COLUMN ignored;
+
+-- Version 1.1.52
+
+-- drop unneeded column and the associated constraint
+ALTER TABLE rcInterest DROP FOREIGN KEY rcInterest_ibfk_3;
+ALTER TABLE rcInterest DROP COLUMN prod_id;
+
+ALTER TABLE rcDSProduct DROP column prod_root;
+
+-- just re-create these two tables
+DROP TABLE rcRun;
+DROP TABLE rcDSFileset;
+
+CREATE TABLE rcDSFileset (
+    fs_id       BIGINT AUTO_INCREMENT,
+    dist_id     BIGINT,
+    prod_id     BIGINT,
+    name        VARCHAR(255),
+    state       VARCHAR(64),
+    registered  TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    fault       SMALLINT DEFAULT 0,
+    PRIMARY KEY(dist_id, prod_id),
+    KEY(fs_id),
+    FOREIGN KEY(dist_id) REFERENCES distRun(dist_id),
+    FOREIGN KEY(prod_id) REFERENCES rcDSProduct(prod_id)
+)  ENGINE=innodb DEFAULT CHARSET=latin1;
+
+CREATE TABLE rcRun (
+    rc_id       BIGINT AUTO_INCREMENT,
+    fs_id       BIGINT,
+    dest_id     BIGINT,
+    state       VARCHAR(64),
+    registered  TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY(rc_id),
+    FOREIGN KEY(fs_id) REFERENCES rcDSFileset(fs_id),
+    FOREIGN KEY(dest_id) REFERENCES rcDestination(dest_id)
+)  ENGINE=innodb DEFAULT CHARSET=latin1;
+
+
+ALTER TABLE diffSkyfile ADD COLUMN data_state VARCHAR(64) AFTER path_base;
+UPDATE diffSkyfile SET data_state = 'full' WHERE data_state IS NULL;
+
+
+-- Sources from which to receive files
+CREATE TABLE receiveSource (
+    source_id BIGINT AUTO_INCREMENT, -- unique identifier
+    source VARCHAR(128) NOT NULL, -- source URI
+    product VARCHAR(64) NOT NULL, -- product of interest
+    workdir VARCHAR(255) NOT NULL, -- where to extract
+    comment VARCHAR(255),       -- for human memory
+    fileset_last VARCHAR(128),  -- last fileset seen
+    PRIMARY KEY(source_id),
+    KEY(source),
+    KEY(product),
+    KEY(comment)
+) ENGINE=innodb DEFAULT CHARSET=latin1;
+
+-- Filesets to receive
+CREATE TABLE receiveFileset (
+    fileset_id BIGINT AUTO_INCREMENT, -- unique identifier
+    source_id BIGINT NOT NULL,  -- link to receiveSource
+    fileset VARCHAR(128) NOT NULL, -- fileset to receive
+    PRIMARY KEY(fileset_id),
+    KEY(source_id),
+    CONSTRAINT UNIQUE(source_id, fileset),
+    FOREIGN KEY(source_id) REFERENCES receiveSource(source_id)
+) ENGINE=innodb DEFAULT CHARSET=latin1;
+
+-- Files to receive
+CREATE TABLE receiveFile (
+    file_id BIGINT AUTO_INCREMENT, -- unique identifier
+    fileset_id BIGINT NOT NULL,  -- link to receiveFileset
+    file VARCHAR(128) NOT NULL, -- file to receive
+    PRIMARY KEY(file_id),
+    KEY(fileset_id),
+    CONSTRAINT UNIQUE(fileset_id, file),
+    FOREIGN KEY(fileset_id) REFERENCES receiveFileset(fileset_id)
+) ENGINE=innodb DEFAULT CHARSET=latin1;
+
+-- Result of receiving files
+CREATE TABLE receiveResult (
+    file_id BIGINT AUTO_INCREMENT, -- link to receiveFile
+    dtime_copy FLOAT,           -- Time to copy
+    dtime_extract FLOAT,        -- Time to extract
+    fault SMALLINT NOT NULL DEFAULT 0, -- Fault code
+    PRIMARY KEY(file_id),
+    KEY(fault),
+    FOREIGN KEY(file_id) REFERENCES receiveFile(file_id)
+) ENGINE=innodb DEFAULT CHARSET=latin1;
+
+ALTER TABLE rcRun ADD COLUMN fault SMALLINT DEFAULT 0;
+ALTER TABLE rcRun ADD COLUMN status_fs_name VARCHAR(64) AFTER state;
+
+ALTER TABLE diffSkyfile ADD COLUMN deconv_max FLOAT AFTER kernel_yy;
+
+-- This key makes it faster to find the ccd_temp for XY24
+ALTER TABLE rawImfile ADD KEY(dateobs);
+
+ALTER TABLE receiveSource ADD COLUMN status_product VARCHAR(64);
+ALTER TABLE receiveSource ADD COLUMN ds_dbname VARCHAR(64);
+ALTER TABLE receiveSource ADD COLUMN ds_dbhost VARCHAR(64);
+
+ALTER TABLE receiveFileset ADD COLUMN state VARCHAR(64);
+ALTER TABLE receiveFileset ADD COLUMN dbinfo_uri VARCHAR(255);
+ALTER TABLE receiveFileset ADD COLUMN fault SMALLINT NOT NULL DEFAULT 0;
+
+ALTER TABLE receiveFile ADD COLUMN bytes BIGINT;
+ALTER TABLE receiveFile ADD COLUMN md5sum VARCHAR(255);
+ALTER TABLE receiveFile ADD COLUMN file_type VARCHAR(64);
+ALTER TABLE receiveFile ADD COLUMN component VARCHAR(64);
+
+ALTER TABLE receiveFileset CHANGE COLUMN dbinfo_uri dbinfo VARCHAR(255);
+ALTER TABLE receiveFileset ADD COLUMN dirinfo VARCHAR(255) AFTER state;
+
+-- Playing with the diffs for warp-warp
+ALTER TABLE diffRun ADD COLUMN bothways TINYINT DEFAULT 0 AFTER tess_id;
+UPDATE diffRun SET bothways = 1 WHERE reduction = 'WARPWARP';
+ALTER TABLE diffRun DROP FOREIGN KEY diffRun_ibfk_1;
+ALTER TABLE diffRun DROP COLUMN exp_id;
+ALTER TABLE diffRun ADD KEY(label);
+ALTER TABLE diffRun ADD COLUMN exposure TINYINT DEFAULT 0 AFTER bothways;
+UPDATE diffRun, diffInputSkyfile SET diffRun.exposure = 1 WHERE diffRun.diff_id = diffInputSkyfile.diff_id and diffInputSkyfile.warp1 IS NOT NULL;
+ALTER TABLE stackRun ADD KEY(label);
+
+ALTER TABLE magicRun ADD COLUMN inverse TINYINT NOT NULL DEFAULT 0 AFTER diff_id;
+ALTER TABLE diffSkyfile DROP COLUMN uri;
+
+DROP TABLE IF EXISTS magicSkyfileMask;
+ALTER TABLE magicInputSkyfile DROP FOREIGN KEY magicInputSkyfile_ibfk_2;
+ALTER TABLE magicInputSkyfile DROP KEY diff_id;
+ALTER TABLE magicInputSkyfile DROP PRIMARY KEY, ADD PRIMARY KEY(magic_id,node);
+ALTER TABLE magicInputSkyfile DROP COLUMN diff_id;
+ALTER TABLE magicNodeResult CHANGE COLUMN uri path_base VARCHAR(255);
+
+-- Version 1.1.53
+
+ALTER TABLE warpRun ADD COLUMN reduction VARCHAR(64) AFTER tess_id;
+
+-- Tables to support publishing of detections to a Science Client
+-- Clients to which we send stuff
+CREATE TABLE publishClient (
+    client_id BIGINT AUTO_INCREMENT, -- unique identifier
+    product VARCHAR(64),             -- product name
+    stage VARCHAR(64) NOT NULL, -- stage of interest (chip, camera, diff, etc.)
+    workdir VARCHAR(255) NOT NULL, -- working directory
+    comment VARCHAR(255),            -- for human memory
+    PRIMARY KEY(client_id)
+) ENGINE=innodb DEFAULT CHARSET=latin1;
+-- Publishing a set of data (e.g., a specific diffRun)
+CREATE TABLE publishRun (
+    pub_id BIGINT AUTO_INCREMENT, -- unique identifier
+    client_id BIGINT NOT NULL,  -- link to publishClient
+    stage_id BIGINT NOT NULL,   -- link to various stage tables
+    label VARCHAR(64),          -- label for run
+    state VARCHAR(64),          -- state of run (new, full, etc.)
+    PRIMARY KEY(pub_id),
+    KEY(client_id),
+    KEY(stage_id),
+    KEY(label),
+    KEY(state),
+    FOREIGN KEY(client_id) REFERENCES publishClient(client_id)
+) ENGINE=innodb DEFAULT CHARSET=latin1;
+-- Publishing a file within a set
+CREATE TABLE publishDone (
+    pub_id BIGINT AUTO_INCREMENT, -- link to publishRun
+    path_base VARCHAR(255),     -- base path of output
+    fault SMALLINT NOT NULL DEFAULT 0, -- Fault code
+    PRIMARY KEY(pub_id),
+    KEY(fault),
+    FOREIGN KEY(pub_id) REFERENCES publishRun(pub_id)
+) ENGINE=innodb DEFAULT CHARSET=latin1;
+
+-- Version 1.1.54
+
+-- changed magicked from a flag to a BIGINT
+-- The value is the magic_ds_id of the magicDSRun that destreaked the file/run
+
+ALTER TABLE magicDSFile ADD COLUMN data_state VARCHAR(64);
+ALTER TABLE magicDSFile ADD KEY(data_state);
+UPDATE magicDSFile SET data_state = 'full' WHERE data_state IS NULL;
+
+ALTER TABLE rawImfile CHANGE COLUMN magicked  magicked BIGINT;
+ALTER TABLE rawExp CHANGE COLUMN magicked  magicked BIGINT;
+
+ALTER TABLE chipProcessedImfile CHANGE COLUMN magicked  magicked BIGINT;
+ALTER TABLE chipRun CHANGE COLUMN magicked  magicked BIGINT;
+
+-- so far only chipRuns have been magicked in product
+UPDATE chipProcessedImfile JOIN magicDSRun ON stage = 'chip' AND chip_id = stage_id
+    SET chipProcessedImfile.magicked = magic_ds_id 
+    WHERE magicDSRun.re_place
+    AND chipProcessedImfile.magicked > 0;
+
+UPDATE chipRun JOIN magicDSRun ON stage = 'chip' AND chip_id = stage_id
+    SET chipRun.magicked = magic_ds_id 
+    WHERE magicDSRun.re_place
+    AND chipRun.magicked > 0;
+
+ALTER TABLE warpSkyfile CHANGE COLUMN magicked  magicked BIGINT;
+ALTER TABLE warpRun CHANGE COLUMN magicked  magicked BIGINT;
+
+ALTER TABLE diffSkyfile CHANGE COLUMN magicked  magicked BIGINT;
+ALTER TABLE diffRun CHANGE COLUMN magicked  magicked BIGINT;
+
+ALTER TABLE camRun ADD COLUMN magicked BIGINT;
+
+ALTER TABLE distTarget CHANGE COLUMN obs_mode label VARCHAR(64);
+ALTER TABLE distTarget ADD COLUMN filter VARCHAR(64) AFTER label;
+ALTER TABLE distTarget DROP KEY clean;
+ALTER TABLE distTarget ADD CONSTRAINT UNIQUE(label, filter, stage, clean);
+
+ALTER TABLE pstampJob DROP COLUMN args;
+ALTER TABLE pstampJob DROP COLUMN uri;
+ALTER TABLE magicDSRun ADD COLUMN inv_magic_id BIGINT AFTER magic_id;
+ALTER TABLE magicDSRun ADD FOREIGN KEY (inv_magic_id) REFERENCES magicRun(magic_id);
+
+-- Adding columns for debugging publishing problems
+
+ALTER TABLE publishDone ADD COLUMN hostname VARCHAR(64) AFTER path_base;
+ALTER TABLE publishDone ADD COLUMN dtime_script FLOAT AFTER hostname;
+
+-- Version 1.1.55
+-- addstar stage tables:
+
+CREATE TABLE addRun (
+    add_id BIGINT AUTO_INCREMENT,
+    cam_id BIGINT,
+    state VARCHAR(64),
+    workdir VARCHAR(255),
+    workdir_state VARCHAR(64),
+    label VARCHAR(64),
+    dvodb VARCHAR(255),
+    magicked BIGINT,
+    PRIMARY KEY(add_id),
+    KEY(add_id),
+    KEY(cam_id),
+    KEY(state),
+    KEY(workdir_state),
+    KEY(label),
+    INDEX(add_id, cam_id),
+    FOREIGN KEY(cam_id) REFERENCES camRun(cam_id)
+) ENGINE=innodb DEFAULT CHARSET=latin1;
+
+CREATE TABLE addProcessedExp (
+    add_id BIGINT AUTO_INCREMENT,
+    dtime_addstar FLOAT,
+    n_stars INT,
+    path_base VARCHAR(255),
+    fault SMALLINT NOT NULL,
+    PRIMARY KEY(add_id),
+    FOREIGN KEY(add_id) REFERENCES addRun(add_id)
+) ENGINE=innodb DEFAULT CHARSET=latin1;
+
+CREATE TABLE addMask (
+    label VARCHAR(64),
+    PRIMARY KEY(label)
+) ENGINE=innodb DEFAULT CHARSET=latin1;
+
+
+ALTER TABLE pzDownloadImfile ADD COLUMN bytes INT;
+ALTER TABLE pzDownloadImfile ADD COLUMN md5sum VARCHAR(32);
+ALTER TABLE newImfile ADD COLUMN bytes INT;
+ALTER TABLE newImfile ADD COLUMN md5sum VARCHAR(32);
+ALTER TABLE rawImfile ADD COLUMN bytes INT;
+ALTER TABLE rawImfile ADD COLUMN md5sum VARCHAR(32);
+ALTER TABLE rawImfile ADD COLUMN burntool_state SMALLINT;
+
+-- Vesion 1.1.56
+
+-- Merge the rcDSProduct and rcDestination tables
+
+ALTER TABLE rcDestination ADD COLUMN dbname varchar(64) AFTER last_fileset;
+ALTER TABLE rcDestination ADD COLUMN dbhost varchar(64) AFTER dbname;
+
+UPDATE rcDestination JOIN rcDSProduct USING(prod_id)
+    SET rcDestination.name = rcDSProduct.name, 
+        rcDestination.dbname = rcDSProduct.dbname, 
+        rcDestination.dbhost = rcDSProduct.dbhost;
+
+ALTER TABLE rcDestination DROP foreign key rcDestination_ibfk_1 ;
+ALTER TABLE rcDestination DROP key prod_id;
+ALTER TABLE rcDestination DROP COLUMN prod_id;
+
+-- change references to rcDSProduct in rcDSFileset to reference rcDestination
+
+ALTER TABLE rcDSFileset DROP foreign key rcDSFileset_ibfk_2;
+ALTER TABLE rcDSFileset DROP key prod_id;
+ALTER TABLE rcDSFileset CHANGE COLUMN prod_id dest_id BIGINT NOT NULL DEFAULT '0';
+ALTER TABLE rcDSFileset ADD KEY (dest_id);
+ALTER TABLE rcDSFileset ADD FOREIGN KEY (dest_id) REFERENCES rcDestination(dest_id);
+
+-- finally drop the obsolete table
+DROP TABLE rcDSProduct;
+
+-- The following changes should have been made to the gpc1 database ages ago
+-- do not apply if these columns exist
+ALTER TABLE pstampRequest DROP COLUMN outFileset;
+ALTER TABLE pstampRequest ADD COLUMN name VARCHAR(64) UNIQUE AFTER state;
+ALTER TABLE pstampRequest ADD COLUMN reqType VARCHAR(16) AFTER name;
+ALTER TABLE pstampRequest ADD COLUMN outProduct VARCHAR(64) after reqType;
+ALTER TABLE pstampRequest ADD COLUMN fault SMALLINT AFTER uri;
+-- end of old changes
+
+-- This change is new
+ALTER TABLE pstampRequest ADD COLUMN label VARCHAR(64) AFTER reqType;
+
+ALTER TABLE distRun ADD COLUMN magic_ds_id BIGINT AFTER stage_id;
+
+ALTER TABLE pstampJob ADD COLUMN options BIGINT;
+
+ALTER TABLE addRun ADD COLUMN reduction VARCHAR(64) AFTER workdir_state;
+ALTER TABLE addRun DROP COLUMN magicked;
+ALTER TABLE addRun ADD COLUMN image_only tinyint after dvodb;
+ALTER TABLE addProcessedExp DROP COLUMN n_stars;
+
+CREATE TABLE flatcorrAddstarLink (
+        corr_id BIGINT,
+        cam_id BIGINT,
+        add_id BIGINT,
+        include TINYINT,
+        PRIMARY KEY(corr_id, cam_id, add_id),
+        FOREIGN KEY (corr_id)  REFERENCES  flatcorrRun(corr_id),
+        FOREIGN KEY (cam_id)  REFERENCES  camRun(cam_id),
+        FOREIGN KEY (add_id)  REFERENCES  addRun(add_id)
+) ENGINE=innodb DEFAULT CHARSET=latin1;
+
+ALTER TABLE pstampJob ADD COLUMN dep_id BIGINT;
+CREATE TABLE pstampDependent (
+        dep_id BIGINT AUTO_INCREMENT,
+        state      VARCHAR(64),
+        stage      VARCHAR(64),
+        stage_id   BIGINT,
+        imagedb    VARCHAR(64),
+        rlabel     VARCHAR(64),
+        no_magic   TINYINT,
+        PRIMARY KEY(dep_id)
+) ENGINE=innodb DEFAULT CHARSET=latin1;
+
+ALTER TABLE flatcorrRun ADD COLUMN make_corr tinyint after state;
+
+ALTER TABLE chipRun ADD COLUMN data_group VARCHAR(64) AFTER label;
+ALTER TABLE chipRun ADD COLUMN dist_group VARCHAR(64) AFTER data_group;
+ALTER TABLE chipRun ADD COLUMN note VARCHAR(255) AFTER magicked;
+ALTER TABLE chipRun ADD KEY(data_group);
+ALTER TABLE chipRun ADD KEY(dist_group);
+
+UPDATE chipRun SET data_group = label;
+UPDATE chipRun SET dist_group = label;
+
+ALTER TABLE camRun ADD COLUMN data_group VARCHAR(64) AFTER label;
+ALTER TABLE camRun ADD COLUMN dist_group VARCHAR(64) AFTER data_group;
+ALTER TABLE camRun ADD COLUMN note VARCHAR(255) AFTER magicked;
+ALTER TABLE camRun ADD KEY(data_group);
+ALTER TABLE camRun ADD KEY(dist_group);
+
+UPDATE camRun SET data_group = label;
+UPDATE camRun SET dist_group = label;
+
+ALTER TABLE addRun ADD COLUMN data_group VARCHAR(64) AFTER label;
+ALTER TABLE addRun ADD COLUMN note VARCHAR(255) AFTER dvodb;
+ALTER TABLE addRun ADD KEY(data_group);
+
+UPDATE addRun SET data_group = label;
+
+ALTER TABLE fakeRun ADD COLUMN data_group VARCHAR(64) AFTER label;
+ALTER TABLE fakeRun ADD COLUMN dist_group VARCHAR(64) AFTER data_group;
+ALTER TABLE fakeRun ADD COLUMN note VARCHAR(255) AFTER epoch;
+ALTER TABLE fakeRun ADD KEY(data_group);
+ALTER TABLE fakeRun ADD KEY(dist_group);
+
+UPDATE fakeRun SET data_group = label;
+UPDATE fakeRun SET dist_group = label;
+
+ALTER TABLE warpRun ADD COLUMN data_group VARCHAR(64) AFTER label;
+ALTER TABLE warpRun ADD COLUMN dist_group VARCHAR(64) AFTER data_group;
+ALTER TABLE warpRun ADD COLUMN note VARCHAR(255) AFTER magicked;
+ALTER TABLE warpRun ADD KEY(data_group);
+ALTER TABLE warpRun ADD KEY(dist_group);
+
+UPDATE warpRun SET data_group = label;
+UPDATE warpRun SET dist_group = label;
+
+ALTER TABLE stackRun ADD COLUMN data_group VARCHAR(64) AFTER label;
+ALTER TABLE stackRun ADD COLUMN dist_group VARCHAR(64) AFTER data_group;
+ALTER TABLE stackRun ADD COLUMN note VARCHAR(255) AFTER filter;
+ALTER TABLE stackRun ADD KEY(data_group);
+ALTER TABLE stackRun ADD KEY(dist_group);
+
+UPDATE stackRun SET data_group = label;
+UPDATE stackRun SET dist_group = label;
+
+ALTER TABLE diffRun ADD COLUMN data_group VARCHAR(64) AFTER label;
+ALTER TABLE diffRun ADD COLUMN dist_group VARCHAR(64) AFTER data_group;
+ALTER TABLE diffRun ADD COLUMN note VARCHAR(255) AFTER magicked;
+ALTER TABLE diffRun ADD KEY(data_group);
+ALTER TABLE diffRun ADD KEY(dist_group);
+
+UPDATE diffRun SET data_group = label;
+UPDATE diffRun SET dist_group = label;
+
+ALTER TABLE magicRun ADD COLUMN data_group VARCHAR(64) AFTER label;
+ALTER TABLE magicRun ADD COLUMN note VARCHAR(255) AFTER fault;
+ALTER TABLE magicRun ADD KEY(data_group);
+
+UPDATE magicRun SET data_group = label;
+
+ALTER TABLE magicDSRun ADD COLUMN data_group VARCHAR(64) AFTER label;
+ALTER TABLE magicDSRun ADD COLUMN fault SMALLINT after remove;
+ALTER TABLE magicDSRun ADD COLUMN note VARCHAR(255) AFTER fault;
+ALTER TABLE magicDSRun ADD KEY(fault);
+ALTER TABLE magicDSRun ADD KEY(data_group);
+
+UPDATE magicDSRun SET data_group = label;
+UPDATE magicDSRun SET fault = 0;
+
+ALTER TABLE distRun ADD COLUMN note VARCHAR(255) after fault;
+
+ALTER TABLE distTarget CHANGE COLUMN label dist_group VARCHAR(64);
+
+ALTER TABLE rcDestination ADD CONSTRAINT UNIQUE(name);
+
+CREATE TABLE dbversion (
+    schema_version VARCHAR(64),
+    updated TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+) ENGINE=innodb DEFAULT CHARSET=latin1;
+
+INSERT INTO dbversion VALUES('1.1.56', CURRENT_TIMESTAMP);
+
+
+-- Vesion 1.1.57
+
+ALTER TABLE publishClient ADD COLUMN active TINYINT DEFAULT 0 AFTER client_id;
+
+--  add outdir to allow spreading files over multiple hosts
+ALTER TABLE distRun ADD COLUMN outdir VARCHAR(255) AFTER outroot;
+ALTER TABLE distComponent ADD COLUMN outdir VARCHAR(255) AFTER state;
+
+-- populate the existing runs (except for bills' test runs)
+UPDATE distRun SET outdir = CONCAT_WS('.', outroot, dist_id) WHERE outroot not like '%@HOST@%';
+UPDATE distRun join distComponent using(dist_id) SET distComponent.outdir = CONCAT_WS('.', distRun.outroot, dist_id);
+
+UPDATE dbversion set schema_version = '1.1.57',  updated= CURRENT_TIMESTAMP();
+
+
+-- Vesion 1.1.58
+-- UPDATE dbversion set schema_version = '1.1.58',  updated= CURRENT_TIMESTAMP();
+
+-- Version 1.1.59
+-- Include tables for data quality statistics.
+
+CREATE TABLE dqstatsRun (
+      dqstats_id BIGINT AUTO_INCREMENT,
+      state VARCHAR(64),
+      registered TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      PRIMARY KEY(dqstats_id)
+) ENGINE=innodb DEFAULT CHARSET=latin1;
+
+CREATE TABLE dqstatsContent (
+      dqstats_id BIGINT,
+      exp_id BIGINT,
+      chip_id BIGINT,
+      cam_id BIGINT,
+      warp_id BIGINT,
+      invalid TINYINT,
+      KEY(dqstats_id),
+      KEY (exp_id),
+      KEY (chip_id), 
+      KEY (cam_id),
+      KEY (warp_id), 
+      FOREIGN KEY (dqstats_id) REFERENCES dqstatsRun(dqstats_id),
+      FOREIGN KEY (exp_id) REFERENCES rawExp(exp_id),
+      FOREIGN KEY (chip_id) REFERENCES chipRun(chip_id),
+      FOREIGN KEY (cam_id) REFERENCES camRun(cam_id),
+      FOREIGN KEY (warp_id) REFERENCES warpRun(warp_id)
+) ENGINE=innodb DEFAULT CHARSET=latin1;
+
+-- Version 1.1.60
+
+ALTER TABLE dqstatsRun ADD COLUMN label VARCHAR(64) AFTER registered;
+ALTER TABLE dqstatsRun ADD KEY(label);
+
+ALTER TABLE dqstatsRun ADD COLUMN fault SMALLINT NOT NULL AFTER label;
+ALTER TABLE dqstatsRun ADD KEY(fault);
+
+-- Version 1.1.61
+
+ALTER TABLE pzDataStore ADD COLUMN use_compress SMALLINT NOT NULL AFTER epoch;
+
+UPDATE dbversion set schema_version = '1.1.61',  updated= CURRENT_TIMESTAMP();
+
+-- Version 1.1.62
+
+ALTER TABLE magicDSFile ADD COLUMN streak_frac FLOAT AFTER recovery_path_base;
+ALTER TABLE magicDSFile ADD COLUMN run_time FLOAT AFTER streak_frac;
+
+ALTER TABLE receiveSource ADD COLUMN state VARCHAR(64) AFTER workdir;
+UPDATE receiveSource SET state = 'enabled';
+
+UPDATE dbversion set schema_version = '1.1.62',  updated= CURRENT_TIMESTAMP();
+
+-- Version 1.1.63
+ALTER TABLE distRun ADD COLUMN data_group VARCHAR(64) AFTER fault;
+UPDATE distRun, chipRun SET distRun.data_group = chipRun.data_group 
+    WHERE distRun.stage = 'chip' AND stage_id = chip_id;
+UPDATE distRun, camRun SET distRun.data_group = camRun.data_group 
+    WHERE distRun.stage = 'camera' AND stage_id = cam_id;
+UPDATE distRun, fakeRun SET distRun.data_group = fakeRun.data_group 
+    WHERE distRun.stage = 'fake' AND stage_id = fake_id;
+UPDATE distRun, warpRun SET distRun.data_group = warpRun.data_group 
+    WHERE distRun.stage = 'warp' AND stage_id = warp_id;
+UPDATE distRun, diffRun SET distRun.data_group = diffRun.data_group 
+    WHERE distRun.stage = 'diff' AND stage_id = diff_id;
+UPDATE distRun, stackRun SET distRun.data_group = stackRun.data_group 
+    WHERE distRun.stage = 'stack' AND stage_id = stack_id;
+-- all of these runs are old so using label is fine (rawExp doesn't have
+-- data_group in distRun it inherit's chipRun.data_group
+UPDATE distRun SET distRun.data_group = label where stage = 'raw';
+
+UPDATE dbversion set schema_version = '1.1.63',  updated= CURRENT_TIMESTAMP();
+
+-- Version 1.1.64
+
+ALTER TABLE diffRun ADD COLUMN diff_mode SMALLINT NOT NULL AFTER magicked;
+
+UPDATE diffRun JOIN diffInputSkyfile USING(diff_id) SET diff_mode = 1 WHERE diff_mode = 0 AND warp1 IS NOT NULL AND warp2 IS NOT NULL AND stack1 IS NULL AND stack2 IS NULL; -- warp-warp
+UPDATE diffRun JOIN diffInputSkyfile USING(diff_id) SET diff_mode = 2 WHERE diff_mode = 0 AND warp1 IS NOT NULL AND warp2 IS NULL AND stack1 IS NULL AND stack2 IS NOT NULL; -- warp-stack
+UPDATE diffRun JOIN diffInputSkyfile USING(diff_id) SET diff_mode = 3 WHERE diff_mode = 0 AND warp1 IS NULL AND warp2 IS NOT NULL AND stack1 IS NOT NULL AND stack2 IS NULL; -- stack-warp
+UPDATE diffRun JOIN diffInputSkyfile USING(diff_id) SET diff_mode = 4 WHERE diff_mode = 0 AND warp1 IS NULL AND warp2 IS NULL AND stack1 IS NOT NULL AND stack2 IS NOT NULL; --stack-stack
+
+
+UPDATE dbversion set schema_version = '1.1.64', updated= CURRENT_TIMESTAMP();
+
+-- Version 1.1.65
+
+ALTER TABLE publishClient ADD COLUMN magicked TINYINT DEFAULT 1 AFTER stage;
+
+ALTER TABLE rawExp ADD COLUMN state VARCHAR(64) AFTER workdir, ADD KEY(state);
+UPDATE rawExp SET state = 'full';
+
+ALTER TABLE rawImfile ADD COLUMN data_state VARCHAR(64) AFTER uri, ADD KEY(data_state);
+UPDATE rawImfile SET data_state = 'full';
+
+-- Not updating schema_version to not break distribution bundles.
+-- UPDATE dbversion set schema_version = '1.1.65', updated= CURRENT_TIMESTAMP();
+
+-- Version 1.1.66
+
+ALTER TABLE magicDSFile ADD COLUMN nondiff_frac FLOAT AFTER streak_frac;
+ALTER TABLE distRun ADD COLUMN alternate TINYINT DEFAULT 0 AFTER no_magic;
+
+-- staticsky tables were re-configured and the entry moved below
+
+ALTER TABLE pstampDependent ADD COLUMN component VARCHAR(64) after stage_id;
+ALTER TABLE pstampDependent CHANGE COLUMN no_magic need_magic TINYINT;
+ALTER TABLE pstampDependent ADD COLUMN fault SMALLINT after need_magic;
+ALTER TABLE pstampDependent ADD COLUMN outdir VARCHAR(255) after imagedb;
+ALTER TABLE pstampDependent ADD KEY (state);
+ALTER TABLE pstampDependent ADD KEY (stage);
+ALTER TABLE pstampDependent ADD KEY (stage_id);
+ALTER TABLE pstampDependent ADD KEY (component);
+ALTER TABLE pstampDependent ADD KEY (imagedb);
+
+ALTER TABLE magicDSRun ADD KEY(stage);
+ALTER TABLE magicDSRun ADD KEY(stage_id);
+
+ALTER TABLE distRun ADD KEY(stage), ADD KEY(stage_id), ADD KEY(magic_ds_id), ADD KEY(fault), ADD KEY(data_group);
+ALTER TABLE distTarget ADD KEY(stage), ADD KEY(dist_group), ADD KEY(filter), ADD KEY(state);
+
+-- Version 1.1.67
+
+CREATE TABLE Label (
+    label       VARCHAR(64),
+    priority    INT,
+    active      TINYINT,
+    comment     VARCHAR(80),
+    PRIMARY KEY(label),
+    KEY(priority),
+    KEY(active)
+) ENGINE=innodb DEFAULT CHARSET=latin1;
+
+ALTER TABLE pstampRequest ADD COLUMN outdir VARCHAR(64) after uri;
+
+-- Version 1.1.68
+ALTER TABLE chipRun ADD COLUMN software_ver VARCHAR(16) after magicked;
+ALTER TABLE chipRun ADD COLUMN maskfrac_npix INT after software_ver;
+ALTER TABLE chipRun ADD COLUMN maskfrac_static FLOAT after maskfrac_npix;
+ALTER TABLE chipRun ADD COLUMN maskfrac_dynamic FLOAT after maskfrac_static;
+ALTER TABLE chipRun ADD COLUMN maskfrac_magic FLOAT after maskfrac_dynamic;
+ALTER TABLE chipRun ADD COLUMN maskfrac_advisory FLOAT after maskfrac_magic;
+
+ALTER TABLE chipProcessedImfile ADD COLUMN software_ver VARCHAR(16) after magicked;
+ALTER TABLE chipProcessedImfile ADD COLUMN maskfrac_npix INT after software_ver;
+ALTER TABLE chipProcessedImfile ADD COLUMN maskfrac_static FLOAT after maskfrac_npix;
+ALTER TABLE chipProcessedImfile ADD COLUMN maskfrac_dynamic FLOAT after maskfrac_static;
+ALTER TABLE chipProcessedImfile ADD COLUMN maskfrac_magic FLOAT after maskfrac_dynamic;
+ALTER TABLE chipProcessedImfile ADD COLUMN maskfrac_advisory FLOAT after maskfrac_magic;
+
+ALTER TABLE camRun ADD COLUMN software_ver VARCHAR(16) after magicked;
+ALTER TABLE camRun ADD COLUMN maskfrac_npix INT after software_ver;
+ALTER TABLE camRun ADD COLUMN maskfrac_static FLOAT after maskfrac_npix;
+ALTER TABLE camRun ADD COLUMN maskfrac_dynamic FLOAT after maskfrac_static;
+ALTER TABLE camRun ADD COLUMN maskfrac_magic FLOAT after maskfrac_dynamic;
+ALTER TABLE camRun ADD COLUMN maskfrac_advisory FLOAT after maskfrac_magic;
+
+ALTER TABLE camProcessedExp ADD COLUMN software_ver VARCHAR(16) after fault;
+ALTER TABLE camProcessedExp ADD COLUMN maskfrac_npix INT after software_ver;
+ALTER TABLE camProcessedExp ADD COLUMN maskfrac_static FLOAT after maskfrac_npix;
+ALTER TABLE camProcessedExp ADD COLUMN maskfrac_dynamic FLOAT after maskfrac_static;
+ALTER TABLE camProcessedExp ADD COLUMN maskfrac_magic FLOAT after maskfrac_dynamic;
+ALTER TABLE camProcessedExp ADD COLUMN maskfrac_advisory FLOAT after maskfrac_magic;
+
+ALTER TABLE warpRun ADD COLUMN software_ver VARCHAR(16) after magicked;
+ALTER TABLE warpRun ADD COLUMN maskfrac_npix INT after software_ver;
+ALTER TABLE warpRun ADD COLUMN maskfrac_static FLOAT after maskfrac_npix;
+ALTER TABLE warpRun ADD COLUMN maskfrac_dynamic FLOAT after maskfrac_static;
+ALTER TABLE warpRun ADD COLUMN maskfrac_magic FLOAT after maskfrac_dynamic;
+ALTER TABLE warpRun ADD COLUMN maskfrac_advisory FLOAT after maskfrac_magic;
+
+ALTER TABLE warpSkyfile ADD COLUMN software_ver VARCHAR(16) after magicked;
+ALTER TABLE warpSkyfile ADD COLUMN maskfrac_npix INT after software_ver;
+ALTER TABLE warpSkyfile ADD COLUMN maskfrac_static FLOAT after maskfrac_npix;
+ALTER TABLE warpSkyfile ADD COLUMN maskfrac_dynamic FLOAT after maskfrac_static;
+ALTER TABLE warpSkyfile ADD COLUMN maskfrac_magic FLOAT after maskfrac_dynamic;
+ALTER TABLE warpSkyfile ADD COLUMN maskfrac_advisory FLOAT after maskfrac_magic;
+
+ALTER TABLE stackRun ADD COLUMN software_ver VARCHAR(16) after filter;
+
+ALTER TABLE stackSumSkyfile ADD COLUMN software_ver VARCHAR(16) after fault;
+
+ALTER TABLE diffRun ADD COLUMN software_ver VARCHAR(16) after magicked;
+ALTER TABLE diffRun ADD COLUMN maskfrac_npix INT after software_ver;
+ALTER TABLE diffRun ADD COLUMN maskfrac_static FLOAT after maskfrac_npix;
+ALTER TABLE diffRun ADD COLUMN maskfrac_dynamic FLOAT after maskfrac_static;
+ALTER TABLE diffRun ADD COLUMN maskfrac_magic FLOAT after maskfrac_dynamic;
+ALTER TABLE diffRun ADD COLUMN maskfrac_advisory FLOAT after maskfrac_magic;
+
+ALTER TABLE diffSkyfile ADD COLUMN software_ver VARCHAR(16) after magicked;
+ALTER TABLE diffSkyfile ADD COLUMN maskfrac_npix INT after software_ver;
+ALTER TABLE diffSkyfile ADD COLUMN maskfrac_static FLOAT after maskfrac_npix;
+ALTER TABLE diffSkyfile ADD COLUMN maskfrac_dynamic FLOAT after maskfrac_static;
+ALTER TABLE diffSkyfile ADD COLUMN maskfrac_magic FLOAT after maskfrac_dynamic;
+ALTER TABLE diffSkyfile ADD COLUMN maskfrac_advisory FLOAT after maskfrac_magic;
+
+
+ALTER TABLE chipRun CHANGE maskfrac_npix  maskfrac_npix FLOAT;
+ALTER TABLE camRun CHANGE maskfrac_npix  maskfrac_npix FLOAT;
+ALTER TABLE warpRun CHANGE maskfrac_npix maskfrac_npix FLOAT; 
+ALTER TABLE diffRun CHANGE maskfrac_npix maskfrac_npix FLOAT;
+
+ALTER TABLE camRun CHANGE maskfrac_npix maskfrac_ref_npix FLOAT;
+ALTER TABLE camRun CHANGE maskfrac_static maskfrac_ref_static FLOAT;
+ALTER TABLE camRun CHANGE maskfrac_dynamic maskfrac_ref_dynamic FLOAT;
+ALTER TABLE camRun CHANGE maskfrac_magic maskfrac_ref_magic FLOAT;
+ALTER TABLE camRun CHANGE maskfrac_advisory maskfrac_ref_advisory FLOAT;
+
+ALTER TABLE camProcessedExp CHANGE maskfrac_npix maskfrac_ref_npix INT;
+ALTER TABLE camProcessedExp CHANGE maskfrac_static maskfrac_ref_static FLOAT;
+ALTER TABLE camProcessedExp CHANGE maskfrac_dynamic maskfrac_ref_dynamic FLOAT;
+ALTER TABLE camProcessedExp CHANGE maskfrac_magic maskfrac_ref_magic FLOAT;
+ALTER TABLE camProcessedExp CHANGE maskfrac_advisory maskfrac_ref_advisory FLOAT;
+
+ALTER TABLE camRun ADD COLUMN maskfrac_max_npix FLOAT after maskfrac_ref_advisory;
+ALTER TABLE camRun ADD COLUMN maskfrac_max_static FLOAT after maskfrac_max_npix;
+ALTER TABLE camRun ADD COLUMN maskfrac_max_dynamic FLOAT after maskfrac_max_static;
+ALTER TABLE camRun ADD COLUMN maskfrac_max_magic FLOAT after maskfrac_max_dynamic;
+ALTER TABLE camRun ADD COLUMN maskfrac_max_advisory FLOAT after maskfrac_max_magic;
+
+ALTER TABLE camProcessedExp ADD COLUMN maskfrac_max_npix INT after maskfrac_ref_advisory;
+ALTER TABLE camProcessedExp ADD COLUMN maskfrac_max_static FLOAT after maskfrac_max_npix;
+ALTER TABLE camProcessedExp ADD COLUMN maskfrac_max_dynamic FLOAT after maskfrac_max_static;
+ALTER TABLE camProcessedExp ADD COLUMN maskfrac_max_magic FLOAT after maskfrac_max_dynamic;
+ALTER TABLE camProcessedExp ADD COLUMN maskfrac_max_advisory FLOAT after maskfrac_max_magic;
+
+-- these tables have not yet been used, and the definitions changed somewhat
+
+-- A static sky analysis set
+CREATE TABLE staticskyRun (
+      sky_id BIGINT AUTO_INCREMENT, -- unique identifier
+      state VARCHAR(64) NOT NULL,  -- state of run (new, full, etc.)
+      workdir VARCHAR(255) NOT NULL, -- working directory
+      label VARCHAR(64),             -- processing label
+      data_group VARCHAR(64),        -- group for data
+      dist_group VARCHAR(64),        -- group for distribution
+      reduction VARCHAR(64),         -- reduction class (for altering recipe)
+      note VARCHAR(255),             -- note
+      registered TIMESTAMP DEFAULT CURRENT_TIMESTAMP, -- time run was registered
+      PRIMARY KEY(sky_id),
+      KEY(state),
+      KEY(label),
+      KEY(data_group),
+      KEY(dist_group)
+) ENGINE=innodb DEFAULT CHARSET=latin1;
+
+-- Inputs for static sky analysis
+CREATE TABLE staticskyInput (
+      sky_id BIGINT,             -- static sky identifier
+      stack_id BIGINT,          -- stack identifier
+      PRIMARY KEY(sky_id,stack_id),
+      KEY(stack_id),
+      FOREIGN KEY(sky_id) REFERENCES staticskyRun(sky_id),
+      FOREIGN KEY(stack_id) REFERENCES stackSumSkyfile(stack_id)
+) ENGINE=innodb DEFAULT CHARSET=latin1;
+
+-- Result of static sky analysis
+CREATE TABLE staticskyResult (
+      sky_id BIGINT,             -- static sky identifier
+      path_base VARCHAR(255) NOT NULL, -- root name for outputs
+      dtime_phot FLOAT,                -- elapsed time for photometry
+      dtime_script FLOAT,              -- elapsed time for script
+      sources INT,                     -- number of sources
+      num_inputs INT,                  -- number inputs used
+      hostname VARCHAR(64) NOT NULL,   -- host that executed script
+      good_frac FLOAT,                 -- good fraction of skycell
+      quality SMALLINT NOT NULL,       -- bad quality flag
+      fault SMALLINT NOT NULL,         -- fault code
+      PRIMARY KEY(sky_id),
+      KEY(good_frac),
+      KEY(fault),
+      KEY(quality),
+      FOREIGN KEY(sky_id) REFERENCES staticskyRun(sky_id)
+) ENGINE=innodb DEFAULT CHARSET=latin1;
+
+CREATE TABLE pstampWebRequest (
+        num BIGINT AUTO_INCREMENT,
+        PRIMARY KEY(num)
+) ENGINE=innodb DEFAULT CHARSET=latin1;
+
+
+-- Tables to support background restoration
+-- Background replacement on a chipRun
+CREATE TABLE chipBackgroundRun (
+    chip_bg_id BIGINT AUTO_INCREMENT, -- unique identifier
+    chip_id BIGINT NOT NULL,          -- link to chipRun
+    state VARCHAR(64) NOT NULL,       -- state of run (new, full, etc.)
+    workdir VARCHAR(255) NOT NULL,    -- working directory
+    label VARCHAR(64),                -- processing label
+    data_group VARCHAR(64),           -- group for data
+    dist_group VARCHAR(64),           -- group for distribution
+    reduction VARCHAR(64),    -- reduction class (for altering recipe)
+    note VARCHAR(255),        -- note
+    registered TIMESTAMP DEFAULT CURRENT_TIMESTAMP, -- time run was registered
+    magicked BIGINT DEFAULT 0 NOT NULL, -- magic status
+    PRIMARY KEY(chip_bg_id),
+    KEY(chip_id),
+    KEY(state),
+    KEY(label),
+    KEY(data_group),
+    KEY(dist_group),
+    FOREIGN KEY(chip_id) REFERENCES chipRun(chip_id)
+) ENGINE=innodb DEFAULT CHARSET=latin1;
+
+-- Results of background replacement from chipBackgroundRun
+CREATE TABLE chipBackgroundImfile (
+    chip_bg_id BIGINT NOT NULL,        -- unique identifier
+    class_id VARCHAR(64) NOT NULL,     -- class (component) identifier
+    path_base VARCHAR(255) NOT NULL,   -- root name for outputs
+    magicked BIGINT,                   -- magic_id if magicked
+    dtime_script FLOAT,                -- elapsed time for script
+    hostname VARCHAR(64) NOT NULL,     -- host that executed script
+    quality SMALLINT NOT NULL,         -- bad quality flag
+    fault SMALLINT NOT NULL,           -- fault code
+    software_ver VARCHAR(16),          -- software version
+    bg FLOAT,                          -- background level
+    bg_stdev FLOAT,                    -- stdev of background
+    maskfrac_npix FLOAT,               -- Number of pixels masked
+    maskfrac_static FLOAT,             -- Fraction masked static
+    maskfrac_dynamic FLOAT,            -- Fraction masked dynamic
+    maskfrac_magic FLOAT,              -- Fraction masked magic
+    maskfrac_advisory FLOAT,           -- Fraction masked advisory
+    PRIMARY KEY(chip_bg_id,class_id),
+    KEY(fault),
+    KEY(quality),
+    FOREIGN KEY(chip_bg_id) REFERENCES chipBackgroundRun(chip_bg_id)
+) ENGINE=innodb DEFAULT CHARSET=latin1;
+
+-- Background replacement on a warpRun (utilising chipBackgroundRun)
+CREATE TABLE warpBackgroundRun (
+    warp_bg_id BIGINT AUTO_INCREMENT, -- unique identifier
+    warp_id BIGINT NOT NULL,          -- link to warpRun
+    chip_bg_id BIGINT NOT NULL,       -- link to chipBackgroundRun
+    state VARCHAR(64) NOT NULL,       -- state of run (new, full, etc.)
+    workdir VARCHAR(255) NOT NULL,    -- working directory
+    label VARCHAR(64),                -- processing label
+    data_group VARCHAR(64),           -- group for data
+    dist_group VARCHAR(64),           -- group for distribution
+    reduction VARCHAR(64),    -- reduction class (for altering recipe)
+    note VARCHAR(255),        -- note
+    registered TIMESTAMP DEFAULT CURRENT_TIMESTAMP, -- time run was registered
+    magicked BIGINT DEFAULT 0 NOT NULL, -- magic status
+    PRIMARY KEY(warp_bg_id),
+    KEY(warp_id),
+    KEY(chip_bg_id),
+    KEY(state),
+    KEY(label),
+    KEY(data_group),
+    KEY(dist_group),
+    FOREIGN KEY(warp_id) REFERENCES warpRun(warp_id),
+    FOREIGN KEY(chip_bg_id) REFERENCES chipBackgroundRun(chip_bg_id)
+) ENGINE=innodb DEFAULT CHARSET=latin1;
+
+-- Results of background replacement from warpBackgroundRun
+CREATE TABLE warpBackgroundSkyfile (
+    warp_bg_id BIGINT NOT NULL,        -- unique identifier
+    skycell_id VARCHAR(64) NOT NULL,   -- skycell identifier
+    path_base VARCHAR(255) NOT NULL,   -- root name for outputs
+    magicked BIGINT,                   -- magic_id if magicked
+    dtime_script FLOAT,                -- elapsed time for script
+    hostname VARCHAR(64) NOT NULL,     -- host that executed script
+    quality SMALLINT NOT NULL,         -- bad quality flag
+    fault SMALLINT NOT NULL,           -- fault code
+    software_ver VARCHAR(16),          -- software version
+    bg FLOAT,                          -- background level
+    bg_stdev FLOAT,                    -- stdev of background
+    maskfrac_npix FLOAT,               -- Number of pixels masked
+    maskfrac_static FLOAT,             -- Fraction masked static
+    maskfrac_dynamic FLOAT,            -- Fraction masked dynamic
+    maskfrac_magic FLOAT,              -- Fraction masked magic
+    maskfrac_advisory FLOAT,           -- Fraction masked advisory
+    PRIMARY KEY(warp_bg_id,skycell_id),
+    KEY(fault),
+    KEY(quality),
+    FOREIGN KEY(warp_bg_id) REFERENCES warpBackgroundRun(warp_bg_id)
+) ENGINE=innodb DEFAULT CHARSET=latin1;
+
+
+-- Version 1.1.68 addition of minidvodb tables and changes to addTables 
+
+-- this modifies addTables
+
+ALTER TABLE addRun ADD COLUMN minidvodb tinyint NOT NULL AFTER image_only;
+ALTER TABLE addRun ADD COLUMN minidvodb_group varchar(64) AFTER minidvodb;
+ALTER TABLE addRun ADD COLUMN minidvodb_name varchar(64) AFTER minidvodb_group;
+
+ALTER TABLE addProcessedExp ADD COLUMN dvodb_path varchar(255) AFTER path_base;
+
+
+-- this adds the new tables 
+
+CREATE TABLE minidvodbRun (
+minidvodb_id BIGINT AUTO_INCREMENT,
+                    minidvodb_name VARCHAR(64),
+              minidvodb_group VARCHAR(64) NOT NULL,
+      minidvodb_path VARCHAR(255) NOT NULL,
+      mergedvodb_path VARCHAR(255) NOT NULL,
+       state VARCHAR(64) NOT NULL,
+       creation_date TIMESTAMP,
+       PRIMARY KEY(minidvodb_id), KEY(minidvodb_name), INDEX(minidvodb_id)
+) ENGINE=innodb DEFAULT CHARSET=latin1;
+
+CREATE TABLE minidvodbProcessed (
+      minidvodb_id BIGINT,
+      merge_order BIGINT,
+dtime_resort FLOAT,
+dtime_relphot FLOAT,
+dtime_merge FLOAT,
+epoch TIMESTAMP,
+mergedvodb_path VARCHAR(255) NOT NULL,
+fault SMALLINT NOT NULL,
+       KEY(minidvodb_id), CONSTRAINT UNIQUE(minidvodb_id), FOREIGN KEY(minidvodb_id) REFERENCES minidvodbRun (minidvodb_id)
+) ENGINE=innodb DEFAULT CHARSET=latin1;
+
+ALTER TABLE pstampRequest ADD COLUMN timestamp TIMESTAMP AFTER outdir;
+
+
+-- Tables to support (re-)photometry of a diff
+CREATE TABLE diffPhotRun (
+    diff_phot_id BIGINT AUTO_INCREMENT, -- Identifier for diffPhotRun
+    diff_id BIGINT NOT NULL,            -- Identifier for diffRun
+    state VARCHAR(64) NOT NULL,         -- State of run
+    workdir VARCHAR(255) NOT NULL, -- working directory
+    label VARCHAR(64),             -- processing label
+    data_group VARCHAR(64),        -- group for data
+    reduction VARCHAR(64),         -- reduction class (for altering recipe)
+    registered TIMESTAMP DEFAULT CURRENT_TIMESTAMP, -- time run was registered
+    note VARCHAR(255),             -- note
+    magicked BIGINT NOT NULL DEFAULT 0, -- magic mask applied
+    PRIMARY KEY(diff_phot_id),
+    KEY(diff_id),
+    KEY(state),
+    KEY(label),
+    KEY(data_group),
+    FOREIGN KEY(diff_id) REFERENCES diffRun(diff_id)
+) ENGINE=innodb DEFAULT CHARSET=latin1;
+CREATE TABLE diffPhotSkyfile (
+    diff_phot_id BIGINT AUTO_INCREMENT, -- Identifier for diffPhotRun
+    skycell_id VARCHAR(64) NOT NULL,            -- Skycell identifier
+    path_base VARCHAR(255) NOT NULL, -- Base of path for output
+    dtime_script FLOAT,              -- elapsed time for script
+    hostname VARCHAR(64) NOT NULL,   -- host that executed script
+    fault SMALLINT NOT NULL,         -- fault code
+    quality SMALLINT NOT NULL,       -- bad quality flag
+    software_ver VARCHAR(16),                       -- software version for run
+    magicked BIGINT NOT NULL DEFAULT 0, -- magic mask applied
+    PRIMARY KEY(diff_phot_id, skycell_id),
+    KEY(fault),
+    KEY(quality),
+    FOREIGN KEY(diff_phot_id) REFERENCES diffPhotRun(diff_phot_id)
+) ENGINE=innodb DEFAULT CHARSET=latin1;
+
+
+-- Version 1.1.69 warp/stack/diff summary and stack associations.
+
+CREATE TABLE warpSummary (
+    warp_id     BIGINT,
+    projection_cell VARCHAR(64) NOT NULL,
+    path_base   VARCHAR(255) NOT NULL,
+    PRIMARY KEY(warp_id),
+    KEY(projection_cell),
+    FOREIGN KEY(warp_id) REFERENCES warpRun(warp_id)
+) ENGINE=innodb DEFAULT CHARSET=latin1;
+
+CREATE TABLE diffSummary (
+    diff_id     BIGINT,
+    projection_cell VARCHAR(64) NOT NULL,
+    path_base   VARCHAR(255) NOT NULL,
+    PRIMARY KEY(diff_id),
+    KEY(projection_cell),
+    FOREIGN KEY(diff_id) REFERENCES diffRun(diff_id)
+) ENGINE=innodb DEFAULT CHARSET=latin1;
+
+CREATE TABLE stackAssociation (
+    sass_id      BIGINT AUTO_INCREMENT,
+    data_group   VARCHAR(64) NOT NULL,
+    projection_cell VARCHAR(64) NOT NULL,
+    tess_id       VARCHAR(64) NOT NULL,
+    filter        VARCHAR(64) NOT NULL,
+    PRIMARY KEY(sass_id),
+    KEY(data_group),
+    KEY(projection_cell),
+    KEY(tess_id)
+) ENGINE=innodb DEFAULT CHARSET=latin1;
+
+CREATE TABLE stackAssociationMap (
+    sass_id      BIGINT,
+    stack_id     BIGINT,
+    PRIMARY KEY(sass_id, stack_id),
+    FOREIGN KEY(sass_id) REFERENCES stackAssociation(sass_id),
+    FOREIGN KEY(stack_id) REFERENCES stackRun(stack_id)
+) ENGINE=innodb DEFAULT CHARSET=latin1;
+
+CREATE TABLE stackSummary (
+    sass_id     BIGINT,
+    projection_cell VARCHAR(64) NOT NULL,
+    path_base   VARCHAR(255) NOT NULL,
+    PRIMARY KEY(sass_id),
+    KEY(projection_cell),
+    FOREIGN KEY(sass_id) REFERENCES stackAssociation(sass_id)
+) ENGINE=innodb DEFAULT CHARSET=latin1;
+
+-- Fixing summary tables;
+
+ALTER TABLE warpSummary DROP PRIMARY KEY, ADD PRIMARY KEY (warp_id, projection_cell);
+ALTER TABLE diffSummary DROP PRIMARY KEY, ADD PRIMARY KEY (diff_id, projection_cell);
+ALTER TABLE stackSummary DROP PRIMARY KEY, ADD PRIMARY KEY (sass_id, projection_cell);
+
+ALTER TABLE stackSumSkyfile ADD COLUMN mjd_obs double AFTER good_frac;
+
+-- Version 1.1.65
+-- changes to support cleanup of the background preserved images
+ALTER TABLE chipBackgroundImfile ADD COLUMN data_state VARCHAR(64) AFTER path_base;
+ALTER TABLE chipBackgroundImfile ADD KEY(data_state);
+ALTER TABLE warpBackgroundSkyfile ADD COLUMN data_state VARCHAR(64) AFTER path_base;
+ALTER TABLE warpBackgroundSkyfile  ADD KEY(data_state);
+
+ALTER TABLE magicMask ADD COLUMN path_base VARCHAR(255) AFTER uri;
+
+-- diff_id was removed from magicInputSkyfile ages ago, but
+-- pxadmin_create_tables.sql still had it this command didn't work due to
+-- a mysql error.
+-- ALTER TABLE magicInputSkyfile DROP COLUMN diff_id;
+UPDATE dbversion set schema_version = '1.1.65',  updated= CURRENT_TIMESTAMP();
+
+-- Version 1.1.66
+
+-- minidvodb copy table (for tracking copying of minidvodbs to other machines
+
+
+CREATE TABLE minidvodbCopy (
+    minidvodbcopy_id     BIGINT AUTO_INCREMENT,
+    minidvodb_id     BIGINT,
+    minidvodb_rsync_path VARCHAR(255) NOT NULL,
+    destination_host VARCHAR(255) NOT NULL,
+    fault  SMALLINT NOT NULL,
+    state   VARCHAR(64) NOT NULL,
+    epoch TIMESTAMP,
+    dtime FLOAT,
+    PRIMARY KEY(minidvodbcopy_id),
+    KEY(minidvodb_id),
+    FOREIGN KEY(minidvodb_id) REFERENCES minidvodbRun(minidvodb_id)
+) ENGINE=innodb DEFAULT CHARSET=latin1;
+
+ALTER TABLE chipProcessedImfile ADD column deteff_magref FLOAT;
+ALTER TABLE camProcessedExp ADD column deteff FLOAT AFTER maskfrac_max_advisory;
+ALTER TABLE camProcessedExp ADD column deteff_err FLOAT AFTER deteff;
+ALTER TABLE camProcessedExp ADD column deteff_lq FLOAT AFTER deteff_err;
+ALTER TABLE camProcessedExp ADD column deteff_uq FLOAT AFTER deteff_lq;
+UPDATE dbversion set schema_version = '1.1.66',  updated= CURRENT_TIMESTAMP();
+
+-- output format for publishing / unique name for clients
+ALTER TABLE publishClient ADD name VARCHAR(64) UNIQUE; -- (Bill's request)
+ALTER TABLE publishClient ADD output_format SMALLINT NOT NULL default 1;
+
+-- Version 1.1.67
+
+ALTER TABLE rawImfile ADD column video_cells TINYINT AFTER burntool_state;
+
+ALTER TABLE pstampDataStore ADD COLUMN need_magic INT;
+
+--Version 1.1.67
+
+ALTER TABLE minidvodbProcessed add column dtime_verify FLOAT AFTER dtime_relphot;
+ALTER TABLE minidvodbProcessed add column dtime_script FLOAT AFTER dtime_merge;
+
+-- Version 1.1.68
+
+ALTER TABLE stackSumSkyfile ADD column dtime_convolve FLOAT AFTER dtime_match_stdev;
+
+-- Version 1.1.69
+
+ALTER TABLE summitImfile DROP FOREIGN KEY summitImfile_ibfk_1;
+ALTER TABLE pzDownloadExp DROP FOREIGN KEY pzDownloadExp_ibfk_1;
+
+ALTER TABLE summitExp DROP PRIMARY KEY;
+ALTER TABLE summitExp ADD COLUMN summit_id BIGINT NOT NULL AUTO_INCREMENT FIRST,  ADD PRIMARY KEY (summit_id);
+ALTER TABLE summitExp ADD KEY (exp_name,camera,telescope);
+
+
+ALTER TABLE pzDownloadImfile DROP FOREIGN KEY pzDownloadImfile_ibfk_2;
+
+ALTER TABLE summitImfile ADD COLUMN summit_id BIGINT FIRST;
+UPDATE summitImfile,summitExp SET summitImfile.summit_id = summitExp.summit_id WHERE summitImfile.exp_name = summitExp.exp_name AND summitImfile.camera = summitExp.camera AND summitImfile.telescope = summitExp.telescope;
+
+ALTER TABLE summitImfile DROP PRIMARY KEY, ADD PRIMARY KEY (summit_id,class,class_id);
+ALTER TABLE summitImfile ADD KEY (exp_name,camera,telescope,class,class_id);
+ALTER TABLE summitImfile ADD FOREIGN KEY(summit_id) REFERENCES summitExp(summit_id);
+ALTER TABLE summitImfile ADD FOREIGN KEY(exp_name,camera,telescope) REFERENCES summitExp(exp_name,camera,telescope);
+
+
+ALTER TABLE pzDownloadImfile DROP FOREIGN KEY pzDownloadImfile_ibfk_1;
+
+ALTER TABLE pzDownloadExp ADD COLUMN summit_id BIGINT FIRST;
+UPDATE pzDownloadExp,summitExp SET pzDownloadExp.summit_id = summitExp.summit_id WHERE pzDownloadExp.exp_name = summitExp.exp_name AND pzDownloadExp.camera = summitExp.camera AND pzDownloadExp.telescope = summitExp.telescope;
+
+ALTER TABLE pzDownloadExp DROP PRIMARY KEY, ADD PRIMARY KEY (summit_id);
+ALTER TABLE pzDownloadExp ADD KEY (exp_name,camera,telescope);
+ALTER TABLE pzDownloadExp ADD FOREIGN KEY(summit_id) REFERENCES summitExp(summit_id);
+ALTER TABLE pzDownloadExp ADD FOREIGN KEY(exp_name,camera,telescope) REFERENCES summitExp(exp_name,camera,telescope);
+
+
+ALTER TABLE pzDownloadImfile ADD COLUMN summit_id BIGINT FIRST;
+UPDATE pzDownloadImfile,pzDownloadExp SET pzDownloadImfile.summit_id = pzDownloadExp.summit_id WHERE pzDownloadImfile.exp_name = pzDownloadExp.exp_name AND pzDownloadImfile.camera = pzDownloadExp.camera AND pzDownloadImfile.telescope = pzDownloadExp.telescope;
+
+ALTER TABLE pzDownloadImfile DROP PRIMARY KEY, ADD PRIMARY KEY (summit_id,class,class_id);
+ALTER TABLE pzDownloadImfile ADD FOREIGN KEY(summit_id) REFERENCES pzDownloadExp(summit_id);
+ALTER TABLE pzDownloadImfile ADD FOREIGN KEY(summit_id,class,class_id) REFERENCES summitImfile(summit_id,class,class_id);
+ALTER TABLE pzDownloadImfile ADD FOREIGN KEY(exp_name,camera,telescope) REFERENCES summitExp(exp_name,camera,telescope);
+ALTER TABLE pzDownloadImfile ADD FOREIGN KEY(exp_name,camera,telescope,class,class_id) REFERENCES summitImfile(exp_name,camera,telescope,class,class_id);
+
+
+ALTER TABLE newExp ADD COLUMN summit_id BIGINT AFTER exp_id;
+UPDATE newExp,pzDownloadExp SET newExp.summit_id = pzDownloadExp.summit_id WHERE newExp.tmp_exp_name = pzDownloadExp.exp_name AND newExp.tmp_camera = pzDownloadExp.camera AND newExp.tmp_telescope = pzDownloadExp.telescope;
+
+ALTER TABLE newExp ADD KEY (summit_id);
+
+
+UPDATE dbversion set schema_version = '1.1.69', updated= CURRENT_TIMESTAMP();
+ALTER TABLE addRun ADD COLUMN stage VARCHAR(64) AFTER add_id;
+ALTER TABLE addRun ADD COLUMN stage_id bigint(20) after stage;
+UPDATE addRun set stage_id = cam_id;
+
+-- these next steps I don't know if it's generic or not. This is how to drop
+   the cam_id table in addRun for gpc1
+
+show create table addRun;
+alter table `addRun` drop foreign key `addRun_ibfk_1`, drop column cam_id;
+
+-- this sets the addRun stage for all the old addRuns to 'cam' 
+
+
+--do this update only once, so I'm commenting it out (it's been done)
+-- update addRun set stage = 'cam';
+
+
+-- Version 1.1.70
+
+CREATE TABLE lapSequence (
+    seq_id BIGINT AUTO_INCREMENT, -- Identifier for the processing sequence
+    name VARCHAR(64) NOT NULL,    -- short name of the sequence
+    description VARCHAR(255) NOT NULL, -- longer description of the sequence
+    PRIMARY KEY(seq_id),
+    KEY(name)
+) ENGINE=innodb DEFAULT CHARSET=latin1;
+
+CREATE TABLE lapRun (
+    lap_id BIGINT AUTO_INCREMENT, -- Identifier for the processing run
+    seq_id BIGINT NOT NULL,       -- Identifier to match to the sequence
+    tess_id VARCHAR(64) NOT NULL, -- tessellation id to use
+    projection_cell VARCHAR(64) NOT NULL, -- projection cell from the tessellation to consider
+    filter VARCHAR(64) NOT NULL,  -- filter
+    state VARCHAR(64) NOT NULL,   -- state of run
+    label VARCHAR(64) NOT NULL,   -- processing label
+    dist_group VARCHAR(64) NOT NULL, -- distribution group for products of this run
+    registered TIMESTAMP DEFAULT CURRENT_TIMESTAMP, -- time run was registered
+    fault SMALLINT NOT NULL,      -- fault code
+    quick_sass_id BIGINT,         -- stackAssociation id for quick stack
+    final_sass_id BIGINT,         -- stackAssociation id for final stack
+    PRIMARY KEY(lap_id),
+    KEY(seq_id),
+    KEY(projection_cell),
+    KEY(filter),
+    KEY(state),
+    KEY(label),
+    KEY(fault),
+    FOREIGN KEY(seq_id) REFERENCES lapSequence(seq_id),
+    FOREIGN KEY(quick_sass_id) REFERENCES stackAssociation(sass_id),
+    FOREIGN KEY(final_sass_id) REFERENCES stackAssociation(sass_id)
+) ENGINE=innodb DEFAULT CHARSET=latin1;
+
+CREATE TABLE lapExp (
+    lap_id BIGINT NOT NULL, -- Link back to processing run
+    exp_id BIGINT NOT NULL, -- exposure definition
+    chip_id BIGINT,         -- processing id from chipRun
+    pair_id BIGINT,         -- companion chip_id
+    private TINYINT DEFAULT 0, -- denotes this exposure is private
+    pairwise TINYINT DEFAULT 0, -- denotes if this exposure should be pairwise diffed
+    active TINYINT DEFAULT 0, -- denotes if this exposure is currently in use
+    data_state VARCHAR(64) NOT NULL, -- state of exposure
+    PRIMARY KEY (lap_id,exp_id),
+    KEY (lap_id),
+    KEY (exp_id),
+    KEY (chip_id),
+    KEY (pair_id),
+    KEY (data_state),
+    FOREIGN KEY (lap_id) REFERENCES lapRun(lap_id),
+    FOREIGN KEY (exp_id) REFERENCES rawExp(exp_id),
+    FOREIGN KEY (chip_id,exp_id) REFERENCES chipRun(chip_id,exp_id),
+    FOREIGN KEY (pair_id) REFERENCES chipRun(chip_id)
+) ENGINE=innodb DEFAULT CHARSET=latin1;
+
+UPDATE dbversion set schema_version = '1.1.70', updated= CURRENT_TIMESTAMP();
+
+-- heather discovered that we need keys for addRun:
+
+alter table addRun add key(stage), add key (stage_id);
+
+CREATE TABLE vpRun (
+    vp_id BIGINT AUTO_INCREMENT,
+    exp_id BIGINT,
+    state VARCHAR(64),
+    label VARCHAR(64),
+    data_group VARCHAR(64),
+    workdir VARCHAR(255),
+    note VARCHAR(255),
+    dest_id BIGINT,
+    outroot VARCHAR(255),
+    dtime_script FLOAT,
+    hostname VARCHAR(64),
+    fault SMALLINT NOT NULL DEFAULT 0,
+    PRIMARY KEY(vp_id),
+    KEY(exp_id),
+    KEY(state),
+    KEY(label),
+    KEY(data_group),
+    KEY(fault),
+    INDEX(vp_id, exp_id),
+    FOREIGN KEY(exp_id) REFERENCES rawExp(exp_id)
+) ENGINE=innodb DEFAULT CHARSET=latin1;
+
+CREATE TABLE vpProcessedCell (
+    vp_id BIGINT,
+    class_id VARCHAR(64),
+    cell_id VARCHAR(64),
+    dtime_photom FLOAT,
+    quality SMALLINT NOT NULL DEFAULT 0,
+    path_base VARCHAR(255),
+    fault SMALLINT NOT NULL DEFAULT 0,
+    KEY(quality),
+    KEY(fault),
+    FOREIGN KEY(vp_id) REFERENCES vpRun(vp_id)
+) ENGINE=innodb DEFAULT CHARSET=latin1;
+
+-- changes to prevent repeatedly queueing diffRuns for warps with no overlaps
+ALTER TABLE diffInputSkyfile DROP PRIMARY KEY, ADD PRIMARY KEY(diff_skyfile_id);
+ALTER TABLE diffInputSkyfile CHANGE COLUMN skycell_id  skycell_id VARCHAR(64) DEFAULT NULL;
+
+UPDATE dbversion set schema_version = '1.1.71', updated= CURRENT_TIMESTAMP();
+
+
+-- this is to stuff extra stage related information. 
+-- example - multi filter staticsky stage - this allows selection of 
+-- each filter of cmf staticsky.  
+
+alter table addRun add column stage_extra1 int after stage_id;
+
+
+-- This adds new features to addRun, first add the tables:
+
+CREATE TABLE mergedvodbRun (
+       merge_id BIGINT AUTO_INCREMENT,
+       minidvodb_id BIGINT,
+       mergedvodb VARCHAR(64) NOT NULL,
+       mergedvodb_path VARCHAR(255) NOT NULL,
+       state VARCHAR(64) NOT NULL,
+       creation_date TIMESTAMP,
+       PRIMARY KEY(merge_id), KEY(minidvodb_id), KEY(mergedvodb), INDEX(merge_id)
+) ENGINE=innodb DEFAULT CHARSET=latin1;
+
+
+CREATE TABLE mergedvodbProcessed (
+      merge_id BIGINT,
+      dtime_verify FLOAT,
+      dtime_merge FLOAT,
+      dtime_script FLOAT,
+      epoch timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+      fault SMALLINT NOT NULL,
+      UNIQUE KEY (merge_id),
+      KEY(merge_id),
+      FOREIGN KEY(merge_id) REFERENCES mergedvodbRun(merge_id)
+) ENGINE=innodb DEFAULT CHARSET=latin1;
+
+CREATE TABLE mergedvodbCopy (
+    mergedvodbcopy_id     BIGINT AUTO_INCREMENT,
+    merge_id     BIGINT,
+    mergedvodb_rsync_path VARCHAR(255) NOT NULL,
+    destination_host VARCHAR(255) NOT NULL,
+    fault  SMALLINT NOT NULL,
+    state   VARCHAR(64) NOT NULL,
+    epoch TIMESTAMP,
+    dtime FLOAT,
+    PRIMARY KEY(mergedvodbcopy_id),
+    KEY(merge_id),
+    FOREIGN KEY(merge_id) REFERENCES mergedvodbRun(merge_id)
+) ENGINE=innodb DEFAULT CHARSET=latin1;
+
+alter table mergedvodbProcessed add column merge_order BIGINT after merge_id;
+
+-- then copy over the info into the 2 tables:
+ insert into mergedvodbRun ( minidvodb_id, mergedvodb,mergedvodb_path,
+   state, creation_date)  select minidvodb_id, minidvodb_group,mergedvodb_path,
+minidvodbRun.state,
+   minidvodbRun.creation_date from minidvodbRun where minidvodb_id >= 0;
+
+insert into mergedvodbProcessed (merge_id, merge_order, dtime_verify,
+dtime_merge, dtime_script, epoch, fault) select merge_id, merge_order,
+minidvodbProcessed.dtime_verify, minidvodbProcessed.dtime_merge,
+minidvodbProcessed.dtime_script, minidvodbProcessed.epoch,
+minidvodbProcessed.fault from minidvodbProcessed join mergedvodbRun using
+(minidvodb_id) where merge_id > -1 ;
+
+--then clean up the tables:
+-- once the tables have had the columns migrated over, then and only then do this:
+
+alter table minidvodbRun drop column mergedvodb_path;
+alter table minidvodbProcessed drop column dtime_verify;
+alter table minidvodbProcessed drop column merge_order;
+alter table minidvodbProcessed drop column dtime_merge;
+alter table minidvodbProcessed drop column mergedvodb_path;
+
+
+--then to keep compatible with old camruns (stage_extra1 = negative means it used a destreaked smf)
+
+--it's commented out as it only needs to be run once (and only on gpc1)
+--update addRun set stage_extra1 = -1 where stage = 'cam' <= 483624; 
+
+ALTER TABLE warpSkyfile add column background_model SMALLINT after maskfrac_advisory;
+ALTER TABLE stackSumSkyfile add column background_model SMALLINT after software_ver;
+
+ALTER TABLE skycalResult ADD column n_detections INT after n_astrom;
+ALTER TABLE skycalResult ADD column n_extended INT after n_detections;
+
+UPDATE dbversion set schema_version = '1.1.72', updated= CURRENT_TIMESTAMP();
+
+ALTER TABLE skycalResult ADD column n_forced INT after n_extended;
+UPDATE dbversion set schema_version = '1.1.73', updated= CURRENT_TIMESTAMP();
+
+
+-- Update camProcessedExp to hold a background_model value
+
+ALTER TABLE camProcessedExp add column background_model SMALLINT after quality;
+UPDATE dbversion set schema_version = '1.1.74', updated= CURRENT_TIMESTAMP();
+
+
+-- Note the following 3 changes were implemented in the ipp-20121218 tag
+-- without changing the schema_version from 1.1.74
+
+-- Add cam_id to chipBackgroundRun
+ALTER TABLE chipBackgroundRun ADD COLUMN cam_id BIGINT DEFAULT 0 AFTER chip_id;
+
+-- add fwhm measuements to skycalResult
+ALTER TABLE skycalResult ADD COLUMN fwhm_major FLOAT AFTER zpt_stdev;
+ALTER TABLE skycalResult ADD COLUMN fwhm_minor FLOAT AFTER fwhm_major;
+
+-- new tables for managing the "release" of ipp data
+
+CREATE TABLE survey (
+    surveyID    INT,
+    surveyName  VARCHAR(16) NOT NULL,
+    description VARCHAR(255),
+    PRIMARY KEY(surveyID),
+    UNIQUE  KEY(surveyName)
+) ENGINE=InnoDB CHARSET=latin1;
+
+CREATE TABLE ippRelease (
+    rel_id      INT AUTO_INCREMENT,
+    surveyID    INT,
+    release_name VARCHAR(64),
+    release_state VARCHAR(16),   -- active, pending, archive, drop 
+    dataRelease INT,         -- PSPS dataRelease
+    priority    INT,
+    PRIMARY KEY(rel_id),
+    KEY(release_name),
+    KEY(release_state),
+    KEY(priority),
+    FOREIGN KEY(surveyID) REFERENCES survey(surveyID)
+) ENGINE=Innodb DEFAULT CHARSET=latin1;
+
+CREATE TABLE relExp (
+    relexp_id   BIGINT AUTO_INCREMENT,
+    rel_id      INT,
+    exp_id      BIGINT,
+    chip_id     BIGINT,         -- links to the runs that supplied the data
+    cam_id      BIGINT,         -- for this release
+    group_id    INT,         -- id of relGroup that this exposure is contained in
+    state       VARCHAR(16),    -- released, pending, archive, drop  
+    flags       INT UNSIGNED,  -- flags for relphot, relastro, ??
+    zpt_obs     FLOAT,          -- calibrated zero point for this release of
+    zpt_stdev   FLOAT,          -- this exposure
+    path_base   VARCHAR(255),   -- path_base of any supporting files for this
+                                -- release of this exposure.
+    fault SMALLINT NOT NULL,
+    registered  DATETIME,       -- insertion time for this row
+    time_stamp  DATETIME,       -- time of last update for this row
+    PRIMARY KEY (relexp_id),
+    FOREIGN KEY(rel_id) REFERENCES ippRelease(rel_id),
+    KEY (state),
+    KEY (fault),
+    FOREIGN KEY(exp_id) REFERENCES rawExp(exp_id),
+    FOREIGN KEY(chip_id) REFERENCES chipRun(chip_id),
+    FOREIGN KEY(cam_id) REFERENCES camRun(cam_id)
+) ENGINE=innodb DEFAULT CHARSET=latin1;
+
+CREATE TABLE relStack (
+    relstack_id BIGINT AUTO_INCREMENT,
+    rel_id      INT,
+    stack_id    BIGINT,         -- id of the stackRun
+    skycal_id   BIGINT,         -- id of the sky calibration run that supplied the calibration
+                                -- for this release of this skycell.
+    skycell_id  VARCHAR(64),
+    tess_id     VARCHAR(64),
+    filter      VARCHAR(16),
+    state       VARCHAR(16),    -- released, pending, archive, drop  
+    flags       INT UNSIGNED,
+    stack_type  VARCHAR(16),    -- nightly, deep, reference
+    zpt_obs     FLOAT,          -- calibrated zero point for this release of this skycell
+    zpt_stdev   FLOAT,
+    mjd_obs     INT UNSIGNED,   -- for nightly stacks the mjd_obs, zero for deep and reference
+    path_base   VARCHAR(255),   -- path_base of any supporting files,
+    fault SMALLINT NOT NULL,
+    registered  DATETIME,
+    time_stamp  DATETIME,
+    PRIMARY KEY (relstack_id),
+    KEY (tess_id, skycell_id),
+    KEY (rel_id, tess_id, skycell_id, filter, mjd_obs),
+    KEY (stack_type),
+    KEY (mjd_obs),
+    KEY (state),
+    KEY (fault),
+    FOREIGN KEY(rel_id) REFERENCES ippRelease(rel_id),
+    FOREIGN KEY(stack_id) REFERENCES stackRun(stack_id)
+) ENGINE=innodb DEFAULT CHARSET=latin1;
+
+CREATE TABLE relGroup (
+    group_id    INT AUTO_INCREMENT,
+    rel_id      INT,
+    group_type  VARCHAR(16),
+    lap_id      BIGINT,
+    group_name  VARCHAR(16),
+    state       VARCHAR(16),    -- new full
+    label       VARCHAR(64),
+    exp_list_path   VARCHAR(255),
+    fault SMALLINT NOT NULL,
+    registered  DATETIME,
+    PRIMARY KEY (group_id),
+    KEY (rel_id, group_name),
+    KEY (group_type),
+    KEY (lap_id),
+    KEY (group_name),
+    KEY (state),
+    KEY (label),
+    KEY (fault),
+    FOREIGN KEY(rel_id) REFERENCES ippRelease(rel_id)
+) ENGINE=innodb DEFAULT CHARSET=latin1;
+
+-- new table grouping multi filter lap runs into a group. This is used to
+-- determine when all 5 filters for a projection cell have completed processing
+CREATE TABLE lapGroup  (
+    seq_id  BIGINT,
+    tess_id VARCHAR(64),
+    projection_cell VARCHAR(64),
+    state   VARCHAR(16),
+    label   VARCHAR(654),
+    registered TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    fault   SMALLINT,
+    PRIMARY KEY(seq_id, projection_cell),
+    KEY(state),
+    KEY(fault),
+    FOREIGN KEY(seq_id) REFERENCES lapSequence(seq_id)
+) ENGINE=innodb DEFAULT CHARSET=latin1;
+
+-- new Postage Stamp Request columns
+-- Note: These do not aply to the gpc1 database because the pstamp tables were
+-- deleted from that database.
+ALTER TABLE pstampRequest ADD COLUMN username VARCHAR(255) AFTER outdir;
+ALTER TABLE pstampRequest ADD COLUMN proj_id BIGINT AFTER username;
+ALTER TABLE pstampRequest ADD COLUMN registered DATETIME AFTER proj_id;
+
+-- default to the gpc1 project
+UPDATE pstampRequest SET proj_id = 1;
+
+-- unique keys for the release tables
+
+alter table relStack  add unique key (rel_id, tess_id, skycell_id, filter, stack_type, mjd_obs);
+alter table relExp add UNIQUE KEY(rel_id, exp_id);
+alter table ippRelease add unique key (surveyID, release_name);
+
+UPDATE dbversion set schema_version = '1.1.75', updated= CURRENT_TIMESTAMP();
+
+-- 
+alter table chipRun add column update_mode SMALLINT DEFAULT 0 AFTER maskfrac_advisory;
+
+UPDATE dbversion set schema_version = '1.1.76', updated= CURRENT_TIMESTAMP();
+
+--
+
+ALTER TABLE ippRelease ADD COLUMN dvodb VARCHAR(255) DEFAULT NULL AFTER priority;
+ALTER TABLE ippRelease ADD COLUMN ubercal_file VARCHAR(255) DEFAULT NULL AFTER dvodb;
+ALTER TABLE relExp ADD COLUMN mcal FLOAT AFTER zpt_stdev;
+ALTER TABLE relExp ADD COLUMN ubercal_dist INT DEFAULT 0 AFTER mcal;
+
+UPDATE dbversion set schema_version = '1.1.77', updated= CURRENT_TIMESTAMP();
+
+--
+
+CREATE TABLE fullForceRun (
+    ff_id           BIGINT NOT NULL AUTO_INCREMENT,
+    skycal_id       BIGINT,
+    sources_path_base VARCHAR(255),
+    state           VARCHAR(64),
+    workdir         VARCHAR(255),
+    label           VARCHAR(64),
+    data_group      VARCHAR(64),
+    dist_group      VARCHAR(64),
+    note            VARCHAR(255),
+    reduction       VARCHAR(64),
+    registered TIMESTAMP DEFAULT CURRENT_TIMESTAMP, -- time run was registered
+    PRIMARY KEY(ff_id),
+    KEY(state),
+    KEY(label),
+    KEY(data_group),
+    KEY(skycal_id),
+    FOREIGN KEY(skycal_id) REFERENCES skycalRun(skycal_id)
+) ENGINE=innodb DEFAULT CHARSET=latin1;
+
+CREATE TABLE fullForceInput (
+    ff_id           BIGINT,
+    warp_id         BIGINT,
+    PRIMARY KEY(ff_id, warp_id),
+    FOREIGN KEY(ff_id) REFERENCES fullForceRun(ff_id),
+    FOREIGN KEY(warp_id) REFERENCES warpRun(warp_id)
+) ENGINE=innodb DEFAULT CHARSET=latin1;
+
+CREATE TABLE fullForceResult (
+    ff_id           BIGINT,
+    warp_id         BIGINT,
+    path_base       VARCHAR(255) NOT NULL,
+    dtime_script    FLOAT,
+    quality         SMALLINT NOT NULL,
+    hostname        VARCHAR(64) NOT NULL,
+    software_ver    VARCHAR(16),
+    fault           SMALLINT NOT NULL,
+    PRIMARY KEY(ff_id, warp_id),
+    KEY(fault),
+    KEY(quality),
+    FOREIGN KEY(ff_id) REFERENCES fullForceRun(ff_id),
+    FOREIGN KEY(warp_id) REFERENCES warpRun(warp_id)
+) ENGINE=innodb DEFAULT CHARSET=latin1;
+
+CREATE TABLE fullForceSummary (
+    ff_id           BIGINT,
+    path_base       VARCHAR(255) NOT NULL,
+    dtime_script    FLOAT,
+    quality         SMALLINT NOT NULL,
+    hostname        VARCHAR(64) NOT NULL,
+    software_ver    VARCHAR(16),
+    fault           SMALLINT NOT NULL,
+    PRIMARY KEY(ff_id),
+    KEY(fault),
+    KEY(quality),
+    FOREIGN KEY(ff_id) REFERENCES fullForceRun(ff_id)
+) ENGINE=innodb DEFAULT CHARSET=latin1;
+
+UPDATE dbversion set schema_version = '1.1.78', updated= CURRENT_TIMESTAMP();
+
+--
+
+CREATE TABLE remoteRun (
+    remote_id BIGINT NOT NULL AUTO_INCREMENT,
+    state     VARCHAR(64) NOT NULL,
+    stage     VARCHAR(64) NOT NULL,
+    label     VARCHAR(64) NOT NULL,
+    path_base VARCHAR(255) NOT NULL,
+    job_id    BIGINT,
+    last_poll TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    fault     SMALLINT NOT NULL,
+    PRIMARY KEY (remote_id),
+    KEY (state),
+    KEY (stage),
+    KEY (label),
+    KEY (job_id)
+) ENGINE=innodb DEFAULT CHARSET=latin1;    
+
+CREATE TABLE remoteComponent (
+    remote_id BIGINT,
+    stage_id  BIGINT,
+    KEY (stage_id),
+    FOREIGN KEY (remote_id) REFERENCES remoteRun(remote_id)
+) ENGINE=innodb DEFAULT CHARSET=latin1;    
+
+UPDATE dbversion set schema_version = '1.1.79', updated= CURRENT_TIMESTAMP();
+
+ALTER TABLE camProcessedExp ADD COLUMN astrom_chips BIGINT;
+UPDATE dbversion set schema_version = '1.1.79', updated= CURRENT_TIMESTAMP();
+
+--
+
+UPDATE dbversion set schema_version = '1.1.80', updated= CURRENT_TIMESTAMP();
+ALTER TABLE remoteComponent ADD COLUMN jobs INT after stage_id;
+ALTER TABLE remoteComponent ADD COLUMN state VARCHAR(64) NOT NULL after jobs;
+ALTER TABLE remoteComponent ADD COLUMN path_base VARCHAR(255) after state;
+
+--
+
+ALTER TABLE ippRelease ADD COLUMN accessLevelMin INT DEFAULT 0 AFTER ubercal_file 
+
+-- Update camProcessedExp to store astrometry results from smfs --
+
+ALTER TABLE camProcessedExp ADD COLUMN ast_r0 FLOAT after astrom_chips;
+ALTER TABLE camProcessedExp ADD COLUMN ast_d0 FLOAT after ast_r0;
+ALTER TABLE camProcessedExp ADD COLUMN ast_t0 FLOAT after ast_d0;
+ALTER TABLE camProcessedExp ADD COLUMN ast_s0 FLOAT after ast_t0;
+ALTER TABLE camProcessedExp ADD COLUMN ast_rs FLOAT after ast_s0;
+ALTER TABLE camProcessedExp ADD COLUMN ast_ds FLOAT after ast_rs;
+
+-- Update addRun to store hostname info --
+
+ALTER TABLE addRun ADD COLUMN hostname varchar(64) after minidvodb_name;
+ALTER TABLE minidvodbProcessed ADD COLUMN hostname varchar(64) after fault;
+
+--
+UPDATE dbversion set schema_version = '1.1.81', updated= CURRENT_TIMESTAMP();
+--
+
+ALTER TABLE minidvodbProcessed DROP COLUMN hostname;
+ALTER TABLE minidvodbRun ADD COLUMN hostname varchar(64) AFTER state;
+ALTER TABLE minidvodbRun DROP COLUMN hostname;
+ALTER TABLE minidvodbRun ADD COLUMN minidvodb_host varchar(64) NOT NULL AFTER minidvodb_path;
+ALTER TABLE addRun Change hostname minidvodb_host varchar(64);
+ALTER TABLE minidvodbRun ADD COLUMN note varchar(255) AFTER state;
+
+--
+
+CREATE TABLE stackExternalCamera (
+    ext_camera_id BIGINT AUTO_INCREMENT,
+    ext_camera    VARCHAR(64) NOT NULL,
+    KEY ext_camera_id (ext_camera_id)
+) ENGINE=innodb DEFAULT CHARSET=latin1;
+
+CREATE TABLE stackExternalStack (
+    stack_id      BIGINT,
+    ext_stack_id  BIGINT,
+    ext_camera_id BIGINT,
+    FOREIGN KEY (ext_camera_id)
+      REFERENCES stackExternalCamera(ext_camera_id)
+) ENGINE=innodb DEFAULT CHARSET=latin1;
+
+-- EAM 2022.05.09 : adding fpcamRun, fpcamProcessedExp
+
+CREATE TABLE fpcamRun (
+    fpcam_id      BIGINT AUTO_INCREMENT,
+    cam_id        BIGINT,
+    chip_id       BIGINT,
+    state         VARCHAR(64),
+    workdir       VARCHAR(255),
+    workdir_state VARCHAR(64),
+    label         VARCHAR(64),
+    data_group    VARCHAR(64),
+    dist_group    VARCHAR(64),
+    reduction     VARCHAR(64),
+    dvodb         VARCHAR(255),
+    software_ver  VARCHAR(16),
+    note          VARCHAR(255),
+    PRIMARY KEY(fpcam_id),
+    KEY(cam_id),
+    KEY(chip_id),
+    KEY(state),
+    KEY(label),
+    INDEX(chip_id, cam_id),
+    FOREIGN KEY (cam_id) REFERENCES camRun(cam_id),
+    FOREIGN KEY (chip_id) REFERENCES chipRun(chip_id))
+ENGINE=innodb DEFAULT CHARSET=latin1;
+
+CREATE TABLE fpcamProcessedExp (
+    fpcam_id     BIGINT,
+    path_base    VARCHAR(255),
+
+    zpt_obs      FLOAT,
+    zpt_stdev    FLOAT,
+    zpt_lq       FLOAT,
+    zpt_uq       FLOAT,
+
+    dtime_script FLOAT,
+
+    hostname     VARCHAR(64),
+    n_stars      INT,
+    fault        SMALLINT NOT NULL,
+    epoch        TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+
+    software_ver VARCHAR(16),
+
+    deteff_obs   FLOAT,
+    deteff_err   FLOAT,
+    deteff_lq    FLOAT,
+    deteff_uq    FLOAT,
+
+    quality      SMALLINT
+
+    PRIMARY KEY(fpcam_id),
+    KEY(fault),
+    FOREIGN KEY (fpcam_id) REFERENCES fpcamRun(fpcam_id),
+) ENGINE=innodb DEFAULT CHARSET=latin1;
+

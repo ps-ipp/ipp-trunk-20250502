@@ -1,0 +1,20 @@
+
+I have been working to convert these functions to use libautocode to
+generate the table I/O APIs automatically.  A single table defines the
+layout of the table as well as the C structure.  A perl script uses a
+template to generate code to perform the byte swaping, to construct
+the table and add data or extract data from the table.
+
+I discovered that 'photreg' was mis-coded in Fread: it was not
+swapping the entry for refcode.  I have put in a 'rawshort' method to
+handle this for now, but it is fragile: it will only work on
+big-endian machines.  The tables need to be updated and the entry
+returned to short.  This can be done with the existing convert
+operations.
+
+as of 2005/03/30, I have converted the spsearch, photsearch functions,
+but I have not completely tested them.
+
+I am having some errors in the table creation: some lines are dropping
+the leading ' in the wrong place.  
+

@@ -1,0 +1,25 @@
+## Example .ipprc file : copy to your home directory and modify as desired
+
+# Default search path for configuration files (add $HOME if desired)
+# Note: do not include $HOME in the distributed copy used by ippMonitor
+PATH            STR     @pkgdatadir@
+### This is a useful setting for an individual user:
+#PATH           STR     $HOME/ippconfig/:$PSCONFDIR/$PSCONFIG/share/ippconfig/
+
+# load the site-specific information from here
+SITE              STR     site.config
+
+# load the system configuration information from here
+SYSTEM            STR     system.config
+
+# logging verbosity levels
+LOGLEVEL	S32	9			# Logging level; 3=INFO
+LOGFORMAT	STR	THLNM			# Log format
+LOGDEST		STR	STDERR			# Log destination
+TRACEDEST	STR	STDERR			# Trace destination
+
+# place default trace lines here
+TRACE		METADATA			# Trace levels
+  err		S32	10
+# psLib.db      S32	10
+END

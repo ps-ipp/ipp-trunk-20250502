@@ -1,0 +1,26 @@
+#!/usr/bin/env perl
+
+# a dummy script to simulate data arriving from OTIS
+
+# read lines 'new.list', send to 'raw.list'
+
+open (FILE, "new.last");
+@list = <FILE>;
+close (FILE);
+($Nend) = split (" ", $list[0]);
+# print "Nend: $Nend\n";
+
+open (FILE, "new.list");
+@list = <FILE>;
+close (FILE);
+
+$Nend += 5;
+for ($i = 0; $i < $Nend; $i++) {
+    ($name, $chip, $state) = split (" ", $list[$i]);
+    if ($state ne "new") { next; }
+    print "$list[$i]";
+}
+
+open (FILE, ">new.last");
+print FILE "$Nend\n";
+close (FILE);

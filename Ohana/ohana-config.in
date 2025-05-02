@@ -1,0 +1,25 @@
+#!/bin/csh -f
+
+if ($#argv != 1) then
+  echo "USAGE: ohana-config [option]"
+  echo "valid options:"
+  echo " --libs"
+  echo " --cflags"
+  echo " --prefix"
+  exit 2
+endif
+
+switch ($1) 
+  case "--libs":
+    echo "-L@LIBDIR@ -lkapa -ldvo -lFITS -lohana"
+    shift
+    breaksw
+  case "--cflags":
+    echo "-I@INCDIR@ @DEFINES@"
+    shift
+    breaksw
+  default:
+    echo "unknown option $1"
+    exit 2
+endsw
+ 

@@ -1,0 +1,8 @@
+#!/usr/bin/env perl
+
+print "# uri fileset datetime type\n";
+print "http://example.org/1 foo1 2006-04-17T00:00:12 OBJECT\n";
+print "http://example.org/2 foo2 2006-04-17T00:00:12 OBJECT\n";
+print "http://example.org/3 foo3 2006-04-17T00:00:12 OBJECT\n";
+
+

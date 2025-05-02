@@ -1,0 +1,72 @@
+/*
+ * pstamptool.h
+ *
+ * Copyright (C) 2008
+ *
+ * This program is free software; you can redistribute it and/or modify it
+ * under the terms of the GNU General Public License as published by the Free
+ * Software Foundation; version 2 of the License.
+ *
+ * This program is distributed in the hope that it will be useful, but WITHOUT
+ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+ * FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public License for
+ * more details.
+ *
+ * You should have received a copy of the GNU General Public License along with
+ * program; see the file COPYING. If not, write to the Free Software
+ * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA.
+ */
+
+#ifndef PSTAMPTOOL_H
+#define PSTAMPTOOL_H 1
+
+#include "pxtools.h"
+
+typedef enum {
+    PSTAMPTOOL_MODE_NONE      = 0x0,
+    PSTAMPTOOL_MODE_ADDDATASTORE,
+    PSTAMPTOOL_MODE_DATASTORE,
+    PSTAMPTOOL_MODE_MODDATASTORE,
+    PSTAMPTOOL_MODE_ADDREQ,
+    PSTAMPTOOL_MODE_LISTREQ,
+    PSTAMPTOOL_MODE_COMPLETEDREQ,
+    PSTAMPTOOL_MODE_PENDINGREQ,
+    PSTAMPTOOL_MODE_UPDATEREQ,
+    PSTAMPTOOL_MODE_REVERTREQ,
+    PSTAMPTOOL_MODE_PENDINGCLEANUP,
+    PSTAMPTOOL_MODE_ADDJOB,
+    PSTAMPTOOL_MODE_LISTJOB,
+    PSTAMPTOOL_MODE_PENDINGJOB,
+    PSTAMPTOOL_MODE_STOPDEPENDENTJOB,
+    PSTAMPTOOL_MODE_JOBRESULT,
+    PSTAMPTOOL_MODE_UPDATEJOB,
+    PSTAMPTOOL_MODE_REVERTJOB,
+    PSTAMPTOOL_MODE_ADDPROJECT,
+    PSTAMPTOOL_MODE_MODPROJECT,
+    PSTAMPTOOL_MODE_PROJECT,
+    PSTAMPTOOL_MODE_GETDEPENDENT,
+    PSTAMPTOOL_MODE_PENDINGDEPENDENT,
+    PSTAMPTOOL_MODE_UPDATEDEPENDENT,
+    PSTAMPTOOL_MODE_REVERTDEPENDENT,
+    PSTAMPTOOL_MODE_GETWEBREQUESTNUM,
+    PSTAMPTOOL_MODE_ADDFILE,
+    PSTAMPTOOL_MODE_LISTFILE,
+    PSTAMPTOOL_MODE_DELETEFILE,
+
+    PSTAMPTOOL_MODE_ADDUSER,
+    PSTAMPTOOL_MODE_UPDATEUSER,
+    PSTAMPTOOL_MODE_LISTUSER,
+//    PSTAMPTOOL_MODE_GETUSERINFO,
+
+    PSTAMPTOOL_MODE_ADDDOMAIN,
+    PSTAMPTOOL_MODE_UPDATEDOMAIN,
+    PSTAMPTOOL_MODE_LISTDOMAIN,
+
+    PSTAMPTOOL_MODE_ADDACCESSLEVEL,
+    PSTAMPTOOL_MODE_UPDATEACCESSLEVEL,
+    PSTAMPTOOL_MODE_LISTACCESSLEVEL,
+} pstamptoolMode;
+
+pxConfig *pstamptoolConfig(pxConfig *config, int argc, char **argv);
+
+#endif // PSTAMPTOOL_H

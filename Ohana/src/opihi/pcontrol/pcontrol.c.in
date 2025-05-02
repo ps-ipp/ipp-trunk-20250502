@@ -1,0 +1,112 @@
+# include "pcontrol.h"
+
+# define STDERR_FILE "pcontrol.log"
+
+# define opihi_name "PCONTROL"
+# define opihi_prompt "pcontrol: "
+# define opihi_description "pcontrol client shell\n"
+# define opihi_history ".pcontrol"
+# define opihi_rcfile ".pcontrolrc"
+
+# ifdef THREADED  
+  static pthread_t clientsThread;
+# endif
+
+/* program-dependent initialization */
+void program_init (int *argc, char **argv) {
+  OHANA_UNUSED_PARAM(argc);
+  OHANA_UNUSED_PARAM(argv);
+  
+  auto_break = TRUE;
+
+  /* load the commands used by this implementation */
+  InitBasic ();
+  InitPcontrol ();
+
+  /* set global signal masks (these apply to all threads launched below) */
+  signal (SIGPIPE, SIG_IGN); // must ignore SIGPIPE or we get in an infinite loop when pantasks exits
+  signal (SIGTSTP, gotsignal);
+  signal (SIGTTIN, gotsignal);
+
+  // stdin / stdout are used for communication with pantasks.
+  // redirect stderr so various error messages are saved
+  stderr = freopen (STDERR_FILE, "a", stderr);
+  if (!stderr) {
+      fprintf (stdout, "failed to open %s for error output\n", STDERR_FILE);
+      exit (1);
+  }
+
+  rl_readline_name = opihi_name;
+  rl_attempted_completion_function = command_completer;
+# ifdef THREADED
+  SetRunLevel (PCONTROL_RUN_ALL);
+  pthread_create (&clientsThread, NULL, &CheckSystem_Threaded, NULL);
+  rl_event_hook = NULL;
+  rl_set_keyboard_input_timeout (1000); 
+# else
+  rl_event_hook = CheckSystem;
+  rl_set_keyboard_input_timeout (1000); 
+# endif  
+
+  // set_str_variable ("HISTORY", opihi_history);
+  set_str_variable ("PROMPT", opihi_prompt);
+  set_str_variable ("RCFILE", opihi_rcfile);
+
+  {
+    char *helpdir;
+    char *modules;
+    static char *datadir = "@DATADIR@";
+    ALLOCATE (helpdir, char, strlen(datadir) + strlen("/help") + 2);
+    sprintf (helpdir, "%s/help", datadir);
+    set_str_variable ("HELPDIR", helpdir);
+    free (helpdir);
+    ALLOCATE (modules, char, strlen(datadir) + strlen("/modules") + 2);
+    sprintf (modules, "%s/modules", datadir);
+    set_str_variable ("MODULES:0", modules);
+    set_int_variable ("MODULES:n", 1);
+    free (modules);
+  }
+
+  /* ignore the history file.  to change this, see, eg, mana.c */
+  return;
+}
+
+/* standard welcome message */
+void welcome () {
+  gprint (GP_ERR, "\n");
+  gprint (GP_ERR, "Welcome to %s - %s\n\n", opihi_name, opihi_description);
+}
+
+/* add program-dependent exit functions here */
+void cleanup () {
+  // stop checking on the jobs
+  SetRunLevel (PCONTROL_RUN_HOSTS); 
+  DownHosts ();
+
+  QuitCheckSystemThread(); pthread_join (clientsThread, NULL);
+
+  ConfigFree ();
+  FreeBasic ();
+  FreePcontrol ();
+
+  return;
+}
+
+void gotsignal (int signum) {
+  // this message is lost if we are connected to a pantasks
+  fprintf (stderr, "got signal : %d\n", signum);
+  return;
+}
+
+/* call to opihi shell */
+int main (int argc, char **argv) {
+  int status;
+  status = opihi (argc, argv);
+  abort ();	
+  exit (status);
+}
+
+void pcontrol_exit (int n) {
+  abort ();
+  exit (n);
+}

@@ -1,0 +1,39 @@
+
+There are several types of quality flags used within DVO.  There are
+flags associated with the measurements, the average objects, and the
+images.  
+
+measure->photFlags : these flags are supplied by the photometry
+		     analysis program which produced the data.  They
+		     may be directly defined by the program, as in the
+		     case of psphot, or they may be translations of
+		     detection metadata supplied by the data source
+		     (eg, 2MASS or SDSS).  These flags are read only:
+		     the are set by addstar, and not modified by any
+		     of the DVO database manipulation programs.  
+
+measure->dbFlags : these flags are used within DVO to note the ways in
+		   which the detetion is determined to be special by
+		   the database analysis programs.  These flags may be
+		   set by addstar on ingest, or by relphot, relastro,
+		   or equivalent programs.  Here are the possible
+		   values for dbFlags:
+
+NOTE: update these names and use an enum:		   
+# define ID_MEAS_NOCAL        0x0001 : detection ignored for this analysis (photcode, time range) -- internal only
+# define ID_MEAS_POOR_PHOTOM  0x0002 : detection is photometry outlier
+# define ID_MEAS_SKIP_PHOTOM  0x0004 : detection was ignored for photometry measurement
+# define ID_MEAS_AREA         0x0008 : detection near image edge
+# define ID_MEAS_POOR_ASTROM  0x0010 : detection is astrometry outlier
+# define ID_MEAS_SKIP_ASTROM  0x0020 : detection was ignored for astrometry measurement
+# define ID_MEAS_UNDEF_1      0x0040 : unused
+# define ID_MEAS_UNDEF_2      0x0080 : unused
+# define BLEND_IMAGE          0x0100 : detection is within radius of multiple objects
+# define BLEND_CATALOG        0x0200 : multiple detections within radius of object
+# define ID_MEAS_UNDEF_3      0x0400 : unused
+# define ID_MEAS_UNDEF_4      0x0800 : unused
+# define BLEND_IMAGE_NEIGHBOR 0x1000 : detection is within radius of multiple objects across catalogs
+# define ID_ARTIFACT          0x2000 : detection is thought to be non-astronomical
+# define ID_MEAS_UNDEF_5      0x4000 : unused
+# define ID_MEAS_UNDEF_6      0x8000 : unused
+

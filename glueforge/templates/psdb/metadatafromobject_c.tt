@@ -1,0 +1,53 @@
+[% USE format -%]
+[% indented = format('%-15s %s') -%]
+#include <pslib.h>
+#include <[% pkg_name %].h>
+#include <stdlib.h>
+#include <string.h>
+
+#define MAX_STRING_LENGTH 1024
+
+int main ()
+{
+[% FOREACH table = tables -%]
+    {
+        psMetadata      *md;
+        [% indented(table.object_name, "*object") %];
+        bool            status;
+
+        object = [% table.object_name %]Alloc(
+[%- SET i = 0 -%]
+[%- FOREACH item = table.columns -%]
+    [%- IF i == 0 -%][%- i = 1 -%][%- ELSE -%], [% END -%] [%- item.test -%]
+[%- END -%]
+);
+        if (!object) {
+            exit(EXIT_FAILURE);
+        }
+
+        md = [% table.namespace %]MetadataFromObject(object);
+        if (!md) {
+            exit(EXIT_FAILURE);
+        }
+
+        psFree(object);
+
+[% FOREACH item = table.columns -%]
+[% IF item.type == "S32" or item.type == "F32" or item.type == "F64" -%]
+        if (!psMetadataLookup[% item.type %](&status, md, "[% item.name %]") == [% item.test %]) {
+[% ELSIF item.type == "STR" -%]
+        if (strncmp(psMetadataLookupPtr(&status, md, "[% item.name %]"), [% item.test %], MAX_STRING_LENGTH)) {
+[% ELSIF item.type == "BOOL" -%]
+        if (!psMetadataLookupBool(&status, md, "[% item.name %]") == [% item.test %]) {
+[% END -%]
+            psFree(md);
+            exit(EXIT_FAILURE);
+        }
+[% END -%]
+
+        psFree(md);
+    }
+
+[% END -%]
+    exit(EXIT_SUCCESS);
+}

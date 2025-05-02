@@ -1,0 +1,108 @@
+
+20130406
+
+examining pswarp to handle inverse transformations or more general transformations:
+
+pswarp:
+  * setup / init functions (psLibInit, psphotInit, etc)
+  * pswarpArguments   : parse things like -file (name), -list (name), etc
+  * pswarpParseCamera : examine minimal files, define cameras & pmFPAfile + pmFPA
+    		        this function reads headers for files
+
+			uses pmFPAfileDefineFromArgs / pmFPAfileBindFromArgs for inputs
+			uses pswarpDefineSkycell for outputs
+
+			pmFPAfileDefineSkycell is used to generate the output
+			FPAs.  This forces the file to be FPA-level only, which is wrong. 
+			Not certain of the impact of replacing with pmFPAfileDefineOutput
+
+			pmFPAfileDefineSkycell:
+				* appends -SKYCELL to the camera name
+
+  * pswarpOptions     : check the recipe options, reconcile with cmd-line options
+
+  * pswarpDefine      : create output image pixels, update related concepts, 
+    		      	associate output astrometry (skycell) with output pmFPA structures
+			
+
+
+in pswarpParseCamera:
+  * pswarpDefineSkycell : this function is based on pmFPAfileDefineFromArgs
+    			* reads fileset from config->arguments (a fileset is an array of filenames)
+			* select first filename & translate to UNIX namespace
+			* open fits file
+			* read fits header (PHU)
+			* inherit some config elements from input config (user, system, files, arguments)
+			* determine format from header
+			  (NOTE: currently does not examine or set fileLevel)
+			* build the pmFPA structure based on camera & name
+			* bind filerule to fpa, generate the pmFPAfile
+			* sets file->fileLevel based on format, but slightly out of sync wrt pmFPAfileDefineFromArgs
+  			  (NOTE: does not expect / examine any other file)
+
+
+in pswarpLoop (major blocks):
+
+   * find the needed recipe / filerules / etc
+   * pswarpIOChecksBefore() : generate the outputs?  (isn't this done in pswarpDefine?)
+   * read input astrometry headers (also loads sources or not?)
+   * apply astrometry headers to input->fpa
+   * pswarpTransformReadout : transform pixels, etc
+   * pswarpPixelsLit : measure filling & masks stats
+   * modify the covariance
+   * modify the ZP & trimsec (seems like these should be encapsulated)
+   * update headers
+   * measure the PSF	
+   * measure pixel stats on output
+   * add MD5 to header
+   
+   
+
+----
+
+pswarp issues:
+
+1) operations need to loop over the output astrometry / targets for fpa/chip/cell levels
+   a) I replaced pswarpDefineSkycell with an update to pmFPAfileDefineXX which does the looping
+   b) is it identical in behavior to pswarpDefineSkycell?
+      * YES : I can drop pswarpDefineSkycell 
+
+2) how do we load the SOURCES?
+
+   * I need to load the headers for the astrometry, and I do this by
+     setting the type of the input astrometry to be WCS.  is this the
+     same as CMF, but the latter reads the sources??
+
+   * by changing the filerules entry CMF <-> WCS pswarpDefine.c either does or does not read the sources
+
+     (for testing, I want to use a skycell image or template to define the astrometry; this would not have sources to be read)
+
+3) does the I/O loop in pswarpLoop (pswarpIOChecksBefore) do anything useful?
+   ** I don't think so... this operation is done in pswarpDefine.
+
+4) how do I determine the overlaps correctly? (I'd like to do this before I load sources or pixels)
+
+   ** pswarpMapSetLocalModel does not seem to depend on astrometry model style (GOOD!)
+   
+-----
+
+Changes to support arbitrary fpa to arbitrary fpa:
+
+in pswarpDefine:
+ * load astrometry headers (source and target)
+ * determine overlap (source -> target)
+   * loop over target chips
+   * determine o
+ * activate output targets which will get data.
+ * generate output images
+
+in pswarpLoop
+ * need to loop over output targets as well as input sources...
+
+*** looks like I can select the correct output chips and write them.
+    Currently, the output format is inherited from the output
+    astrometry description.  that means we get a MEF output file with
+    one chip per extension.  that seems poor, but I think we can fix
+    this with the filerules.
+
+** trouble running warp -> chip using astrometry from skycell (ok using astrom from warp)

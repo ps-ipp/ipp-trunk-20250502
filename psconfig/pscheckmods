@@ -1,0 +1,92 @@
+#!/usr/bin/env perl
+
+$DEBUG = 0;
+$VERBOSE = 0;
+if (@ARGV > 2 && $ARGV[0] eq "-v") {
+    $VERBOSE = 1;
+    shift @ARGV;
+}
+if (@ARGV > 2 && $ARGV[0] eq "-debug") {
+    $DEBUG = 1;
+    shift @ARGV;
+}
+if (@ARGV > 2 && $ARGV[0] eq "-v") {
+    $VERBOSE = 1;
+    shift @ARGV;
+}
+if (@ARGV != 2) { die "USAGE: pscheckmods (module) (version)\n"; }
+
+if ($VERBOSE) { print STDERR "checking in @INC\n"; }
+
+if ($DEBUG) { &detailed_require ($ARGV[0]);}
+
+$x = eval "require $ARGV[0]; 1";
+if (! $x) { 
+    if (! $VERBOSE) { exit 1; }
+    print "$ARGV[0]: missing\n";
+    &detailed_require ($ARGV[0]);
+}
+if ($VERBOSE) { print "result of require: $x\n"; }
+
+$version = eval "\$$ARGV[0]::VERSION";
+print "$ARGV[0]: $version\n";
+
+my $requireExact = 0;
+my $myVersion = $ARGV[1];
+if ($myVersion =~ m|^=.|) {
+    $requireExact = 1;
+    $myVersion =~ s|^=||;
+    print "$ARGV[1], $myVersion\n";
+}
+
+if ($myVersion > $version) {
+    print "$ARGV[0] is too old: have $version : need $ARGV[1]\n";
+    exit 1;
+}
+
+if ($requireExact && ($myVersion != $version)) {
+    print "$ARGV[0] is not the right version: have $version : need $myVersion\n";
+    exit 1;
+}
+
+
+exit 0;
+
+sub detailed_require {
+    my ($filename) = @_;
+    $filename =~ s|::|/|g;
+    $filename = "$filename.pm";
+    print "\ntesting : $filename\n" if $DEBUG;
+    if (exists $INC{$filename}) {
+	return 1 if $INC{$filename};
+    }
+    my ($realfilename,$result);
+  ITER: {
+      my $found = 0;
+      foreach $prefix (@INC) {
+	  $realfilename = "$prefix/$filename";
+	  print "try: $realfilename\n" if $DEBUG;
+	  if (-f $realfilename) {
+	      $INC{$filename} = $realfilename;
+	      print "calling 'do' on $realfilename\n" if $DEBUG;
+	      $result = do $realfilename;
+	      print "result: $result\n" if $DEBUG;
+	      if (! $DEBUG) { last ITER; }
+	      $found = 1;
+	  }
+      }
+      if (!$found) { die "Can't find $filename in \@INC"; }
+    }
+    if ($@) {
+	print "$@" if $DEBUG;
+	$INC{$filename} = undef;
+	die $@;
+    } elsif (!$result) {
+	print "no result\n" if $DEBUG;
+	delete $INC{$filename};
+	die "$filename did not return true value";
+    } else {
+	print "done with detailed_require\n" if $DEBUG;
+	return $result;
+    }
+}

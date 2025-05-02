@@ -1,0 +1,18 @@
+
+20101222 : EAM
+
+  continuing work on psphot stack.  Some notes:
+
+  * visualization now has duplicate image display calls
+  * visual needs to do a better jobs scaling the smoothed, subtracted images.
+  * the fit radius for the convolved images should be a bit bigger than the unconvolved one
+  * *** fitRadius vs apRadius ***
+    I have been using 'markVal' to define the valid pixels for different operations
+    I think this has been inconsistent.  
+
+    ** Have pmSourceMagnitudes apply the defined apRadius on the fly
+       when measuring aperture photometry
+
+    ** Set the fitRadius and keep it until redefined?
+
+    ** RadialApertures does not use the marked region?

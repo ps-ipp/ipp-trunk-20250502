@@ -1,0 +1,68 @@
+
+2011.05.25
+
+  notes on the locking needed by psMemory.c:
+
+  The old locking model used a single mutex to block any operations
+  that affected the memory management data.  
+
+  There are a number of operations that are rare, in which case these
+  locks have almost no performance effect.
+
+  psAlloc and psFree (psMemDecrRefCounter) both are able to perform
+  the list modification operations (which must be locked) either after
+  or before the heavy system calls 'alloc' and 'free'.  As a result,
+  these operations do not have a big impact on thread performance.
+  The big problem is psRealloc.
+
+  psRealloc calls 'realloc' to change the size of the memory block.
+  This call is likely to change the address of the memory block
+  itself.  This is a problem because the address of the memory block
+  is referred to by the neighbor blocks via their memBlock->nextBlock
+  and memBlock->previousBlock elements.  If the current memBlock is
+  the first one, then this issue also applies to
+  'lastMemBlockAllocated'.  The elements may also be modified by
+  psFree and psAlloc.  Thus, we need to prevent multiple threads from
+  calling psFree, psAlloc, or psRealloc on neighbor memory blocks at
+  the same time.
+
+  Unfortunately, unlike psAlloc and psFree, psRealloc cannot perform
+  the (expensive) system call operation (realloc) first and adjust the
+  pointers in separate step, since the value modified by realloc *is*
+  one of those points.  It is thus necessary to include the realloc
+  call within the locked segement, making psRealloc likely to
+  serialize the thread operations.
+
+  Alternatively, we can recognize that the lock only need be applied
+  to operations which are performed on neighboring memBlocks.  We can
+  thus reduce the contention by having a per-memBlock boolean
+  (inFlight) which says the memBlock or a neighbor is being modified.
+  If psFree and psAlloc respect that boolean, they will not modify a
+  memBlock which is already being realloced (or its neighbor).  In
+  this way, the 'realloc' call can be performed outside of the locked
+  region.
+
+
+  psAlloc:
+    - memBlock is not yet known to any other thread
+    - outer mutex and marker mutex must be different?
+    -- this function needs to do a lock & check to grab lastMemBlockAllocated->inFlight
+    if (lastMemBlockAllocated) {
+      setLockOnMarker (&lastMemBlockAllocated->inFlight, true);
+    } else {
+      set mutex
+    }
+    * do stuff
+    if (memBlock->nextBlock) { 
+      memBlock->nextBlock->inFlight = false;
+    }
+    unlock mutex
+
+  psFree:
+    * setLockOnMarker (&memBlock->inFlight, true);
+    * initial stuff
+    * clearLockOnMarker & mutex
+
+    * setLockOnMarkerSet (memBlock, true)
+    * do stuff
+    * clearLockOnMarkerSet (memBlock, true)

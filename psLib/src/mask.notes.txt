@@ -1,0 +1,123 @@
+
+20081227 : upgrading masks
+
+  *** Additional notes ***
+
+  * psVectorCountPixelMask : fixed to use psU64 as input comparison value against any int-type input vector
+  * psImageBackground (and calling functions in psLib/src/fits) do not pass the image mask pixels to psStats, but instead pass a subset based on the mask: this is safe from psImageMaskType != psVectorMaskType
+
+  *** Conversion Plan ***
+
+  * start with the pure psVectorMaskType 
+  * do the psImageMaskType -> track places where the image values are converted to vectors
+
+  *** Initial Thoughts ***
+
+  We have decided to upgrade the image masks to 16bits.  This has a
+  variety of impacts and implications.  
+
+  * Currently, we have a single abstract mask type "psMaskType", which
+    is currently assigned to psU8.  Associated with this are the
+    PS_TYPE_MASK (== PS_TYPE_U8), PS_TYPE_MASK_DATA (== U8), and
+    PS_TYPE_MASK_NAME (== "psU8") macros.  
+
+  * The abstract names have not been used ubiquitously, so places with
+    U8 used explicitly need to be fixed.  Not all cases of U8 must be
+    changed: some places are simply referring to one of the types.
+
+  * In fact, we have several classes of masks, so we need to expand
+    the psMaskType to appropriate version for the different classes:
+    
+    ** There are mask images used to distinguish different types of
+    bad pixels or other reasons to include / exclude pixels from an
+    analysis.  We can call these psImageMaskType (and equiv).
+
+    ** There are mask vectors used to include or exclude elements of a
+       vector from operations.  We can call these psVectorMaskType
+       (etc).
+
+    ** There are various other random masks which are used (eg,
+       polynomial coeffs).  We will keep psMaskType for these cases.
+
+  The file U8.txt contains all of the psLib file with a U8 in them.
+  I am putting notes in that file as I fix the various files.  
+
+  Here are the related macros and types defined in psType.h:
+
+#define PS_TYPE_MASK PS_TYPE_U8        /**< the psElemType to use for mask image */
+#define PS_TYPE_MASK_DATA U8           /**< the data member to use for mask image */
+#define PS_TYPE_MASK_NAME "psU8"       /**< the data type for mask as a string */
+
+typedef psU8 psMaskType;               ///< the C datatype for a mask image
+
+#define PS_TYPE_IMAGE_MASK PS_TYPE_U8        /**< the psElemType to use for mask image */
+#define PS_TYPE_IMAGE_MASK_DATA U8           /**< the data member to use for mask image */
+#define PS_TYPE_IMAGE_MASK_NAME "psU8"       /**< the data type for mask as a string */
+
+typedef psU8 psImageMaskType;               ///< the C datatype for a mask image
+
+#define PS_TYPE_VECTOR_MASK PS_TYPE_U8        /**< the psElemType to use for mask image */
+#define PS_TYPE_VECTOR_MASK_DATA U8           /**< the data member to use for mask image */
+#define PS_TYPE_VECTOR_MASK_NAME "psU8"       /**< the data type for mask as a string */
+
+typedef psU8 psVectorMaskType;			  ///< the C datatype for a mask image
+
+
+---
+    #define PS_METADATA_ITEM_COPY_CASE(NAME,TYPE) \
+case PS_DATA_##NAME: \
+    newItem = p_psMetadataItemAlloc(file, lineno, func, in->name, PS_DATA_##NAME, in->comment, in->data.TYPE); \
+    break; \
+
+./mathtypes/psVector.c  -- DONE psVectorCountMaskPixels was modified to use any type
+./math/psHistogram.c -- DONE mask vectors need to be fixed (mostly explicit U8; double check)
+./math/psMinimizeLMM.c -- DONE param mask vectors need to be fixed (mostly explicit U8; double check)
+./math/psMinimizeLMM_ND.c -- DONE param mask vectors need to be fixed (mostly explicit U8; double check)
+./math/psMinimizePolyFit.c -- DONE mask vectors need to be fixed (mostly explicit U8; double check)
+./math/psMinimizePowell.c -- DONE mask vectors need to be fixed (mostly explicit U8; double check)
+./math/psPolynomialMD.c -- DONE mask vectors need to be fixed (mostly explicit U8; double check)
+./math/psPolynomialUtils.c --  DONE mask vectors need to be fixed (mostly explicit U8; double check)
+./math/psStats.c -- DONE mask vectors need to be fixed (mostly explicit U8; double check) -- XXX redefine MASK_MARK?
+./math/psClip.c -- DONE vector masks
+./imageops/psImageMapFit.c -- DONE vector masks need to use psVectorMaskType
+
+./fits/psFitsImage.c -- DONE various image masks need to be fixed
+./fits/psFitsScale.c -- DONE various image masks need to be fixed
+./imageops/psImageBackground.c -- DONE various image masks need to be fixed
+./imageops/psImageConvolve.c -- DONE various image masks need to be fixed
+./imageops/psImageGeomManip.c -- DONE various image masks need to be fixed
+./imageops/psImageInterpolate.c -- DONE image masks need to be updated.
+./imageops/psImageMap.c -- DONE image map mask is u8, should be psImageMaskType
+./imageops/psImagePixelExtract.c -- DONE : partially cleaned up psImageSlice to create vector mask; currently uses hackish coding to avoid allocating and assigning a vector
+./imageops/psImageStats.c -- DONE : some issues : image mask needs to be reconciled with fixes to psStats
+./fft/psImageFFT.c -- DONE image masks
+./imageops/psImageMaskOps.c -- DONE image masks
+./imageops/psImagePixelInterpolate.c -- DONE image masks
+./math/psPolynomial.c -- DONE psMaskType is used for coeffMask, OK?
+./types/psPixels.c -- DONE image masks
+
+# ./math/psPolynomialMetadata.c -- probably OK
+# ./types/psBitSet.c -- nothing needs to be changed
+# ./math/psMathUtils.c -- nothing needs to be changed
+# ./math/psUnaryOp.c  -- nothing needs to be changed
+# ./mathtypes/psImage.c  -- nothing needs to be changed
+# ./mathtypes/psScalar.c  -- nothing needs to be changed
+# ./types/psArguments.c  -- nothing needs to be changed
+# ./types/psLookupTable.c  -- nothing needs to be changed
+# ./types/psMetadata.c  -- nothing needs to be changed
+# ./types/psMetadataConfig.c  -- nothing needs to be changed
+# ./types/psMetadataItemCompare.c  -- nothing needs to be changed
+# ./types/psMetadataItemParse.c  -- nothing needs to be changed
+# ./types/psTree.c  -- nothing needs to be changed
+# ./db/psDB.c -- nothing needs to be changed
+# ./fits/psFits.c -- nothing needs to be changed
+# ./fits/psFitsHeader.c -- nothing needs to be changed
+# ./fits/psFitsTable.c -- nothing needs to be changed
+# ./imageops/psImagePixelManip.c  -- nothing needs to be changed
+# ./imageops/psImageStructManip.c  -- nothing needs to be changed
+# ./jpeg/psImageJpeg.c  -- nothing needs to be changed (U8 used for 24bit colors; required!)
+# ./math/psBinaryOp.c  -- nothing needs to be changed
+# ./math/psCompare.c  -- nothing needs to be changed
+# ./math/psMD5.c  -- nothing needs to be changed (U8 used for hash is OK)
+# ./math/psMathUtils.c  -- nothing needs to be changed
+# ./math/psMatrix.c  -- nothing needs to be changed

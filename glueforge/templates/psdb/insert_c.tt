@@ -1,0 +1,32 @@
+[% USE format -%]
+[% indented = format('%-15s %s') -%]
+#include <pslib.h>
+#include <[% pkg_name %].h>
+#include <stdlib.h>
+
+int main ()
+{
+[% FOREACH table = tables -%]
+    {
+        psDB            *dbh;
+
+        dbh = psDBInit("localhost", "test", NULL, "test");
+        if (!dbh) {
+            exit(EXIT_FAILURE);
+        }
+
+        if (![% table.namespace %]Insert(dbh, 
+[%- SET i = 0 -%]
+[%- FOREACH item = table.columns -%]
+[%- IF i == 0 -%][%- i = 1 -%][%- ELSE -%], [% END -%] [%- item.test -%]
+[%- END -%]
+)) {
+            exit(EXIT_FAILURE);
+        }
+
+        psDBCleanup(dbh);
+    }
+
+[% END -%]
+    exit(EXIT_SUCCESS);
+}

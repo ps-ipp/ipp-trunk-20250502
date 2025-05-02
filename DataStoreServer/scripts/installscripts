@@ -1,0 +1,84 @@
+#!/usr/bin/env perl
+
+# simple install program for the DataStoreServer cgi scripts
+# arguments --cgidir    gives the path for the cgi scripts
+#           --dsroot    gives the path to the root of the data store data area
+#
+# This software is not installed as part of the IPP
+# user invoking must have appropriate permissions to modify the destination directories
+# script should be run from the DataStoreServer directory
+
+
+
+use warnings;
+use strict;
+
+use Getopt::Long qw( GetOptions :config auto_help auto_version gnu_getopt );
+use Pod::Usage qw( pod2usage );
+
+my ( $cgidir, $dsroot );
+
+# the char to the right of the bar may be used as a single - alias for the longer name
+# for example --input and -i are equivalent
+GetOptions(
+	   'cgidir=s'    => \$cgidir,
+           'dsroot=s'    => \$dsroot,
+) or pod2usage( 2 );
+
+pod2usage( -msg => "Unknown option: @ARGV", -exitval => 2 ) if @ARGV;
+pod2usage( -msg => "Required options: --cgidir --dsroot",
+           -exitval => 3)
+    unless defined $cgidir and defined $dsroot; 
+
+die "run from DataStoreServer directory\n" if ((!-d "scripts") || (!-d "web"));
+
+die "directory $cgidir does not exist\n" if (!-d $cgidir);
+die "directory $dsroot does not exist\n" if (!-d $dsroot);
+
+# cgi scripts invoked by the web server
+my @cgi_list = qw(
+dodsfits
+dsdbh.pm
+dsfits.cgi
+dsgetindex
+dsindex.cgi
+dstxtindex.cgi
+);
+
+# scripts to do the database operations. Invoked by the cgi scripts
+my @scripts_list = qw(
+dsdbh.pm
+dsfsindex
+dsprodindex
+dsrootindex
+);
+
+# index.txt file for the root of the data store.
+my @dsroot_list = qw(
+index.txt.template
+);
+
+print "installing Data Store Server cgi scripts\n";
+
+foreach my $file (@dsroot_list) {
+    my $cmd = "cp web/cgi/$file $dsroot";
+    system("$cmd") == 0 or die "failed to install $file in $dsroot";
+}
+if (! -e "$dsroot/ds") {
+    system("ln -s . $dsroot/ds") == 0 or die "failed to set up $dsroot/ds";
+}
+
+foreach my $file (@scripts_list) {
+    my $cmd = "cp scripts/$file $cgidir";
+    system("$cmd")  == 0 or die "failed to install $file in $dsroot";
+}
+
+foreach my $file (@cgi_list) {
+    my $cmd = "cp web/cgi/$file $cgidir";
+    system("$cmd") == 0 or die "failed to install $file in $cgidir";
+}
+
+if (! -e "$cgidir/dsshellconfig") {
+    system( "cp web/cgi/dsshellconfig $cgidir")== 0 or die "failed to install dsshellconfig in $cgidir";
+    print "\nplease edit\n\t$cgidir/dsshellconfig\nto set up your installation\n";
+}

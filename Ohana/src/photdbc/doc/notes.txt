@@ -1,0 +1,28 @@
+
+- select a region
+
+- load average / measure / secfilt / missing
+
+- construct subset based on selection criteria:
+  - Minst
+  - dMinst
+  - X,Y
+  - R,D
+
+- merge neighbor stars (join within X.X arcsec)
+
+- mark bad measurements:
+
+  - outside area
+  - Minst < cutoff
+  - Mcal > 0.015 (lookup from table?)
+
+  - subset for given filter (match by string?):
+    - 2x 3sigma 
+    - softened chisq > 3.0
+
+- mark objects with fewer than N measurements
+
+
+-----
+

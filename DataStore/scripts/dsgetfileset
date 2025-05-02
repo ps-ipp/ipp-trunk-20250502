@@ -1,0 +1,214 @@
+#!/usr/bin/env perl
+
+# Copyright (C) 2006-2009  Institute for Astromony University of Hawaii
+#
+# dsgetfileset
+
+use strict;
+use warnings FATAL => qw( all );
+
+use vars qw( $VERSION );
+$VERSION = '0.02';
+
+use DataStore;
+
+use Getopt::Long qw( GetOptions :config auto_help auto_version gnu_getopt );
+use Pod::Usage qw( pod2usage );
+use File::Basename qw( basename );
+
+my ($uri, $outdir, $timeout, $skip_checks, $unpack, $first_file, $no_proxy, $verbose);
+
+GetOptions(
+    'uri|u=s'           => \$uri,
+    'outdir|o=s'        => \$outdir,
+    'timeout|t=s'       => \$timeout,
+    'skip-checks'       => \$skip_checks,
+    'unpack'            => \$unpack,
+    'first-file=s'      => \$first_file,
+    'no-proxy'          => \$no_proxy,
+    'verbose|v'         => \$verbose,
+) or pod2usage( 2 );
+
+pod2usage( -msg => "Unknown option: @ARGV", -exitval => 2 ) if @ARGV;
+pod2usage(
+    -msg => "Required options: --uri --outdir",
+    -exitval => 3,
+) unless defined $uri and defined $outdir;
+
+# default http request timeout is 30s
+$timeout ||= 30;
+$no_proxy = 0 if !defined $no_proxy;
+
+if (!($uri =~ /\/index\.txt$/)) {
+    $uri .= '/index.txt'
+} 
+
+my $response = DataStore::FileSet->new( uri => $uri )->request(
+        ua_args  => { timeout => $timeout },
+        no_proxy => $no_proxy,
+    );
+
+unless (defined $response and $response->is_success) {
+    warn "request failed: ", $response->status_line;
+    exit($response->code - 300);
+}
+
+# file retreival succeed
+
+my $data = $response->data;
+
+unless ($data) {
+    warn "no files found";
+    exit(0);
+}
+
+print "# uri fileid bytes md5sum type \n";
+foreach my $fs (@$data) {
+    if ($verbose) {
+        print 
+            $fs->uri, " ",
+            $fs->fileid, " ",
+            $fs->bytes, " ",
+            $fs->md5sum || 0, " ",
+            $fs->type;
+        print " ", join(" ", @{$fs->extra}) if defined $fs->extra;   
+        print "\n";
+    }
+
+    if ($first_file) {
+        next if $fs->fileid ne $first_file;
+        $first_file = undef;
+    }
+    my $uri = $fs->uri;
+    my $base = basename($uri);
+    my $outfile = "$outdir/$base";
+    my $md5 = $fs->md5sum;
+    my $bytes = $fs->bytes;
+
+    my $command = "dsget --uri $uri --filename $outfile --timeout $timeout";
+    $command .= " --md5 $md5 --bytes $bytes" if !$skip_checks;
+    print "$command\n" if $verbose;
+    my $rc = system $command;
+    if ($rc) {
+        my $status = $rc >> 8;
+        print STDERR "dsget failed: rc: $rc status: $status\n";
+        exit $status;
+    }
+
+    if ($unpack) {
+        my $file_type = `file $outfile`;
+        if ($file_type =~ /FITS/) {
+            my $packed_file = "${outfile}.fz";
+            rename $outfile, $packed_file
+                or die "failed to rename $outfile $packed_file";
+
+            # unpack the fits file and delete the input
+            # This works whether or not the file is compressed
+            $command = "funpack -D $packed_file";
+            print "$command\n" if $verbose;
+            $rc = system $command;
+            if ($rc) {
+                my $status = $rc >> 8;
+                print STDERR "failed to funpack $outfile: rc: $rc status: $status\n";
+                exit $status;
+            }
+        } elsif (($file_type =~ /gzip/) and ($outfile =~ /tgz/) ){
+            $command = "tar -x --directory $outdir -f $outfile";
+            $rc = system $command;
+            if ($rc) {
+                my $status = $rc >> 8;
+                print STDERR "failed to extract $outfile: rc: $rc status: $status\n";
+                exit $status;
+            }
+        }
+    }
+}
+
+__END__
+
+=pod
+
+=head1 NAME
+
+dsgetfilset - download all the Files under a FileSet from a DataStore server
+
+=head1 SYNOPSIS
+
+    dsgetfileset --uri <uri>  --outdir <output_directory>
+
+=head1 DESCRIPTION
+
+Download the contents of the Data Store Fileset at the supplied uri to a local directory.
+
+=head1 OPTIONS
+
+=over 4
+
+=item * --uri|-u <uri>
+
+The URI of the file to be retrieved.
+
+=item * --outdir|-o <uri>
+
+The output destination directory.
+
+=item * --timeout|-t
+
+The amount of time (in seconds) to wait for a response from the DataStore
+after making an HTTP request.  The default is 30s.
+
+Optional.
+
+=item * --no-proxy
+
+Do not load proxy environment variables.
+
+=item * --unpack
+
+Uncompress fits files if compressed or extract files from gzipped tar (tgz) files.
+
+=item * --first-file <fileid>
+
+Skip files in fileset list prior to the given fileid.
+
+Optional.
+
+=back
+
+=head1 CREDITS
+
+Based on the DataStore modules and scripts by Joshua Hoblitt
+
+=head1 SUPPORT
+
+None.
+
+=head1 AUTHOR
+
+The IPP Team
+
+=head1 COPYRIGHT
+
+Copyright (C) 2006-2009  Institute for Astromony University of Hawaii
+
+This program is free software; you can redistribute it and/or modify it under
+the terms of the GNU General Public License as published by the Free Software
+Foundation; either version 2 of the License, or (at your option) any later
+version.
+
+This program is distributed in the hope that it will be useful, but WITHOUT ANY
+WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A
+PARTICULAR PURPOSE.  See the GNU General Public License for more details.
+
+You should have received a copy of the GNU General Public License along with
+this program; if not, write to the Free Software Foundation, Inc., 59 Temple
+Place - Suite 330, Boston, MA  02111-1307, USA.
+
+The full text of the license can be found in the L<perlgpl> Pod as supplied
+with Perl 5.8.1 and later.
+
+=head1 SEE ALSO
+
+L<dsget>, L<dsleech>, L<dsrootls>, L<dsproductls>, L<dsfilesetls>, L<DataStore>
+
+=cut

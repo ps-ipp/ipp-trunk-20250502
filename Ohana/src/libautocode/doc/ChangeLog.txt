@@ -1,0 +1,44 @@
+
+- libautocode 1.5
+  * converted to gfits APIs (forces libfits 1.6)
+  * fixed comma errors in average tables
+
+- libautocode 1.4
+  * added average-pmtest.d
+  * added autocode.tex, tex interpretation
+  * added proper-motion, etc to Stars.d
+  * added proper-motion, etc to average.d
+  * DESCRIPTION element for tex tables
+
+- libautocode 1.3
+  * added SkyRegion.d
+  * added AddstarClientOptions
+  * fixed e_void ptr in generate
+  * cleaned up signed/unsigned inconsistencies
+
+libautocode-1-2
+  added support for Comm functions (Send/Recv structure)
+  changed internal precision to doubles (RA/DEC) and floats (MAG)
+  dropped all internal millimag representations
+  made panstarrs format higher precisions than elixir
+  added the following new structures to support multiple data formats:
+     average-elixir
+     image-ascii
+     image-elixir
+     image-loneos
+     image-panstarrs
+     measure-elixir
+     measure-panstarrs
+     secfilt-elixir
+     secfilt-loneos
+     secfilt-panstarrs
+  added these structures for addstar client/server comms
+     AddstarClientOptions
+     GSCRegion
+     Stars
+
+libautocode-1-1
+  added the measure, average entries to autocode tables
+
+libautocode-1-0
+  import to CVS

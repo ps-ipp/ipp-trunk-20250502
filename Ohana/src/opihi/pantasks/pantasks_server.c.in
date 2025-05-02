@@ -1,0 +1,186 @@
+# include "pantasks.h"
+
+/* pantasks-server is not a readline program.
+   it runs three (or four) threads:
+   - one thread listens on the socket for incomming connections 
+     and performs client validation
+   - one thread parses commands from the connected clients
+   - one thread runs the scheduler loop
+   - one thread may run the controller loop independently
+   
+   * note: the client shell traps certain commands and performs them
+   locally. at a minimum: help.  perhaps: input, other I/O commands?
+*/
+
+void special_init (int *argc, char **argv);
+
+static pthread_t JobsAndTasksThread;
+static pthread_t controllerThread;
+static pthread_t clientsThread;
+
+/* program-dependent initialization */
+int main (int argc, char **argv) {
+  
+  char hostname[256], portinfo[256];
+  char log_stdout[1024], log_stderr[1024], tmpname[1024];
+  int InitSocket, BindSocket;
+  SockAddress Address;
+
+  strcpy (log_stdout, "stdout");
+  strcpy (log_stderr, "stderr");
+
+  special_init (&argc, argv);
+
+  // 
+  stdin = freopen ("/dev/zero", "r", stdin);
+
+  // this block redirects the actual stderr, stdout streams to the output files
+  if (VarConfig ("PANTASKS_SERVER_STDOUT", "%s", tmpname) != NULL) {
+    strcpy (log_stdout, tmpname);
+    if (strcmp (log_stdout, "stdout")) {
+      stdout = freopen (log_stdout, "a", stdout);
+      if (!stdout) {
+	fprintf (stderr, "failed to open %s for output\n", log_stdout);
+	exit (1);
+      }
+    }
+  }
+  if (VarConfig ("PANTASKS_SERVER_STDERR", "%s", tmpname) != NULL) {
+    strcpy (log_stderr, tmpname);
+    if (strcmp (log_stderr, "stderr")) {
+      stderr = freopen (log_stderr, "a", stderr);
+      if (!stderr) {
+	fprintf (stdout, "failed to open %s for error output\n", log_stderr);
+	exit (1);
+      }
+    }
+  }
+
+  /* init for main (or only) thread */
+  gprintInit ();
+
+  // this block changes the target of the gprint output streams
+  if (strcmp (log_stdout, "stdout")) {
+      gprintSetFileThisThread (GP_LOG, log_stdout);
+  }
+  if (strcmp (log_stderr, "stderr")) {
+      gprintSetFileThisThread (GP_ERR, log_stderr);
+  }
+
+  DefineValidIP ();
+
+  /* XXX not sure what is a good setting for this in the server */
+  auto_break = TRUE;
+
+  /* load the commands used by this implementation */
+  InitBasic ();
+  InitData ();
+  InitAstro ();
+  InitPantasksServer ();
+
+  { 
+    char *modules;
+    static char *datadir = "@DATADIR@";
+    ALLOCATE (modules, char, strlen(datadir) + strlen("/modules") + 2);
+    sprintf (modules, "%s/modules", datadir);
+    set_str_variable ("MODULES:0", modules);
+    set_int_variable ("MODULES:n", 1);
+    free (modules);
+  }
+
+  signal (SIGPIPE, gotsignal);
+  // signal (SIGTSTP, gotsignal);
+  // signal (SIGTTIN, gotsignal);
+  signal (SIGINT, SIG_DFL);
+
+  startup (&argc, argv);
+
+  /* start up the background threads here */
+  pthread_create (&clientsThread,       NULL, &ListenClients,    	NULL);
+  pthread_create (&JobsAndTasksThread,  NULL, &CheckJobsAndTasksThread, NULL);
+  pthread_create (&controllerThread, 	NULL, &CheckControllerThread,   NULL);
+
+  /* in this loop, we listen for incoming connections, validate, and
+     pass them to the ListenClient thread */
+
+  /* find the defined server hostname */
+  if (VarConfig ("PANTASKS_SERVER", "%s", hostname) == NULL) {
+    gprint (GP_ERR, "pantasks server host undefined\n");
+    exit (31);
+  }
+
+  /* is a port range defined? otherwise use the default */
+  memset (portinfo, 0, 256);
+  VarConfig ("PANTASKS_SERVER_PORT", "%s", portinfo);
+
+  /* create the listening socket */
+  InitSocket = InitServerSocket (&Address, hostname, portinfo);
+  
+  InitPassword ();
+
+  while (1) {
+
+    /* wait for clients to make connection */
+    BindSocket = WaitServerSocket (InitSocket, &Address);
+    if (BindSocket == -1) continue;
+
+    /* validate : wait for password */
+    if (!CheckPassword (BindSocket)) continue;
+    
+    AddNewClient (BindSocket);
+  }
+}
+
+/* add program-dependent exit functions here */
+void cleanup () {
+  QuitKapa ();
+  QuitController ();
+  ConfigFree ();
+
+  // XXX this function is currently called by the thread running ListenClients, but
+  // it should be called by the main above.  have this function trigger the
+  // thread shutdown 
+
+  QuitJobsAndTasksThread(); pthread_join (JobsAndTasksThread, NULL);
+  QuitControllerThread();   pthread_join (controllerThread, NULL);
+  QuitClientThread();       pthread_join (clientsThread, NULL);
+
+  InitBasic ();
+  InitData ();
+  InitPantasksServer ();
+  return;
+}
+
+void gotsignal (int signum) {
+  gprint (GP_ERR, "got signal : %d\n", signum);
+  return;
+}
+
+/* these are needed to resolve symbols expected by libshell.so */
+void welcome () { }
+void program_init (int *argc, char **argv) {
+  OHANA_UNUSED_PARAM(argc);
+  OHANA_UNUSED_PARAM(argv);
+}
+
+// I need to do things in a different order here to have config / freopen / gprint sequenced correctly
+void special_init (int *argc, char **argv) {
+
+  /* init srand for rnd numbers elsewhere */
+  long A, B;
+  A = time(NULL);
+  for (B = 0; A == time(NULL); B++);
+  srand48(B);
+ 
+  /* set signals */
+  signal (SIGINT, SIG_IGN);
+
+  init_error ();
+
+  /* load config data (.ptolemyrc) */
+  if (!ConfigInit (argc, argv)) {
+    fprintf (stderr, "can't find (.ptolemyrc,ptolemy.rc) config file. some functions will be unavailable\n");
+  }
+
+  return;
+}

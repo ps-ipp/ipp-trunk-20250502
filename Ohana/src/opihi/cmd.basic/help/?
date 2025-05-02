@@ -1,0 +1,6 @@
+
+  exec (line)
+
+  perform a system call.  this can also be invoked with "!".  
+  don't use ! in a macro or input script as it is interpreted as a
+  comment character. 

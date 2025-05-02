@@ -1,0 +1,8 @@
+/** Convert a psMetadata into an equivalent fooRow
+ *
+ * @return A [% table.object_name %] pointer or NULL on error
+ */
+
+[% table.object_name %] *[% table.namespace %]ObjectFromMetadata(
+    psMetadata      *md                 ///< psMetadata to convert into a fooRow
+);

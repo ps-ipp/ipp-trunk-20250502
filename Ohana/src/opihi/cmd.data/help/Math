@@ -1,0 +1,58 @@
+
+  Opihi shell math operations:
+
+  Mana will evaluate scalar (1D) arithmetic expresions in two
+situations.  To set a variable equal to a math operation, use the
+syntax is:
+
+  $foo = expression
+
+where "expression" is an arithmetic expression on numbers and
+variables, including a variety of functions (see below).  After
+performing the arithmetic and setting the variable to the resulting
+value, mana returns the prompts without performing any further
+command.  Mana will also evaluate any arithmetic expression enclosed
+in curly brackets before attempting to perform the given command.  For
+example, if the variables $MEAN and $SIGMA contain the mean and
+standard deviation of an image, it would be possible to display the
+image with a zero and range based on $MEAN and $SIGMA like this:
+
+  tv image {$MEAN - 1.5*$SIGMA} {5*$SIGMA}
+
+
+The two expressions in curly brackets are evaluated and the resulting
+numbers passed as arguments to the "tv" command.
+
+  See Also:  Variables, tv
+
+
+list of valid math operations:
+
+  binary operators:
+  * (times)
+  / (divided by)
+  + (plus)
+  - (minus)
+  ^ (to the power of: 2^3 = 8)
+
+  unary operators:
+  exp (e to the power of)
+  ten (10 to the power of)
+  ln  (natural logarithm)
+  log (log base 10)
+
+  angles in radians:
+  sin (sine)
+  cos (cosine)
+  tan (tangent)
+  asin (arcsin)
+  acos (arccos)
+  atan (arctan)
+
+  angles in degrees:
+  dsin (sine)
+  dcos (cosine)
+  dtan (tangent)
+  dasin (arcsin)
+  dacos (arccos)
+  datan (arctan)

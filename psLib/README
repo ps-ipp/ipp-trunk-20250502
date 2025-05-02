@@ -1,0 +1,47 @@
+Pan-STARRS Image Processing Pipeline Library
+============================================
+
+The is psLib, the Pan-STARRS Image Processing Pipeline Library, a base
+collection of functions for the Pan-STARRS PS1 observatory.
+
+It was developed by the Maui High Performance Computing Center
+(http://www.mhpcc.edu) for the University of Hawai'i Institute for Astronomy
+(http://ifa.hawaii.edu).
+
+psLib is free software, you can redistribute it and/or modify it under
+the terms of the GNU General Public License.
+
+The GNU General Public License does not permit this software to be
+redistributed in proprietary programs.
+
+This library is distributed in the hope that it will be useful, but
+WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+
+Availability
+============
+
+The current version of psLib is always available from
+http://mhpcc.pan-starrs.org/code.
+
+Installation
+============
+
+psLib follows the standard GNU installation procedure.  Please consult
+the INSTALL file in this distribution for more detailed instructions.
+
+For information about specific platforms and compilers see the
+"Compilation Notes" section in the INSTALL file.
+
+More information about Pan-STARRS
+=================================
+
+The project homepage is http://www.pan-starrs.org.
+
+Reporting Bugs
+==============
+
+If you find a bug, please report it via the project's Bugzilla webpage at
+http://www.pan-starrs.org/bugzilla or email robert.desonia@mhpcc.hpc.mil.
+
+

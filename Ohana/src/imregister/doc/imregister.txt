@@ -1,0 +1,63 @@
+
+This directory contains several routines which are related to
+maintaining a small, elixir-internal databases about the images which
+have been obtained.
+
+This database can be used to find the location on disk of the images
+which we have analysed, or to display various statistics about images,
+or to find types of images which have been obtained.  
+
+The basic program is 'imregister', which places the basic information
+about an image in the database, as determined from the header.  The
+program is invoked with: {\tt imregister (filename) [-split]}.  The
+optional flag is used to tell the program to distinguish the
+individual (SPLIT) frames of a mosaic CCD from an individual CCD which
+should be treated as an isolated image.  
+
+The second program is 'imsort', which does the same task as
+'imregister', but it also sends a trigger to the IMSTAT elixir and if
+needed to the PTOLEMY elixir.  For this program, the -split flag makes
+a difference in how these images are treated in the elixir processes.
+The basic point is that a SINGLE image /fullpath/filename.fits
+produces analysis files of the form /newpath/filename.ext while a
+SPLIT image will have the form /fullpath/word/wordNN.fits and output
+files of the form /newpath/word/wordNN.ext.  
+
+May 11, 2000
+
+I have been working to clean up some of the details of the Elixir
+system.  There are three big issues I have been attempting to address.
+First, I have wanted to create a single set of Elixirs for both MEF
+and SPLIT (and even SINGLE) images.  I also want to minimize the
+number of programs are required to know something special about our
+system, our camera, or our method of naming files.  Finally, I have
+been trying to automate the selection of the appropriate detrend data.
+These are connected problems, in many ways.
+
+Here, in order, are the programs (and scripts) needed to run the
+Elixir system for which these issues are relevant:
+
+elixir.fork:  this program is launched by the camera to introduce a
+	      new image to the system.  It must understand the
+	      difference between SPLIT and MEF, and also the naming
+	      convention.
+
+imsort:	      this program adds the image to the database and passes a
+	      trigger to the elixirs ptolemy and imstats.  imsort
+	      needs to distinguish SPLIT, MEF, and SINGLE images, and
+	      it must know the naming convention.  
+
+elixir (ptolemy): this script is now independent of the mode and
+		  naming issues
+
+elixir (imstats): this script is now independent of the mode and
+		  naming issues
+
+flatten:	  this script needs to distinguish SPLIT and MEF
+		  images (it is told the mode by the input line), but
+		  it does not know the naming convention.
+
+imstats:	  this script needs to distinguish SPLIT and MEF
+		  images (it is told the mode by the input line), but
+		  it does not know the naming convention.
+

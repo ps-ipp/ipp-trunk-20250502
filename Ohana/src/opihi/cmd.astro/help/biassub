@@ -1,0 +1,9 @@
+
+  biassub buffer sx sy nx ny dir [-v N V]
+
+  Apply a bias correction.  The region defines a vector 
+  (median is taken perpendicular to the dir direction) which 
+  is subtracted from the image.
+
+
+

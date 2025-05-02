@@ -1,0 +1,5 @@
+
+   while (condition) ... end
+
+   Perform a set of actions until the condition is true
+

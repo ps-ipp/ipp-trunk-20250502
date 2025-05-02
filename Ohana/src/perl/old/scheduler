@@ -1,0 +1,248 @@
+#!/usr/bin/env perl
+
+$ENV{'PATH'} = "$ENV{'PATH'}:/apps/elixir/bin";
+
+$schedule = `gconfig SCHEDULE`; chop $schedule;
+$logdir   = `gconfig LOGDIR`;   chop $logdir;
+$log      = "$logdir/scheduler.log";
+$window   = 0.02; # ~0.5 hours. 
+$machine  = "milo.cfht.hawaii.edu";
+
+$LIST = 0;
+$ALL  = 0;
+$RUN = 0;
+
+# execute any event which is within the time range: 
+# $last + $window < event < NOW + $window
+
+# check usage
+if ($ARGV[0] eq "help")  { &usage; }
+if ($ARGV[0] eq "all")   { &list_all; }
+if ($ARGV[0] eq "list")  { &list_active; }
+if ($ARGV[0] eq "run")   { &run_active; }
+if ($ARGV[0] eq "clear") { &clear_all; }
+print STDERR "scheduler command '$ARGV[0]' not found\n";
+&usage;
+
+sub list_active {
+
+    &set_current_time;  # set $NOWdate, $NOWtime $NOWmjd
+    &load_schedule;     # load into @list
+    &find_previous;     # set $last (last runtime)
+    &find_active;       # fill @execute & @cmdlogs for active commands
+
+    for ($i = 0; $i < @execute; $i++) {
+	print "$execute[$i] ($cmdlogs[$i])\n";
+    }
+    exit 0;
+}
+
+sub run_active {
+
+    &set_current_time;
+    &load_schedule;
+    &find_previous;
+    &find_active;
+
+    # re-create schedule with new PREVIOUS:
+    if (@list && (-e "$schedule")) { 
+	system ("cp $schedule $schedule~"); 
+	open (FILE, ">$schedule");
+	foreach $line (@list) {
+	    if ($line =~ /^\s*PREVIOUS/) { 
+		printf FILE "PREVIOUS %s %s\n", $NOWdate, $NOWtime;
+		next;
+	    }
+	    
+	    print FILE "$line";
+	}    
+	close (FILE);
+    } else {
+	# create a new schedule with PREVIOUS set to NEVER
+	print STDERR "creating $schedule\n";
+	open (FILE, ">$schedule");
+	print FILE "# schedule for scheduler system\n";
+	print FILE "# E. Magnier\n";
+	print FILE "\n";
+	print FILE "# last time scheduler was run:\n";
+	printf FILE "PREVIOUS %s %s\n", $NOWdate, $NOWtime;
+	print FILE "\n";
+	close (FILE);
+    }
+
+    # launch commands one-by-one in background
+    for ($i = 0; $i < @execute; $i++) {
+	docommand ($cmdlogs[$i], $execute[$i]);
+	system ("sleep 60");
+    }
+    exit 0;
+}
+
+# utilities ##############################################
+
+sub docommand {
+    my ($log, $cmd);
+    $log  = $_[0];
+    $cmd  = $_[1];
+
+    $line = sprintf "scheduler.exec $log \"$cmd\" ";
+    vsystem ($line);
+}
+
+
+sub vsystem {
+    print STDERR "@_\n";
+    my($status) = system ("@_");
+    $status;
+}
+
+sub goodbye {
+    die "@_\n";
+}
+
+sub load_schedule {
+    open (FILE, "$schedule");
+    @list = <FILE>;
+    close (FILE);
+}
+
+sub clear_all {
+    if (-e $schedule) {
+	vsystem ("cp $schedule $schedule~");
+	vsystem ("rm $schedule");
+    }
+    exit 0;
+}
+
+sub find_previous {
+    $last = 0;
+    $date = "NEVER";
+    # find previous runtime:
+    foreach $line (@list) {
+	if ($line =~ /^\#/) { next; } # skip commented lines
+	unless ($line =~ /^\s*PREVIOUS/) { next; }
+	
+	($tmp, $date, $time) = split (" ", $line);
+	if ($date eq "NEVER") {
+	    $last = 0;
+	    last; 
+	}
+	$last = timedate_to_mjd ($time, $date);
+	last;
+    }
+    print STDERR "run scheduler: $NOWdate $NOWtime (prev: $date $time)\n";
+}
+
+sub find_active {
+
+    @execute = ();
+    @cmdlogs = ();
+    # find relevant commands
+    foreach $line (@list) {
+	if ($line =~ /^\#/) { next; } # skip commented lines
+	if ($line =~ /^\s*PREVIOUS/) { next; }
+	
+	($date, $time, $cmdlog, $command) = split (" ", $line, 4);
+	if ($command eq "") { next; }
+	chop ($command);
+	
+	$mjd = timedate_to_mjd ($time, $date);
+	
+	if ($last + $window > $mjd) { next; }
+	if ($NOWmjd + $window < $mjd) { next; }
+	
+	@cmdlogs = (@cmdlogs, $cmdlog);
+	@execute = (@execute, $command);
+    }
+    
+}
+
+sub set_current_time {
+
+    ($sec, $min, $hour, $day, $mon, $year) = localtime ();
+    $mon += 1;
+    $year += 1900;
+    $NOWdate = sprintf "%s/%02d/%02d", $year, $mon, $day;
+    $NOWtime = sprintf "%02d:%02d:%02d", $hour, $min, $sec;
+    $NOWmjd = timedate_to_mjd ($NOWtime, $NOWdate);
+}
+
+sub date_format {
+    my ($date) = $_[0];
+    my ($year, $month, $day);
+
+    ($year, $month, $day) = $date =~ /(\d+)\/(\d+)\/(\d+)/;
+    $date = sprintf "%4d/%02d/%02d", $year, $month, $day;
+    return ($date);
+}
+
+sub timedate_to_mjd {
+    my ($time) = $_[0];
+    my ($date) = $_[1];
+    my ($mjd, $day);
+
+    $mjd  = date_to_mjd ($date);
+    $day += time_to_day ($time);
+
+    $mjd += $day;
+    return ($mjd);
+}
+    
+
+sub date_to_mjd {
+    my ($date) = $_[0];
+    my ($year, $month, $day, $mjd);
+
+    ($year, $month, $day) = $date =~ /(\d+)\/(\d+)\/(\d+)/;
+    $mjd = get_mjd ($year, $month, $day);
+
+    return ($mjd);
+}
+
+sub time_to_day {
+    my ($time) = $_[0];
+    my ($hour, $min, $sec, $days);
+
+    ($hour, $min, $sec) = split (":", $time);
+    $day = $hour / 24.0 + $min / 1440.0 + $sec / 86400.0;
+
+    return ($day);
+}
+
+sub get_mjd {
+
+    my($year) = $_[0];
+    my($month) = $_[1];
+    my($day) = $_[2];
+
+    my($jd) = $day - 32075 + int (1461*($year + 4800 + int (($month - 14)/12))/4)
+	+ int(367*($month - 2 - int(($month - 14)/12)*12)/12)
+	    - int(3*int(($year + 4900 + int(($month - 14)/12))/100)/4) - 0.5 - 2400000.5;
+    
+
+    return ($jd);
+
+}
+
+sub list_all {
+
+    # load schedule:
+    open (FILE, "$schedule");
+    @list = <FILE>;
+    close (FILE);
+    
+    foreach $line (@list) {
+	print "$line";
+    }
+    exit 0;
+}
+
+sub usage {
+    
+    print STDERR "USAGE: scheduler [mode]\n";
+    print STDERR " list  : list all active commands\n";
+    print STDERR " all   : list all commands\n";
+    print STDERR " run   : execute active commands\n";
+    print STDERR " clear : delete schedule\n";
+    &goodbye;
+}

@@ -1,0 +1,4 @@
+
+- gophot-1-2 : 2006.08.23
+  * converted to gfits APIs (forces libfits 1.6)
+  * cleaned up Makefile, -Wall compilation errors

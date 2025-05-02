@@ -1,0 +1,87 @@
+#!/usr/bin/env perl
+
+# send sky & seeing to QSO db
+# probably need some error checking on the 
+#  system call functions (seeingstats & fields)
+
+sub vsystem {
+    print STDERR "@_\n";
+    $status = system ("@_");
+    $status;
+}
+
+sub goodbye {
+    die "@_\n";
+}
+
+if (@ARGV != 3) { die "USAGE: imstatqso (name) (stats) (sdat)\n"; }
+
+$ccdkeyword = `gconfig CCDNUM-KEYWORD`; chop ($ccdkeyword);
+if ($?) { die "ERROR: missing CCDNUM-KEYWORD in config system\n"; } 
+
+$refccd = `gconfig SEEING_REF_CCD`; chop ($refccd);
+if ($?) { die "ERROR: missing SEEING_REF_CCD in config system\n"; } 
+
+$pixscale = `gconfig ASEC_PIX`; chop ($pixscale);
+if ($?) { die "ERROR: missing ASEC_PIX in config system\n"; } 
+
+$line = `echo $ARGV[0] | fields $ccdkeyword`;
+($tmp, $ccd) = split (" ", $line);
+
+if ($ccd =~ m|amp|) { 
+    # convert to equivalent ccd
+    ($n) = $ccd =~ m|amp(\d*)|;
+    $ccd = sprintf "ccd%02d", $n/2;
+}
+
+if ($ccd ne $refccd) {
+    print STDOUT "SUCCESS: skipping ccd $ccd\n";
+    exit 0;
+}
+
+$line = `echo $ARGV[0] | fields OBSID`;
+($tmp, $obs) = split (" ", $line);
+$obs = substr ($obs, 0, 6);
+
+$line = `echo $ARGV[0] | fields OBSTYPE`;
+($tmp, $type) = split (" ", $line);
+$type = uc ($type);
+
+$line = `echo $ARGV[0] | fields EXPTIME`;
+($tmp, $etime) = split (" ", $line);
+
+open (FILE, "$ARGV[1]");
+@lines = <FILE>;
+close (FILE);
+@words = split (" ", $lines[0]);
+$skybg = $words[0];
+$bias = $words[1];
+
+if ($etime == 0) {
+    $flux = -1000;
+} else {
+    $flux = $skybg / $etime;
+}
+
+$fwhm = `seeingstats $ARGV[2]`; 
+chop ($fwhm);
+$fwhm = $fwhm * $pixscale;
+
+# if this is a BIAS, send just the bias for skybg
+if ($type eq "BIAS") {
+    vsystem ("/cfht/bin/update_xexpe.sh -U qso_elixir -P op1eliw --obsid $obs --skybg $bias");
+    print STDOUT "SUCCESS: done with $ARGV[0]\n";
+    exit (0);
+}
+
+# if this is an OBJECT, send both fwhm & flux
+if ($type eq "OBJECT") {
+    vsystem ("/cfht/bin/update_xexpe.sh -U qso_elixir -P op1eliw --obsid $obs --skybg $flux --iq $fwhm");
+    print STDOUT "SUCCESS: done with $ARGV[0]\n";
+    exit (0);
+}
+
+# otherwise, just send flux
+vsystem ("/cfht/bin/update_xexpe.sh -U qso_elixir -P op1eliw --obsid $obs --skybg $flux");
+print STDOUT "SUCCESS: done with $ARGV[0]\n";
+exit (0);

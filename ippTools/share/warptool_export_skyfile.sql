@@ -1,0 +1,3 @@
+SELECT
+    warpSkyfile.*
+FROM warpSkyfile

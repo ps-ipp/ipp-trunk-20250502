@@ -1,0 +1,63 @@
+%!PS-Adobe-2.0 EPSF-2.0
+%%Title: test.ps
+%%Creator: Kapa (not supported by cvs2svn)
+%%BoundingBox: 60 60 70 80
+%%Pages: 1
+%%DocumentFonts:
+%%EndComments
+%%EndProlog
+%%Page: default
+
+gsave % encloses picture
+% local abbreviations
+/Times-Roman findfont 14 scalefont setfont
+/T {moveto show stroke} def
+/B { newpath moveto dup 0 exch rlineto exch dup 0 rlineto exch -1 mul
+ 0 exch rlineto -1 mul 0 rlineto closepath stroke } def
+/F { newpath moveto dup 0 exch rlineto exch dup 0 rlineto exch -1 mul
+ 0 exch rlineto -1 mul 0 rlineto closepath fill stroke } def
+/C {0 360 arc stroke} def
+/FC {0 360 arc fill stroke} def
+/RGB {setrgbcolor} def
+/L {newpath moveto lineto stroke} def
+
+/TF {newpath moveto lineto lineto fill stroke} def
+
+60 60 translate
+gsave % encloses image
+10 10 8
+[1 0 0 1 0 0]
+{currentfile 10 string readhexstring pop} image
+ffffffffffffffffffff
+eeeeeeeeeeeeeeeeeeee
+dddddddddddddddddddd
+cccccccccccccccccccc
+bbbbbbbbbbbbbbbbbbbb
+aaaaaaaaaaaaaaaaaaaa
+99999999999999999999
+88888888888888888888
+77777777777777777777
+66666666666666666666
+55555555555555555555
+grestore % end of image
+
+gsave % encloses image
+0 10 translate
+10 10 8
+[1 0 0 1 0 0]
+{currentfile 30 string readhexstring pop} false 3 colorimage
+fffffffffffffffffff00000000000000000000fffffffffffffffffffff
+eeeeeeeeeeeeeeeeeee00000000000000000000eeeeeeeeeeeeeeeeeeeee
+ddddddddddddddddddd00000000000000000000ddddddddddddddddddddd
+ccccccccccccccccccc00000000000000000000ccccccccccccccccccccc
+bbbbbbbbbbbbbbbbbbb00000000000000000000bbbbbbbbbbbbbbbbbbbbb
+aaaaaaaaaaaaaaaaaaa00000000000000000000aaaaaaaaaaaaaaaaaaaaa
+999999999999999999900000000000000000000999999999999999999999
+888888888888888888800000000000000000000888888888888888888888
+777777777777777777700000000000000000000777777777777777777777
+666666666666666666600000000000000000000666666666666666666666
+555555555555555555500000000000000000000555555555555555555555
+%12345678901234567890123456789012345678901234567890123456789
+grestore % end of image
+grestore % end of picture
+showpage

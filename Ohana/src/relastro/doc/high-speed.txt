@@ -1,0 +1,7 @@
+
+Niall Deacon's 2MASS / PS1 high-speed search uses the following set of criteria (roughly):
+
+2 sets of detections:
+
+A : 2MASS only, J significant, H & K anything, set of phot_flags?
+B : PS1 only, 2 y-band, 2 z-band, S/N > 5, not a galaxy 

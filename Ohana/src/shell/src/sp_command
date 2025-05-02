@@ -1,0 +1,274 @@
+#!/bin/csh -f
+
+set IOPENER   = "root@128.171.83.9"
+set template  = "/h/skyprobe/data/Refs/template.fits"
+set dummyfits = "/h/skyprobe/data/Refs/dummy.fits"
+set dlogfile  = "/h/skyprobe/log/sp_expose.log"
+set photlog   = "/h/skyprobe/log/sp_phot.log"
+set process   = 1
+
+set args=""
+while ($#argv) 
+ switch ($1)
+  case -iopener: 
+   shift
+   set IOPENER=$1
+   breaksw;
+  case -noprocess: 
+   set process = 0
+   breaksw;
+  case -h: 
+  case --help: 
+   goto usage;
+   breaksw;
+  default:
+   set args=($args $1);
+   breaksw;
+ endsw
+ shift
+end
+
+if ($args[1] == "") goto usage;
+if ($args[1] == "init")   goto init;
+if ($args[1] == "cool")   goto cool;
+if ($args[1] == "warm")   goto warm;
+if ($args[1] == "dark")   goto dark;
+if ($args[1] == "test")   goto test;
+if ($args[1] == "expose") goto expose;
+goto usage;
+
+######
+
+init:
+ if ($#args != 2) goto usage
+ if (! -d $args[2]) then
+  mkdir -p $args[2]
+ endif
+ echo "" > $dlogfile
+ echo "" > $photlog
+ exit 0;
+
+cool: 
+ if ($#args != 2) goto usage
+ ssh -n $IOPENER sp_ccdcontrol cool 1 $args[2]
+ exit 0;
+
+warm: 
+ if ($#args != 1) goto usage
+ ssh -n $IOPENER sp_ccdcontrol cool 2 0
+ exit 0;
+
+dark:
+ if ($#args != 3) goto usage
+ set exptime = $args[2]
+ set output  = $args[3]
+ ssh -n $IOPENER sp_ccdcontrol expose -etime $exptime -shuttermode 2 > $output
+ exit 0;
+
+test:
+
+ echo ""
+ echo "starting skyprobe test suite"
+ echo "this will take about 2 minutes"
+ echo ""
+
+ # is computer user & name valid?
+ set machine = `echo $IOPENER | tr '@' ' '`
+ if ($#machine != 2) then
+   echo "invalid name for iopener $IOPENER"
+   exit 1;
+ endif
+
+ # is computer alive?
+ ping -c 2 -w 4 $machine[2] >& /dev/null
+ if ($status) then    
+   echo "can't contact iopener $machine[2]"
+   exit 1;
+ endif
+ echo "iopener is OK"
+ echo ""
+
+ # cool camera & wait for 60 seconds
+ echo "cooling camera & waiting for 1 minute"
+ ssh -n $IOPENER sp_ccdcontrol cool 1 -20
+ sleep 60
+ echo ""
+
+ # take a dark frame
+ echo "taking 1 sec dark frame sample.dark.fits"
+ set exptime = 1.0
+ set output  = sample.dark.fits
+ ssh -n $IOPENER sp_ccdcontrol expose -etime $exptime -shuttermode 2 > $output
+ echo ""
+
+ # is DETTEMP in range?
+ set temps = `echo sample.dark.fits | fields DETTEM CAMTEM`
+ if ($status) then
+   echo "header information incorrect for sample.dark.fits"
+   exit 1
+ endif
+ echo "temperatures: camera: $temps[2], outside: $temps[3]"
+ set t = `echo $temps[2] | awk '($1 > 10){print 1}'`
+ if ($t) then
+  echo "WARNING: camera temperature is high!"
+ else
+  echo "camera temperature OK"
+ endif
+ echo ""
+
+ # measure dark frame stats
+ mana --norc << EOF >& /dev/null
+  macro go
+   rd a sample.dark.fits
+   stats a - - - -
+   exec echo \$MEAN \$MEDIAN \$SIGMA > sample.dark.dat
+   exit 0
+  end
+  go
+  exit 1
+EOF
+ if ($status) then 
+  echo "error measuring dark flux"
+  exit 1
+ endif
+
+ # check dark frame stats
+ set flux = `cat sample.dark.dat`
+ echo "dark flux: $flux[2]"
+ set t = `echo $flux[2] | awk '($1 > 10000){print 1}'`
+ if ($t) then
+  echo "WARNING: dark frame is bright!"
+ endif
+ echo ""
+ 
+ # take a light frame
+ echo "taking 0.1 sec light frame sample.light.fits"
+ set exptime = 0.1
+ set output  = sample.light.fits
+ ssh -n $IOPENER sp_ccdcontrol expose -etime $exptime -shuttermode 1 > $output
+ echo ""
+
+printout:
+
+ # test named Xserver, or start vnc on specified machine
+ set xhost = `gconfig XHOST.SUMMIT`
+ set xdisp = `gconfig XDISP.SUMMIT`
+ xdpyinfo -display $xdisp >& /dev/null
+ if ($status) then
+   # X server is not running. start it now
+   echo "X server is not running on $xdisp. start it now"
+   exit 1;
+ endif
+ setenv DISPLAY $xdisp
+ echo $xdisp
+
+ # delete old PS file
+ date +%Y.%m.%d | awk '{printf "TEXT 10 20 date:%s\n", $1}' > date.reg
+
+ mana --norc << EOF >& /dev/null
+  macro go
+   rd a sample.light.fits
+   stats a - - - -
+   exec echo \$MEAN \$MEDIAN \$SIGMA > sample.light.dat
+   keyword a NAXIS1 nx
+   keyword a NAXIS2 ny
+   tv a {\$MEDIAN*1.1} {-0.2*\$MEDIAN}
+   resize \$nx \$ny
+   load red date.reg
+   exec sleep 2
+   ps -name sample.light.ps
+   exit 0
+  end
+  go
+  exit 1
+EOF
+ if ($status) then 
+  echo "error measuring light flux"
+  exit 1
+ endif
+
+ # check light frame stats
+ set flux = `cat sample.light.dat`
+ echo "light flux: $flux[2]"
+ echo "approx. expected counts: "
+ echo "     100 for dark dome"
+ echo "   15000 for dome lights on"
+ echo "   30000 for dome open daytime"
+ echo ""
+
+ if (! -e sample.light.ps) then 
+   echo "sample.light.ps not created, cannot print out image"
+ else
+   lpr -Psps sample.light.ps
+   echo "image is being printed on SPS"
+ endif
+
+ rm -f date.reg
+ rm -r sample.dark.dat
+ rm -r sample.light.dat
+
+ # test tcsh & loggerh
+ # cp -f $template $dummyfits
+ # setenv FFTEMPLATE $dummyfits
+ # /cfht/bin/tcsh -B >>& $logfile
+ # /cfht/bin/loggerh -E >>& $logfile
+
+ exit 0; 
+
+expose:
+ if ($#args != 3) goto usage
+ set exptime  = $args[2]
+ set output = $args[3]
+
+ # setup logfile (default or /dev/null)
+ if ((-e $dlogfile) && (! -w $dlogfile)) then
+  set logfile = /dev/null
+ else
+  set logfile = $dlogfile
+ endif
+
+ # pre-exposure:
+ # get current RA & DEC, etc
+ # cp -f $template $dummyfits
+ # setenv FFTEMPLATE $dummyfits
+ # /cfht/bin/tcsh -B >>& $logfile
+ # at this point, we could check the TCS status and wait until dome & tel
+ # are not moving.  a future addition
+    
+ # take exposure:
+ if ($process) then
+  (ssh -n $IOPENER sp_ccdcontrol expose -etime $exptime -shuttermode 1 > $output) >>& $logfile
+ else
+   ssh -n $IOPENER sp_ccdcontrol expose -etime $exptime -shuttermode 1 > $output
+ endif
+
+ # post-exposure 
+ if ($process) then 
+  # set target for tcsh & loggerh
+  setenv FFTEMPLATE $output
+
+  # update RA & DEC in image header
+  /cfht/bin/tcsh -B >>& $logfile
+  /cfht/bin/loggerh -E >>& $logfile
+
+  # todo:
+  # read RA & DEC from $dummyfits, check for offset, set flag
+  # check exit status for functions above. if they fail, exit 1
+
+  # currently skipping the animation jpegs
+  # makejpegs $output &
+  sp_phot $output >>& $photlog & 
+ endif
+  
+ exit 0;
+
+######
+
+usage:
+  echo "USAGE: sp_command init (path)"
+  echo "USAGE: sp_command cool (temp)"
+  echo "USAGE: sp_command warm"
+  echo "USAGE: sp_command test"
+  echo "USAGE: sp_command dark (exptime) (filename)"
+  echo "USAGE: sp_command expose (exptime) (filename)"
+exit 2;

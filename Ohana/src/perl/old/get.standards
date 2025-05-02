@@ -1,0 +1,103 @@
+#!/usr/bin/env perl
+
+# this script is very much specific to the CFHT data layout
+
+$VERBOSE = 1;
+$stdpath = "/h/archive/current/01aq97";
+
+$run = "all";
+# grab the command line arguments:
+@tARGV = ();
+for (; @ARGV > 0; ) {
+
+    # by default, all OBJECT images are returned.  specify a run with -run
+    if ($ARGV[0] eq "-run") {
+	shift;
+	$run = $ARGV[0];
+	shift;
+	next;
+    }
+    
+    @tARGV = (@tARGV, $ARGV[0]);
+    shift;
+}
+@ARGV = @tARGV;
+
+if (@ARGV != 0) { die "USAGE: ckrunid [-run RunID]\n" ;}
+
+# the archive is supposed to contain only MEF images.  
+# The standard star images might get a few focus or detrend images
+# mixed in, so restrict the glob to only *o.fits images:
+@imlist = <$stdpath/*o.fits>;
+
+# find date range in run list
+foreach $name (@imlist) {
+
+    if ($run eq "all") { 
+	@outlist = (@outlist, $name);
+	next; 
+    }
+
+    $runid = `ckrunid $name`;
+    if ($?) {
+	if ($VERBOSE) { print STDERR "no crunid for $name\n"; }
+	next;
+    }
+    chop ($runid);
+    
+    if ($runid ne $run) {
+	if ($VERBOSE) { print STDERR "wrong crunid for $name ($runid vs $run)\n"; }
+	next;
+    }
+
+    @outlist = (@outlist, $name);
+}
+
+foreach $name (@outlist) {
+    print STDOUT "$name\n";
+}
+
+exit 0;
+
+###################################################################################
+
+sub vsystem {
+    print STDERR "@_\n";
+    $status = system ("@_");
+    $status;
+}
+
+sub goodbye {
+    die "@_\n";
+}
+
+sub get_jd {
+
+    my($year) = $_[0];
+    my($month) = $_[1];
+    my($day) = $_[2];
+
+    my($jd) = $day - 32075 + int (1461*($year + 4800 + int (($month - 14)/12))/4)
+	+ int(367*($month - 2 - int(($month - 14)/12)*12)/12)
+	    - int(3*int(($year + 4900 + int(($month - 14)/12))/100)/4) - 0.5;
+    
+
+    return ($jd);
+
+}
+
+sub get_mjd {
+
+    my($year) = $_[0];
+    my($month) = $_[1];
+    my($day) = $_[2];
+
+    my($jd) = $day - 32075 + int (1461*($year + 4800 + int (($month - 14)/12))/4)
+	+ int(367*($month - 2 - int(($month - 14)/12)*12)/12)
+	    - int(3*int(($year + 4900 + int(($month - 14)/12))/100)/4) - 0.5 - 2400000.5;
+    
+
+    return ($jd);
+
+}
+

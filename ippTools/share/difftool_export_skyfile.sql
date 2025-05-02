@@ -1,0 +1,1 @@
+SELECT diffSkyfile.* FROM diffSkyfile

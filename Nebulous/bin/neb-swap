@@ -1,0 +1,179 @@
+#!/usr/bin/env perl
+
+# Copyright (C) 2008  Joshua Hoblitt
+#
+# $Id: neb-swap,v 1.2 2008-10-14 02:13:33 jhoblitt Exp $
+
+use strict;
+use warnings FATAL => qw( all );
+
+use vars qw( $VERSION );
+$VERSION = '0.01';
+
+use Nebulous::Client;
+
+use Getopt::Long qw( GetOptions :config auto_help auto_version );
+use Pod::Usage qw( pod2usage );
+
+my ($server);
+
+$server = $ENV{'NEB_SERVER'} unless $server;
+
+GetOptions(
+    'server|s=s'    => \$server,
+) || pod2usage( 2 );
+
+my $key1 = shift;
+my $key2 = shift;
+
+pod2usage( -msg => "Unknown option: @ARGV", -exitval => 2 ) if @ARGV;
+pod2usage( -msg => "Required options: --server <key1> <key2>",
+        -exitval => 2 )
+        unless defined $server and defined $key1 and defined $key2;
+
+my $neb = Nebulous::Client->new(
+    proxy => "$server",
+);
+
+die "can't connected to Nebulous Server: $server"
+    unless defined $neb;
+
+$neb->swap( $key1, $key2 ) or warn "move failed";
+
+__END__
+
+=pod
+
+=head1 NAME
+
+neb-swap - Atomically swap the names of two Nebulous keys
+
+=head1 SYNOPSIS
+
+    neb-swap [--server <URL>] <key1> <key2>
+
+=head1 DESCRIPTION
+
+This program atomically swaps the name of a Nebulous storage object with that
+of a another.
+
+Note that it I<ONLY> changes the names of the storage objects and that other
+metadata like locks, xattrs, etc. are not transfered.
+
+=head1 OPTIONS
+
+=over 4
+
+=item * --server|-s <URL>
+
+URL of the Nebulous server to connect to.
+
+Optional if the appropriate environment variable is set.
+
+=back
+
+=head1 ENVIRONMENT
+
+These environment variables may be used in place of the specified command line
+options.  All command line option will override the corresponding environment
+value.
+
+=over 4
+
+=item * C<NEB_SERVER>
+
+Equivalent to --server|-s
+
+=back
+
+=head1 EXAMPLE USAGE
+
+    $ neb-stat jhoblitt/foo 
+    object id:     843581
+    key:           jhoblitt/foo
+    read lock:     0
+    write lock:    
+    epoch:         2008-05-28 15:37:08
+    mtime:         0000-00-00 00:00:00
+    n instances:   6
+    instance location:
+        file:///data/ipp013.0/nebulous/61/cd/843295.jhoblitt:foo
+        file:///data/ipp019.0/nebulous/61/cd/2516498.jhoblitt:foo
+        file:///data/ipp021.0/nebulous/61/cd/2516499.jhoblitt:foo
+        file:///data/ipp009.0/nebulous/61/cd/2516500.jhoblitt:foo
+        file:///data/ipp005.0/nebulous/61/cd/2516501.jhoblitt:foo
+        file:///data/ipp020.0/nebulous/61/cd/6907875.jhoblitt:foo
+    $ neb-stat jhoblitt/bar 
+    object id:     6556951
+    key:           jhoblitt/bar
+    read lock:     0
+    write lock:    
+    epoch:         2008-10-13 16:01:41
+    mtime:         0000-00-00 00:00:00
+    n instances:   1
+    instance location:
+        file:///data/ipp028.0/nebulous/45/ce/9596298.jhoblitt:bar
+    $ neb-replicate jhoblitt/bar
+    $ neb-swap jhoblitt/foo jhoblitt/bar
+    $ neb-stat jhoblitt/foo object id:     6556951
+    key:           jhoblitt/foo
+    read lock:     0
+    write lock:    
+    epoch:         2008-10-13 16:01:41
+    mtime:         0000-00-00 00:00:00
+    n instances:   2
+    instance location:
+        file:///data/ipp028.0/nebulous/45/ce/9596298.jhoblitt:bar
+        file:///data/ipp033.0/nebulous/45/ce/9597000.jhoblitt:bar
+    $ neb-stat jhoblitt/barobject id:     843581
+    key:           jhoblitt/bar
+    read lock:     0
+    write lock:    
+    epoch:         2008-05-28 15:37:08
+    mtime:         0000-00-00 00:00:00
+    n instances:   6
+    instance location:
+        file:///data/ipp013.0/nebulous/61/cd/843295.jhoblitt:foo
+        file:///data/ipp019.0/nebulous/61/cd/2516498.jhoblitt:foo
+        file:///data/ipp021.0/nebulous/61/cd/2516499.jhoblitt:foo
+        file:///data/ipp009.0/nebulous/61/cd/2516500.jhoblitt:foo
+        file:///data/ipp005.0/nebulous/61/cd/2516501.jhoblitt:foo
+        file:///data/ipp020.0/nebulous/61/cd/6907875.jhoblitt:foo
+
+=head1 CREDITS
+
+Just me, myself, and I.
+
+=head1 SUPPORT
+
+Please contact the author directly via e-mail.
+
+=head1 AUTHOR
+
+Joshua Hoblitt <jhoblitt@cpan.org>
+
+=head1 COPYRIGHT
+
+Copyright (C) 2008  Joshua Hoblitt.  All rights reserved.
+
+This program is free software; you can redistribute it and/or modify it under
+the terms of the GNU General Public License as published by the Free Software
+Foundation; either version 2 of the License, or (at your option) any later
+version.
+
+This program is distributed in the hope that it will be useful, but WITHOUT ANY
+WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A
+PARTICULAR PURPOSE.  See the GNU General Public License for more details.
+
+You should have received a copy of the GNU General Public License along with
+this program; if not, write to the Free Software Foundation, Inc., 59 Temple
+Place - Suite 330, Boston, MA  02111-1307, USA.
+
+The full text of the license can be found in the L<perlgpl> Pod as supplied
+with Perl 5.8.1 and later.
+
+=head1 SEE ALSO
+
+L<Nebulous::Server>, L<neb-mv>
+
+=cut

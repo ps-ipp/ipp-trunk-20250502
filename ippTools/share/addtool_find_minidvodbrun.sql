@@ -1,0 +1,5 @@
+SELECT
+    minidvodbRun.*
+FROM minidvodbRun
+
+

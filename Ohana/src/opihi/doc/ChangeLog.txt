@@ -1,0 +1,207 @@
+
+2006.10.04:
+  opihi-2-8    added output names, gprintGetName, '-current' to 'output'
+	       removed prototypes from old 'output' code
+	       fixed memory leak in evaluate_stack
+	       added global PID variable
+	       added quiet mode to coords
+	       added various memleak tests, other tests
+	       fixed error in buffer/vector selection for dimenup
+	       fixed counting error in fit2d (missing 1 row of matrix!)
+	       added normalization to kern
+	       cleaned CreateBuffer function, usage
+	       
+  mana-1-6     removed prototypes from old 'output' code
+	       cleaned CreateBuffer function, usage
+
+  pantasks-0-6 added TASK_STDOUT, TASK_STDERR to pantasks.h
+	       added stdout, stderr output targets for tasks/jobs
+	       cleaned CreateBuffer function, usage
+
+  dvo-0-6      cleaned CreateBuffer function, usage
+
+2006.08.23:
+  opihi-2-7    converted to gfits APIs (forces libfits 1.6)
+	       consolidated style argument parsing
+	       added style arguments to astro plotting
+	       added support for pantasks_client, pantasks_server
+	       added more complex keys to queue operations
+	       added gprint to allow buffered printing in threads
+	       updates to test framework for more flexibility
+	       added time conversions sec_to_hms, sec_to_day
+	       added SetLimitsRaw
+	       added isort_pair
+	       added VarConfigEntry
+	       added strip_version to clean version output
+	       moved gaussj to libohana
+	       moved main out of opihi to mana.c, etc
+
+  mana-1-5     converted to gfits APIs (forces libfits 1.6)
+	       added option for threaded shell/backend (not used)
+
+  dvo-0-5      converted to gfits APIs (forces libfits 1.6)
+      	       consolidated style argument parsing
+	       converted to new DVO APIs (dvo_catalog_xxx)
+	       added fitsed
+	       improvements to fitcolors
+	      
+  pantasks-0-5 converted to gfits APIs (forces libfits 1.6)
+	       added 'option' task command
+	       added limits on Njobs for time ranges
+	       fixed time ranges
+	       created client/server version
+	       added controller run/stop commands
+	       added controller help
+	       added server help
+
+  pcontrol-0-5 converted to gfits APIs (forces libfits 1.6)
+	       code re-org to make thread safe
+	       added multithread option (user/client threads)
+	       liberal use of ASSERTs
+
+  pclient-0-5  converted to gfits APIs (forces libfits 1.6)
+  dimm-0-4     converted to gfits APIs (forces libfits 1.6)
+
+2006.03.26:
+  opihi-2-6 : added 'close' function for devices
+	      added test framework  
+	      added tests to cmd.basic, cmd.data
+	      added $?var syntax (variable existence test)
+	      fixed broken a[3] = 5 assignment
+	      added PopQueueMatch function
+	      added periodogram.c
+	      improvements to dimendown, peak
+	      added fixwrap for roll-over on saturation
+
+  dvo-0-4     added proper-motion, parallax
+	      dropped _PS from Stars.R,D
+	      fixed configuration flags for readline/curses
+
+  mana-1-4     fixed configuration flags for readline/curses
+  pcontrol-0-4 fixed configuration flags for readline/curses
+  pclient-0-4  fixed configuration flags for readline/curses
+
+  pantasks-0-4 fixed configuration flags for readline/curses
+	       changed name from psched
+
+
+
+- opihi-2-5
+  * major work to switch to libkapa
+  * revised init sequence (general_init, program_init, startup)
+
+- mana 1.3
+  * changes to support new init sequence
+
+- dvo 0.3
+  * major changes to support SkyRegions
+  * changes to support libkapa
+  * changes to support new init sequence
+
+- psched 0.3
+  * changes to support new init sequence
+  * changes to support libkapa
+
+- pcontrol 0.3
+  * changes to support new init sequence
+  * changes to support libkapa
+
+- pclient 0.3
+  * changes to support new init sequence
+  * changes to support libkapa
+
+- dimm 0.2
+  * changes to support new init sequence
+  * changes to support libkapa
+
+dimm-0-1: release 2005.10.20
+  first tagged dimm release
+
+pclient-0-2: release 2005.10.20
+  minor cleanups
+  minor changes to use new libohana (v1.5) / libfits (v1.4)
+
+pcontrol-0-2: release 2005.10.20
+  added run/stop commands
+  minor changes to use new libohana (v1.5) / libfits (v1.4)
+
+psched-0-2: release 2005.10.20
+  work to improve / test throughput
+  minor cleanups
+  minor changes to use new libohana (v1.5) / libfits (v1.4)
+
+dvo-0-2:  release 2005.10.20
+  substantial changes to work with new dvo load functions
+  support for mode/format changes
+  minor changes to use new libohana (v1.5) / libfits (v1.4)
+
+mana-1-2:  release 2005.10.20
+  minor changes to use new libohana (v1.5) / libfits (v1.4)
+
+opihi-2-4: release 2005.10.20
+  minor changes to use new libohana (v1.5) / libfits (v1.4)
+  kapa/kii cursor interaction modified (needs kapa v1.3, kii v1.3)
+
+opihi-2-3: release 2005.08.15
+  first tagged release tarball
+  fixed up versions commands
+  added list types for psched 
+  moved to Makefile.Common method.
+
+opihi-2-2:
+  fixed up inclusion of dvo.h (conflicted names)
+  added Graph commands functions
+  added mosaic astrometry support
+  a variety of memory alloc bugfixes
+  added support for ohana_allocate functions
+  added real multicommand support (correct parsing of variables)
+  added some object modelling functions
+  added clipping to fits and stats
+  added gaussdeviate
+  added extrapolation to minterp
+  default of EXTNAME for extension keyword
+  added -cpt to various dvo functions
+  better help in dvo functions
+  fixed up lockfile APIs
+  added fitcolors
+  added lightcurve
+  some cleanups in dvo/photometry.c
+  added typefrac tests is photometry.c
+  added gain test for mrqmin
+  fixed up precedence in math
+  macro-ized binary/unary math ops
+  added modulo, erf
+
+opihi-2-1:
+  major reorg of imfit / added imfit functions
+  cleaned up get_argument calls so -Wall does not give errors
+  moved the 'elixir' command to dvo
+  tag added only to elixir implementations (mana + dvo)
+  dimm - need to coordinate with Olivier and Bernt
+  dvo2, pcontrol, pclient, sched - all under development
+
+2004.12.23
+
+  Moved typename/modename funcs to libohana.  this was motivated by
+  imregister, which would not compile cleanly using the old method.
+
+  Added library dependencies to the makefiles. previously, mana (etc)
+  would not re-build if the library was modified.
+
+  Fixed incorrect exit on non-tty.  this kept perl scripts with the
+  call "|mana" from running.
+
+  Fixed dvomath for strings.  since we moved to dvomath everywhere,
+  this broke complex string conditionals: (($a == hi) && ($b == lo)).
+  I added string types to the math functions, and tests to see if the
+  stack has strings which cannot be resolved as a vector or matrix.  
+
+2004.12.10:
+
+  fixed problem in lib.data/PlotVectors.c and lib.data/graphtools.c
+  that broke plotting for data with very large or small exponents (|x|
+  < 1e-12, |x| > 1e12).  also fixed cmd.data/vstats.c with same
+  problem.
+	
+opihi-2-0:
+  import to CVS 2004.12.03

@@ -1,0 +1,6 @@
+#  TEST: byid stack
+#
+#  REQ_NAME EXTVER ACTION EMAIL
+CHANGEME 2 PROCESS null
+#  ROWNUM CENTER_X CENTER_Y WIDTH HEIGHT COORD_MASK JOB_TYPE OPTION_MASK PROJECT SURVEY_NAME IPP_RELEASE REQ_TYPE IMG_TYPE ID TESS_ID COMPONENT DATA_GROUP REQFILT MJD_MIN MJD_MAX RUN_TYPE FWHM_MIN FWHM_MAX | COMMENT
+1         0         0         0      0   2      stamp            7         gpc1      3PI         null    byskycell  stack_summary  null RINGS.V3 skycell.0635   null    r        0      0      null      0        0    | 

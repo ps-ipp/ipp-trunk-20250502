@@ -1,0 +1,633 @@
+# -*-sh-*-
+
+# test suite for the parallel analysis mode for relphot & setphot
+# in this test suite, we add in sources with outlier measurements.  these are supposed to trigger the various rejection flags in relphot.  does it work?
+
+# generate a realistic set of data: cover
+
+# measurement rejections that we perform:
+# measurement is an outlier for the star
+# measurement is flagged as bad by the photometry
+# measurement is flagged as poor by the photometry
+# Area & Time (ignore for now -- probably not used by GPC1)
+
+# also: 
+# bad images: chisq to high, zpt scatter too high
+# bad objects : chisq to high, too few measurements?
+
+input tap.dvo
+
+# set globals
+if (not($?PLOT)) set PLOT = 0 
+
+# set various global variables
+macro init
+  echo "starting init..."
+  $RA_CENTER = 10.0
+  $DEC_CENTER = 20.0
+  $PLATE_SCALE = 0.25
+  $NSEASON = 3
+  $NFILTER = 3
+  $NCHIP_X = 2
+  $NCHIP_Y = 2
+  $NCELL_X = 2
+  $NCELL_Y = 2
+  $CHIP_DX = 1000
+  $CHIP_DY = 1000
+  $DEFECT_FRAC = 0.03
+  $OFFSET_FRAC_UC = 0.0
+  $OFFSET_FRAC_NC = 0.5
+  $LONGITUDE = 10.4170608521
+  $LATITUDE = 20.7070999146
+  if (not($?VERBOSE)) set VERBOSE = 0
+
+  # images are loaded into dvo with GPC1 photcodes, so we need to get the nominal zps for those filters
+  $zpt_nominal:g = 24.58
+  $zpt_nominal:r = 24.80
+  $zpt_nominal:i = 24.74
+  $zpt_nominal:z = 24.26
+  $zpt_nominal:y = 23.41
+
+  # klam is negative, so klam*(airmass - 1) increase the zero point
+  $klam_nominal:g = -0.15
+  $klam_nominal:r = -0.10
+  $klam_nominal:i = -0.04
+  $klam_nominal:z = -0.03
+  $klam_nominal:y = -0.03
+
+  # we have two sets of images: ubercaled and not-ubercaled
+
+  ##### parameters for UBERCAL'ed images
+
+  $filt_uc:n = 3
+  create filtN_uc 0 $filt_uc:n
+  $filt_uc:0 = g;  filtN_uc[0] = 1
+  $filt_uc:1 = g;  filtN_uc[1] = 1
+  $filt_uc:2 = g;  filtN_uc[2] = 1
+
+  # airmass slopes for this sequnece
+  create klam_uc 0 $filt_uc:n
+  for i 0 klam_uc[]
+    klam_uc[$i] = $klam_nominal:$filt_uc:$i
+  end    
+
+  # place this within a valid season (55000.0 - 55010.0 - 55020.0 - 55030.0)
+  set exptime_uc = 15.0 + zero(klam_uc)
+
+  # ubercal zero points are defined as ZP_nominal + 2.5log(exptime) + K*(airmass - 1.0)
+  set zpt_uc = 25.0 + 2.5*log(exptime_uc) + klam_uc*(airmass_uc - 1.0) + ramp(klam_uc)*0.0050 - 0.0025
+
+  set mjd_uc = zero(zpt_uc)
+  mjd_uc[0] = 55000.01
+  mjd_uc[1] = 55000.02
+  mjd_uc[2] = 55000.03
+
+  create airmass_uc 0 klam_uc[]
+  set airmass_uc = 1.6 + zero(klam_uc)
+
+
+  ##### parameters for non-UBERCAL'ed images
+
+  $filt_nc:n = 27
+  create filtN_nc 0 $filt_nc:n
+  for i 0 $filt_nc
+    $filt_nc:$i = g
+    filtN_nc[$i] = 1
+  end
+
+  # airmass slopes for these sequnece
+  create klam_nc 0 $filt_nc:n
+  for i 0 klam_nc[]
+    klam_nc[$i] = $klam_nominal:$filt_nc:$i
+  end    
+
+  # place this within a valid season (55000.0 - 55010.0 - 55020.0 - 55030.0)
+  set exptime_nc = 15.0 + zero(klam_nc)
+
+  # ubercal zero points are defined as ZP_nominal + 2.5log(exptime) + K*(airmass - 1.0)
+  set zpt_nc = 25.0 + 2.5*log(exptime_nc) + klam_nc*(airmass_nc - 1.0) - ramp(klam_nc)*0.0050 + 0.0025
+
+  # with an ubercal tie, relphot should set zpts to the inserted values above
+  set mjd_nc = zero(zpt_nc)
+  mjd_nc[0] = 55000.11
+  mjd_nc[1] = 55000.12
+  mjd_nc[2] = 55000.13
+  mjd_nc[3] = 55015.11
+  mjd_nc[4] = 55015.12
+  mjd_nc[5] = 55015.13
+  mjd_nc[6] = 55025.11
+  mjd_nc[7] = 55025.12
+  mjd_nc[8] = 55025.13
+
+
+  for i 
+  set airmass_nc = 1.6 + zero(klam_nc)
+end
+
+macro go
+  if ($0 != 3)
+    echo "go (fileroot) (catdir)"
+    break
+  end
+
+  local i fileroot rootdir catdir
+
+  $fileroot = $1
+  $catdir = $2
+
+  dirname $1 -var rootdir
+  mkdir $rootdir
+
+  exec rm -rf $catdir
+
+  init
+  mkzptfile
+  mkstars 10000
+
+  tapPLAN {(((mjd_uc[] + mjd_nc[])*4 + (mjd_uc[] + mjd_nc[])) + (mjd_uc[] + mjd_nc[]))}
+
+  # generate the basic images and check they were correctly ingested by dvo
+  mksequence.drift $fileroot $catdir
+  for i 0 mjd_uc[]
+    ckexposure $catdir mjd_uc[$i] zpt_uc[$i] exptime_uc[$i] airmass_uc[$i] $filt_uc:$i raw
+  end
+  for i 0 mjd_nc[]
+    ckexposure $catdir mjd_nc[$i] zpt_nc[$i] exptime_nc[$i] airmass_nc[$i] $filt_nc:$i raw
+  end
+
+  # run setphot on the serial db and check that the images now match the expected values
+  exec setphot -reset -update -ubercal testzpt.fits -D CATDIR $catdir
+  for i 0 mjd_uc[]
+    ckexposure $catdir mjd_uc[$i] zpt_uc[$i] exptime_uc[$i] airmass_uc[$i] $filt_uc:$i setphot_uc
+  end
+  for i 0 mjd_nc[]
+    ckexposure $catdir mjd_nc[$i] zpt_nc[$i] exptime_nc[$i] airmass_nc[$i] $filt_nc:$i setphot_nc
+  end
+
+  # run relphot on the serial db and check that the images now match the expected values
+  # if ($VERBOSE) echo relphot g,r,i -v -region 9.5 10.5 19.5 20.5 -D CATDIR $catdir -D STAR_TOOFEW 1 -D SIGMA_LIM 0.07 -statmode WT_MEAN -cloud-limit 0.5 -keep-ubercal -D IMAGE_OFFSET 0.5 -update >& log.relphot.s0
+  if ($VERBOSE) echo relphot g -v -region 9.5 10.5 19.5 20.5 -D CATDIR $catdir -D STAR_TOOFEW 1 -D SIGMA_LIM 0.07 -statmode WT_MEAN -cloud-limit 0.5 -keep-ubercal -D IMAGE_OFFSET 0.5 -update -reset -D STAR_SCATTER 0.05>& log.relphot.s0
+  exec relphot g -v -region 9.5 10.5 19.5 20.5 -D CATDIR $catdir -D STAR_TOOFEW 1 -D SIGMA_LIM 0.07 -statmode WT_MEAN -cloud-limit 0.5 -keep-ubercal -D IMAGE_OFFSET 0.5 -update -reset -D STAR_SCATTER 0.05>& log.relphot.s0
+  for i 0 mjd_uc[]
+    ckexposure $catdir mjd_uc[$i] zpt_uc[$i] exptime_uc[$i] airmass_uc[$i] $filt_uc:$i relphot
+  end
+  for i 0 mjd_nc[]
+    ckexposure $catdir mjd_nc[$i] zpt_nc[$i] exptime_nc[$i] airmass_nc[$i] $filt_nc:$i relphot
+  end
+
+  tapDONE
+end
+
+macro ckexposure
+  if ($0 != 8)
+    echo "ckexposure (catdir) (mjd) (zpt) (exptime) (airmass) (filter) (mode)"
+    echo "  mode == raw or corr"
+    break
+  end
+
+  local CATDIR MJD_IMAGE ZPT_REAL ZPT_NOMINAL EXPTIME FILTER AIRMASS
+  
+  $CATDIR      = $1
+  $MJD_IMAGE   = $2
+  $ZPT_REAL    = $3
+  $EXPTIME     = $4
+  $AIRMASS     = $5
+  $FILTER      = $6
+  $MODE        = $7
+
+  # XXX need a function to extract the nominal zpt for a given filter / photcode from the db
+  $ZPT_NOMINAL = $zpt_nominal:$FILTER
+  $KLAM_NOMINAL = $klam_nominal:$FILTER
+
+  $TIMEFORMAT = mjd
+  $TIMEREF = 0.0
+
+  catdir $CATDIR
+
+  # assume we still have stars_ra, stars_dec, stars_mag in hand
+  if ($PLOT)
+    dev -n 0
+    region $RA_CENTER $DEC_CENTER 0.2
+    images
+    pmeasure -all -m 15 20
+  end
+
+  skyregion {$RA_CENTER - 0.2/dcos($DEC_CENTER)} {$RA_CENTER + 0.2/dcos($DEC_CENTER)} {$DEC_CENTER - 0.2} {$DEC_CENTER + 0.2} 
+  mextract ra dec mag xccd yccd where (abs(time - $MJD_IMAGE) < 0.0001)
+  if (not(ra[])) 
+    echo "no matching data for MJD = $MJD_IMAGE"
+    if ("$MODE" == "raw")
+      tapSKIP 4
+    else
+      tapSKIP 1
+    end
+    return
+  end
+  match2d -closest ra dec stars_ra stars_dec 0.001 -index1 index1 -index2 index2
+
+  reindex stars_ra_m  = stars_ra  using index1
+  reindex stars_dec_m = stars_dec using index1
+  reindex stars_mag_m = stars_mag using index1
+  if (ra[]  != stars_ra_m[])
+    echo "failed to match stars in catdir to stars in memory"
+    break
+  end
+  set dr = 3600*(ra - stars_ra_m)
+  set dd = 3600*(dec - stars_dec_m)
+  set dm = mag - stars_mag_m
+
+  if ($PLOT) 
+    dev -n 0
+    cplot -pt 7 -c red ra dec
+    dev -n 1
+    lim mag dm; clear; box; plot mag dm
+  end
+
+  set cell_xbin = int(xccd / ($CHIP_DX / $NCELL_X))
+  set cell_ybin = int(yccd / ($CHIP_DY / $NCELL_Y))
+  subset dm00 = dm if (cell_xbin == 0) && (cell_ybin == 0)
+  subset dm01 = dm if (cell_xbin == 0) && (cell_ybin == 1)
+  subset dm10 = dm if (cell_xbin == 1) && (cell_ybin == 0)
+  subset dm11 = dm if (cell_xbin == 1) && (cell_ybin == 1)
+
+  # uncorrected values behave like this:
+  #   mag_DVO  = m_inst + zpt_nominal + 2.5*log(exptime) + K*(airmass - 1.0)
+  #   mag_real = m_inst + zpt_real + cell_offset
+  #   dm = mag_DVO - mag_real = zpt_nominal - zpt_real - cell_offset
+  #   <dm> - zpt_nominal + zpt_real + cell_offset ~ 0.0
+  #   zpt_real (in this case) = 25.0  + 2.5*log(exptime) + K*(airmass - 1.0) 
+  #     (actually, it is the value in the vector 'zpt' for this entry
+  #   zpt_nominal = 24.58
+
+  # setphot-corrected values behave like this:
+  #   mag_DVO  = mag_real (because m_inst has cell_offset applied)
+  #   dm = mag_DVO - mag_real ~ 0.0
+
+  $ZPT_REAL_NORM = $ZPT_REAL - 2.5*log($EXPTIME) - $KLAM_NOMINAL*($AIRMASS - 1.0)
+  if ($VERBOSE) echo "$ZPT_REAL_NORM = $ZPT_REAL - 2.5*log($EXPTIME) - $KLAM_NOMINAL*($AIRMASS - 1.0)"
+
+  if ("$MODE" == "raw") 
+    for ix 0 $NCELL_X
+      for iy 0 $NCELL_Y
+        # vstat -q dm$ix\$iy
+        # echo cell_off[$ix][$iy] {$MEDIAN - $ZPT_NOMINAL + $ZPT_REAL + cell_off[$ix][$iy]} $MEDIAN $MEAN $SIGMA 
+  
+        set dm_adjust = dm$ix\$iy - $ZPT_NOMINAL + $ZPT_REAL_NORM
+        vstat -q dm_adjust
+        tapOK {abs($MEAN) < 0.005} "addstar raw ZP $MJD_IMAGE $FILTER : $MEAN $ZPT_NOMINAL $ZPT_REAL_NORM {($MEAN - $ZPT_NOMINAL + $ZPT_REAL_NORM)}"
+      end
+    end
+    return
+  end
+
+  if ("$MODE" == "setphot_uc") 
+    vstat -q dm
+    tapOK {abs($MEAN) < 0.005} "setphot_uc  ZP $MJD_IMAGE $FILTER : $MEAN $ZPT_NOMINAL $ZPT_REAL_NORM {($MEAN - $ZPT_NOMINAL + $ZPT_REAL_NORM)}"
+    return
+  end
+
+  if ("$MODE" == "setphot_nc") 
+    vstat -q dm
+    tapOK {abs($MEAN - $ZPT_NOMINAL + $ZPT_REAL_NORM) < 0.005} "setphot_nc  ZP $MJD_IMAGE $FILTER : $MEAN $ZPT_NOMINAL $ZPT_REAL_NORM {($MEAN - $ZPT_NOMINAL + $ZPT_REAL_NORM)}"
+    return
+  end
+
+  if ("$MODE" == "relphot_nc") 
+    vstat -q dm
+    tapOK {abs($MEAN - $ZPT_NOMINAL + $ZPT_REAL_NORM) < 0.005} "relphot_nc  ZP $MJD_IMAGE $FILTER : $MEAN $ZPT_NOMINAL $ZPT_REAL_NORM {($MEAN - $ZPT_NOMINAL + $ZPT_REAL_NORM)}"
+    return
+  end
+
+  if ("$MODE" == "relphot") 
+    vstat -q dm
+    tapOK {abs($MEAN) < 0.005} "relphot    ZP $MJD_IMAGE $FILTER : $MEAN $ZPT_NOMINAL $ZPT_REAL_NORM {($MEAN - $ZPT_NOMINAL + $ZPT_REAL_NORM)}"
+    return
+  end
+
+end
+
+macro mksequence.drift
+  if ($0 != 3)
+    echo "mksequence.drift (fileroot) (catdir)"
+    break
+  end
+
+  echo "starting mksequence..."
+  local i T1 T2
+
+  ctimes -abs now -var T1
+  # we have a second set of mjd and zero point values for non-ubercal'ed images
+  echo -no-return "making mjd_uc[] UC images: "
+  for i 0 mjd_uc[]
+    echo -no-return "$i.. "
+    mkexposure $1.uc.$i $RA_CENTER {$DEC_CENTER + $i*$CHIP_DY*$PLATE_SCALE*$NCHIP_Y*$OFFSET_FRAC_UC/3600.0} zpt_uc[$i] exptime_uc[$i] airmass_uc[$i] mjd_uc[$i] $filt_uc:$i $2
+  end
+  echo ""
+  echo -no-return "making mjd_nc[] NC images: "
+  for i 0 mjd_nc[]
+    echo -no-return "$i.. "
+    mkexposure $1.nc.$i $RA_CENTER {$DEC_CENTER + $i*$CHIP_DY*$PLATE_SCALE*$NCHIP_Y*$OFFSET_FRAC_NC/3600.0} zpt_nc[$i] exptime_nc[$i] airmass_nc[$i] mjd_nc[$i] $filt_nc:$i $2
+  end
+  ctimes -abs now -var T2
+  echo "done ({86400*($T2 - $T1)} sec)"
+end
+
+macro mksequence.1pt
+  if ($0 != 3)
+    echo "mksequence (fileroot) (catdir)"
+    break
+  end
+
+  echo "starting mksequence..."
+  local i T1 T2
+
+  ctimes -abs now -var T1
+  # we have a second set of mjd and zero point values for non-ubercal'ed images
+  echo -no-return "making mjd_uc[] UC images: "
+  for i 0 mjd_uc[]
+    echo -no-return "$i.. "
+    mkexposure $1.uc.$i $RA_CENTER $DEC_CENTER zpt_uc[$i] exptime_uc[$i] airmass_uc[$i] mjd_uc[$i] $filt_uc:$i $2
+  end
+  echo ""
+  echo -no-return "making mjd_nc[] NC images: "
+  for i 0 mjd_nc[]
+    echo -no-return "$i.. "
+    mkexposure $1.nc.$i $RA_CENTER $DEC_CENTER zpt_nc[$i] exptime_nc[$i] airmass_nc[$i] mjd_nc[$i] $filt_nc:$i $2
+  end
+  ctimes -abs now -var T2
+  echo "done ({86400*($T2 - $T1)} sec)"
+end
+
+macro mkexposure
+ if ($0 != 10)
+   echo "mkexposure (fileroot) (ra) (dec) (zpt) (exptime) (airmass) (mjd) (filter) (catdir)"
+   break
+ end
+
+ local ix iy date time datetime ra dec ROOT RAo DECo ZPT MJD FILTER EXPTIME AIRMASS CATDIR
+
+ $ROOT    = $1
+ $RAo     = $2
+ $DECo    = $3
+ $ZPT     = $4
+ $EXPTIME = $5
+ $AIRMASS = $6 
+ $MJD     = $7
+ $FILTER  = $8
+ $CATDIR  = $9
+
+ $TIMEFORMAT = mjd
+ $TIMEREF = 0.0
+
+ for ix 0 $NCHIP_X
+  for iy 0 $NCHIP_Y
+    $dx  = $CHIP_DX * $PLATE_SCALE * ($ix - 0.5*$NCHIP_X + 0.5)
+    $dy  = $CHIP_DY * $PLATE_SCALE * ($iy - 0.5*$NCHIP_Y + 0.5)
+    $ra  = $RAo  - $dx / 3600.0 / dcos($DECo)
+    $dec = $DECo - $dy / 3600.0
+    # echo $ra $dec $dx $dy
+    if ($VERBOSE) echo mkinput test.in.txt $ra $dec $ZPT 
+    mkinput test.in.txt $ra $dec $ZPT 
+    # costs 7/36 sec / chip
+    
+    # ra,dec is the center of this chip
+    local options
+    $options = -mjd $MJD 
+    $options = $options -radec $ra $dec 
+    $options = $options -type PS1_V2 
+    $options = $options -coords 
+    # use photcodes XY01, XY11, XY02, XY12 to avoid the corners
+    $options = $options -photcode GPC1.$FILTER.XY$ix\{$iy+1}
+    $options = $options -no-noise 
+    $options = $options -flags
+    $options = $options -bad-psfqf-frac $DEFECT_FRAC
+    $options = $options -size $CHIP_DX $CHIP_DY 
+    $options = $options -crpix {0.5*$CHIP_DX} {0.5*$CHIP_DY} 
+    $options = $options -airmass $AIRMASS
+    $options = $options -exptime $EXPTIME
+    if ($VERBOSE) echo mkcmf test.in.txt $ROOT.$ix.$iy.cmf $options 
+    exec mkcmf test.in.txt $ROOT.$ix.$iy.cmf $options
+    # costs 8/36 sec / chip
+
+    # the fake images have inconsistent ra,dec and airmass,sidtime values
+    if ($VERBOSE) echo addstar $ROOT.$ix.$iy.cmf -D CATDIR $CATDIR -D CAMERA gpc1 -quick-airmass
+    exec addstar $ROOT.$ix.$iy.cmf -D CATDIR $CATDIR -D CAMERA gpc1 -quick-airmass >& /dev/null
+    # costs 10/36 sec / chip
+  end
+ end
+end
+
+# make a simple input file for mkcmf
+macro mkinput
+  if ($0 != 5)
+    echo "mkinput (filename) (ra) (dec) (zpt)"
+    break
+  end
+
+  # chip coordinate of the stars
+  # ra,dec is at the chip center, which corresponds to pixel (CHIP_DX,CHIP_DY)/2
+  set stars_X = (stars_ra  - $2) * 3600.0 * dcos($3) / $PLATE_SCALE + $CHIP_DX*0.5
+  set stars_Y = (stars_dec - $3) * 3600.0            / $PLATE_SCALE + $CHIP_DY*0.5
+  set stars_M = (stars_mag - $4)
+
+  set valid = (stars_X > 0) && (stars_X < $CHIP_DX) && (stars_Y > 0) && (stars_Y < $CHIP_DX)
+  subset stars_x  = stars_X if valid
+  subset stars_y  = stars_Y if valid
+  subset stars_m  = stars_M if valid
+  subset stars_r  = stars_ra if valid
+  subset stars_d  = stars_dec if valid
+  subset stars_mr = stars_mag if valid
+
+  set cell_x = int(stars_x / ($CHIP_DX / $NCELL_X))
+  set cell_y = int(stars_y / ($CHIP_DX / $NCELL_X))
+
+  if (1)
+    # FLAT-FIELD CORRECTION 
+    # eddie says: M_real = M_inst + zpt + ff_offset
+    # thus, stars_mi = stars_mag - zpt - ff_offset = stars_m - offset
+    set stars_mi = zero(stars_m)
+    for i 0 stars_mi[]
+      $nx = cell_x[$i] 
+      $ny = cell_y[$i]
+      # $offset = cell_off[$nx][$ny]
+      $offset = 0.0
+      stars_mi[$i] = stars_m[$i] - $offset
+    end
+  else
+    set stars_mi = stars_m
+  end
+  
+  # create bad detections / detections to ignore or avoid, save to a file?
+
+  # create 3 types of things to ignore / avoid
+  # * badPhot (deviate the photometry)
+  # * badFlag (set a bad flag bit)
+  # * poorFlag (set a bad flag bit)
+  set badPhot  = rnd(stars_r) <  $DEFECT_FRAC
+  set badFlag  = rnd(stars_r) <  $DEFECT_FRAC
+  set poorFlag = rnd(stars_r) <  $DEFECT_FRAC
+
+  # create deviant photometry (1%)
+  # I'm setting the flag value 0x02 (EXTMODEL) if the object is deviated.  This is a simple way to pass the info
+  set stars_mi = stars_mi + 0.2*badPhot
+  set stars_fl = zero(stars_mi) + 0x00000080*badFlag + 0x00000100*poorFlag + 0x00000002*badPhot
+
+  # bad flags that we sould respect:
+  # PM_SOURCE_MODE_FAIL             = 0x00000008, ///< Fit (non-linear) failed (non-converge, off-edge, run to zero)
+  # PM_SOURCE_MODE_SATSTAR          = 0x00000080, ///< Source model peak is above saturation
+  # PM_SOURCE_MODE_BADPSF           = 0x00000400, ///< Failed to get good estimate of object's PSF
+  # PM_SOURCE_MODE_DEFECT           = 0x00000800, ///< Source is thought to be a defect
+  # PM_SOURCE_MODE_SATURATED        = 0x00001000, ///< Source is thought to be saturated pixels (bleed trail)
+  # PM_SOURCE_MODE_CR_LIMIT         = 0x00002000, ///< Source has crNsigma above limit
+  # PM_SOURCE_MODE_MOMENTS_FAILURE  = 0x00008000, ///< could not measure the moments
+  # PM_SOURCE_MODE_SKY_FAILURE      = 0x00010000, ///< could not measure the local sky
+  # PM_SOURCE_MODE_SKYVAR_FAILURE   = 0x00020000, ///< could not measure the local sky variance
+  # PM_SOURCE_MODE_SIZE_SKIPPED     = 0x10000000, ///< size could not be determined
+
+  # poor flags that we should respect:
+  # PM_SOURCE_MODE_POOR             = 0x00000010, ///< Fit succeeds, but low-SN, high-Chisq, or large (for PSF -- drop?)
+  # PM_SOURCE_MODE_PAIR             = 0x00000020, ///< Source fitted with a double psf
+  # PM_SOURCE_MODE_BLEND            = 0x00000100, ///< Source is a blend with other sources
+  # PM_SOURCE_MODE_BELOW_MOMENTS_SN = 0x00040000, ///< moments not measured due to low S/N
+  # PM_SOURCE_MODE_BLEND_FIT        = 0x00400000, ///< source was fitted as a blend
+  # PM_SOURCE_MODE_ON_SPIKE         = 0x20000000, ///< peak lands on diffraction spike
+  # PM_SOURCE_MODE_ON_GHOST         = 0x40000000, ///< peak lands on ghost or glint
+  # PM_SOURCE_MODE_OFF_CHIP         = 0x80000000, ///< peak lands off edge of chip
+
+  # delete the output file before writing
+  exec rm -f $1
+  write -f "%10.6f %10.6f %7.3f  %6.1f %6.1f %7.3f 0x%x" $1 stars_r stars_d stars_mr stars_x stars_y stars_mi stars_fl
+end
+
+# generate a set of stars with raw RA, DEC, MAG values to use for all of the output cmf files
+macro mkstars
+  if ($0 != 2)
+    echo "USAGE: mkstars (Nstars)"
+    break
+  end
+
+  echo "starting mkstars..."
+  local RA_RANGE DEC_RANGE
+
+  # the images are oriented along N-S, E-W lines
+
+  # size of region of interest in linear arcseconds
+  $RA_RANGE  = 1.25 * $CHIP_DX * $NCHIP_X * $PLATE_SCALE
+  $DEC_RANGE = 1.25 * $CHIP_DY * $NCHIP_Y * $PLATE_SCALE * (1 + tmpseq[]*$OFFSET_FRAC_NC)
+
+  create tmp 0 $1
+  set stars_ra  = $RA_CENTER  + $RA_RANGE  * (rnd(tmp) - 0.5) / 3600 / dcos ($DEC_CENTER)
+  set stars_dec = $DEC_CENTER + $DEC_RANGE * (rnd(tmp) - 0.5) / 3600
+  set stars_mag = 15.0 + 4.0 * rnd(tmp) 
+end
+
+# copy the catdir to catdir.p0 and parallelize to local directories catdir.d1 - catdir.d3
+macro mkparallel
+  if ($0 != 2)
+    echo "USAGE: mkparallel (catdir)"
+    break
+  end
+
+  local hostname catdir
+ 
+  $hostname = `hostname -s`
+
+  $tmp1 = `dirname $1`
+  $tmp2 = `basename $1`
+  $catdir = $tmp1/$tmp2
+
+  exec rsync -auv $catdir/ $catdir.p0/ >& log.rsync
+  mkdir $catdir.d1
+  mkdir $catdir.d2
+  mkdir $catdir.d3
+  
+  exec rm -f $catdir.p0/HostTable.dat
+  exec echo "1 $hostname $catdir.d1" >  $catdir.p0/HostTable.dat
+  exec echo "2 $hostname $catdir.d2" >> $catdir.p0/HostTable.dat
+  exec echo "3 $hostname $catdir.d3" >> $catdir.p0/HostTable.dat
+
+  exec dvodist -out $catdir.p0 >& log.dvodist.out
+end
+
+# create a fake ubercal-style zpt/flatcorr table with metadata
+macro mkzptfile
+
+  mcreate phu 0 0
+  keyword phu NSEASON -wd $NSEASON
+  keyword phu NFILTER -wd $NFILTER
+  keyword phu NCHIP_X -wd $NCHIP_X
+  keyword phu NCHIP_Y -wd $NCHIP_Y
+  keyword phu NCELL_X -wd $NCELL_X
+  keyword phu NCELL_Y -wd $NCELL_Y
+  keyword phu CHIP_DX -wd $CHIP_DX
+  keyword phu CHIP_DY -wd $CHIP_DY
+
+  # define the season boundaries
+  keyword phu TS0_0000 -wf 55000.0
+  keyword phu TS1_0000 -wf 55010.0
+  keyword phu TS0_0001 -wf 55010.0
+  keyword phu TS1_0001 -wf 55020.0
+  keyword phu TS0_0002 -wf 55020.0
+  keyword phu TS1_0002 -wf 55030.0
+
+  # create a single flat-field correction map for a single chip
+  mcreate cell_off 2 2
+  cell_off[0][0] =  0.01
+  cell_off[1][0] = -0.01
+  cell_off[0][1] =  0.02
+  cell_off[1][1] = -0.02
+
+  # in the correction table, we have an image of the full exposure
+  # (NCHIP_X x NCHIP_Y) for each season, unwrapped as a single linear
+  # vector (with the last two missing -- how is that hard wired?)
+
+  local ix iy ixc iyc ns
+
+  # unroll the chip & cell level corrections into a single vector for a single image
+  delete -q image_offset
+  for iy 0 $NCHIP_Y
+    for iyc 0 $NCELL_Y
+      for ix 0 $NCHIP_X
+        for ixc 0 $NCELL_X
+          concat cell_off[$ixc][$iyc] image_offset
+        end
+      end
+    end
+  end
+
+  # generate the full set of corrections for a single filter
+  delete -q offset
+  for ns 0 $NSEASON
+    concat image_offset offset
+  end
+
+  # the output fits table uses the vector names for the field names,
+  # so set them here to the desired names
+  set mjd_obs = mjd_uc
+  set zp = zpt_uc
+  set resid = 0.02*rnd(zpt_uc) - 0.01
+
+  delete -q flatcorr
+  dimenup offset flatcorr {$NSEASON*$NCHIP_X*$NCHIP_Y*$NCELL_X*$NCELL_Y} 1
+
+  wd phu testzpt.fits
+
+  # filter 1
+  write testzpt.fits -fits ZPTS_1 -f DDE -append mjd_obs zp resid 
+  keyword flatcorr FILTER -w g
+  keyword flatcorr EXTNAME -w FLATCORR
+  wd -extend flatcorr testzpt.fits
+
+  # filter 2 (?)
+  write testzpt.fits -fits ZPTS_2 -f DDE -append mjd_obs zp resid 
+  keyword flatcorr FILTER -w r
+  keyword flatcorr EXTNAME -w FLATCORR
+  wd -extend flatcorr testzpt.fits
+
+  # filter 3
+  write testzpt.fits -fits ZPTS_3 -f DDE -append mjd_obs zp resid 
+  keyword flatcorr FILTER -w i
+  keyword flatcorr EXTNAME -w FLATCORR
+  wd -extend flatcorr testzpt.fits
+end
+

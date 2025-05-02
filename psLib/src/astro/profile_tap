@@ -1,0 +1,9 @@
+
+gcov -f --object-file ./.libs/libpslibastro_la-psSphereOps.o psSphereOps.c > sph_gcov.out
+gcov -f --object-file ./.libs/libpslibastro_la-psEarthOrientation.o psEarthOrientation.c > eoc_gcov.out
+gcov -f --object-file ./.libs/libpslibastro_la-psTime.o psTime.c > time_gcov.out
+gcov -f --object-file ./.libs/libpslibastro_la-psCoord.o psCoord.c > crd_gcov.out
+gcc parse_gcov-out.c -o parse_gcov
+./parse_gcov
+rm *.out
+more Coverage-Report.txt

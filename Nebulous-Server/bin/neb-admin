@@ -1,0 +1,982 @@
+#!/usr/bin/env perl
+
+# Copyright (C) 2005-2008  Joshua Hoblitt
+#
+# $Id: neb-admin,v 1.14 2008-10-16 22:24:39 jhoblitt Exp $
+
+use strict;
+use warnings FATAL => qw( all );
+
+use vars qw( $VERSION );
+$VERSION = '0.02';
+
+use DBI;
+use Net::Server::Daemonize qw( check_pid_file create_pid_file unlink_pid_file );
+use URI;
+
+use Getopt::Long qw( GetOptions :config auto_help auto_version );
+use Pod::Usage qw( pod2usage );
+
+my (
+    $db,
+    $dbhost,
+    $dbpass,
+    $dbuser,
+    $so_id_start,
+    $so_id_range,
+    $limit,
+    $offset,
+    $pending,
+    $balance,
+    $retarget,
+    $balance_N_sources,
+    $balance_M_destinations,
+    $removal,
+    $verbose,
+);
+
+$db     = $ENV{'NEB_DB'};
+$dbhost = $ENV{'NEB_DBHOST'} || 'localhost';
+$dbuser = $ENV{'NEB_USER'};
+$dbpass = $ENV{'NEB_PASS'};
+
+$offset = 0;
+
+GetOptions(
+    'db|d=s'                => \$db,
+    'host=s'                => \$dbhost,
+    'user|u=s'              => \$dbuser,
+    'pass|p=s'              => \$dbpass,
+    'pendingreplicate|r'    => \$pending,
+    'pendingbalance|b'      => \$balance,
+    'pendingtarget|t'       => \$retarget,
+    'balancesources|N=s'      => \$balance_N_sources,
+    'balancedestinations|M=s' => \$balance_M_destinations,
+#    'pendingremoval'        => \$removal,
+    'so_id_start=i'         => \$so_id_start,
+    'so_id_range=i'         => \$so_id_range,
+    'limit|l=i'             => \$limit,
+    'offset=i'              => \$offset,
+    'verbose|v'             => \$verbose,
+) || pod2usage( 2 );
+
+pod2usage( -msg => "Unknown option: @ARGV", -exitval => 2 ) if @ARGV;
+pod2usage( -msg => "Required options: --db --user --pass", -exitval => 2 )
+    unless $db && $dbuser && $dbpass;
+pod2usage( -msg => "--limit is meaningless without --pendingreplicate",
+        -exitval => 2 )
+    if defined $limit and not (defined $pending or defined $balance or defined $retarget);
+pod2usage( -msg => "no operation specified", -exitval => 2 )
+    unless defined $pending or defined $balance or defined $retarget;
+pod2usage( -msg => "--pendingbalance needs --balancesources and --balancedestinations options",
+	   -exitval => 2)
+    if defined $balance and not (defined $balance_N_sources or defined $balance_M_destinations);
+# set default limit to 5
+$limit ||= 5;
+
+# check to make sure that only one instance of neb-admin is running
+# XXX this implies we should move pending replicate elsewhere
+my $pidfile;
+if (defined $pending) {
+    $pidfile = '/var/tmp/neb-admin.replicate';
+}
+elsif (defined $balance) {
+    $pidfile = '/var/tmp/neb-admin.balance';
+}
+elsif (defined $retarget) {
+    $pidfile = '/var/tmp/neb-admin.retarget';
+}
+else {
+    $pidfile = '/var/tmp/neb-admin';
+}
+# abort if an instance is already running
+END { unlink_pid_file($pidfile) };
+check_pid_file($pidfile);
+create_pid_file($pidfile);
+
+my $dbh = DBI->connect(
+    "DBI:mysql:database=$db:host=$dbhost",
+    $dbuser,
+    $dbpass,
+    {
+        RaiseError => 1,
+        PrintError => 0,
+        AutoCommit => 1,
+    },
+);
+
+if ($pending) {
+    pending();
+} elsif ($removal) {
+    removal();
+} elsif ($balance) {
+    balance();
+} elsif ($retarget) {
+    retarget();
+} else {
+    die "THIS SHOULD NOT HAPPEN";
+}
+
+sub pending
+{
+# so_id, ext_id, instances, available_instances, need_recovery, recoverable
+# XXX don't remove the temp table code -- testing w/o it
+#    $dbh->do("CREATE TEMPORARY TABLE mymountedvol LIKE mountedvol");
+#    $dbh->do("INSERT INTO mymountedvol SELECT * FROM mountedvol");
+
+    if (not defined $so_id_start) { $so_id_start = 0; }
+    if (not defined $so_id_range) { $so_id_range = 100000; }
+    my $so_id_end = $so_id_start + $so_id_range;
+
+    # XXX check if so_id_start is beyond MAX(so_id): if so, exit with exit status 10
+    { 
+        my $query = $dbh->prepare("SELECT MAX(so_id) from storage_object");
+        $query->execute;
+        my $answer = $query->fetchrow_arrayref;
+        my $max_so_id = $$answer[0];
+        $query->finish;
+
+        if ($so_id_start > $max_so_id) { 
+            print STDERR "at end of so_id range, reset please\n";
+            exit 10;
+        }
+    }
+        
+    my $query = $dbh->prepare(
+    "
+        SELECT
+            so.so_id,
+            so.ext_id,
+            count(ins_id) as instances,
+            mv.name as volume_name,
+            mv.host as volume_host,
+            count(mv.vol_id) as available_instances,
+            count(mv.vol_id) > 0 as recoverable,
+            xattr.value as copies
+        FROM storage_object AS so
+        LEFT JOIN storage_object_xattr AS xattr
+            ON so.so_id = xattr.so_id
+            AND xattr.name = 'user.copies'
+        JOIN instance AS i
+            ON so.so_id = i.so_id
+        JOIN mountedvol AS mv
+            USING(vol_id)
+        WHERE
+            mv.available = 1
+            AND so.so_id >= $so_id_start
+            AND so.so_id <  $so_id_end
+        GROUP BY so_id
+        HAVING available_instances != instances OR instances != copies
+        LIMIT $limit"
+    );
+
+    $query->execute;
+
+    my @rows;
+    while (my $row = $query->fetchrow_hashref) {
+        push @rows, $row;        
+    }
+    $query->finish;
+        
+    exit unless scalar @rows;
+    
+    # compare number of responses to limit below
+    my $Npending = @rows;
+
+    print "replicatePending MULTI\n\n";
+
+    foreach my $obj (@rows) {
+        if (defined $verbose) {
+            require Data::Dumper;
+            print Data::Dumper::Dumper($obj);
+        }
+
+        my $so_id = $obj->{so_id};
+        my $key = $obj->{ext_id};
+        my $has = $obj->{instances};
+        my $vol_name = $obj->{volume_name};
+        my $vol_host = $obj->{volume_host};
+	my $available = $obj->{available_instances} || 0;
+        my $need_recovery = $obj->{need_recovery};
+        my $recoverable = $obj->{recoverable};
+        # if the copies xattr is unset and the object has 2 or more instances, we
+        # will assume a target of 2 copies
+        
+        # XXX change this: there should be no default value or we will
+        # have a race condition.  user.copies should never get set by
+        # any client until AFTER a file is no longer in use.
+        my $copies = $obj->{copies} || 2;
+
+        # objects with only a single instance that are offline are unrecoverable so
+        # we don't need to handle that special case
+#    next unless $need_recovery;
+        unless ($recoverable) {
+            warn "so_id: $so_id key: \'$key\' ",
+                "can not be recovered - no available instances\n";
+            next;
+        }
+
+        my $need = $copies - $available;
+	my $cmd = 'neb-stat';
+#        $need = 0 if $need < 0;
+        next unless $need;
+
+	if ($need > 0) {
+	    $cmd = 'neb-replicate';
+	}
+	elsif ($need < 0) {
+	    $cmd = 'neb-cull';
+	}
+
+        my %md = (
+            key         => $key,
+	    command     => $cmd,
+            need_copies => $need,
+            volume_name => $vol_name,
+            volume_host => $vol_host,
+
+#	    has         => $has,
+	    available   => $available,
+	    xattr_copies      => $copies,
+#	    recoverable => $recoverable,
+#	    need_recovery => $need_recovery,
+	    
+        );
+#	print "$key $cmd $need $vol_name $vol_host\n";
+        print_metadata("replicatePending", \%md);
+        print "\n";
+    }
+
+    # use a different exit status if we hit the limit (likely more files pending)
+    # This is a better way to do this.
+    if ($Npending == 0) {
+	exit 0;
+    }
+    else {
+	exit 1;
+    }
+
+#     if ($Npending == $limit) {
+#         exit 1;
+#     } 
+#     exit 0;
+}
+
+sub balance
+{
+# so_id, ext_id, instances, available_instances, need_recovery, recoverable
+# XXX don't remove the temp table code -- testing w/o it
+#    $dbh->do("CREATE TEMPORARY TABLE mymountedvol LIKE mountedvol");
+#    $dbh->do("INSERT INTO mymountedvol SELECT * FROM mountedvol");
+
+    if (not defined $so_id_start) { $so_id_start = 0; }
+    if (not defined $so_id_range) { $so_id_range = 100000; }
+    my $so_id_end = $so_id_start + $so_id_range;
+
+    # XXX check if so_id_start is beyond MAX(so_id): if so, exit with exit status 10
+    { 
+        my $query = $dbh->prepare("SELECT MAX(so_id) from storage_object");
+        $query->execute;
+        my $answer = $query->fetchrow_arrayref;
+        my $max_so_id = $$answer[0];
+        $query->finish;
+
+        if ($so_id_start > $max_so_id) { 
+            print STDERR "at end of so_id range, reset please\n";
+            exit 10;
+        }
+    }
+
+    # Calculate the average disk usage
+    my $average = 0;
+    my $avg_query = $dbh->prepare(
+	"select sum(used)/sum(total) AS average from mountedvol WHERE available = 1 AND allocate = 1"
+	);
+    $avg_query->execute();
+    while (my $row = $avg_query->fetchrow_hashref) {
+	$average = $row->{average};
+    }
+    $avg_query->finish;
+    print STDERR "average: $average\n";
+    if ($average == 0) {
+	exit 1;
+    }
+    # I truly am sorry for this statement.
+    my $query = $dbh->prepare(
+	"
+SELECT * FROM (
+#  -- U Randomize the list of all possible source/destination matches,then group by so_id to select one at random
+  SELECT T.*,volume.cab_id AS source_cab_id, volume.name AS source_name, volume.host AS source_host,
+         destination.vol_id AS destination_vol_id,destination.cab_id AS destination_cab_id,
+         destination.name AS destination_name,destination.host AS destination_host FROM (
+    -- V Select the volume that matches the instance with the largest ins_id
+    SELECT S.*,vol_id FROM (
+      -- Select objects that are in our so_id range, with two copies (and two requested copies)
+      SELECT MAX(ins_id) AS MAXins_id,MIN(ins_id) AS MINins_id,so_id,ext_id FROM
+       storage_object JOIN storage_object_xattr USING(so_id) RIGHT JOIN instance USING(so_id)
+       WHERE name = 'user.copies' AND value >= 2
+       AND ext_id LIKE '%ota%fits'                  -- This line is the emergency speedup option
+       AND so_id >= $so_id_start                    -- so_id_start
+       AND so_id <  $so_id_end                      -- so_id_end
+       GROUP BY so_id
+      ) AS S
+      JOIN instance ON (S.MAXins_id = instance.ins_id)
+      WHERE vol_id IN (
+       -- Y Extra select for debugging purposes
+       SELECT vol_id FROM (
+        -- Z Ran hosts by R (need to be a source) and return top N
+        SELECT mountedvol.vol_id,mountedvol.name,mountedvol.available,mountedvol.allocate,total,used,
+               (used / total) AS D,total * ((used / total) - $average ) AS R,  -- average
+               (used / total) - $average AS delta,
+               cab_id FROM
+        mountedvol JOIN volume USING(vol_id)
+        WHERE mountedvol.available = 1
+        AND mountedvol.xattr = 0
+        ORDER BY delta DESC LIMIT $balance_N_sources                                            -- N
+        ) AS ranked_sources
+        -- Z End
+       )
+       -- Y End
+       AND MAXins_id != MINins_id
+     ) AS T
+     -- V End
+     JOIN volume on T.vol_id = volume.vol_id RIGHT JOIN (
+       -- Y2 Chose a random destination from the list
+       SELECT vol_id,cab_id,name,host FROM (
+         -- Z2 Reverse rank hosts by R and return top M
+         SELECT mountedvol.vol_id,mountedvol.name,mountedvol.host,mountedvol.available,mountedvol.allocate,total,used,
+                (used / total) AS D,total * ((used / total) - $average ) AS R,  -- average
+                (used / total) - $average AS delta,
+                cab_id FROM
+         mountedvol JOIN volume USING(vol_id)
+         WHERE mountedvol.available = 1 AND mountedvol.allocate = 1 
+         AND mountedvol.xattr = 1
+         ORDER BY delta ASC LIMIT $balance_M_destinations                                               -- M
+       ) AS ranked_destinations
+       -- Z2 End
+     ORDER BY RAND()
+     ) AS destination
+     -- Y2 End
+   ON destination.cab_id != volume.cab_id
+   ORDER BY RAND()
+) AS results
+WHERE so_id IS NOT NULL
+-- U End
+GROUP BY so_id
+  LIMIT $limit                                               -- limit
+  OFFSET $offset                                             -- offset
+
+");
+
+#     my $query = $dbh->prepare(
+# 	"
+# SELECT * FROM (
+#  -- U Randomize the list of all possible source/destination matches,then group by so_id to select one at random
+#  SELECT T.*,volume.cab_id AS source_cab_id,volume.name AS source_name,volume.host AS source_host,
+#         destination.vol_id AS destination_vol_id,destination.cab_id AS destination_cab_id,
+#         destination.name AS destination_name,destination.host AS destination_host FROM (
+#   -- V Ensure that the copy we found on the source volume is the second copy instance
+#   SELECT K.vol_id AS here,K.ins_id,K.so_id,ext_id,value AS user_copies,MAXins_id,instance.vol_id AS there FROM (
+#    -- W Determine what the second copy instance is
+#    SELECT V.*,MAX(instance.ins_id) AS MAXins_id FROM (
+#     -- X Determine which hosts have instances of an object
+#     SELECT vol_id,ins_id,so_id,ext_id,value FROM 
+#     storage_object JOIN storage_object_xattr USING(so_id) JOIN instance USING(so_id)
+#     WHERE vol_id IN (
+#      -- Y Extra select for debugging purposes
+#      SELECT vol_id FROM (
+#       -- Z Ran hosts by R (need to be a source) and return top N
+#       SELECT mountedvol.vol_id,mountedvol.name,mountedvol.available,mountedvol.allocate,total,used,
+#              (used / total) AS D,total * ((used / total) - $average ) AS R,  -- average
+#              (used / total) - $average AS delta,
+#              cab_id FROM
+#       mountedvol JOIN volume USING(vol_id)
+#       WHERE mountedvol.available = 1
+#       ORDER BY delta DESC LIMIT $balance_N_sources                                            -- N
+#       ) AS ranked_sources
+#       -- Z End
+#      )
+#      -- Y End
+#     AND name = 'user.copies' AND value >= 2
+#   AND ext_id LIKE '%ota%fits'       -- This line is the emergency speedup option
+#     AND so_id >= $so_id_start                                  -- so_id_start
+#     AND so_id <  $so_id_end                                    -- so_id_end
+#    ) AS V -- volumes that host a copy
+#    -- X End
+#   LEFT OUTER JOIN instance USING(so_id) GROUP BY so_id
+#   ) AS K -- copies that are the second copy
+#   -- W End
+#  JOIN instance ON MAXins_id = instance.ins_id GROUP BY so_id
+#  ) AS T -- matched copies that I know the second copy is on my source volume
+#  -- V End
+#  JOIN volume on T.here = volume.vol_id RIGHT JOIN (
+#   -- Y2 Chose a random destination from the list
+#   SELECT vol_id,cab_id,name,host FROM (
+#    -- Z2 Reverse rank hosts by R and return top M
+#    SELECT mountedvol.vol_id,mountedvol.name,mountedvol.host,mountedvol.available,mountedvol.allocate,total,used,
+#           (used / total) AS D,total * ((used / total) - $average ) AS R,  -- average
+#           (used / total) - $average AS delta,
+#           cab_id FROM
+#    mountedvol JOIN volume USING(vol_id)
+#    WHERE mountedvol.available = 1 AND mountedvol.allocate = 1
+#    ORDER BY delta ASC LIMIT $balance_M_destinations                                               -- M
+#   ) AS ranked_destinations
+#   -- Z2 End
+#  ORDER BY RAND()
+#  ) AS destination
+#  -- Y2 End
+#  ON destination.cab_id != volume.cab_id
+#  WHERE here = there
+#  ORDER BY RAND()
+# ) AS results
+# -- U End
+# GROUP BY so_id
+#     LIMIT $limit                                               -- limit
+#     OFFSET $offset                                             -- offset
+
+# "    );
+
+    $query->execute();
+		    
+		    
+
+    my @rows;
+    while (my $row = $query->fetchrow_hashref) {
+        push @rows, $row;        
+    }
+    $query->finish;
+
+    print STDERR "No rows found\n" unless scalar @rows;
+    exit unless scalar @rows;
+    
+    # compare number of responses to limit below
+    my $Npending = @rows;
+
+    print "balancePending MULTI\n\n";
+
+    foreach my $obj (@rows) {
+        if (defined $verbose) {
+            require Data::Dumper;
+            print Data::Dumper::Dumper($obj);
+        }
+	
+
+#	my $here = $obj->{here};
+#	my $there = $obj->{there};
+#	my $ins_id = $obj->{ins_id};
+	my $max_ins_id = $obj->{MAXins_id};
+	
+	my $so_id = $obj->{so_id};
+	my $key   = $obj->{ext_id};
+#	my $copies = $obj->{user_copies};
+
+	my $source_vol_id = $obj->{vol_id};
+	my $source_cab_id = $obj->{source_cab_id};
+	my $source_name   = $obj->{source_name};
+	my $source_host   = $obj->{source_host};
+
+	my $destination_vol_id = $obj->{destination_vol_id};
+	my $destination_cab_id = $obj->{destination_cab_id};
+	my $destination_name   = $obj->{destination_name};
+	my $destination_host   = $obj->{destination_host};
+	
+#	unless ($here == $there) { $Npending-- ; next; }
+#	unless ($ins_id == $max_ins_id) { $Npending-- ; next; }
+	unless ($source_cab_id != $destination_cab_id) { $Npending-- ;  next; }
+	
+        my %md = (
+	    key           => $key,
+#	    copies        => $copies,
+	    so_id         => $so_id,
+	    source_vol_id => $source_vol_id,
+	    source_cab_id => $source_cab_id,
+	    source_name   => $source_name,
+	    source_host   => $source_host,
+	    destination_vol_id => $destination_vol_id,
+	    destination_cab_id => $destination_cab_id,
+	    destination_name   => $destination_name,
+	    destination_host   => $destination_host,
+#             key         => $key,
+# 	    command     => $cmd,
+#             need_copies => $need,
+#             volume_name => $vol_name,
+#             volume_host => $vol_host,
+
+# #	    has         => $has,
+# 	    available   => $available,
+# 	    xattr_copies      => $copies,
+# #	    recoverable => $recoverable,
+# #	    need_recovery => $need_recovery,
+	    
+        );
+#	print "$key $cmd $need $vol_name $vol_host\n";
+        print_metadata("balancePending", \%md);
+        print "\n";
+    }
+
+    # use a different exit status if we hit the limit (likely more files pending)
+    print STDERR "Which exit: $Npending $limit\n";
+    # This is a better way to do this. This should be even better-er.
+    if ($Npending < $limit) {
+	exit 0;
+    }
+    else {
+	exit 1;
+    }
+
+#     if ($Npending == $limit) {
+#         exit 1;
+#     } 
+#     exit 0;
+}
+
+sub retarget
+{
+    my %destination;
+    my %vol_id_list = ('ipp004.0' => 1,'ipp005.0' => 2, 'ipp006.0' => 3, 'ipp007.0' => 4,'ipp008.0' => 50,'ipp009.0' => 6,'ipp010.0' => 7,
+		       'ipp011.0' => 8,'ipp012.0' => 15,'ipp013.0' => 16, 'ipp014.0' => 18,'ipp015.0' => 17,'ipp016.0' => 9,'ipp017.0' => 10,'ipp018.0' => 11,'ipp019.0' => 12,
+		       'ipp020.0' => 52,'ipp021.0' => 14,'ipp023.0' => 19,'ipp024.0' => 20,'ipp025.0' => 32,'ipp026.0' => 21, 'ipp027.0' => 49,
+		       'ipp028.0' => 23,'ipp029.0' => 24,'ipp030.0' => 25,'ipp031.0' => 26,'ipp032.0' => 27,'ipp033.0' => 28,'ipp034.0' => 29,
+		       'ipp035.0' => 30,'ipp036.0' => 31,'ipp037.0' => 51,'ipp038.0' => 33,'ipp039.0' => 34,'ipp040.0' => 35,'ipp041.0' => 36,
+		       'ipp042.0' => 37,'ipp043.0' => 38,'ipp044.0' => 39,'ipp045.0' => 40,'ipp046.0' => 41,'ipp047.0' => 42,'ipp048.0' => 43,
+		       'ipp049.0' => 44,'ipp050.0' => 45,'ipp051.0' => 46,'ipp052.0' => 47,'ipp053.0' => 48,'ipp054.0' => 62,'ipp055.0' => 63,
+		       'ipp056.0' => 64,'ipp057.0' => 65,'ipp058.0' => 66,'ipp059.0' => 67,'ipp060.0' => 68,'ipp061.0' => 69,'ipp062.0' => 70,
+		       'ipp063.0' => 71,'ipp064.0' => 72,'ipp065.0' => 73,'ipp066.0' => 74);
+# This is replaced below.
+#     %{ $destination{VOL} }  = ('ota01' => 7,       'ota02' => 8,       'ota03' => 3,       'ota04' => 3,       'ota05' => 4,       'ota06' => 4,
+# 			       'ota10' => 50,      'ota11' => 50,      'ota12' => 6,       'ota13' => 6,       'ota14' => 7,       'ota15' => 8,       'ota16' => 15,      'ota17' => 15,
+# 			       'ota20' => 16,      'ota21' => 18,      'ota22' => 18,      'ota23' => 17,      'ota24' => 9,       'ota25' => 9,       'ota26' => 10,      'ota27' => 11,
+# 			       'ota30' => 12,      'ota31' => 52,      'ota32' => 14,      'ota33' => 14,      'ota34' => 19,      'ota35' => 16,      'ota36' => 20,      'ota37' => 12,
+# 			       'ota40' => 32,      'ota41' => 11,      'ota42' => 10,      'ota43' => 17,      'ota44' => 49,      'ota45' => 23,      'ota46' => 24,      'ota47' => 25,
+# 			       'ota50' => 26,      'ota51' => 27,      'ota52' => 28,      'ota53' => 29,      'ota54' => 30,      'ota55' => 31,      'ota56' => 51,      'ota57' => 33,
+# 			       'ota60' => 34,      'ota61' => 35,      'ota62' => 36,      'ota63' => 37,      'ota64' => 38,      'ota65' => 39,      'ota66' => 41,      'ota67' => 42,
+# 			       'ota71' => 43,      'ota72' => 44,      'ota73' => 45,      'ota74' => 46,      'ota75' => 47,      'ota76' => 48);
+    %{ $destination{HOST} } = ('ota01' => 'ipp010','ota02' => 'ipp011','ota03' => 'ipp006','ota04' => 'ipp054','ota05' => 'ipp007','ota06' => 'ipp055',
+			       'ota10' => 'ipp008','ota11' => 'ipp056','ota12' => 'ipp009','ota13' => 'ipp057','ota14' => 'ipp058','ota15' => 'ipp059','ota16' => 'ipp012','ota17' => 'ipp060',
+			       'ota20' => 'ipp013','ota21' => 'ipp014','ota22' => 'ipp061','ota23' => 'ipp015','ota24' => 'ipp016','ota25' => 'ipp062','ota26' => 'ipp064','ota27' => 'ipp065',
+			       'ota30' => 'ipp066','ota31' => 'ipp020','ota32' => 'ipp063','ota33' => 'ipp021','ota34' => 'ipp023','ota35' => 'ipp013','ota36' => 'ipp024','ota37' => 'ipp019',
+			       'ota40' => 'ipp025','ota41' => 'ipp018','ota42' => 'ipp017','ota43' => 'ipp015','ota44' => 'ipp027','ota45' => 'ipp028','ota46' => 'ipp029','ota47' => 'ipp030',
+			       'ota50' => 'ipp031','ota51' => 'ipp032','ota52' => 'ipp033','ota53' => 'ipp034','ota54' => 'ipp035','ota55' => 'ipp036','ota56' => 'ipp037','ota57' => 'ipp038',
+			       'ota60' => 'ipp039','ota61' => 'ipp040','ota62' => 'ipp041','ota63' => 'ipp042','ota64' => 'ipp043','ota65' => 'ipp044','ota66' => 'ipp046','ota67' => 'ipp047',
+			       'ota71' => 'ipp048','ota72' => 'ipp049','ota73' => 'ipp050','ota74' => 'ipp051','ota75' => 'ipp052','ota76' => 'ipp053');
+    %{ $destination{NAME} } = ('ota01' => 'ipp010.0','ota02' => 'ipp011.0','ota03' => 'ipp006.0','ota04' => 'ipp054.0','ota05' => 'ipp007.0','ota06' => 'ipp055.0',
+			       'ota10' => 'ipp008.0','ota11' => 'ipp056.0','ota12' => 'ipp009.0','ota13' => 'ipp057.0','ota14' => 'ipp058.0','ota15' => 'ipp059.0','ota16' => 'ipp012.0','ota17' => 'ipp060.0',
+			       'ota20' => 'ipp013.0','ota21' => 'ipp014.0','ota22' => 'ipp061.0','ota23' => 'ipp015.0','ota24' => 'ipp016.0','ota25' => 'ipp062.0','ota26' => 'ipp064.0','ota27' => 'ipp065.0',
+			       'ota30' => 'ipp066.0','ota31' => 'ipp020.0','ota32' => 'ipp063.0','ota33' => 'ipp021.0','ota34' => 'ipp023.0','ota35' => 'ipp013.0','ota36' => 'ipp024.0','ota37' => 'ipp019.0',
+			       'ota40' => 'ipp025.0','ota41' => 'ipp018.0','ota42' => 'ipp017.0','ota43' => 'ipp015.0','ota44' => 'ipp027.0','ota45' => 'ipp028.0','ota46' => 'ipp029.0','ota47' => 'ipp030.0',
+			       'ota50' => 'ipp031.0','ota51' => 'ipp032.0','ota52' => 'ipp033.0','ota53' => 'ipp034.0','ota54' => 'ipp035.0','ota55' => 'ipp036.0','ota56' => 'ipp037.0','ota57' => 'ipp038.0',
+			       'ota60' => 'ipp039.0','ota61' => 'ipp040.0','ota62' => 'ipp041.0','ota63' => 'ipp042.0','ota64' => 'ipp043.0','ota65' => 'ipp044.0','ota66' => 'ipp046.0','ota67' => 'ipp047.0',
+			       'ota71' => 'ipp048.0','ota72' => 'ipp049.0','ota73' => 'ipp050.0','ota74' => 'ipp051.0','ota75' => 'ipp052.0','ota76' => 'ipp053.0');
+    foreach my $k (keys %{ $destination{NAME} }) {
+	$destination{VOL}{$k} = $vol_id_list{$destination{NAME}{$k}};
+    }
+    my %blocked_volume = ('ipp027' => 1,
+			  'ipp037' => 1,
+			  'ipp043' => 1,
+			  'ipp044' => 1,
+			  'ipp053' => 1,
+			  'ipp023' => 1,'ipp024' => 1,'ipp025' => 1,'ipp026' => 1,'ipp028' => 1,'ipp029' => 1,'ipp030' => 1,'ipp031' => 1,'ipp032' => 1,'ipp033' => 1,
+			  'ipp034' => 1,'ipp035' => 1,'ipp036' => 1,'ipp038' => 1,'ipp039' => 1,'ipp040' => 1,'ipp041' => 1,'ipp042' => 1,'ipp045' => 1,'ipp046' => 1,
+			  'ipp047' => 1,'ipp048' => 1,'ipp049' => 1,'ipp050' => 1,'ipp051' => 1,'ipp052' => 1,
+			  # These hosts are blocked due to concern about their RAID arrays.
+#			  'ipp054' => 1,'ipp055' => 1,'ipp056' => 1,'ipp057' => 1,'ipp058' => 1,'ipp059' => 1,
+#			  'ipp060' => 1,'ipp061' => 1,'ipp062' => 1,'ipp063' => 1,'ipp064' => 1,'ipp065' => 1, 'ipp066' => 1
+#			  'ipp064' => 1, 'ipp066' => 1
+			  'ipp064' => 1
+	);
+    if (not defined $so_id_start) { $so_id_start = 0; }
+    if (not defined $so_id_range) { $so_id_range = 100000; }
+    my $so_id_end = $so_id_start + $so_id_range;
+
+    # XXX check if so_id_start is beyond MAX(so_id): if so, exit with exit status 10
+    { 
+        my $query = $dbh->prepare("SELECT MAX(so_id) from storage_object");
+        $query->execute;
+        my $answer = $query->fetchrow_arrayref;
+        my $max_so_id = $$answer[0];
+        $query->finish;
+
+        if ($so_id_start > $max_so_id) { 
+            print STDERR "at end of so_id range, reset please\n";
+            exit 10;
+        }
+    }
+
+    # Determine a list of first instances
+#     my $query = $dbh->prepare(
+# 	"
+# SELECT S.so_id,ext_id,ins_id,uri,substr(uri,-10,5) AS class_id,vol_id,name AS vol_name,host AS vol_host FROM (
+#   select * FROM (
+#   select MAX(ins_id) AS MAXins_id, MIN(ins_id) AS MINins_id, so_id,ext_id,value AS user_copies FROM storage_object 
+#     JOIN storage_object_xattr USING(so_id) 
+#     RIGHT JOIN instance USING(so_id) 
+#      WHERE name = 'user.copies' 
+#      AND value >= 2 
+#      AND ext_id LIKE '%ota%fits' 
+#      AND so_id >= $so_id_start
+#      AND so_id <  $so_id_end
+#      GROUP BY so_id 
+#   ) AS V 
+#   WHERE MAXins_id != MINins_id
+#   ) AS S
+#   JOIN instance ON (S.MINins_id = instance.ins_id AND S.so_id = instance.so_id) 
+#   JOIN volume USING(vol_id) WHERE volume.available = 1
+#   LIMIT $limit
+#   OFFSET $offset
+# ");
+    
+    print STDERR "This query is broken so I have disabled it to get the MHPCC->ATRC shuffle going.\n";
+    exit 0;
+    my $query;
+#     my $query = $dbh->prepare(
+# 	"
+# SELECT Z.so_id,ext_id,Z.ins_id,Z.uri,substr(Z.uri,-10,5) AS class_id,Z.vol_id,vol_name,vol_host,
+#        instance.vol_id AS  second_vol_id,volume.name AS second_name,volume.host AS second_host FROM (
+#   SELECT S.so_id,ext_id,ins_id,uri,substr(uri,-10,5) AS class_id,vol_id,name AS vol_name,host AS vol_host,MAXins_id FROM (
+#     select * FROM (
+#       select MAX(ins_id) AS MAXins_id, MIN(ins_id) AS MINins_id, so_id,ext_id FROM storage_object
+#         JOIN storage_object_xattr USING(so_id)
+#         RIGHT JOIN instance USING(so_id)
+#          WHERE name = 'user.copies'
+#          AND value >= 2
+#          AND ext_id LIKE '%ota%fits'
+#          AND so_id >= $so_id_start
+#          AND so_id <  $so_id_end
+#          GROUP BY so_id
+#       ) AS V
+#       WHERE MAXins_id != MINins_id
+#     ) AS S
+#     JOIN instance ON (S.MINins_id = instance.ins_id AND S.so_id = instance.so_id)
+#     JOIN volume USING(vol_id) WHERE volume.available = 1
+#     AND volume.name AS $requested_source
+#   ) AS Z
+# JOIN instance ON (MAXins_id = instance.ins_id AND Z.so_id = instance.so_id)
+# JOIN volume ON(instance.vol_id = volume.vol_id) WHERE volume.available = 1
+# LIMIT $limit
+# OFFSET $offset
+# ");
+
+    $query->execute();
+
+    my @rows;
+    while (my $row = $query->fetchrow_hashref) {
+        push @rows, $row;        
+    }
+    $query->finish;
+
+    print STDERR "No rows found\n" unless scalar @rows;
+    exit unless scalar @rows;
+    
+    # compare number of responses to limit below
+    my $Npending = @rows;
+
+    print "targetPending MULTI\n\n";
+
+    foreach my $obj (@rows) {
+        if (defined $verbose) {
+            require Data::Dumper;
+            print Data::Dumper::Dumper($obj);
+        }
+	
+	my $so_id = $obj->{so_id};
+	my $key   = $obj->{ext_id};
+
+	my $ins_id = $obj->{ins_id};
+	my $uri   = $obj->{uri};
+	my $class_id = $obj->{class_id};
+
+	my $source_vol_id = $obj->{vol_id};
+	my $source_name   = $obj->{vol_name};
+	my $source_host   = $obj->{vol_host};
+
+	my $second_vol_id   = $obj->{second_vol_id};
+	my $second_vol_name = $obj->{second_name};
+	my $second_vol_host = $obj->{second_host};
+
+	my $destination_vol_id = $destination{VOL}{$class_id};
+	my $destination_name   = $destination{NAME}{$class_id};
+	my $destination_host   = $destination{HOST}{$class_id};
+	my $destination_uri    = $uri;
+	unless ((defined($destination_uri))&&
+		(defined($source_name))&&
+		(defined($destination_name))) {
+	    next;
+	}
+	
+	$destination_uri =~ s/$source_name/$destination_name/;
+	
+        my %md = (
+	    so_id         => $so_id,
+	    key           => $key,
+	    ins_id        => $ins_id,
+	    uri           => $uri,
+	    class_id      => $class_id,
+	    
+	    source_vol_id => $source_vol_id,
+	    source_name   => $source_name,
+	    source_host   => $source_host,
+
+	    destination_vol_id => $destination_vol_id,
+	    destination_name   => $destination_name,
+	    destination_host   => $destination_host,
+	    destination_uri    => $destination_uri,
+	    second_host        => $second_vol_host,
+	    second_vol_id      => $second_vol_id
+#	    blocked_host_bool  => defined($blocked_volume{$destination_host})
+        );
+	
+	if ((defined($blocked_volume{$destination_host}))||
+	    ($source_vol_id == $destination_vol_id)||
+	    ($second_vol_id == $destination_vol_id)||
+	    ($source_name   eq $destination_name)||
+	    ($second_vol_name eq $destination_name)) {
+#	    print_metadata("targetFailed", \%md);
+	    next;
+	}
+
+	if ($source_vol_id != $destination_vol_id) {
+	    print_metadata("targetPending", \%md);
+	    print "\n";
+	}
+    }
+
+    # use a different exit status if we hit the limit (likely more files pending)
+    print STDERR "Which exit: $Npending $limit\n";
+    # This is a better way to do this. This should be even better-er.
+    if ($Npending < $limit) {
+	exit 0;
+    }
+    else {
+	exit 1;
+    }
+}
+
+sub removal
+{
+# so_id, ext_id, instances, available_instances, need_recovery, recoverable
+    $dbh->do("CREATE TEMPORARY TABLE mymountedvol LIKE mountedvol");
+    $dbh->do("INSERT INTO mymountedvol SELECT * FROM mountedvol");
+    $dbh->do("CREATE TEMPORARY TABLE myvolume LIKE volume");
+    $dbh->do("INSERT INTO myvolume SELECT * FROM volume");
+
+    my $query = $dbh->prepare(
+    );
+    $query->execute;
+
+    $dbh->do("DROP TABLE IF EXISTS mymountedvol");
+    $dbh->do("DROP TABLE IF EXISTS myvolume");
+
+    my @rows;
+    while (my $row = $query->fetchrow_hashref) {
+        push @rows, $row;        
+    }
+    $query->finish;
+        
+    exit unless scalar @rows;
+
+    print "removalPending MULTI\n\n";
+
+    foreach my $obj (@rows) {
+        if (defined $verbose) {
+            require Data::Dumper;
+            print Data::Dumper::Dumper($obj);
+        }
+
+        my $so_id = $obj->{so_id};
+        my $key = $obj->{ext_id};
+        my $has = $obj->{instances};
+        my $vol_name = $obj->{volume_name};
+        my $vol_host = $obj->{volume_host};
+        my $available = $obj->{available_instances} || 0;
+        my $need_recovery = $obj->{need_recovery};
+        my $recoverable = $obj->{recoverable};
+        # if the copies xattr is unset and the object has 2 or more instances, we
+        # will assume a target of 2 copies
+        my $copies = $obj->{copies} || 2;
+
+        # objects with only a single instance that are offline are unrecoverable so
+        # we don't need to handle that special case
+#    next unless $need_recovery;
+        unless ($recoverable) {
+            warn "so_id: $so_id key: \'$key\' ",
+                "can not be recovered - no available instances\n";
+            next;
+        }
+
+        my $need = $copies - $available;
+        $need = 0 if $need < 0;
+
+        next unless $need;
+
+        my %md = (
+            key         => $key,
+            need_copies => $need,
+            volume_name => $vol_name,
+            volume_host => $vol_host,
+        );
+
+        print_metadata("replicatePending", \%md);
+        print "\n";
+    }
+
+    return 1;
+}
+
+
+sub print_metadata
+{
+    my ($name, $pairs) = @_;
+
+    print "$name METADATA\n";
+
+    # format from formatMetadataItem() in pzMetadataConfig.c
+    foreach my $key (keys %$pairs) {
+        my $value = $pairs->{$key};
+        if (looks_like_number($value)) {
+            printf("   " . "%-15s  %-8s  %-15s\n", $key, "S32", $value);
+        } else {
+            printf("   " . "%-15s  %-8s  %-15s\n", $key, "STR", $value);
+        }
+    }
+    
+    print "END\n";
+}
+
+# looks_like_number() was stolen from Scalar::Util
+#
+# Copyright (c) 1997-2006 Graham Barr <gbarr@pobox.com>. All rights reserved.
+# This program is free software; you can redistribute it and/or modify it
+# under the same terms as Perl itself.
+
+sub looks_like_number {
+  local $_ = shift;
+
+  # checks from perlfaq4
+  return 0 if !defined($_) or ref($_);
+  return 1 if (/^[+-]?\d+$/); # is a +/- integer
+  return 1 if (/^([+-]?)(?=\d|\.\d)\d*(\.\d*)?([Ee]([+-]?\d+))?$/); # a C float
+  return 1 if ($] >= 5.008 and /^(Inf(inity)?|NaN)$/i) or ($] >= 5.006001 and /^Inf$/i);
+
+  0;
+}
+
+__END__
+
+=pod
+
+=head1 NAME
+
+neb-admin - perform misc. Nebulous administrative functions
+
+=head1 SYNOPSIS
+
+    neb-admin [--host <db host>] [--db <db name>] [--user <db username>]
+        [--pass <db password>] [--pendingreplicate] [--limit <n>]
+
+=head1 DESCRIPTION
+
+=head1 OPTIONS
+
+=over 4
+
+=item * --pendingreplicate|-r
+
+Print out a list of nebulous keys that need additional replications created.
+
+=item * --limit|-l <n>
+
+Limits the number of items return in response to some request (like
+C<--pendingreplicate>). 
+
+Optional.  Defaults to 5.  --limit 0 is treated as asking for the default
+value.
+
+=item * --host <database host>
+
+Name of host on which the database resides.
+
+Optional.  Defaults to C<localhost>.
+
+=item * --db|-d <database>
+
+Name of database (C<namespace>) to create tables in.
+
+Optional if the appropriate environment variable is set.
+
+=item * --user|-u <username>
+
+Username to authenticate with.
+
+Optional if the appropriate environment variable is set.
+
+=item * --pass|-p <password>
+
+Password to authenticate with.
+
+Optional if the appropriate environment variable is set.
+
+=back
+
+=head1 ENVIRONMENT
+
+These environment variables may be used in place of the specified command line
+options.  All command line option will override the corresponding environment
+value.
+
+=over 4
+
+=item * C<NEB_DB>
+
+Equivalent to --db|-d
+
+=item * C<NEB_HOST>
+
+Equivalent to --host
+
+=item * C<NEB_USER>
+
+Equivalent to --user|-u
+
+=item * C<NEB_PASS>
+
+Equivalent to --pass|-p 
+
+=back
+
+=head1 CREDITS
+
+Just me, myself, and I.
+
+=head1 SUPPORT
+
+Please contact the author directly via e-mail.
+
+=head1 AUTHOR
+
+Joshua Hoblitt <jhoblitt@cpan.org>
+
+=head1 COPYRIGHT
+
+Copyright (C) 2005-2008  Joshua Hoblitt.  All rights reserved.
+
+This program is free software; you can redistribute it and/or modify it under
+the terms of the GNU General Public License as published by the Free Software
+Foundation; either version 2 of the License, or (at your option) any later
+version.
+
+This program is distributed in the hope that it will be useful, but WITHOUT ANY
+WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A
+PARTICULAR PURPOSE.  See the GNU General Public License for more details.
+
+You should have received a copy of the GNU General Public License along with
+this program; if not, write to the Free Software Foundation, Inc., 59 Temple
+Place - Suite 330, Boston, MA  02111-1307, USA.
+
+The full text of the license can be found in the L<perlgpl> Pod as supplied
+with Perl 5.8.1 and later.
+
+=head1 SEE ALSO
+
+L<Nebulous::Server>, L<neb-addvol>, L<neb-fsck>, L<neb-initdb>, L<nebdiskd>
+
+=cut

@@ -1,0 +1,110 @@
+#!/usr/bin/env perl
+# this program takes a file template, with CCDNUM substituted for the 
+# CCD number.  each file contains the ccd frames as separate extents.  The program
+# loads the names, then for each frame, it goes through the CCDNUM entries
+# and mosaics together the appropriate image, writing them to an output filename 
+# formed from ARGV[1] (ARGV[1].n.jpg).  These names are written to ARGV[1]
+#
+# this program returns immediately if all CCDNUM entries are not found.
+# the previous function, detstats, must not create the *.stats file until the 
+# process is done.  similarly, this program deletes the *.stats files to avoid 
+# confusion on a second pass
+
+@ccds = split (" ", `cameraconfig -ccdn`);
+if ($?) { die "ERROR: configuration problem\n"; }
+
+if (@ARGV != 3) { die "ERROR: USAGE: mosaic.tenbin (name) (out) (type)\n" }
+$type = "\U$ARGV[2]\E";
+
+# find the appropriate script file
+$confdir = `gconfig -q CONFDIR`;  chop $confdir;
+$script = "$confdir/mana/flips.pro";
+
+# test named Xserver, or start vnc on specified machine
+$xhost = `gconfig -q XHOST`; chop $xhost;
+$xdisp = `gconfig -q XDISP`; chop $xdisp;
+if (vsystem ("xdpyinfo -display $xdisp")) {
+    print STDERR "ERROR: X server is not running. start it now on $xhost\n";
+    exit 1;
+}
+$ENV{'DISPLAY'} = $xdisp;
+
+# check for the existence of each input file, exit if non-existent
+foreach $ccd (@ccds) {
+    $name = $ARGV[0];
+    $name =~ s/CCDNUM/$ccd/;
+    unless (-r $name) {
+	print STDERR "ERROR: can't find all files\n";
+	exit 1;
+    }
+}
+
+# we are constructing the names of the input files.  there are NCCD
+# files with names of the form path/01Ak01.flat.I.CCDNUM.0.medbin we
+# need to loop over all NEXTEND entries in these files, creating
+# NEXTEND output images.  First check that each file has the same NEXTEND
+
+@filenames = ();
+foreach $ccd (@ccds) {
+    $name = $ARGV[0];
+    $name =~ s/CCDNUM/$ccd/;
+    push @filenames, $name;
+
+    ($junk, $N) = split (" ", `echo $name | fields NEXTEND`);
+    if ($ccd eq $ccds[0]) {
+	$Nline = $N;
+    } 
+    if ($N != $Nline) { die "ERROR: mis-matched number of images in $name\n"; }
+}    
+
+open (MANA, "|mana --norc");
+print MANA "input $script\n";
+
+# define list of names as mana list
+print MANA "list names\n";
+foreach $name (@filenames) {
+    print MANA "$name\n";
+}
+print MANA "end\n";
+
+# define macro for 1 image
+print MANA "macro mkimage\n";
+print MANA " mergemosaic \$1\n";
+if ($type eq "RAW")  { print MANA " jpgraw \$2\n";    } 
+if ($type eq "FLAT") { print MANA " jpgnorm \$2\n";   } 
+if ($type eq "BIAS") { print MANA " jpgmosaic \$2\n"; }
+if ($type eq "DARK") { print MANA " jpgmosaic \$2\n"; }
+print MANA "end\n";
+
+# define macro for image list 
+print MANA "macro go\n";
+open (LIST, ">$ARGV[1]");
+for ($i = 0; $i < $Nline; $i++) {
+    $outfile = sprintf "%s.%03d.jpg", $ARGV[1], $i;
+    print MANA " mkimage $i $outfile\n";
+    print LIST "$outfile\n";
+}
+close (LIST);
+print MANA " exit 0\n";
+print MANA "end\n";
+print MANA "go\n";
+print MANA "exit 1\n";
+close (MANA);
+if ($?) {
+    print STDERR "ERROR running mana\n";
+    exit 1;
+}
+
+print STDOUT "SUCCESS\n";
+exit 0;
+
+sub vsystem {
+    print STDERR "@_\n";
+    $status = system ("@_");
+    $status;
+}
+
+sub goodbye {
+    die "@_\n";
+}
+

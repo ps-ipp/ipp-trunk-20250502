@@ -1,0 +1,9 @@
+#
+# This file is used to generate pxtoolsErrorCodes.h
+#
+BASE = 9000		First value we use; lower values belong to psLib
+UNKNOWN			Unknown ippTools error code
+ARGUMENTS		Incorrect arguments
+SYS			System error
+CONFIG			Problem in configure files
+PROG			Programming error

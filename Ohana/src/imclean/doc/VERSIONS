@@ -1,0 +1,10 @@
+
+tag names used by imclean:
+
+AG         : Comment
+imclean-1-0 : first version under CVS
+
+USES
+libfits-1-0
+libohana-1-0
+

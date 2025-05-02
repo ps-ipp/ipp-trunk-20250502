@@ -1,0 +1,8 @@
+AT_SETUP([[% table.namespace %]Insert()])
+AT_KEYWORDS([[% table.namespace %]Insert])
+
+AT_CHECK([dbsetup])
+AT_CHECK([insert])
+AT_CHECK([dbcleanup])
+
+AT_CLEANUP

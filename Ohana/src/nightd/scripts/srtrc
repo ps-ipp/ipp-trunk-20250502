@@ -1,0 +1,21 @@
+
+# wrap the commands (init, main, done) in a single script
+# this will let the config info come from the config system
+
+INIT_COMMAND sp_plots init
+
+MAIN_COMMAND sp_plots plot 
+
+DONE_COMMAND sp_plots done &DATE
+
+PID_FILE /data/milo/elixir/log/srt.pid
+LOG_FILE /data/milo/elixir/log/srt.log
+
+# PID_FILE /h/eugene/skyprobe/skyprobe.pid
+# LOG_FILE /h/eugene/skyprobe/skyprobe.log
+
+NIGHT_START 18:00
+NIGHT_STOP  06:00
+
+PERIOD 60
+TIMEOUT 300

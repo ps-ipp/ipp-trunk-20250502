@@ -1,0 +1,12 @@
+
+- libkapa 1.2 : 2006.08.23
+  * added KapaInitGraph
+  * added KapaColorName
+  * added KapaPrepPlot
+  * added KapaPlotVector
+
+- libkapa 1.1
+  * added bDrawCircleSingle to fix circles with weight
+  * fixed format of textline data message
+
+

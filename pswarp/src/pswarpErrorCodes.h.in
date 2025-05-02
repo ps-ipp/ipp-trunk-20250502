@@ -1,0 +1,30 @@
+/** @file pswarpErrorCodes.h.in
+ *
+ *  @brief
+ *
+ *  @ingroup pswarp
+ *
+ *  @author IfA
+ *  @version $Revision: 1.2 $ $Name: not supported by cvs2svn $
+ *  @date $Date: 2009-02-05 20:44:04 $
+ *  Copyright 2009 Institute for Astronomy, University of Hawaii
+ */
+
+#if !defined(PSWARP_ERROR_CODES_H)
+#define PSWARP_ERROR_CODES_H
+/*
+ * The line
+ *  PSWARP_ERR_$X{ErrorCode},
+ * (without the X)
+ *
+ * will be replaced by values from errorCodes.dat
+ */
+typedef enum {
+    PSWARP_ERR_BASE = 8000,
+    PSWARP_ERR_${ErrorCode},
+    PSWARP_ERR_NERROR
+} pswarpErrorCode;
+
+void pswarpErrorRegister(void);
+
+#endif

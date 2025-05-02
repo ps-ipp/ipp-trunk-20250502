@@ -1,0 +1,136 @@
+.nf
+NAME:
+	libpscoords - convert all the various Pan-STARRS coordinate systems
+
+API:
+	pscoords [args] < infile > outfile
+
+DESCRIPTION: 
+
+There are five coordinate systems used by Pan-STARRS: 
+
+  * Sky coordinates of conventional RA, Dec, and PA; 
+  * Tangent plane coordinates (meaning the angles at which rays enter the
+    optical system, relative to the optical system itself); 
+  * Focal plane coordinates (meaning physical position of an image on the
+    focal plane); 
+  * OTA coordinates (meaning the pixel position of an image on the silicon
+    of a given OTA); and 
+  * Cell coordinates (meaning the pixel position of an image on a given
+    cell).
+
+libpscoords has routines to convert between these various coordinate
+systems.  
+
+Normal Application
+------------------
+
+To go from a position (a,d) relative to (a0,d0,pa) pointing to cell coords:
+---------------------------------------------------------------------------
+  psc_tproject(a, d, a0, d0, pa, density, pi/2-alt, vertical, &x, &y);
+  psc_psoptics2(x/sec2rad, y/sec2rad, dx, dy, dpa, pscale, d2, d3, &xfp, &yfp);
+  psc_fp_to_pixel(xfp, yfp, &ota_xid, &ota_yid, &xota, &yota);
+  psc_pixel_to_cell(xota, yota, &cell_xid, &cell_yid, &xcell, &ycell);
+
+(skipping the d2 distortion term one can also use)
+  psc_psoptics(x/sec2rad, y/sec2rad, dx, dy, dpa, pscale, d3, &xfp, &yfp);
+
+To go from cell coords to a position (a,d) relative to (a0,d0,pa) pointing:
+---------------------------------------------------------------------------
+  psc_cell_to_pixel(cell_xid,cell_yid, xcell,ycell, &xota,&yota);
+  psc_pixel_to_fp(ota_xid, ota_yid, xota, yota, &xfp, &yfp);
+  psc_invoptics2(xfp, yfp, dx, dy, dpa, pscale, d2, d3, &x, &y);
+  psc_tplonglat(x*sec2rad, y*sec2rad, a0, d0, pa, density,  pi/2-alt, vertical, &a, &d);
+
+(skipping the d2 distortion term one can also use)
+  psc_invoptics(xfp, yfp, dx, dy, dpa, pscale, d3, &x, &y);
+
+See the prototypes for suggested parameter values.  Note that for
+Pan-STARRS the "vertical" argument is the ROT angle (in rad).
+
+
+Prototypes
+----------
+
+/* Enable application of chip offsets? */
+int psc_do_chipoff(int doit); 	/* Apply chip offsets? (0/1, default=0) */
+
+/* Convert a focal plane position to OTA otax,otay, Cell cellx,celly, Pixel */
+int psc_fp_to_pixel(double xfp_um, double yfp_um, 	/* FP position (um) */
+		int *ota_xid, int *ota_yid,		/* OTA ID (0:7) */
+		double *xota_pix, double *yota_pix);	/* OTA position (pix) */
+
+/* Convert a pixel position in OTA ota_xid,ota_yid to FP */
+int psc_pixel_to_fp(int ota_xid, int ota_yid,		/* OTA ID (0:7) */
+		double xota_pix, double yota_pix,	/* OTA position (pix) */
+		double *xfp_um, double *yfp_um);	/* FP position (um) */
+
+/* Convert an OTA pixel position to cell ID and cell coords */
+int psc_pixel_to_cell(double xota_pix, double yota_pix,	/* OTA position (pix) */
+		  int *cell_xid, int *cell_yid,		/* Cell ID (0:7) or -1 */
+		  double *xcell_pix, double *ycell_pix);/* Cell position (pix) */
+
+/* Convert a cell position and ID to OTA coords */
+int psc_cell_to_pixel(int cell_xid, int cell_yid,	/* Cell ID (0:7) */
+		  double xcell_pix, double ycell_pix,	/* Cell position (pix) */
+		  double *xota_pix, double *yota_pix);	/* OTA position (pix) */
+
+/* Convert tangent plane (x,y) at (a0,d0,pa) to RA,Dec (a,d) [radians] */
+/* y is rotated CCW by pa from N; NOTE: x is west when PA = 0 (pos parity) */
+/* Set density=0 to apply no correction for differential refraction, otherwise P/T in STP */
+int psc_tplonglat(double x_rad, double y_rad, double a0_rad, double d0_rad, double pa_rad,
+		  double density/*0.71 for HK*/, double zenith_rad/*pi/2-ALT*/, 
+		  double vertical_rad/*ROT*/, double *a_rad, double *d_rad);
+
+/* Project RA,Dec (a,d) to the tangent plane (x,y) at (a0,d0,pa) [radians] */
+/* y is rotated CCW by pa from N; NOTE: x is west when PA = 0 (pos parity) */
+/* Set density=0 to apply no correction for differential refraction, otherwise P/T in STP */
+int psc_tproject(double a_rad, double d_rad, double a0_rad, double d0_rad, double pa_rad,
+		 double density/*0.71 for HK*/, double zenith_rad/*pi/2-ALT*/, 
+		 double vertical_rad/*ROT*/, double *x_rad, double *y_rad);
+
+/* Evaluate an inverse optical model: microns -> arcsec notionally */
+/* Offset, scale with *small* distortion, rotate */
+int psc_invoptics(double xfp_um, double yfp_um, double dx_sec, double dy_sec, double dpa_rad, 
+		  double pscale/*38.86um/sec*/, double d3/*1.49e-10sec^-2*/, 
+		  double *x_sec, double *y_sec);
+
+/* Evaluate an optical model: arcsec -> microns notionally */
+/* Offset, scale with distortion, rotate */
+int psc_psoptics(double x_sec, double y_sec, double dx_sec, double dy_sec, double dpa_rad, 
+		 double pscale/*38.86um/sec*/, double d3/*1.49e-10sec^-2*/, 
+		 double *xfp_um, double *yfp_um);
+
+/* Evaluate an inverse optical model: microns -> arcsec notionally */
+/* Offset, scale with *small* distortion, rotate */
+int psc_invoptics2(double xfp_um, double yfp_um, double dx_sec, double dy_sec, double dpa_rad, 
+		   double pscale/*38.793um/sec*/,
+		   double d2/*9.8e-7sec^-2*/, double d3/*3.1e-11sec^-2*/, 
+		   double *x_sec, double *y_sec);
+
+/* Evaluate an optical model: arcsec -> microns notionally */
+/* Offset, scale with distortion, rotate */
+int psc_psoptics2(double x_sec, double y_sec, double dx_sec, double dy_sec, double dpa_rad, 
+		  double pscale/*38.793um/sec*/,
+		  double d2/*9.8e-7sec^-2*/, double d3/*3.1e-11sec^-2*/, 
+		  double *xfp_um, double *yfp_um);
+
+/* Enable application of chip offsets (um, mrad)? */
+int psc_load_otaoff(const char *fname);
+
+
+
+
+
+
+BUGS:
+	090516: Conceivably a tiny bug in Sky<->TP projections very near
+                the pole, equally conceivably a bug in libm.
+
+SEE ALSO:
+	pscoords
+
+AUTHORS:
+	John Tonry
+
+VERSION:

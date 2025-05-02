@@ -1,0 +1,437 @@
+<meta name=file  content=gcontrol>
+<meta name=title content=gcontrol: the program-organization program>
+<meta name=page  content=gcontrol>
+
+<b> Overview </b>
+
+<p>
+In a large data analysis project such as Elixir, there are usually
+certain sub-systems which resemble an assembly line: A continuous
+stream of objects, each one very similar to the next, enters a
+factory.  They pass through a series of stages at which some process
+occurs, each step along the way being performed in essentially the
+same way for each object it encounters.  At the end of the assembly
+line, a new object (or objects) appears, fashioned from the original
+that entered at the other end.  
+
+<p>
+Consider, for example, a scientific analysis of images from the
+telescope.  Each image is essentially the same as any other, differing
+only in detail.  A sequence of steps is performed on each image: for
+example, detrending, object detection, and astrometry.  As the
+analysis proceeds, each step performs a transformation on its input
+object, creating a new, slightly modified object.  The result of the
+analysis step may create a new data file, or they may simply alter
+some portion of the file provided.  
+
+<p>
+Because each step in the analysis is identical for every image, there
+is a regularity to the commands which are executed.  For example,
+consider an input science image called <tt> image01.fits </tt>.  The series
+of commands needed to arrive at the final results might consist of:
+
+<pre>
+detrend image01.fits image01.flt
+detect  image01.flt  image01.dat
+astrom  image01.dat  image01.astro
+</pre>
+
+<p>
+Each step in this analysis sequence produces a new file, and each file
+is only different in a portion of the filename.  If the input image
+had been called <tt>image02.fits</tt>, we could easily reconstruct the
+above sequence of commands, replacing <tt>image01</tt> for
+<tt>image02</tt>.
+
+<p>
+We developed the program `elixir' to make it very easy to define a
+sequence of steps which are performed identically for a sequence of
+similar objects in a list.  Elixir is very flexible:  the sequence of
+operations for a given implementation are defined in a simple text
+configuration file, and can consist of essentially any operations
+which fit into the assembly-line model.  Each implementation can be
+drastically different, and need not operated just on images, but any
+anslyis sequence.  We call a specific implementation an `elixir', and
+usually give the elixir a name relevant to its task.
+
+<p>
+Because of the assembly-line nature of the elixir model, it is easy to
+extend the concept from one computer to a network of computers.  Not
+only does `elixir' construct the commands as needed, it also executes
+those commands on any of a collection of computers, keeping track of
+which computers are currently being used and which are currently
+free.  
+
+<p class=figure>
+<img class=figure src=pics/elixir-node.png alt="Elixir node"><br>
+Figure 1: Elixir node
+</p>
+
+<b> List-based command generation </b>
+
+<p>
+To visualize the elixir process, consider each of the analysis steps
+as a node, as shown in Figure 1.  Each node has three queues, an input
+queue of pending objects, a 'success' queue, and a 'failure' queue.
+Each node represents a single command, such as 'detrend' in the
+example above.  The node receives as input a word or a set of words
+which define the object being analysed.  Associated with each node is
+a set of rules to generate the complete command, including possible
+variations on the input words, as necessary.  In the example above,
+the input list might simply consist of the input image names, <tt>
+image01.fits </tt>, <tt> image02.fits </tt>, etc.  The rule for the `detrend'
+node would construct the command <tt> detrend image01.fits
+image01.flt </tt>.
+
+<p>
+Each node in Elixir uses its rule to generate a command, such as <tt>
+detrend image01.fits image01.flt </tt> and start its execution.  When this
+command is finished being executed, the node passes the associated
+words to either the `success' or the `failure' queues, based on the
+command's exit status.  Each success and failure queues are connected
+in turn to the pending queue of another node.  In this way, a
+successful `detrend' command for <tt> image01.fits </tt> would pass the
+word <tt> image01.fits </tt> to its success queue, which is in turn
+connected to the pending queue of the `detect' node.  There is a
+special node called 'global' which represents the entire elixir
+process.  The pending, success, and failure queues of the global node
+represent the global input and output of the elixir analysis.  Thus,
+objects are introduced into the process by placing them in the global
+input queue.  The objects are finished when they reach either the
+global success or failure queues (having a status for the entire
+process of 'success' or 'failure').
+
+<p>
+In order for a node to execute a command, it needs to be given a
+machine on which to run the command.  Elixir maintains a pool of
+available computers.  When a node is ready to execute a command, it
+requests a machine from the pool of free computers.  If none are free,
+it waits for a while then tries again.  If a computer is free, the
+node receives control of the machine, and starts the execution of its
+process.  The node then monitors the output from the machine, saving
+all messages in a log file specific to the current object.
+Eventually, the process finishes, and the node passes the object to
+the appropriate output queue.  At this point, it returns the machine
+to the pool of free machines, and grabs the next object from its
+pending queue, if any.  This process limits the number of executing
+processes to the number of available machines.  This is a very simple,
+but very reliable way of balancing the load on each machine.  As long
+as none of the analysis steps individually overloads the machine
+resources, each machine will be used at an appropriate level.
+
+<p>
+The machines which are available to the Elixir process are simply
+listed in the elixir configuration file.  This makes it easy to change
+the collection of machines used for a given elixir implementation.  In
+practice, if the analysis steps for a particular elixir underload each
+of the machines available to it, multiple entries for each machine can
+be included in the configuration list, increasing the demands on the
+individual machines.
+
+<p class=figure>
+<img class=figure src=pics/elixir-collection.png alt="elixir command example"><br>
+Figure 2: Example elixir command system
+</p>
+
+<b> Elixir configuration </b> 
+
+<p>
+The Elixir configuration file makes if very easy to define a sequence
+of commands and the rules for generating the command line arguments.
+In the configuration file, most lines consist of keyword / value
+pairs.  The keyword can consist of any non-white space.  The value may
+contain any ASCII characters at all, including spaces.  If there are multiple
+entries of the same keyword, the last one provides the value.  
+Keywords defined in the configuration file may be referred to
+elsewhere by appending a dollar sign: $KEYWORD.  The entire
+configuration file is loaded before variables such as this are parsed,
+so order is not important.  
+
+<p>
+In addition to the keyword / value entries, there are a limited number
+of other possible entries.  Lines with a leading hash mark (#) are
+commented out.  A line beginning with the word 'input' is a command to
+load additional configuration information from another file.  In this
+special case, variables used to define the filename must already exist
+in the configuration file loaded so far.  These details about the
+configuration file are relevant to other programs in addition to
+`elixir'.  
+
+<p>
+Finally, we come to the portion of the configuration file which
+defines the components of the specific elixir implementation.  Each
+node in the elixir process is defined by a block which looks like
+this:
+
+<pre>
+process detrend
+detrend.arg      0        detrend
+detrend.arg      5 %s     &0
+detrend.arg      0 %s.flt BASE(&0) 
+detrend.success           detect
+detrend.failure	          global
+</pre>
+
+<p>
+The first line here, <tt> process detrend </tt>, defines the node.  The
+next three lines, beginning with <tt> detrend.arg </tt>, define the syntax
+of the command associated with that node.  The first entry is the
+program, the next two lines generate the first and second argument to
+the program.  The executed command (<tt> detrend </tt>) and the name of the
+node are not required to be the same.  It is particularly important to
+note that the order of these lines in the configuration file matters:
+the order of the command-line arguments is the order of the lines in
+the configuration file.  
+
+<p>
+These lines define how to generate the arguments by providing a
+C-style format statement and a set of arguments to the format
+statement.  Let us first consider the input list.  The input list to
+Elixir describes a set of objects to be analysed.  In our example
+above, these consisted of the names of the raw science images:
+
+<pre>
+image01.fits
+image02.fits
+image03.fits
+</pre>
+
+and so on. In this example, there is only one word on each line to
+describe the objects.  It is possible to have multiple words to
+describe a single object.  For example, to define a specific CCD image
+in both MEF & SPLIT style images, one could use lines like:
+
+<pre>
+image01.fits X SPLIT
+image.fits 00 MEF
+image.fits 01 MEF
+image.fits 02 MEF
+image03.fits X SPLIT
+</pre>
+
+In this example, the first word is a file name, the second defines the
+CCD for MEF images (and is ignored for SPLIT), the third identifies
+the image type, SPLIT vs MEF.  In the elixir configuration file, the
+first word on each line is identified by &0, the second by &1, etc.
+Thus, in the <tt> process detrend </tt> example above, the line which reads
+<tt> detrend.arg 5 %s &0 </tt> constructs an argument which just consists
+of the first word for each line.  
+
+<p>
+The following line shows the use of the filename manipulation
+functions available within the Elixir configuration system.  These
+functions are only available when defining the Elixir node command
+line arguments.  In this example, <tt> detrend.arg 0 %s.flt
+BASE(&0) </tt>, the argument is constructed by taking the first word
+(&0), stripping off the path and extension from the file name (ie,
+taking /path/file.ext and returning 'file'), and appending the string
+'.flt' to that word.  This de-construction of the filename is provided
+by the BASE function.  Other string manipulation functions are
+available, mostly functions relevant to manipulating file names.  Some
+of the available functions are: 
+
+<ul>
+<li> BASE   -  return file basename
+<li> EXT    -  return file extension
+<li> PATH   -  return file pathname
+</ul>
+
+Other functions will be added as they become necessary.
+
+<p>
+These configuration formatting lines are somewhat limited compared
+with standard C formatting commands: There can only be one word
+defined by the format (ie., no white space is allowed).  The only
+formatting command currently allowed is %s.  
+
+<p>
+The only remaining portion of these format lines which has not yet
+been described is the number in the second position.  The number in
+the second space on each line represents part of the flow control
+process.  A positive definite number here says that the word formed by
+this line is a filename which must exist before the process should be
+run.  The number tells how many seconds elixir should wait for the
+object to appear before giving up on this object.  This timeout is
+provided for various possible uses.  One basic use is to avoid NFS
+latency problems.  It is not unusual under NFS for a file created on
+one machine not to appear on a cross-mounted disk on a second machine
+for some tenths of seconds or so.  
+
+<p>
+The final two lines which define this elixir node are used to make the
+connection between the node and other nodes.  The first, <tt>
+detrend.success detect </tt>, tells elixir to connect the success queue of the
+detrend process to the pending queue of the `detect' process.  The
+second line, <tt> detrend.failure global </tt>, tells elixir to connect the
+failure queue of this process to the global failure queue.  Similarly,
+the success queue of the last node should be connected to the global
+success queue.  
+
+<p>
+There is also a set of configuration entries which define global
+concepts for the elixir, including the actions of the global input /
+output queue.  The required entries of this type of listed here:
+<pre>
+global.success	/path/analysis.success
+global.failure	/path/analysis.failure
+global.source	/path/analysis.source
+global.msg	/path/analysis.msg
+global.end	/path/analysis.end
+global.Nargs	3
+global.logfile  0 %s.log  BASE(&0)
+global.pending	detrend
+global.timeout  1200.0
+</pre>
+
+<p>
+The first two entries, <tt> global.success </tt> and <tt>
+global.failure </tt>
+define the output files for the globals success and failure queues.
+When an object lands on either of these queues, the object and the
+exit status are written to the named file, and the object is marked as
+being completed.  The entry <tt> global.pending </tt> defines the first
+node in the process.  <tt> global.timeout </tt> defines a timeout period in
+seconds: if a process provides not output for this much time, elixir
+decides that it has hung and kills it.  The entry <tt> global.logfile </tt>
+defines the rules for generating a log file name for each object,
+using a syntax identical to the command-line argument generation
+lines.  <tt> global.end </tt> is a file to which elixir writes a collection
+of processing statistics after a complete analysis is done.   <tt>
+global.msg </tt> provides a way for elixir to communicate with other
+processes.  Finally, we leave the description of <tt> global.source </tt>
+until after we describe how objects are passed to Elixir.
+
+<b> Elixir Communication Issues </b>
+
+<p>
+The input to an elixir process is a list consisting of lines with
+words which define the specific objects, such as a list of image
+names.  There are two ways in which elixir may be presented such a
+list.  In the simple case, when the program is started, a filename is
+given as a command line argument.  This file contain a complete list
+of names for the elixir run.  The lines from this list are loaded and
+passed to the global.pending queue, which in turn passes them to the
+first node.  Once the elixir process has finished with all of the
+entries in the file, it exits, and the process is complete.
+
+<p>
+The other possibility is to use a mechanism we call an input FIFO.  In
+our implementaton, a FIFO is not a standard UNIX fifo-type special
+file.  We have avoided the use of true fifos for two reasons.  First,
+it would be necessary for a special file to be created for each
+implementation of elixir (by root), which makes it a non-trival task
+to create a new elixir implementation.  Second, the data in a standard
+UNIX fifo is ephemeral.  If the programs on either end of the fifo are
+not running, there is no guarantee that the data will remain (the
+situation with socketed connections is even worse).  Instead, we have
+chosen to implement a type of FIFO by using a normal UNIX file which
+one program writes to and another reads the data from.  To avoid
+conflicts between programs, we simply lock the file each time we are
+accessing it.  Messages are passed to Elixir using this mechanism, and
+so are the lines which define new objects.
+
+<p>
+If elixir is not invoked with a list file on the command line, it
+instead monitors the file defined by <tt> global.source </tt>.  Anytime
+elixir looks for object entries in this file, the file is locked
+first.  Then, when the lines have been loaded, the file is cleared.
+In this way, a second program can add lines to this file at arbitrary
+times without danger of losing any entries, whether or not the
+particular elixir is already running.  When the external program
+writes to the file, it also locks it, so elixir will not load the
+entries before it is ready. Then, when it has written the entries, the
+file is unlocked, ready for elixir to grab the new list of names.  
+
+<p>
+In this mode, elixir runs continuously, waiting for more entries in
+the FIFO file.  A mechanism to end the elixir run is made possible by
+having elixir recognized a special word in the FIFO.  If elixir
+encounters the word EOF, it will no longer accept input from the FIFO,
+and will exit when all of the entries it has already loaded have been
+processed.  The same goal can be accomplished by passing the elixir a
+message saying 'STOP' via the message FIFO.
+
+<p>
+Elixir runs like a daemon, in the background with no output directly
+to the screen (except for serious errors).  It is possible to monitor
+the progress of the elixir run by communicating through the message
+FIFO.  Elixir monitors the message fifo for several specific requests,
+and responds to them as they arrive.  Typically a request will include
+a command, such as STATUS and a filename, where the requested
+information should be placed.  Other messages include 'STOP' (halt
+processing and exit when all objects have been processed), 'KILL'
+(halt all processing immediately), and 'TIME' (provide a set of
+statistics on process times).
+
+<p>
+Elixir uses either the rsh or ssh commands to make the connections to
+the remote machines.  All machines are treated as remote, even the
+machine on which elixir is run.  Elixir forks off a process which logs
+into the remote machine and starts a new shell (csh).  The STDIN,
+STDOUT, and STDERR connections are used for communication between the
+remote shell and elixir.  Programs are started by executing the
+command in the shell. 
+
+<p>
+The configuration file used by Elixir may also contain configuration
+information for a variety of other programs.  Elixir saves a copy of
+the complete configuration and passes this filename to those programs
+which can interpret it with the PTOLEMY environment variable.  This
+name tells the Elixir programs what configuration file to load.  By
+specifying this value as an environment variable, it will override
+other choices so that elixir can guarantee that the programs it
+launches have a consitent, known set of configuration choices.  
+
+<p>
+The other unique feature in the command line aids the process control.
+Every command is followed by an echo of the words "PROCESS DONE".  As
+the programs run, elixir monitors the output stream looking for three
+special phrases.  One is this 'PROCESS DONE' phrase.  Another is the
+word "SUCCESS" and the third is the word "ERROR".  By looking for
+combinations of these words, elixir can determine if the program ended
+successfully, failed, or if the computer crashed.  To interact well
+with Elixir, programs should send the correct word "SUCCESS" or
+"ERROR" on exit.  If necessary, one can wrap the program in a shell
+which monitors the exit status and sends the correct word.  If this is
+not possible, it is always possible to assume the process always ends
+successfully and include these words as an echo on the command line.
+
+<font size=-1>
+
+<p>
+<b> A short note about our use of filelocks </b>.  We have implemented a
+somewhat complex type of file lock mechanism.  We do not want to use a
+standard NFS implemented lock, particularly for the locks on our
+database files.   The problem the standard filelocking mechanism under
+UNIX/NFS is that the lock only exists if the program holding the lock
+is running.  This is insufficient to maintain data integrity.
+Consider a database which consists of several distinct files.  A
+particular write operation to the database may need to manipulate more
+than one file, and it needs to be sure those files are not also
+changed by another program in the meantime.  To avoid this, it should
+set a lock (on the files or on the whole database).  Then it should
+write to the files, then it should clear the lock.  Consider, though,
+what would happen in the program were to crash or be killed after
+writing the first file, but before writing the second.  The data in
+the two would be inconsistent.  At that point, if a second program
+tried to write to the database, it could easily corrupt the data,
+making it rather difficult to correct the problem.  With the standard
+UNIX/NFS locks, the lock is ephemeral - it only exists as long as the
+program is running (and certainly only while the machine is up).  In
+this example, it is easy to imagine that, by the time the second
+program comes along, the files are out of sync but the lock is no
+longer set.  We wanted a lock that would be guaranteed to exist until
+it was actively cleared, either by the program in its usual way, or by
+a person (or program) which has found the problem and fixed it.   
+
+<p>
+To implement such a lock, we create a lock in two stages.  The file
+that is being locked (ie, filename) is associated with the lockfile of
+the form .filename.lck.  The lockfile is locked with NFS style locks.
+Then the word BUSY is written to the lockfile.  At this point the NFS
+lock doesn't matter, and can be cleared or left.  Even if the program
+dies, the word BUSY remains to prevent another program from taking the
+lock.  When it is time to clear the lock, the file is either deleted
+or the word IDLE is written to it.  
+
+</font>

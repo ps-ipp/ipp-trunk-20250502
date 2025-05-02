@@ -1,0 +1,117 @@
+#!/usr/bin/env perl
+
+# list the filesets in a data store product
+# The only ipp specific code is the function that gets the database handle and the
+# exit status codes
+
+use strict;
+use warnings;
+
+use dsdbh;
+use DBI;
+
+my $PS_EXIT_CONFIG_ERROR = 3;
+my $PS_EXIT_DATA_ERROR = 5;
+
+my $fileset = pop;
+die("must specify fileset to list") unless defined $fileset;
+
+my $product = pop;
+die("must specify product to list") unless defined $product;
+
+my $dbh = getDBHandle();
+
+# Look up the product id
+my $prod_stmt = $dbh->prepare("SELECT prod_id FROM dsProduct WHERE prod_name = '$product'");
+$prod_stmt->execute();
+my $prod = $prod_stmt->fetchrow_hashref();
+if (! defined $prod) {
+    print STDERR "failed to find $product in product list\n";
+    exit ($PS_EXIT_DATA_ERROR);
+}
+
+my $prod_id = $prod->{prod_id};
+
+my $stmt = $dbh->prepare("SELECT fileset_id FROM dsFileset WHERE fileset_name = \'$fileset\'" .
+                    " AND prod_id = $prod_id");
+$stmt->execute();
+my $fs = $stmt->fetchrow_hashref();
+if (!defined $fs) {
+    print STDERR "failed to find $fileset in $product\n";
+    exit ($PS_EXIT_DATA_ERROR);
+}
+
+my $fs_id = $fs->{fileset_id};
+
+
+# get the headers for all of the type specific columns
+# a fileset may contain files with multiple types. We print out a new
+# header each time the type in the list changes.
+# save the header
+
+$stmt = $dbh->prepare("SELECT * FROM dsFileType");
+$stmt->execute();
+my %fileTypes;
+while( my @row = $stmt->fetchrow_array()) {
+    my $type = $row[0];
+    $fileTypes{$type} = \@row;
+}
+
+my $header = "# fileID          |bytes   |md5sum                          |type        |";
+
+$stmt = $dbh->prepare("SELECT * from dsFile WHERE fileset_id = $fs_id ORDER BY file_id");
+$stmt->execute();
+
+my $print_header=1;
+my $last_type = "";
+my $last_header = "";
+while( my $row = $stmt->fetchrow_hashref()) {
+    my $type = $row->{type};
+
+    # if the type changes print out a new header
+    if ($type ne $last_type) {
+        $print_header = 1;
+        $last_type = $type;
+    }
+    if ($print_header) {
+        # add the type specific columns
+        my $typeheader = "";
+        my $fileTypeDef = $fileTypes{$type};
+        for (my $i= 1; $i <=4; $i++) {
+            if (!defined $fileTypeDef->[$i]) {
+                last;
+            }
+            $typeheader .= sprintf "%-8s|", $fileTypeDef->[$i];
+        }
+        my $newheader = "$header$typeheader";
+        # if the header actually changed (due to type specific columns) print it out
+        if ($newheader ne $last_header) {
+            print "$newheader\n";
+            $last_header = $newheader;
+        }
+        $print_header = 0;
+    }
+
+    my $line = sprintf "%-18s|%-8s|%-32s|%-12s|", 
+        $row->{file_name}, $row->{bytes}, $row->{md5sum}, $row->{type};
+
+    # now add any type specific columns that are defined (8 character minimum width is arbitrary)
+    if (defined $row->{type_col_0}) {
+        $line .= sprintf "%-8s|", $row->{type_col_0};
+        if (defined $row->{type_col_1}) {
+            $line .= sprintf "%-8s|", $row->{type_col_1};
+            if (defined $row->{type_col_2}) {
+                $line .= sprintf "%-8s|", $row->{type_col_2};
+                if (defined $row->{type_col_3}) {
+                    $line .= sprintf "%-8s|", $row->{type_col_3};
+                }
+            }
+        }
+    }
+
+    print "$line\n";
+}
+if ($print_header) {
+    # empty file set
+    print "$header\n";
+}

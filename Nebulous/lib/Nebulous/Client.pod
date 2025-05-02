@@ -1,0 +1,524 @@
+=pod
+
+=head1 NAME
+
+Nebulous::Client - Nebulous client component
+
+=head1 SYNOPSIS
+
+    use Nebulous::Client;
+
+    my $neb = Nebulous::Client->new(
+        proxy   => 'http://localhost:80/nebulous'
+    );
+
+    my $uri = $neb->create( $key, $vol );
+    my $fh = $neb->open_create( $key, $vol );
+    $neb->replicate( $key, $vol );
+    $neb->cull( $key, $vol );
+    $neb->lock( $key, 'write' );
+    $neb->unlock( $key, 'write' );
+    $neb->setxattr( $key, $name, $value, $flags );
+    $neb->getxattr( $key, $name );
+    $neb->listxattr( $key );
+    $neb->removexattr( $key, $name );
+    my $uris = $neb->find_objects( $pattern );
+    my $uris = $neb->find_instances( $key, $vol );
+    my $path = $neb->find( $key );
+    my $fh = $neb->open( $key, 'read' );
+    $neb->delete( $key );
+    $neb->copy( $key, $new_key, $vol );
+    $neb->move( $key, $new_key );
+    $neb->swap( $key1, $key2 );
+    $neb->delete_instance( $uri );
+    my $stats = $neb->stat( $key );
+    my $mounts = $neb->mounts();
+    my $mode = $neb->chmod( $key, $mode );
+    my $n_dead = $neb->prune( $key );
+    my $n_dead = $neb->there_can_be_only_one( $key, $vol );
+
+=head1 DESCRIPTION
+
+This component provides client access to the Nebulous storage system.  It
+provides an interface for files to be added, managed, and removed from the
+system.
+
+=head1 USAGE
+
+=head2 Import Parameters
+
+This module accepts an optional hash as argument to it's C<import> method and
+exports no I<symbols>.
+
+    use Nebulous::Client trace => qw( debug );
+
+The hash is allowed to have a single key, C<trace>.  This controls the level of
+tracing sent to the standard out.  The value maybe one of: C<off>, C<fatal>,
+C<error>, C<warn>, C<info>, C<debug>, C<all>. 
+
+The default level of tracing is C<warn>.
+
+=head2 Methods
+
+=head3 Constructors
+
+=over 4
+
+=item * new( ... )
+
+Accepts a mandatory hash.
+
+    my $neb = Nebulous::Client->new(
+        proxy   => 'http://localhost:80/nebulous'
+        uri     => 'urn:Nebulous/Server',
+    );
+
+=over 4
+
+=item * proxy
+
+The URL of the Nebulous server to connect to.
+
+=item * uri
+
+The namespace of the SOAP service.  Unless you know what your doing, don't set
+this key.
+
+This key is optional.
+
+=back
+
+=back
+
+=head3 Object Methods
+
+=over 4
+
+
+=item * create($key, $volume).
+
+Creates a new storage object.
+
+=over 4
+
+=item * key
+
+The storage object key (name).
+
+=item * volume
+
+The preferred storage location of initial instance.
+
+This parameter is optional.
+
+=back
+
+Returns a URI or C<undef> on failure.
+
+
+=item * open_create($key, $volume).
+
+Creates and opens new storage object.
+
+=over 4
+
+=item * key
+
+The storage object key (name).
+
+=item * volume
+
+The preferred storage location of initial instance.
+
+This parameter is optional.
+
+=back
+
+Returns a filehandle or C<undef> on failure.
+
+
+=item * replicate($key, $volume)
+
+Adds an instance to a storage object.
+
+=over 4
+
+=item * key
+
+The storage object key (name).
+
+=item * volume
+
+The preferred storage location of initial instance.
+
+This parameter is optional.
+
+=back
+
+Returns true on success.
+
+
+=item * cull($key, $volume)
+
+Removes an instance from a storage object.
+
+=over 4
+
+=item * key
+
+The storage object key (name).
+
+=item * volume
+
+The volume to attempt to remove an instance from.  If there is no instance on
+the specified volume this method will fail.  If there is more then one instance
+on the specified volume I<only one> of them will be removed.
+
+This parameter is optional.
+
+=back
+
+Returns true on success.
+
+
+=item * lock($key, $type, $timeout)
+
+Trys to acquire a lock on a storage object
+
+=over 4
+
+=item * key
+
+The storage object key (name).
+
+=item * type
+
+The type of lock to acquire.  Either C<read> or C<write>.
+
+=item * timeout
+
+The number of seconds to I<try> for a lock.
+
+This parameter is optional.
+
+=back
+
+Returns true on success.
+
+
+=item * unlock($key, $type)
+
+Trys to release a lock on a storage object.
+
+=over 4
+
+=item * key
+
+The storage object key (name).
+
+=item * type
+
+The type of lock to release.  Either C<read> or C<write>.
+
+=back
+
+Returns true on success.
+
+
+=item * find_objects($pattern)
+
+Lists all storage objects that match C<$pattern>.  Where C<$pattern> is a POSIX
+1003.2 compatable regular repression.  Note that this is I<NOT> a Perl or PCRE
+regular expression.
+
+=over 4
+
+=item * pattern
+
+The storage object key (name).
+
+This parameter is optional.
+
+=back
+
+Returns an arrayref of scalars.
+
+
+=item * find_instances($key, $volume)
+
+Lists all instances of a storage object
+
+=over 4
+
+=item * key
+
+The storage object key (name).
+
+=item * volume
+
+Restrict search to this storage location.
+
+This parameter is optional.
+
+=back
+
+Returns an arrayref of scalars.
+
+
+=item * find($key)
+
+Find any instance of a storage object.
+
+=over 4
+
+=item * key
+
+The storage object key (name).
+
+=back
+
+Returns the path to the instance.
+
+
+=item * open($key, $type)
+
+Open a storage object for read or write.
+
+=over 4
+
+=item * key
+
+The storage object key (name).
+
+=item * type
+
+The type of lock to acquire.  One of [C<read>, C<write>, C<>>].
+
+C<>> truncates any pre-existing files to zero length and opens it for writing.
+
+=back
+
+Returns a filehandle or C<undef> on failure.
+
+
+=item * delete($key)
+
+Delete a storage object and all of it's instances.
+
+=over 4
+
+=item * key
+
+The storage object key (name).
+
+=back
+
+Returns true on success.
+
+
+=item * copy($key, $new_key, $volume)
+
+Copy a storage object.
+
+=over 4
+
+=item * key
+
+The source object.
+
+=item * new_key
+
+The destination object.
+
+=item * volume
+
+The preferred storage location of the new instance.
+
+This parameter is optional.
+
+=back
+
+Returns true on success or C<undef> on failure.
+
+
+=item * move($key, $new_key)
+
+Rename a storage object.
+
+=over 4
+
+=item * key
+
+The source object.
+
+=item * new_key
+
+The destination object.
+
+=back
+
+Returns true on success or C<undef> on failure.
+
+
+=item * swap($key1, $key2)
+
+Atomically swaps the names of two storage objects.
+
+=over 4
+
+=item * key1
+
+The source object.
+
+=item * key2
+
+The destination object.
+
+=back
+
+Returns true on success or C<undef> on failure.
+
+
+=item * delete_instance($uri)
+
+Remove a storage object instance.
+
+=over 4
+
+=item * uri
+
+URI of the instance to remove.
+
+=back
+
+Returns true on success or C<undef> on failure.
+
+=item * stat($key)
+
+View the properties of a storage object.
+
+=over 4
+
+=item * key
+
+The storage object key (name).
+
+=back
+
+Returns an arrayref of scalars.
+
+=item * prune($key)
+
+Removes all of the inaccessible instances from an object.
+
+=over 4
+
+=item * key
+
+The storage object key (name).
+
+=back
+
+The number of instances removed.
+
+=item * there_can_be_only_one($key, $vol)
+
+Removes all but one instance of an object and automatically removes any
+inaccessible instances.
+
+=over 4
+
+=item * key
+
+The storage object key (name).
+
+=item * vol
+
+If specified, the only remaining instance will be left on this volume (if an
+instance already exists there).
+
+=back
+
+The number of avaiable instances removed.
+
+=item * mounts()
+
+Accepts no parameters and returns an AoA of:
+
+    [
+        [
+            mountpoint,
+            total,
+            used,
+            vol_id,
+            name,
+            path,
+            allocate,
+            available,
+            xattr,
+        ],
+        [ ... ],
+        ...
+    ]
+
+=item * chmod( $key, $mode );
+
+Accepts 2 parameters, both mandatory.  C<$key> is the nebulous key to operate
+on and C<$mode> are the POSIX like file permissions to set on all instances of
+C<$key>.  C<$mode> must be specified in oct.  Returns C<$mode> or sucess or an
+exception on failure.
+
+=back
+
+=head1 DEVELOPER NOTES
+
+=head1 REFERENCES
+
+=over 4
+
+=item MogileFS
+
+The Nebulous system is similar in function to MogileFS but very different in
+implementation and operation.
+
+L<http://www.danga.com/mogilefs/>
+
+=back
+
+=head1 CREDITS
+
+Just me, myself, and I.
+
+=head1 SUPPORT
+
+Please contact the author directly via e-mail.
+
+=head1 AUTHOR
+
+Joshua Hoblitt <jhoblitt@cpan.org>
+
+=head1 COPYRIGHT
+
+Copyright (C) 2004-2009  Joshua Hoblitt.  All rights reserved.
+
+This program is free software; you can redistribute it and/or modify it under
+the terms of the GNU General Public License as published by the Free Software
+Foundation; either version 2 of the License, or (at your option) any later
+version.
+
+This program is distributed in the hope that it will be useful, but WITHOUT ANY
+WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A
+PARTICULAR PURPOSE.  See the GNU General Public License for more details.
+
+You should have received a copy of the GNU General Public License along with
+this program; if not, write to the Free Software Foundation, Inc., 59 Temple
+Place - Suite 330, Boston, MA  02111-1307, USA.
+
+The full text of the license can be found in the LICENSE file included with
+this module, or in the L<perlgpl> Pod as supplied with Perl 5.8.1 and later.
+
+=head1 SEE ALSO
+
+L<Nebulous::Client::QuickStart>, L<Nebulous::Server>
+
+=cut

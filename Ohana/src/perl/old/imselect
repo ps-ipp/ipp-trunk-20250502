@@ -1,0 +1,189 @@
+#!/usr/bin/env perl
+$SKIPDOME = 0;
+
+sub vsystem {
+    print STDERR "@_\n";
+    $status = system ("@_");
+    $status;
+}
+
+sub goodbye {
+    print STDERR "ending execution\n";
+    die "@_";
+}
+
+if (@ARGV != 7) { die "ERROR: USAGE: imselect (ccd) (type) (filter) (tstart) (tend) (output) (-split | -mef)\n" }
+
+$type = "\U$ARGV[1]\E";
+if ($type eq "DARK") { }
+
+if ($type eq "FLAT") {
+    # define some of the relevant parameters
+    $min = 2000;
+    $max = 60000;
+    $minrate = 100;
+    $ratescale = 70;
+    $filter = "\U$ARGV[2]\E";
+    if ($filter eq "B") { $minrate = 0.5  * $ratescale;  }
+    if ($filter eq "V") { $minrate = 1.0  * $ratescale;  }
+    if ($filter eq "R") { $minrate = 3.5  * $ratescale;  }
+    if ($filter eq "I") { $minrate = 14.2 * $ratescale; }
+    if ($filter eq "Z") { $minrate = 10.5 * $ratescale; }
+    if ($filter eq "HA")    { $min = 1000; }
+    if ($filter eq "HAOFF") { $min = 1000; }
+    # probably need to set these in a more intelligent fashion.
+}
+
+# $ccd is ccd number (see camera config), $ARGV[0] is ccd id
+$ccd = `cameraconfig -N $ARGV[0]`; chop ($ccd);
+if ($ccd eq "") { die "ERROR : can't find CCD $ARGV[0]\n"; } 
+
+$Nccd = `cameraconfig -Nccd`; chop ($Nccd);
+$line = `cameraconfig -axes`; chop ($line);
+($Naxis1, $Naxis2) = split (" ", $line);
+
+$mode = "none";
+if ($ARGV[6] eq "-split") { $mode = "split"; }
+if ($ARGV[6] eq "-mef")   { $mode = "mef";   }
+if ($mode eq "none") {
+    die "ERROR: mode must be either -split or -mef\n";
+}
+
+@good = ();
+@marginal = ();
+
+# define filter lines for imsearch.  for flats, there may be alternate filter names to test
+@filtline = ();
+if ($type eq "FLAT") {
+    # convert given filter name to list of possible names:
+    $answer = `filtnames $ARGV[2] -all`;
+    @filtlist = split (" ", $answer);
+
+    foreach $name (@filtlist) {
+	$line = "-type flat -filter $name -mode $mode -trange $ARGV[3] $ARGV[4]";
+	push @filtline, $line;
+    }
+} 
+if ($type eq "BIAS") {
+    push @filtline, "-type bias -mode $mode -trange $ARGV[3] $ARGV[4]";
+} 
+if ($type eq "DARK") {
+    push @filtline, "-type dark -etime $ARGV[2] -mode $mode -trange $ARGV[3] $ARGV[4]";
+} 
+
+# run selection on each possible $filtline
+@list = ();
+foreach $line (@filtline) {
+    @tlist = `imsearch -ccd $ccd $line`;
+    @list = (@list, @tlist);
+}
+$Nlist = @list;
+print STDERR "found $Nlist images\n";
+
+for ($i = 0; $i < $Nlist; $i++) {
+    @words = split (" ",$list[$i]);
+    
+    if ($SKIPDOME) {
+	# a fairly lame and non-robust way to detect dome flats
+	if ($type eq "FLAT") {
+	    @answer = `echo $words[4]/$words[5] | fields OBJECT | grep -i dome`;
+	    if ($answer[0] ne "") { print STDERR "$words[5] rejected: dome flat\n"; next; }
+	}
+    }
+
+    if ($mode eq "split") {
+	# all $Nccd images must exist on disk, split files are assumed to be 
+	# in a subdirectory of their own, .fits extension assumed
+	@answer = <$words[4]/*.fits>;
+	if (@answer != $Nccd) { print STDERR "$words[5] rejected: missing images\n"; next; }
+    }
+
+    # images have to have the correct dimensions
+    if ($mode eq "split") {
+	@answer = `echo $words[4]/$words[5] | fields NAXIS1 NAXIS2`;
+	@wds = split (" ",$answer[0]);
+	$Nx = $wds[1]; $Ny = $wds[2];
+    } else {
+	@answer = `ftable -X 1 $words[4]/$words[5] | grep "^NAXIS1"`;
+	@wds = split (" ",$answer[0]);
+	$Nx = $wds[2];
+	@answer = `ftable -X 1 $words[4]/$words[5] | grep "^NAXIS2"`;
+	@wds = split (" ",$answer[0]);
+	$Ny = $wds[2];
+    }
+    if (($Nx != $Naxis1) || ($Ny != $Naxis2)) { print STDERR "$words[5] rejected: wrong dimensions\n"; next; }
+    
+    # $match is a word unique to the full mosaic image (the rootdir for split, the image for mef) 
+    if ($mode eq "split") { 
+	@answer = split ("/", $words[4]); 
+	$match = $answer[-1]; 
+    } else { 
+	$match = $words[5]; 
+    }
+    @list2 = `imsearch -name $match`;
+    $Nlist2 = @list2;
+    print STDERR "$match: $Nlist2\n";
+    if (@list2 != $Nccd) {
+	print STDERR "$words[5] rejected: missing entries in image database\n";
+	next;
+    }
+
+    if ($type eq "FLAT") {
+
+	if ($SKIPDOME) {
+	    # test for acceptable time (or is probably a dome flat)
+	    @answer = `dusktime $words[8]`;
+	    @wds = split (" ",$answer[0]);
+	    if ($wds[2] < 0) { print STDERR "$words[5] rejected: not twilight\n"; next; }
+	}
+	
+	$range = 1;
+	$rate  = 1;
+
+	# check for counts or flux out of range or any chip
+	for ($j = 0; $rate && $range && ($j < @list2); $j++) {
+	    @words2 = split (" ", $list2[$j]);
+	    
+	    # test for acceptable flux range
+	    if ($words2[11] < $min) { $range = 0; print STDERR "$words[5] rejected: signal too low: $words2[11] vs $min\n"; next; }
+	    if ($words2[11] > $max) { $range = 0; print STDERR "$words[5] rejected: signal too high: $words2[11] vs $max\n"; next; }
+	    
+	    # test for acceptable rate
+	    if (($words2[11] / $words2[7]) < $minrate) { 
+	      $rate = 0; 
+	      $F = $words2[11] / $words2[7];
+	      print STDERR "$words[5] rejected: flux too low: $F vs $minrate\n"; next; }
+	}
+	if (!$range) { next; }
+
+	@marginal = (@marginal, "$words[4]/$words[5]");
+	if (!$rate) { next; }
+    } else {
+	@marginal = (@marginal, "$words[4]/$words[5]");
+    }
+
+    @good = (@good, "$words[4]/$words[5]");
+}
+
+open (LIST, ">$ARGV[5]");
+if (@good > 5) {
+    for ($i = 0; $i < @good; $i++) {
+	print LIST "$good[$i]\n";
+	if (($type eq "BIAS") && ($i > 30)) { last; }
+	if (($type eq "DARK") && ($i > 30)) { last; }
+    }
+} else {
+    print STDERR "warning: limited number of flat images, scraping the bottom\n";
+    for ($i = 0; $i < @marginal; $i++) {
+	print LIST "$marginal[$i]\n";
+    }
+}
+close (LIST);
+print STDERR "SUCCESS\n";
+exit 0;
+
+# we need to select the list of images which satisfy a few criteria:
+# 1) all 12 CCDs must exist
+# 2) stats must be measured for each
+# 3) stats for all 12 must be within range (2000 - 40000)
+# 4) NAXIS1 == 2080 && NAXIS2 == 4128

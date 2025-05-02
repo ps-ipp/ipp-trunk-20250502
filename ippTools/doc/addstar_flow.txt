@@ -1,0 +1,34 @@
+### Set up the addRun row during the previous stage
+#>> camtool.c @ addprocessedexpMode(pxConfig *config)
+camtool -cam_id $cam_id -addprocessedexp ...
+
+### Catch that things now need to be added. This should check for magic_status as well, probably.
+#>> add.pro / addtool.c / addtoolConfig.c
+addtool -pendingsmf 
+#addMe METADATA
+#  add_id        S64      5
+#END
+
+### Run the addstar script.
+#>> addstar_run.pl
+addstar_run.pl --add_id $add_id --camera $camera --camroot=$camroot --dvodb $DVODB
+   addtool -pendingsmf -add_id $add_id
+#addMe METADATA
+#  add_id        S64      5
+#  workdir       STR      /path/to/workdir
+#  
+#END
+
+   ppConfigDump -camera $camera -recipe ADDSTAR $recipt_addstar -dump-recipe ADDSTAR -
+   addstar -D CAMERA $camdir -update -D CATDIR $dvodbReal $realFile
+   addtool -add_id $add_id -addprocessedsmf ...
+   addtool -add_id $add_id -updaterun -state full
+
+### Reverting
+#>> addtool.c
+addtool -revertprocessedsmf ...
+
+   
+
+
+

@@ -1,0 +1,19 @@
+
+   histogram <invec> <outvec> <start> <end> [<delta>] [-range <dx_outvec>]
+
+   calculate a histogram of the <invec> values and store the
+   occurrences count in the <outvec> buffer. Optionally constrained to
+   the given <start>-<end> region with <delta> step value (default
+   step is 1). The optional '-range <dx_outvec>' parameter allows storing
+   the range <start>-<end> values with <delta> increment
+
+   Sample code usage:
+   
+   # create a vector ('x') containing arbitrary values  [0.:1.] range
+   create y 0 100 1; set x = sin(y)
+
+   # build histogram from x from 0. to 1. with 0.1 delta step
+   histogram x xhist 0. 1. .1 -range dx
+
+   # plot corresponding histogram
+   limits dx xhist; clear; box; plot dx xhist -x 1

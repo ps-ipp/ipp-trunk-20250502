@@ -1,0 +1,10 @@
+
+   integrate (x) (y) (start) (end)
+
+   Perform an integration of (y) as a function of (x) from (start) to (end)
+
+   The result is placed into the variable: $sum
+
+   Caution!: Program uses the front end of each x bin to approximate the integral.
+    Very coarse bins (delta x = 1) over small regions (x=1->5) can introduce
+    errors as large as 20%. Fine bins are reccommended.

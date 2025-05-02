@@ -1,0 +1,49 @@
+
+2006.02.02
+  I'm tagging psphot after I updated it to work with the readouts
+  using the structures being used for ppImage.  In this release, I
+  have also moved to autoconf for psphot, and the psphotReadout
+  portion is being defined as a library against which the other
+  elements are linked.  It should be possible to use this library with
+  ppImage, but I have not yet tested that.  
+
+  link psphot_dev_08 against psLib:eam_rel9_b2 and
+  psModule:eam_rel9_b2.
+
+2006.01.18
+  the tag below (psphot_dev_07) was moved to a later release.  It
+  should be used with psLib:eam_rel9_b1 from 2006/1/18 and
+  psModule:eam_rel9_p0.  
+
+2005.12.23
+  psphot_dev_07 should be compiled against psLib:eam_rel9_b1 and
+  psModule:eam_rel9_b1.  This version now handles the ensemble PSF
+  fitting, detection of blended sources, fitting of 'blends' (groups
+  of PSFs with distinct be 'blended' peaks) and 'blobs' (unresolved
+  extended objects, with a test for double PSF vs extended source
+  model.
+
+2005.11.25
+
+  psphot_dev_05 should be compiled against psLib tag eam_rel8_b2 and
+  psModules tag eam_rel8_b1.  this version removes all _EAM versions
+  of psLib and psModules code.  It now uses the psModules version of
+  the object code.
+
+  psphot_dev_04 should be compiled against psLib tag eam_rel8_b2 this
+  version removes all _EAM versions of psLib code, so that it is now
+  consistent with psLib.v8 (fixes are pushed into the eam_rel8_b2
+  branch).
+
+2005.11.16
+
+  psphot_dev_03 should be compiled against psLib tag eam_rel8_b1, a
+  branch starting from psLib rel8_0.  I needed to make some minor
+  fixes in psLib to work successfully with psLib rel8_0.
+
+  psphot_dev_02 was getting segfaults from a bug added into psLib in
+  rel8_0 in p_psVectorClippedStats.  I also fixed some errors arising
+  from changing types (argument to psMetadataParseConfig).
+
+
+

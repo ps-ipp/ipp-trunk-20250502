@@ -1,0 +1,27 @@
+# this file defines the layout of the mosaic imager:
+
+NCCD 1
+NAXIS1 2048
+NAXIS2 2048
+
+MOSAIC_X 1
+MOSAIC_Y 1
+
+## XXX is this a good place for this, or is ptolemy.rc better?
+REFCELL.X 2
+REFCELL.Y 2
+
+# header format lines : these are added to the PHU to specify the format to IPP tools
+NFORMAT 4
+FORMAT  INSTRUME  SIMTEST
+FORMAT  TELESCOP  SimScope
+FORMAT  PSFORMAT  RELPHOT
+
+# lines need to contain:
+CHIPID_KEYWORD EXTNAME
+
+# ID     CHIPID xoffset yoffset xflip yflip datasec         biassec            Xo      Yo      theta
+CCD.0        00       0       0     0     0 [0:2048,0:2048] [2085:2110,2:4400] 0       0       0
+
+# can we use header to find biassec
+USE_BIASSEC 1

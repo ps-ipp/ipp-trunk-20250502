@@ -1,0 +1,197 @@
+/** @file mainpage.dox
+ *  @brief Main page for the Doxygen documentation
+ *
+ *  @author Robert Daniel DeSonia, MHPCC
+ *
+ *  @version $Revision: 1.19 $ $Name: not supported by cvs2svn $
+ *  @date $Date: 2005-12-06 18:46:08 $
+ *
+ *  Copyright 2004-2005 Maui High Performance Computing Center, University of Hawaii
+ */
+
+/** @mainpage psLib Image Processing Library
+
+@section intro Introduction
+
+This library contains the Pan-STARRS Image Processing Pipeline (IPP) common library,
+psLib. The intended use is to provide a set of basic software functions in which
+can be used throughout the Pan-STARRS project to simplify programming tasks. Among
+the benefits are:
+ - Reuse of code
+ - Simplification of testing
+ - Streamlining of code
+ - Isolation of functionality that may be subject to change
+
+The capabilities provided by psLib are grouped into the following areas which are
+also reflected in the file system directory structure:
+ - System Utilities
+ - Data Collections
+ - Image Operations
+ - Data Manipulation
+ - Astronomy
+
+The capabilities provided by psModuke are grouped into the following areas which are
+also reflected in the file system directory structure:
+ - Configuration
+ - Astrometry, Focal Plane
+ - Photometry
+ - Basic Image Detrending
+ - Object Detection and Classification
+ - Image Combination
+ - Image Subtraction
+
+This list is sorted in hierarchical order: The later entries depend on the functions and
+data types of the earlier entries.
+
+The installed code for psLib consists of header files and binary libraries in
+the form of static and/or shared library, depending on the configuration options.
+To assist in using the library, a script "pslib-config" is supplied that
+provides the compiler and linker options.
+
+
+@section extinstall 3rd Party Libraries
+
+Before building psLib from source, several 3rd party software libraries must
+be installed.  These include:
+ - GNU Scientific Library (GSL)
+     - Available at http://www.gnu.org/software/gsl
+     - Compatibility tested with version 1.4
+ - Fastest Fourier Transform in the West (FFTW), version 3, with single-precison float support
+     - Available at http://www.fftw.org
+     - Compatibility tested with version is 3.0.1
+     - The '--enable-float' option is required in the configure step to enable single-precision float support.  Use 'configure --help' for more information of the configuration options for this library.
+ - C Flexible Image Transport System Input output (CFITSIO), version 2.480 or later
+     - Available at http://heasarc.gsfc.nasa.gov/docs/software/fitsio
+     - Compatibility tested with version 2.490, requires at least 2.480
+ - Gnome XML C parser and toolkit (libxml2)
+     - Available at http://www.xmlsoft.org
+     - Compatibility tested with version 2.6.12 and 2.6.16
+
+Though not required to build the base library, several 3rd party software
+libraries are needed for particular functionality.
+ - Doxygen Documentation System
+     - Required for creation of documentation
+     - Available at http://www.doxygen.org
+     - Compatibility tested with version 1.3.2 and 1.3.8
+     - The optional companion package, GraphViz (a.k.a., the 'dot' command), is recommended to enable header-file dependency diagrams
+ - MySQL
+     - Required for database functionality.  If not desired, the '--disable-mysql' configure option should be used.
+     - Available at http://dev.mysql.com
+     - Compatibility tested with version 4.1.10a, requires at least 4.1.2
+     - A server running locally is required for tests.
+ - Autoconf/Automake
+     - Required only if making from CVS
+     - Available at http://www.gnu.org/software/autoconf and http://www.gnu.org/software/automake
+     - Compatibility tested with version 2.5.9 (autoconf) and 1.9.2 (automake)
+
+We recommend using the particular versions listed as compatibility tested, as
+that is the only versions tested to work well with psLib. Though it is quite 
+possible that later versions of the libraries listed will also work as well, 
+care must be taken when upgrading these libraries to verify that its
+functionality is compatible with the tested version.
+
+
+@section obtain How to Obtain the Source
+
+Tested versions of psLib are put into a tar file and can be downloaded from:
+
+https://mhpcc.pan-starrs.org/code/releases
+
+If one has a login account on mhpcc.pan-starrs.org, direct CVS access is also
+possible.  Example of the commands required for direct CVS retrieval are
+as follows:
+<pre>
+$ cvs -d:ext:USERNAME@mhpcc.pan-starrs.org:/data/panstarrs/cvsroot co -r RELEASEBRANCH psLib
+</pre>
+where:
+  - USERNAME is your login name on the server
+  - RELEASEBRANCH is the desired release branch, e.g. rel7.
+
+
+@section build How to Build and Test
+
+The source uses autoconf/automake to build control the build process.  If, 
+and only if, the source came from CVS, the configuration script will have
+to be made first via:
+<pre>
+$ cd psLib
+$ ./autogen.sh
+</pre>
+<i>This creates the required configure script and Makefile templates.</i>
+
+The recommended steps to build the library are:
+<pre>
+$ cd psLib
+$ ./configure
+$ make
+$ make check
+$ make install
+</pre>
+<i>This builds, tests, and installs the library.</i>
+
+The configure step allows users to specify specific locations for the third
+party libraries (see "3rd Party Libraries" for a list), disabling of select
+functionality (e.g., database and perl module), installation location, etc.
+An enumeration of the options for configure, and the default values, can be
+obtained via "./configure --help".
+
+Though 'make check' compiles and runs the test suite, one can also use custom
+scripts to run all the tests and just a particular test.  To run the unit test
+suite, do the following:
+<pre>
+$ cd psLib/test
+$ ./FullUnitTest
+</pre>
+
+This has the advantage over 'make check' in that it does not stop when a test
+fails and it collects some very basic statistics on the results.  To run a
+particular test, do the following:
+<pre>
+$ runTest testfilename
+</pre>
+
+@section install How to Install
+
+To install the library using the prefix given in the configure step, execute in
+the top build directory:
+<pre>
+$ make install
+</pre>
+
+
+@section usage Building and Linking your code to the psLib library
+
+To assist the use of the library with your own code, a configuration tool is part
+of the psLib library package.  This tool, pslib-config, is installed in the BIN
+directory, according to the options given to the configure script.
+
+The required CFLAG options for the compiler stage of code that uses psLib can be
+obtained via 'pslib-config --cflags'.  This outputs the cc options that supplies
+include path(s) required to find the psLib headers.
+
+The required linking options, can be obtained via 'pslib-config --libs'.  This
+outputs the ld options that supplies the library paths and files required to
+link to the pslib library.
+
+Note: pslib-config usage above refers to the install locations of the library.  
+To link to the library directly in the build area, you need to use
+'pslib-config --build-cflags' and 'pslib-config --build-libs' instead.  These
+options will modify the output to point to the non-installed (build) locations
+of the include files and libraries. (this feature is experimental)
+
+@section doc How to Create Code Documentation
+
+Both HTML and man page documentation may be generated from the inline
+documentation embedded in the code using the following commands:
+<pre>
+$ cd psLib
+$ make docs
+</pre>
+<i>This places documentation in PREFIX/docs/psLib, where PREFIX is set using
+the configure script.</i>
+
+Also, a prebuilt set of code documentation for releases and can be found at:
+
+https://mhpcc.pan-starrs.org/docs/
+
+*/

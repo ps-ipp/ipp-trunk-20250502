@@ -1,0 +1,12 @@
+
+ mextract (filename) (value) [-g / -a Ncol]
+
+ extracts a vector from the photometry database.  The name also
+ specifies the type of data extracted (and is case insensitive).  Only
+ certain names may be used.
+
+ The possible values are:
+ ra, dec, mag, dmag, Mcal, Mrel, source, time, dR, dD
+
+
+ Note: this routine extracts the individual measurements.

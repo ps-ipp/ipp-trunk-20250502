@@ -1,0 +1,8 @@
+
+   imhist <buffer> <x> <y> [-region sx sy nx ny] [-range min max]
+
+   calculate a histogram of the image pixel values in the given
+   buffer, optionally constrained to the given region, with optional
+   max and min values.  the results are placed in the vectors x and y,
+   which contain the pixel values and the number of occurences.
+

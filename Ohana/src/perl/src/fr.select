@@ -1,0 +1,325 @@
+#!/usr/bin/env perl
+
+# check the usage
+if ($ARGV[0] eq "-h") { usage (); }
+if ($ARGV[0] eq "-help") { usage (); }
+if (@ARGV != 5) { die "ERROR: USAGE: fr.select (filter) (start) (stop) (mode) (output)\n"; }
+
+# assign the command line arguments
+$filter = $ARGV[0];
+$start  = $ARGV[1];
+$stop   = $ARGV[2];
+$mode = "\U$ARGV[3]\E";
+if (($mode ne "MEF") && ($mode ne "SPLIT")) { die "ERROR: mode must be either SPLIT or MEF\n";}
+$output = $ARGV[4];
+
+# global constants
+# these probably should go in the config files eventually.
+$MAX_CNTS = 60000;
+$MAX_FLUX = 40;
+
+# define some of the relevant parameters
+$tmp = `filtnames $filter`; chop $tmp;
+if ($?) { die "ERROR: invalid filter $filter\n"; }
+$filter = $tmp;
+
+# recipe file defines detrend types & cutoff exptime values
+$recipefile = `gconfig DETREND_RECIPES`; chop $recipefile;
+if ($?) { die "ERROR: missing DETREND_RECIPES in configuration\n"; }
+
+# extract filter extras list
+($tmp, $tmp, $tmp, $extras) = split (" ", `gconfig -c $recipefile $filter`);
+if ($?) { die "ERROR: missing detrend recipe for $filter\n"; }
+
+# grab extra values:
+($detype, $MIN_FLUX, $MIN_CNTS) = split (",", $extras);
+if ("\U$detype\E" ne "FRINGE") { die "ERROR: fringe extras are missing\n"; }
+
+# relevant camera parameters
+$Nccd = `cameraconfig -Nccd`; chop ($Nccd);
+if ($?) { die "error in config\n"; }
+
+($Naxis1, $Naxis2) = split (" ", `cameraconfig -axes`);
+if ($?) { die "error in config\n"; }
+
+@ccds = split (" ", `cameraconfig -ccds`);
+if ($?) { die "error in config\n"; }
+
+@good = ();
+@marginal = ();
+
+# special list to skip specific chips
+$CHIPSKIP     = `gconfig CHIP_SKIP_LIST`; chop $CHIPSKIP;
+@chipskip = ();
+if (-e $CHIPSKIP) { 
+    open (FILE, $CHIPSKIP);
+    @chipskip = <FILE>;
+    close (FILE);
+    foreach $chip (@chipskip) { chop $chip; }
+}
+
+$criteria = "-type object -mode $mode -trange $start $stop -filter $filter";
+
+# define filter lines.
+@filtline = ();
+# convert given filter name to list of possible names:
+$answer = `filtnames $ARGV[0] -all`;
+@filtlist = split (" ", $answer);
+
+foreach $name (@filtlist) {
+    $line = "-type object -mode $mode -trange $start $stop -filter $name";
+    push @filtline, $line;
+}
+
+# run selection on each possible $filtline
+@list = ();
+foreach $line (@filtline) {
+    @tlist = `imsearch -ccd $ccds[0] $line`;
+    @list = (@list, @tlist);
+}
+$Nlist = @list;
+print STDERR "found $Nlist images\n";
+
+FRAME:
+    foreach $image (@list) {
+    @words = split (" ",$image);
+    
+    # poor way to search for all images
+    if ($mode eq "SPLIT") {
+	# all $Nccd images must exist on disk, split files are assumed to be 
+	# in a subdirectory of their own, .fits extension assumed
+	@answer = <$words[4]/*.fits>;
+	if (@answer != $Nccd) { print STDERR "$words[5] rejected: missing images\n"; next FRAME; }
+    }
+
+    # images have to have the correct dimensions
+    if ($mode eq "SPLIT") {
+	$answer = `echo $words[4]/$words[5] | fields NAXIS1 NAXIS2`;
+    } else {
+	$answer = `echo $words[4]/$words[5] | fields -x 0 NAXIS1 NAXIS2`;
+    }
+    ($tmp, $Nx, $Ny) = split (" ", $answer);
+    if (($Nx != $Naxis1) || ($Ny != $Naxis2)) { print STDERR "$words[5] rejected: wrong dimensions\n"; next FRAME; }
+
+    # $match is a word unique to the full mosaic image (the rootdir for split, the image for mef) 
+    if ($mode eq "split") { 
+	@answer = split ("/", $words[4]); 
+	$match = $answer[-1]; 
+    } else { 
+	$match = $words[5]; 
+    }
+    @list2 = `imsearch -name $match`;
+    
+  CCD:
+    foreach $ccd (@list2) {
+	@words2 = split (" ", $ccd);
+	foreach $chipskip (@chipskip) { 
+	    if ($words2[3] eq $chipskip) { next CCD; }
+	}
+	
+	$cnts = $words2[11];
+	$flux = $words2[11] / $words2[7];
+	# test for acceptable flux range
+	if ($cnts < $MIN_CNTS) { print STDERR "$words[5] rejected: cnts too low:  $cnts vs $MIN_CNTS\n"; next FRAME; }
+	if ($cnts > $MAX_CNTS) { print STDERR "$words[5] rejected: cnts too high: $cnts vs $MAX_CNTS\n"; next FRAME; }
+	if ($flux < $MIN_FLUX) { print STDERR "$words[5] rejected: flux too low:  $flux vs $MIN_FLUX\n"; next FRAME; }
+	if ($flux > $MAX_FLUX) { print STDERR "$words[5] rejected: flux too high: $flux vs $MAX_FLUX\n"; next FRAME; }
+    }
+
+    $fullname = "$words[4]/$words[5]";
+    $root = gt_names ($fullname, "root", $mode);
+    $path = gt_names ($fullname, "path", $mode);
+    @good = (@good, "$path $root $mode");
+}
+
+open (LIST, ">$output");
+# write output to Nccd list files 
+# keep a random sample of roughly 60 images:
+$Nselect = @good;
+for ($i = 0; $i < $Nselect; $i++) {
+    if (rand ($Nselect) < 60) {
+	print LIST "$good[$i]\n";
+    }
+}
+close (LIST);
+print STDERR "SUCCESS\n\n";
+exit 0;
+
+# cfht MEF/SPLIT name utilities:
+
+sub gt_names {
+    # in: filename mode type
+    # out: word
+
+    my ($value);
+
+    $value = "";
+    if ($_[2] eq "MEF")   { $value = mefnames ($_[0], $_[1]); }
+    if ($_[2] eq "SPLIT") { $value = splitnames ($_[0], $_[1]); }
+    
+    return $value;
+}
+
+sub mefnames {
+    # in: (/path/file.fits) (mode) 
+    # out: word
+
+    my($fullname) = $_[0];
+    my($mode) = $_[1];
+    my($answer);
+
+    # split rootdir and filename:
+    my (@words) = split ("/", $fullname);
+    $N = @words;
+
+    if ($mode eq "path") {
+	$answer = "";
+	for ($i = 0; $i < $N - 1; $i++) {
+	    $answer = $answer . $words[$i] . "/";
+	}
+	chop ($answer); # strip off last /
+	if ($answer eq "") { $answer = "."; }
+	return ($answer);
+    }
+    
+    if ($mode eq "root") {
+	$answer = "$words[$N-1]";
+	$answer =~ s/.fits$//;
+	return ($answer);
+    }
+    
+    if ($mode eq "Nccd") {
+	if (! -e $fullname) {
+	    return (0);
+	}
+	$answer = `echo $fullname | fields NEXTEND`;
+	@words = split (" ", $answer);
+	if ($words[1] eq "") {
+	    return (0);
+	}
+	return ($words[1]);
+    }
+    
+    return (0);
+}
+
+sub splitnames {
+    # in: (/path/file) (mode) 
+    # out: word
+    # /path/file is directory containing Nccd fits images
+
+    my($fullname) = $_[0];
+    my($mode) = $_[1];
+    my($answer, $N, $tmpname, @imlist, @words);
+
+    # split rootdir and filename:
+    @words = split ("/", $fullname);
+    $N = @words;
+
+    if ($mode eq "path") {
+	$answer = "";
+	for ($i = 0; $i < $N - 2; $i++) {
+	    $answer = $answer . $words[$i] . "/";
+	}
+	chop ($answer); # strip off last /
+	if ($answer eq "") { $answer = "."; }
+	return ($answer);
+    }
+    
+    if ($mode eq "root") {
+	$answer = "$words[$N-2]";
+	return ($answer);
+    }
+    
+    if ($mode eq "Nccd") {
+	
+	$tmpname = "$fullname/$words[$N-1]";
+	@imlist = <$tmpname??.fits>;
+
+	$Nccd = @imlist;
+	return $Nccd;
+    }
+    
+    return (0);
+}
+
+sub ckimtype {
+    # in: (/path/file)
+    # out: MEF | SPLIT | SINGLE | (NULL)
+    
+    my ($answer, $name, $value);
+    my ($file) = $_[0];
+
+    if (! -e $file) { 
+	print STDOUT "can't open file\n";
+	return ""; 
+    }
+
+    # if /path/file is a directory, it is split:
+    if (-d $file) { return "SPLIT"; }
+
+    # check that the file is a FITS image
+    $answer = `file -L $file`;
+    if ($?) { 
+	print STDOUT "can't open file\n";
+	return ""; 
+    }
+    ($name, $value) = split (" ", $answer);
+    if ($value ne "FITS") { 
+	print STDOUT "not a valid image\n";
+	return ""; 
+    }
+    
+    # check for NAXIS = 0 (MEF) 
+    $answer = `echo $file | fields NAXIS`;
+    # if ($?) { return ""; }
+    ($name, $value) = split (" ", $answer);
+    if ($value eq 0) { return "MEF"; }
+    
+    if ($value == 2) { return "SINGLE"; }
+
+    print STDOUT "not a valid image\n";
+    return "";
+}
+
+sub vsystem {
+    print STDERR "@_\n";
+    $status = system ("@_");
+    $status;
+}
+
+sub goodbye {
+    print STDERR "ending execution\n";
+    die "@_";
+}
+
+sub usage {
+    print "USAGE: fr.select (filter) (start) (stop) (mode) (output)\n";
+    print " filter: R I Z (etc)\n";
+    print " start:  start date (yyyy/mm/dd,hh:mm:ss)\n";
+    print " stop:   stop date\n";
+    print " mode:   MEF or SPLIT\n";
+    print " output: output file name\n";
+    exit 1;
+}
+
+# we need to select the list of images which satisfy a few criteria:
+# 1) all 12 CCDs must exist
+# 2) stats must be measured for each
+# 3) stats for all 12 must be within range (2000 - 40000)
+# 4) NAXIS1 == 2080 && NAXIS2 == 4128
+
+# fr.select: 
+# this program takes a list of criteria which define a fringe /
+# skyring frame, and an output filename, and fills the file with all
+# images that fit the given criteria.  It checks to make sure that the
+# images have flux and counts in the appropriate range, and that all
+# CCDs are available, and that they have the correct dimensions.
+
+# the output file consists of lines with the following entries:
+# (path) (root) (mode)
+# path: complete path to the image
+# root: base name for file - MEF: root.fits, SPLIT: root/rootNN.fits
+# mode: MEF / SPLIT
+
+ 

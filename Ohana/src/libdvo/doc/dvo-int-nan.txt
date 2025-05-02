@@ -1,0 +1,14 @@
+
+we have a variety of data fields which use char, short, int or long as
+a data type.  we need a value which can mean NAN in that context.
+these are defined in dvo.h as elements of the enum DVO_INT_NAN.  
+
+2007.11.07 : I am going through the code base and replacing the
+        deprecated values NO_ERR and NO_MAG with their equivalent
+        DVO_INT_NAN names.  At the same time, where ever the internal
+        value is a float or double, these must be converted to real
+        NAN values.  These may once have used char, short, or int
+        internally, and were not updated correctly.  
+
+	* watch out for Xm : PhotXm returns -1, not NAN for invalid entry,
+	  secfilt.Xm is short (use NAN_S_SHORT?)

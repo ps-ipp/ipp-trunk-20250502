@@ -1,0 +1,18 @@
+[% USE format -%]
+[% indented = format('%-15s %s') -%]
+/** Creates a new [% table.object_name %] object
+ *
+ *  @return A new [% table.object_name %] object or NULL on failure.
+ */
+
+[% table.object_name %] *[% table.object_name %]Alloc(
+[%- SET i = 0 -%]
+[% FOREACH item = table.columns -%]
+[% IF i == 0 %][% i = 1 %][% ELSE %],[% END %]
+[% IF item.type == "STR" -%]
+    [% indented("const char", "*$item.name") %]
+[%- ELSE -%]
+    [% indented("$item.ctype", "$item.name") %]
+[%- END -%]
+[% END %]
+);

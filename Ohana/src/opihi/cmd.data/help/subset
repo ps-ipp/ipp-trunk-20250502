@@ -1,0 +1,12 @@
+
+   subset vec = vec if (logic expression)
+
+   reduce the length of a vector based on logical expression.  The
+   logic expression is some function of vectors of equal length to the
+   main vector.
+
+   for example, we have vectors x and y of the same length:
+   
+   subset X = x if ((y > 100) | (x < 10))
+
+    

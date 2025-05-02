@@ -1,0 +1,11 @@
+
+   substr (string) (index) (length) [var]
+
+   Returns part of a string starting at the position (index)
+    and of size (length), which can then be placed into [var]
+
+   Default: print to window
+
+   The sub-string is not removed from the original string
+
+   ***Note: Character positions in strings are zero-indexed

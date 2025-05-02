@@ -1,0 +1,44 @@
+#!/bin/sh
+
+echo " FLIPS - skyproberedccd (imred)"
+if [ $# -ne 2 ] ; then
+  echo " Process: single SkyProbe CCD image reduction with Dark & Flat-Field"
+  echo " Syntax:  skyproberedccd FILE_IN FILE_OUT"
+  exit 1
+fi
+
+# Check if INPUT FITS file exists
+if [ ! -f $1 ]; then
+   echo "FITS file '$1' (FILE_IN = 1st argument) does not exist"
+   exit 1
+fi
+
+# Create temporary parameter file name
+TEMP="/tmp/redccd$$"
+
+# Prepare parameter file
+cat ~skyprobe/.skyprobeimred.param.CCD | sed "s|INFILE|$1|"   | sed "s|OUTFILE|$2|" > $TEMP
+
+# Set a default size for the buffer height
+echo "BUFFER"                       >> $TEMP
+echo "        height          240"  >> $TEMP
+echo "        end"                  >> $TEMP
+# CPU type: for swap or not
+echo "CPU"                          >> $TEMP
+echo "        swap            1"    >> $TEMP
+echo "        end"                  >> $TEMP
+# Timing info flag
+echo "TIMING"                       >> $TEMP
+echo "        timing          1"    >> $TEMP
+echo "        end"                  >> $TEMP
+# End of the parfile
+echo "END"                          >> $TEMP
+
+# Combine files
+imred_lx $TEMP
+
+# Remove temporary file
+rm -f $TEMP
+rm -f imred-stat.dat
+
+exit 0

@@ -1,0 +1,3 @@
+CREATE TEMPORARY TABLE chipRunDone
+(chip_id BIGINT, exp_id VARCHAR(64), PRIMARY KEY(chip_id)) ENGINE=MEMORY
+

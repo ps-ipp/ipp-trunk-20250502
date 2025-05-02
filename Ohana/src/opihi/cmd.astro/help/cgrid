@@ -1,0 +1,6 @@
+
+  cgrid
+
+  draws a grid in RA and DEC on window 0 approriate for the current
+  region.
+

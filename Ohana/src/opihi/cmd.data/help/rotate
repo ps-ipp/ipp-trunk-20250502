@@ -1,0 +1,10 @@
+
+   rotate (buffer) (angle) [-center x y]
+
+   rotate the buffer by the given angle.  The angle may also be one of
+   the following special words:
+
+   -flipx - flip in the x direction
+   -flipy - flip in the y direction
+
+   if the optional center is given the rotation is about this position.

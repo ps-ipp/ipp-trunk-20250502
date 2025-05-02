@@ -1,0 +1,31 @@
+#!/bin/csh -f
+
+# this just organizes the tagging of the elixir components
+
+if ($#argv != 1) then
+  echo "USAGE: rdiff-elixir (TAG)"
+  exit 2
+endif
+
+cvs rdiff -r $1 opihi/Makefile
+cvs rdiff -r $1 opihi/bin/
+cvs rdiff -r $1 opihi/cmd.astro/
+cvs rdiff -r $1 opihi/cmd.basic/
+cvs rdiff -r $1 opihi/cmd.data/
+cvs rdiff -r $1 opihi/doc/
+cvs rdiff -r $1 opihi/dvo/
+cvs rdiff -r $1 opihi/help/
+cvs rdiff -r $1 opihi/include/
+cvs rdiff -r $1 opihi/lib/
+cvs rdiff -r $1 opihi/lib.data/
+cvs rdiff -r $1 opihi/lib.shell/
+cvs rdiff -r $1 opihi/mana/
+cvs rdiff -r $1 opihi/scripts/
+
+# don't place tag on these implementations
+# cvs tag $1 dimm/
+# cvs tag $1 dvo2/
+# cvs tag $1 old/
+# cvs tag $1 pclient/
+# cvs tag $1 pcontrol/
+# cvs tag $1 sched/

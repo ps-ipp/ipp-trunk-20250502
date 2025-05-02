@@ -1,0 +1,1 @@
+SELECT diffRun.* from diffRun

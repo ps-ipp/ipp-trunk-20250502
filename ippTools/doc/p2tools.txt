@@ -1,0 +1,41 @@
+
+Phase 2 pipeline tools:
+
+p2search -quick 
+  * search for images which match in raw.exp,raw.imfiles
+  * output in format which can be used by ppImage pantasks script
+
+p2search -define [options]
+  * input: searches mddb:raw_exposures,raw_images
+        - compares against p2Pending[Exp|Imfile]
+        - compares against p2Done[Exp|Imfile]
+        - XXX should be implemented as a special wrapper function that
+          implements this comparison as a SQL query
+  * output: updates mddb:P2_exposures_pending,P2_images_pending
+  * alternative output: identical to p2pending
+ 
+p2search -pending 
+  * input: searches mddb:P2_exposures_pending,P2_images_pending
+  * output: Nlines consisting of:
+    (URL) (expID) (class)
+  * options: ?
+
+p2search -update
+  * examine the imfiles and identify any completed exposures
+
+p2search -done
+  * get exp_id/class/class_id from the CLI
+  * add the completed imfile to the p2DoneImfile tables
+  * remove corresponding entries from the p2PendingImfile table
+  * check to see if any p2PendingExps have no associated p2PendingImfiles
+        if so move the p2PendingExp(s) to p2DoneExp
+//  * send new entry to the pending p3 table
+
+ppImage file://path/filename file://path/outroot -recipe (recipe) 
+ppImage neb://nebname neb://outroot -recipe (recipe)
+
+restriction options:
+  -time (start) (stop)
+  -camera (camera) 
+  -region (ra,dec) (ra,dec)
+

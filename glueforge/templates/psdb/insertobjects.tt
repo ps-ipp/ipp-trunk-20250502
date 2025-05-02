@@ -1,0 +1,10 @@
+bool [% table.namespace %]InsertObjects(psDB *dbh, psArray *objects)
+{
+    for (long i = 0; i < psArrayLength(objects); i++) {
+        if (![% table.namespace %]InsertObject(dbh, objects->data[i])) {
+            return false;
+        }
+    }
+
+    return true;
+}

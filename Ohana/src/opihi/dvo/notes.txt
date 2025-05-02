@@ -1,0 +1,10 @@
+
+avextract ra,dec,g,r,i where (ra > 5) && (dec < 3)
+
+
+U db_check_stack.c
+U db_convert_to_RPN.c
+U dvoBooleanElements.c
+U dvoEvaluateStack.c
+U dvodb.c
+U dvofields.c

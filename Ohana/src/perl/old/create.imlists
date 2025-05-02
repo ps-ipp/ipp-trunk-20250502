@@ -1,0 +1,67 @@
+#!/usr/bin/env perl
+
+# take single list of images, create collection of lists in path, each with files for one image,
+# place list of lists in outlist
+
+if (@ARGV != 3) { die "ERROR: USAGE: create.subset (inlist) (path) (outlist)\n" }
+
+$inlist = $ARGV[0];
+$path = $ARGV[1];
+$outlist = $ARGV[2];
+
+open (FILE, $inlist);
+@inlist = <FILE>;
+close (FILE);
+foreach $name (@inlist) { chop ($name); }
+
+open (OUT, ">$outlist");
+
+while (@inlist) {
+    $name = pop (@inlist); 
+
+    @sublist = ($name);
+    ($subname, $ext) = $name =~ /(\S+)(\d\d\D+)/;
+    ($filename) = $subname =~ /(\d\d\d\d\d\d.)$/;
+    print STDERR "subname: $subname\n";
+    print STDERR "filename: $filename\n";
+    print STDERR "ext: $ext\n";
+    
+    @outlist = ();
+    while (@inlist) {
+	$name = pop (@inlist);
+	
+	if ($name =~ /$subname/) {
+	    push (@sublist, $name);
+	} else {
+	    push (@outlist, $name);
+	}
+    }
+    
+    @sublist = sort @sublist;
+
+    # file lists have names like /path/filename.imlist
+    open (FILE, ">$path/$filename.imlist");
+    foreach $name (@sublist) {
+	print FILE "$name\n";
+    }
+    close (FILE);
+
+    print OUT "$path/$filename.imlist\n";
+
+    @inlist = @outlist;
+}
+
+close (OUT);
+
+###########################################################################
+
+sub vsystem {
+    print STDERR "@_\n";
+    $status = system ("@_");
+    $status;
+}
+
+sub goodbye {
+    die "@_\n";
+}
+

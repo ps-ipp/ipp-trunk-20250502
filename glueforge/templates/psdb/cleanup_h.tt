@@ -1,0 +1,6 @@
+/** Closes a database connection
+ */
+
+void [% pkg_namespace %]Cleanup(
+    psDB            *dbh                ///< Database handle
+);

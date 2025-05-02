@@ -1,0 +1,56 @@
+
+* current recipe load sequence:
+
+** load the basic config information.
+   (unless camera is explicitly specified, camera-specific recipes are not loaded)
+
+** save the generic command-line options (-D ..) on config->arguments:OPTIONS:(recipe)
+
+** supplement recipe with specific command-line options (-isdark...) to config->arguments:OPTIONS:(recipe)
+
+** SYSTEM
+** load all files from config->complete:RECIPES to config->recipes
+   (loadRecipeSystem)
+
+** CAMERA
+** load the recipes for the specified camera from the camera-specific
+   config file to config->recipes (overlay existing metadata)
+
+** CL:arguments
+** load recipe files defined on command line in the form -recipe-file (recipe) (filename)
+   from config->arguments:RECIPES
+   
+** CL:symbols
+** load symbolic recipes defined on command line in the form -recipe (recipe) (symbolic name)
+   from config->recipeSymbols
+
+** CL:options
+** load values defined on command line in the form -D key value
+   from config->arguments:OPTIONS:(recipe)
+
+---
+
+what we really want:
+
+** SYSTEM
+** load all files from config->complete:RECIPES to config->recipes
+   (loadRecipeSystem)
+
+** CAMERA
+** load the recipes for the specified camera from the camera-specific
+   config file to config->recipesCamera
+
+** CL:arguments
+** load recipe files defined on command line in the form -recipe-file (recipe) (filename)
+   from config->arguments:RECIPES
+   
+** CL:symbols
+** load symbolic recipes defined on command line in the form -recipe (recipe) (symbolic name)
+   from config->recipeSymbols
+
+** CL:options
+** load values defined on command line in the form -D key value
+   from config->arguments:OPTIONS:(recipe)
+
+metadata = psMetadataConfigRead (recipes/NAME.config)
+metadata = 

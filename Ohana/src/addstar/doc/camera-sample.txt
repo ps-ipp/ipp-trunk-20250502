@@ -1,0 +1,81 @@
+# example camera layout file
+
+# arcsec per mm
+PLATE_SCALE  25.0
+
+DPLATE_X     1.0e-5
+DPLATE_Y     1.0e-5
+
+NCHIPS        64
+NAXIS1      4800
+NAXIS2      4800
+
+# mm per pixel
+PIXEL_SCALE   0.010
+
+# for now, we force the chip rotation to be 0 and parity to be 1,1
+# ref      name  dX      dY
+CHIP.000   x0y0 -19200  -19200
+CHIP.001   x1y0 -14400  -19200
+CHIP.002   x2y0  -9600  -19200
+CHIP.003   x3y0  -4800  -19200
+CHIP.004   x4y0      0  -19200
+CHIP.005   x5y0   4800  -19200
+CHIP.006   x6y0   9600  -19200
+CHIP.007   x7y0  14400  -19200
+CHIP.008   x0y1 -19200  -14400
+CHIP.009   x1y1 -14400  -14400
+CHIP.010   x2y1  -9600  -14400
+CHIP.011   x3y1  -4800  -14400
+CHIP.012   x4y1      0  -14400
+CHIP.013   x5y1   4800  -14400
+CHIP.014   x6y1   9600  -14400
+CHIP.015   x7y1  14400  -14400
+CHIP.016   x0y2 -19200   -9600
+CHIP.017   x1y2 -14400   -9600
+CHIP.018   x2y2  -9600   -9600
+CHIP.019   x3y2  -4800   -9600
+CHIP.020   x4y2      0   -9600
+CHIP.021   x5y2   4800   -9600
+CHIP.022   x6y2   9600   -9600
+CHIP.023   x7y2  14400   -9600
+CHIP.024   x0y3 -19200   -4800
+CHIP.025   x1y3 -14400   -4800
+CHIP.026   x2y3  -9600   -4800
+CHIP.027   x3y3  -4800   -4800
+CHIP.028   x4y3      0   -4800
+CHIP.029   x5y3   4800   -4800
+CHIP.030   x6y3   9600   -4800
+CHIP.031   x7y3  14400   -4800
+CHIP.032   x0y4 -19200       0
+CHIP.033   x1y4 -14400       0
+CHIP.034   x2y4  -9600       0
+CHIP.035   x3y4  -4800       0
+CHIP.036   x4y4      0       0
+CHIP.037   x5y4   4800       0
+CHIP.038   x6y4   9600       0
+CHIP.039   x7y4  14400       0
+CHIP.040   x0y5 -19200    4800
+CHIP.041   x1y5 -14400    4800
+CHIP.042   x2y5  -9600    4800
+CHIP.043   x3y5  -4800    4800
+CHIP.044   x4y5      0    4800
+CHIP.045   x5y5   4800    4800
+CHIP.046   x6y5   9600    4800
+CHIP.047   x7y5  14400    4800
+CHIP.048   x0y6 -19200    9600
+CHIP.049   x1y6 -14400    9600
+CHIP.050   x2y6  -9600    9600
+CHIP.051   x3y6  -4800    9600
+CHIP.052   x4y6      0    9600
+CHIP.053   x5y6   4800    9600
+CHIP.054   x6y6   9600    9600
+CHIP.055   x7y6  14400    9600
+CHIP.056   x0y7 -19200   14400
+CHIP.057   x1y7 -14400   14400
+CHIP.058   x2y7  -9600   14400
+CHIP.059   x3y7  -4800   14400
+CHIP.060   x4y7      0   14400
+CHIP.061   x5y7   4800   14400
+CHIP.062   x6y7   9600   14400
+CHIP.063   x7y7  14400   14400

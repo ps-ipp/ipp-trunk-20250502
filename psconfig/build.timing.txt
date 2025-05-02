@@ -1,0 +1,11 @@
+
+Use this file to track the IPP build times on various platforms
+
+Optimized
+
+Unoptimized
+
+ ulili  : Intel Atom        : unthreaded : 64 min
+ pikake : Intel Core 2 Quad : 4 threads  : 12 min
+ ipp053 : Intel Xeon 2xQuad : 4 threads  :  9 min
+

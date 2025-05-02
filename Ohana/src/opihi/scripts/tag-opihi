@@ -1,0 +1,38 @@
+#!/bin/csh -f
+
+# this just organizes the tagging of the opihi components
+
+if ($#argv != 2) then
+  echo "USAGE: tag-elixir (MODULE) (TAG)"
+  echo "  MODULE choices: base mana dvo dimm pantasks pcontrol pclient"
+  exit 2
+endif
+
+if ("$1" == "base") then
+  cvs tag $2 Makefile
+  cvs tag $2 Makefile.Common
+  cvs tag $2 include/
+  cvs tag $2 test/
+  cvs tag $2 lib.data/
+  cvs tag $2 lib.shell/
+  cvs tag $2 cmd.astro/
+  cvs tag $2 cmd.basic/
+  cvs tag $2 cmd.data/
+  cvs tag $2 scripts/
+  cvs tag $2 doc/
+  exit 0;
+endif
+
+if ("$1" == "mana") goto valid;
+if ("$1" == "dvo") goto valid;
+if ("$1" == "dimm") goto valid;
+if ("$1" == "pantasks") goto valid;
+if ("$1" == "pclient") goto valid;
+if ("$1" == "pcontrol") goto valid;
+echo "invalid opihi module $1"
+exit 1;
+
+valid:
+  # tag the module ($1) with the specified tag ($2)
+  cvs tag $2 $1
+  exit 0;

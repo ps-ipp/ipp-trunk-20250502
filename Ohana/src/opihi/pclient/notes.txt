@@ -1,0 +1,17 @@
+
+pclient special commands:
+
+ job 
+
+ reset
+
+ check
+
+ status
+
+ stdout
+
+ stderr
+
+- communication with pclient should search for the pclient prompt:
+  pclient:

@@ -1,0 +1,10 @@
+
+  delete (buffer/vector/variable)
+
+  Delete the named buffer/vector/variable.
+
+  Warning: no second chances are given!
+
+  Note: Delete will remove the buffer/vector of a
+   given name first, then delete the variable of
+   the same name upon the second call.

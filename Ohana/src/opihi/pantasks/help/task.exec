@@ -1,0 +1,17 @@
+
+   task.exec
+
+   A special macro to be executed before constructing the job command.
+   The macro is defined by commands following the 'task.exec' command,
+   ending with the word 'end'.  If the exit status of the task.exec
+   macro is FALSE, then the job is NOT constructed.  This allows the
+   construction of a job to be conditional on other, external
+   quantites.  (Note: the exit status of the macro is false if 'break'
+   is called).  The task command may be defined within the task.exec
+   macro, in which case the command is constructed only when the exec
+   macro is run, every job construction interval.  Thus, the command
+   arguments may depend on the result of the exec macro operation.
+
+   See also:
+   task
+   task.command

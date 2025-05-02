@@ -1,0 +1,292 @@
+#!/usr/bin/env perl
+
+# Copyright (C) 2005-2008  Joshua Hoblitt
+#
+# $Id: neb-insedit,v 1.2 2008-10-01 21:05:57 jhoblitt Exp $
+
+use strict;
+use warnings FATAL => qw( all );
+
+use vars qw( $VERSION );
+$VERSION = '0.02';
+
+use DBI;
+use Nebulous::Server::SQL;
+use Nebulous::Client;
+use URI::file;
+use URI;
+
+use Digest::MD5;
+
+use Getopt::Long qw( GetOptions :config auto_help auto_version );
+use Pod::Usage qw( pod2usage );
+
+my ($db, $dbhost, $dbuser, $dbpass, $key, $ins_id, $new_uri, $new_volume,$nebhost);
+
+$db     = $ENV{'NEB_DB'} unless $db;
+$dbhost = $ENV{'NEB_DBHOST'} || 'localhost';
+$dbuser = $ENV{'NEB_USER'} unless $dbuser;
+$dbpass = $ENV{'NEB_PASS'} unless $dbpass;
+$nebhost= $ENV{'NEB_SERVER'} unless $nebhost;
+
+GetOptions(
+    'db|d=s'            => \$db,
+    'host=s'            => \$dbhost,
+    'pass|p=s'          => \$dbpass,
+    'user|u=s'          => \$dbuser,
+    'neb_host=s'        => \$nebhost,
+    'key=s'             => \$key,
+    'ins_id=s'          => \$ins_id,
+    'uri=s'             => \$new_uri,
+    'volume=s'          => \$new_volume,
+) || pod2usage( 2 );
+
+pod2usage( -msg => "Unknown option: @ARGV", -exitval => 2 ) if @ARGV;
+pod2usage( -msg => "Required options: --db --user --pass --key --ins_id --uri --volume", -exitval => 2 )
+    unless $db && $dbuser && $dbpass && $ins_id && $new_uri && $key && $new_volume;
+
+my $dbh = DBI->connect(
+    "DBI:mysql:database=$db:host=$dbhost",
+    $dbuser,
+    $dbpass,
+    {
+        RaiseError => 1,
+        PrintError => 0,
+        AutoCommit => 1,
+    },
+);
+
+# Connect and retrieve instance information via stat:
+my $neb = Nebulous::Client->new(
+    proxy => "$nebhost",
+    );
+
+die "can't connected to Nebulous Server: $nebhost"
+    unless defined $neb;
+
+
+# Pre-emptively attempt repair of file.  This will ~double our execution time, but should help the efficiency.
+system("neb-repair $key");
+if ($? >> 8 != 0) {
+    die "Failure to repair $key.\n";
+}
+
+# Do checks now.
+
+my $stat = $neb->stat($key);
+die "nebulous key: $key not found" unless $stat;   
+my $instances = $neb->find_instances($key, 'any');
+die "no instances found" unless $instances;   
+
+my $user_copies;
+# eval {
+#     $user_copies = $neb->getxattr($key, "user.copies");
+# };
+$user_copies = 1;
+unless(defined($user_copies)) {
+    $user_copies = 1;
+}
+my @validation;
+my %md5sum_uniq;
+my $existing_copies = 0;
+my @existance;
+my @md5sums;
+my @files = map {URI->new($_)->file if $_} @$instances;
+
+for (my $i = 0; $i <= $#files; $i++) {
+    if (-e $files[$i]) {
+	$existance[$i] = 1;
+	$existing_copies++;
+	my $fh;
+	open($fh,$files[$i]);
+	$md5sums[$i] = Digest::MD5->new->addfile($fh)->hexdigest;
+	$md5sum_uniq{$md5sums[$i]} = 1;
+	close($fh);
+    }
+    else {
+	$existance[$i] = 0;
+	$md5sums[$i] = 'NON-EXISTANT';
+	$md5sum_uniq{$md5sums[$i]} = 1;
+    }
+    $validation[$i] = sprintf("% 3d %32s %s",
+			      $existance[$i],
+			      $md5sums[$i],
+			      $files[$i]);
+}
+# Confirm everything is in a valid state
+my $N_md5sums = scalar(keys %md5sum_uniq);
+if ($N_md5sums != 1) {
+    die "Cannot modify this instance! storage_object $key in inconsistent state!";
+}
+if ($#files < 1) {
+    die "Insufficient instances! $key!";
+}
+my $test_md5sum = $md5sums[0];
+
+# Copy instance to new uri
+my $destination_file = URI->new($new_uri)->file;
+my $source_file      = $files[0];
+system("cp $source_file $destination_file");
+system("glockfile $destination_file xcld 0");
+
+my $fh;
+open($fh,$destination_file);
+my $new_md5sum = Digest::MD5->new->addfile($fh)->hexdigest;
+close($fh);
+
+if ($new_md5sum ne $test_md5sum) {
+    die "md5sum mismatch with new copy. $destination_file ($new_md5sum) != $source_file ($test_md5sum) Exiting!";
+}
+
+# Update database table
+my $sql = Nebulous::Server::SQL->new();
+
+my $query = $dbh->prepare( $sql->get_volume_by_name );
+$query->execute( $new_volume );
+my ($vol_id, $vol_name, $vol_host, $vol_path) = $query->fetchrow_array;
+$query->finish;
+
+print "$new_volume $vol_id $vol_name $vol_host $vol_path $new_uri $ins_id\n";
+unless (defined($vol_id)) {
+    die "Invalid destination volume.";
+}
+
+$query = $dbh->prepare( $sql->update_instance_uri );
+$query->execute( $vol_id, $new_uri, $ins_id );
+$query->finish;
+
+unlink($source_file);
+print " OK\n";
+
+__END__
+
+=pod
+
+=head1 NAME
+
+neb-insedit - edit the instance information
+
+=head1 SYNOPSIS
+
+    neb-insedit --key <neb_key> --ins_id <ins_id> --uri <destination_uri> --volume <destination_volume>
+    [--db <database>] [--user <username>] [--pass <password>] [--host <hostname]
+
+=head1 DESCRIPTION
+
+This program allows the given instance of an object to be moved from one volume/uri to another.
+
+=head1 OPTIONS
+
+=over 4
+
+=item * --key <neb_key>
+
+Nebulous key for the storage object associated with the instance to move.
+
+=item * --ins_id <ins_id>
+
+Instance identifier that will be moved
+
+=item * --uri <destination_uri>
+
+Final location desired for this instance.  Should be of the form "file://data/ipp0XX.0/nebulous/aa/aa/ins_id.nebulous:directory:tree:file".
+
+=item * --volume <destination volume>
+
+Volume name that this instance will be moved to.
+
+=item * --db|-d <database>
+
+Name of database (C<namespace>) to create tables in.
+
+Optional if the appropriate environment variable is set.
+
+=item * --user|-u <username>
+
+Username to authenticate with.
+
+Optional if the appropriate environment variable is set.
+
+=item * --pass|-p <password>
+
+Password to authenticate with.
+
+Optional if the appropriate environment variable is set.
+
+=item * --host <database host>
+
+Name of host on which the database resides.
+
+=item * --neb_host <nebulous client server>
+
+Location of the client side server to connect to.
+
+Optional.  Defaults to C<localhost>.
+
+=head1 ENVIRONMENT
+
+These environment variables may be used in place of the specified command line
+options.  All command line option will override the corresponding environment
+value.
+
+=over 4
+
+=item * C<NEB_DB>
+
+Equivalent to --db|-d
+
+=item * C<NEB_HOST>
+
+Equivalent to --host
+
+=item * C<NEB_USER>
+
+Equivalent to --user|-u
+
+=item * C<NEB_PASS>
+
+Equivalent to --pass|-p 
+
+=item * C<NEB_SERVER>
+
+Equivalent to --neb_host
+
+=back
+
+=head1 CREDITS
+
+Josh Hoblitt and Chris Waters 
+
+=head1 SUPPORT
+
+Please contact the author directly via e-mail.
+
+=head1 AUTHOR
+
+Joshua Hoblitt <jhoblitt@cpan.org>
+
+=head1 COPYRIGHT
+
+Copyright (C) 2005-2008  Joshua Hoblitt.  All rights reserved.
+
+This program is free software; you can redistribute it and/or modify it under
+the terms of the GNU General Public License as published by the Free Software
+Foundation; either version 2 of the License, or (at your option) any later
+version.
+
+This program is distributed in the hope that it will be useful, but WITHOUT ANY
+WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A
+PARTICULAR PURPOSE.  See the GNU General Public License for more details.
+
+You should have received a copy of the GNU General Public License along with
+this program; if not, write to the Free Software Foundation, Inc., 59 Temple
+Place - Suite 330, Boston, MA  02111-1307, USA.
+
+The full text of the license can be found in the L<perlgpl> Pod as supplied
+with Perl 5.8.1 and later.
+
+=head1 SEE ALSO
+
+L<Nebulous::Server>, L<neb-initdb>, L<neb-df>, L<nebdiskd>
+
+=cut

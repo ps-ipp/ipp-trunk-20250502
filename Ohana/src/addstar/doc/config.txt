@@ -1,0 +1,68 @@
+
+addstar is expecting to get the following information from the header.
+
+Required keywords:
+
+NAXIS1, NAXIS2
+NASTRO (non-zero for valid astrometry solution)
+NSTARS 
+CERROR (astrometric error)
+
+a valid WCS:
+
+CTYPE1,2
+CRVAL1,2
+CRPIX1,2
+CDELT1,2
+PC001001
+PC001002
+PC002001
+PC002002
+
+PHOTCODE
+
+optional keywords:
+
+APMIFIT, dAPMIFIT
+FLIMIT, FSATUR
+FWHM_X, FWHM_Y, 
+TRATE (for driftscanning)
+ZERO_PT 
+
+Note that these entries are used to define the actual keywords:
+
+(eg, in the dvo.config file, DATE-KEYWORD tells addstar what keyword
+to use for the DATE).
+
+For Date/Time, one of the following three sets is needed:
+
+ * DATE-KEYWORD (date in format specified below)
+ * DATE-MODE (YYYY/MM/DD, MM/DD/YYYY, DD/MM/YYYY)
+ * UT-KEYWORD (HH:MM:SS for UT)
+
+ or:
+
+ * MJD-KEYWORD (MJD)
+
+ or: 
+
+ * JD-KEYWORD (JD)
+
+For Exposure time:
+
+ * EXPTIME-KEYWORD (seconds)
+
+For Airmass:
+
+ * AIRMASS-KEYWORD
+
+CCDNUM-KEYWORD??
+
+For sidereal time (optional):
+
+ * ST-KEYWORD
+
+For alternate EXTNAME:
+
+ * EXTNAME-KEYWORD
+

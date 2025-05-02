@@ -1,0 +1,646 @@
+#!/usr/bin/env perl
+
+$tagsets = "tagsets";
+if (!-d $tagsets || !-r $tagsets || !-x $tagsets) { die "missing the directory of distribution tables: $tagsets\n"; }
+
+$needdev = 0;
+
+# default system library locations
+@binpath = ( );
+@libpath = ( "/usr/local/lib", "/usr/lib", "/usr/X11R6/lib", "/lib" );
+@incpath = ( "/usr/local/include", "/usr/include", "/usr/X11R6/include" );
+
+$version = "";
+$build = 0;
+$list_modules = 0;
+my $only = "";
+my %force;
+my %done;                       # Tarballs that have been processed
+@tARGV = ();
+for (; @ARGV > 0; ) {
+    if ($ARGV[0] eq "-version") {
+        $version = $ARGV[1];
+        shift; shift; next;
+    }
+    if ($ARGV[0] eq "-build") {
+        $build = 1;
+        shift; next;
+    }
+    if ($ARGV[0] eq "-force") {
+        if (@ARGV < 2) { die "-force must be coupled to a library name\n"; }
+        if (lc($ARGV[1]) eq 'build') {
+            $force{'autoconf'} = 1;
+            $force{'automake'} = 1;
+            $force{'libtool'} = 1;
+            $force{'pkg-config'} = 1;
+        } else {
+            $force{lc($ARGV[1])} = 1;
+        }
+        shift; shift; next;
+    }
+    if ($ARGV[0] eq "-only") {
+        if (@ARGV < 2) { die "-only must be coupled to a library name\n"; }
+	$only = lc($ARGV[1]);
+        shift; shift; next;
+    }
+    if ($ARGV[0] eq "-h")     { &usage (); }
+    if ($ARGV[0] eq "help")   { &usage (); }
+    if ($ARGV[0] eq "-help")  { &usage (); }
+    if ($ARGV[0] eq "--help") { &usage (); }
+    if ($ARGV[0] eq "-list")  { &list_distributions(); }
+    if ($ARGV[0] eq "-modules") { $list_modules = 1; shift; next; }
+    @tARGV = (@tARGV, $ARGV[0]);
+    shift;
+}
+@ARGV = @tARGV;
+if ( @ARGV > 1) { &usage(); }
+
+if ( @ARGV == 0) {
+    die "a distribution name is now required by pschecklibs (e.g., ipp-ubuntu)\n";
+} else {
+    $file = "$tagsets/$ARGV[0].libs";
+}
+print "examining C libraries based on $file\n\n";
+
+# load the C libraries list
+open (FILE, $file) || die "ERROR: can't open C libraries list: $file\n";
+@list = <FILE>;
+close (FILE);
+
+if ($list_modules) { &list_modules(); }
+
+# set the psconfig version:
+if ("$version" eq "") {
+    $version = $ENV{'PSVERSION'};
+}
+if ("$version" eq "") {
+    $version = "default";
+}
+
+# generate new psconfig.csh if needed
+if (! -e "psconfig.csh" || ! -e "psconfig.bash") {
+    $psconfdir = $ENV{'PSCONFDIR'};
+    if ($psconfdir eq "") { die "PSCONFDIR not found, run psbuild -bootstrap and follow instructions\n"; }
+    vsystem ("cat psconfig.csh.in | sed 's|\@PSCONFDIR@|$psconfdir|' > psconfig.csh");
+    vsystem ("cat psconfig.bash.in | sed 's|\@PSCONFDIR@|$psconfdir|' > psconfig.bash");
+}
+
+# set the lib and include paths set by psconfig
+$bindir      = `csh psconfig.csh --bin $version`;         chomp $bindir;
+$libdir      = `csh psconfig.csh --libs $version`;        chomp $libdir;
+$mandir      = `csh psconfig.csh --man $version`;         chomp $mandir;
+$incdir      = `csh psconfig.csh --include $version`;     chomp $incdir;
+$prefix      = `csh psconfig.csh --prefix $version`;      chomp $prefix;
+
+$homedir     = `pwd`; chomp $homedir;
+$psconfdir   = `csh psconfig.csh --psconfdir $version`;   chomp $psconfdir;
+$psconfigure = `csh psconfig.csh --psconfigure $version`; chomp $psconfigure;
+
+print "psconfig version: $version\n";
+print "bindir: $bindir\n";
+print "libdir: $libdir\n";
+print "incdir: $incdir\n";
+print "mandir: $mandir\n";
+print "\n";
+
+# create the directories above if not found:
+if (! -e $libdir) { vsystem ("mkdir -p $libdir"); }
+if (! -e $incdir) { vsystem ("mkdir -p $incdir"); }
+if (! -e $bindir) { vsystem ("mkdir -p $bindir"); }
+if (! -e $mandir) { vsystem ("mkdir -p $mandir"); }
+if (! -e "$mandir/man1") { vsystem ("mkdir -p $mandir/man1"); }
+if (! -e "$mandir/man3") { vsystem ("mkdir -p $mandir/man3"); }
+
+# add the path defined by LIBRARY_PATH
+@tmppath = split (":", $ENV{'LIBRARY_PATH'});
+if (@tmppath) {
+    unshift @libpath, @tmppath;
+}
+# search for, and drop, existing libdir entry in libpath?
+unshift @libpath, $libdir;
+
+# XXX a temporary hack for libreadline (this failed... needed to modify libreadline/support/shobj-conf
+# $shlib_libs = $ENV{'SHLIB_LIBS'};
+# unless ($shlib_libs =~ m|-lncurses|) {
+#     $shlib_libs .= " -lncurses";
+# }
+# $ENV{'SHLIB_LIBS'} = $shlib_libs;
+
+# add the path defined by PATH
+@tmppath = split (":", $ENV{'PATH'});
+if (@tmppath) {
+    unshift @binpath, @tmppath;
+}
+# search for, and drop, existing libdir entry in libpath?
+unshift @binpath, $bindir;
+
+# add the path defined by PATH
+@tmppath = split (":", $ENV{'CPATH'});
+if (@tmppath) {
+    unshift @incpath, @tmppath;
+}
+# search for, and drop, existing libdir entry in libpath?
+unshift @incpath, $incdir;
+
+# get a list of implicit paths from cpp directly
+&checkpreprocessor ();
+
+# get a list of implicit paths from the linker directly
+&checklinker ();
+
+# add the system paths specified for each architecture
+&checkarch ();
+print "setting architecture to: $arch\n";
+print "searching for libraries in: @libpath\n";
+print "searching for headers in: @incpath\n";
+print "searching for programs in: @binpath\n";
+print "\n";
+
+if ($build && ! -d $psconfdir) {
+    mkdir $psconfdir || die "unable to create psconfig dir $psconfdir";
+}
+
+# read the lib distribution file, search / build each entry
+@faillibs = ();
+@failincs = ();
+foreach $line (@list) {
+    chop $line;
+    if ($line =~ m|^\s*$|) { next; }
+    if ($line =~ m|^\s*\#|) { next; }
+
+    ($type, $name, $altnames, $altpaths, $tarball, $tardir, $auto_force, $configure_opts, $make_opts, $install_opts) = split (" ", $line);
+    if (($auto_force ne "Y") && ($auto_force ne "N")) { die "invalid value for auto_force field\n"; }
+
+    if ($only && ($only ne lc($name))) { next; }
+
+    if ((defined $force{lc($name)} or defined $force{'all'}) and
+        not defined $done{$tarball} and lc($tarball) ne "none") {
+        # remove it for the list so we can check for -force for a library
+        # not in the list
+        &buildlib ($name, $tarball, $tardir, $configure_opts, $make_opts, $install_opts);
+        $done{$tarball} = 1;
+        delete($force{lc($name)});
+        next;
+    }
+
+    if ($build and ($auto_force eq "Y")) {
+        &buildlib ($name, $tarball, $tardir, $configure_opts, $make_opts, $install_opts);
+        next;
+    }
+
+    ## check for the C library
+    if ($type eq "lib") {
+        $found = &checklib ($name, $altnames, $altpaths);
+    }
+    if ($type eq "bin") {
+        $found = &checkbin ($name, $altnames, $altpaths);
+    }
+    if ($type eq "inc") {
+        $found = &checkinc ($name, $altnames, $altpaths);
+    }
+
+    if ($auto_force eq "Y") {
+        print "$name will be built\n";
+    }
+
+    if ($found) {
+        if ($found eq "runtime-only") {
+            print "runtime $name ($found)\n";
+            push @faillibs, "$name";
+        } else {
+            print "pass $name ($found)\n";
+        }
+        next;
+    } else {
+        print "fail $name\n";
+        push @faillibs, "$name";
+    }
+
+    if ($auto_force eq "Y") {
+        print "$name will be built\n";
+    }
+
+    if (! $build) { next; }
+    if ($type eq "inc") {
+        print "ERROR: missing header file from library which is supposedly installed\n";
+        # Will attempt to install library.
+    }
+    &buildlib ($name, $tarball, $tardir, $configure_opts, $make_opts, $install_opts);
+}
+
+my $bad_force;
+foreach $k (keys %force) {
+    next if lc($k) eq 'all';
+    print STDERR "\nERROR: -force $k requested but $k isn't in the list of libraries\n";
+    $bad_force = 1;
+}
+if ($build) {
+    if ($bad_force) {
+        exit 1;
+    }
+    exit 0;
+}
+print "\n";
+
+if (@faillibs > 0) {
+    print "The following C libraries are missing from your system\n";
+    foreach $name (@faillibs) {
+        print "  $name\n";
+    }
+    print "\n";
+    print "you may install them in your local path by re-running pschecklibs with -build\n";
+
+    print "*** WARNING *** Some libraries are installed in your system only for runtime use, not for linking.\n";
+    print " For many systems, it is possible to install the developer version of a library, and this may be safer\n";
+    print " If you choose to install our version of any of these libraries, please use -force (library) in your psbuild / pschecklibs options\n";
+    exit 1;
+}
+
+print "no C libraries are missing from your system\n";
+exit 0;
+
+sub buildlib {
+    my ($name, $tarball, $tardir, $configure_opts, $make_opts, $install_opts) = @_;
+
+    if ($tarball eq "NONE") {
+        print "No tarball available for $name.  You'll have to build it yourself.\n";
+        exit 1;
+    }
+
+    if ($name eq "libz") {
+        # zlib doesn't like the full list of arguments to configure
+        $psconfigure = "./configure --prefix=$prefix";
+    } else {
+        $psconfigure = `csh psconfig.csh --psconfigure $version`; chomp $psconfigure;
+    }
+
+    print "psconfigure: $psconfigure";
+
+    ## try to build the module ../extlibs/$tarball
+
+    # go to extlibs and unpack the tarball
+    chdir "../extlibs";
+
+    print "extract $name from $tarball\n";
+    vsystem ("tar xvzf $tarball");
+
+    print "tardir: $tardir\n";
+
+    # enter the directory and build
+    chdir $tardir;
+
+    # build the library using psconfigure, make, make install
+    if ($configure_opts eq "NONE") {
+        vsystem ("$psconfigure");
+    } else {
+        $configure_opts = join (' ', split (',', $configure_opts));
+        vsystem ("$psconfigure $configure_opts");
+    }
+    if ($?) { &failure($name, "failure in configure"); }
+
+    my $make = "make";          # Command for make
+    $make .= ' ' . $ENV{'PSCONFIG_MAKEOPTS'} if defined $ENV{'PSCONFIG_MAKEOPTS'};
+
+    if ($make_opts eq "NONE") {
+        vsystem ($make);
+    } else {
+        $make_opts = join (' ', split (',', $make_opts));
+        vsystem ("$make $make_opts");
+    }
+    if ($?) { &failure($name, "failure in make"); }
+
+    if ($install_opts eq "NONE") {
+        vsystem ("$make install");
+    } else {
+        $install_opts = join (' ', split (',', $install_opts));
+        vsystem ("$make install $install_opts");
+    }
+    if ($?) { &failure($name, "failure in make install"); }
+
+    chdir $homedir;
+    return 1;
+}
+
+sub checklib {
+    my $name = $_[0];
+    my $altnames = $_[1];
+    my $altpaths = $_[2];
+
+    @subdirs = ".";
+    if ($altpaths ne "NONE") {
+        @altpaths = split (',', $altpaths);
+        push @subdirs, @altpaths;
+    }
+
+    @trynames = ($name);
+    if ($altnames ne "NONE") {
+        @altnames = split (',', $altnames);
+        push @trynames, @altnames;
+    }
+
+    # try each of the possible library names
+    foreach $tryname (@trynames) {
+        # try each of the library paths, with the default as well as each altpath
+        foreach $topdir ( @libpath ) {
+            foreach $subdir ( @subdirs ) {
+                if ($subdir eq ".") {
+                    $path = $topdir;
+                } else {
+                    $path = "$topdir/$subdir";
+                }
+                # print "trying $path\n";
+                if (! -e $path) { next; }
+                $libname = "$path/$tryname.a";
+                if (-e $libname) { return $libname; }
+                # print "no $libname\n";
+                $libname = "$path/$tryname.$dlltype";
+                if (-e $libname) { return $libname; }
+                # print "no $libname\n";
+            }
+        }
+
+        # if we failed to find the basic named library files, try the
+        # versions libraries if we find only a .so.N without a matching
+        # .so, we link this in the installed libdir
+        # XXX this was probably a mistake to allow some systems to build without supplied libs
+        if (1) {
+            foreach $topdir ( @libpath ) {
+                foreach $subdir ( @subdirs ) {
+                    if ($subdir eq ".") {
+                        $path = $topdir;
+                    } else {
+                        $path = "$topdir/$subdir";
+                    }
+                    if (! -e $path) { next; }
+                    @libnames = <$path/$tryname.$dlltype*>;
+                    if (@libnames > 0) {
+                        $libname = @libnames[-1];
+                        $needdev = 1;
+                        # print " *** need developer version of $name\n";
+                        return "runtime-only";
+
+                        # XXX old option: link in existing library
+                        # symlink $libname, "$libdir/$f.$dlltype";
+                        # if ($?) { exit 1; }
+                        # return $libname;
+                    }
+                }
+            }
+        }
+    }
+    return 0;
+}
+
+sub checkbin {
+    my $name = $_[0];
+    my $altnames = $_[1];
+    my $altpaths = $_[2];
+
+    # XXX drop this for bin?
+    @subdirs = ".";
+    if ($altpaths ne "NONE") {
+        @altpaths = split (',', $altpaths);
+        push @subdirs, @altpaths;
+    }
+
+    # try each of the library paths, with the default as well as each altpath
+    foreach $topdir ( @binpath ) {
+        foreach $subdir ( @subdirs ) {
+            if ($subdir eq ".") {
+                $path = $topdir;
+            } else {
+                $path = "$topdir/$subdir";
+            }
+            if (! -e $path) { next; }
+            $binname = "$path/$name";
+            if (-e $binname) { return $binname; }
+        }
+    }
+    return 0;
+}
+
+sub checkinc {
+    my $name = $_[0];
+    my $altnames = $_[1];
+    my $altpaths = $_[2];
+
+    @subdirs = ".";
+    if ($altpaths ne "NONE") {
+        @altpaths = split (',', $altpaths);
+        push @subdirs, @altpaths;
+    }
+
+    # try each of the library paths, with the default as well as each altpath
+    foreach $topdir ( @incpath ) {
+        foreach $subdir ( @subdirs ) {
+            if ($subdir eq ".") {
+                $path = $topdir;
+            } else {
+                $path = "$topdir/$subdir";
+            }
+            if (! -e $path) { next; }
+            $incname = "$path/$name";
+            if (-e $incname) { return $incname; }
+        }
+    }
+
+    return 0;
+}
+
+sub checklinker {
+    # we are going to supplement the libpath with entries reported by
+    # the linker (this depends on ld --verbose 
+
+    my $line, @lines;
+    my $item, @items;
+
+    @lines = `ld --verbose | grep SEARCH_DIR`;
+    foreach $line (@lines) {
+	# we expect items of the form SEARCH_DIR("path");
+	# or SEARCH_DIR("=path") -- in that case we should prepend sysroo
+	next unless ($line =~ m|SEARCH_DIR|);
+	@items = split (";", $line);
+	foreach $item (@items) {
+	    next unless ($item);
+	    ($p1) = $item =~ m|SEARCH_DIR\050"=(\S*)"|;
+	    ($p2) = $item =~ m|SEARCH_DIR\050"(\S*)"|;
+	    next if (!$p1 && !$p2);
+	    if (!$p1 && $p2) {
+		push @libpath, $p2;
+	    }
+	    if ($p1 && $p2) {
+		push @libpath, $p1;
+	    }
+	    if ($p1 && !$p2) {
+		print "programming error!\n";
+		exit 4;
+	    }
+	}
+    }
+    return 0;
+}
+
+sub checkpreprocessor {
+    # we are going to supplement the libpath with entries reported by
+    # the linker (this depends on ld --verbose 
+
+### #include <...> search starts here:
+###  /home/eugene/src/psconfig/ipp-dev.linux/include
+###  .
+###  /usr/lib/gcc/i686-linux-gnu/4.6/include
+###  /usr/local/include
+###  /usr/lib/gcc/i686-linux-gnu/4.6/include-fixed
+###  /usr/include/i386-linux-gnu
+###  /usr/include
+### End of search list.
+
+    my $line, @lines;
+    my $found_start;
+
+    @lines = `cpp --verbose < /dev/null 2>&1`;
+    $found_start = 0;
+    foreach $line (@lines) {
+	if (!$found_start) {
+	    if ($line =~ m|include \<...\> search starts here|) {
+		$found_start = 1;
+		next;
+	    } else {
+		next;
+	    }
+	}
+	chomp $line;
+	if ($line =~ m|End of search list|) {
+	    return 1;
+	}
+	($cleanline) = $line =~ m|\s*(\S*)|;
+	push @incpath, $cleanline;
+    }
+    return 0;
+}
+
+sub checkarch {
+    # we are going to supplement the global libpath supplied
+
+    # check the hardware architecture:
+    $sys=`uname -s`; chomp $sys;
+
+    # default values
+    $ranlib = "ranlib";
+    $dlltype = "so";
+
+    if ($sys eq "IRIX64") {
+        $arch = "irix";
+        return;
+    }
+
+    if ($sys eq "SunOS") {
+        $ver=`uname -r | awk '{print substr($1,1,1)}'`;
+        if ($ver == 5) {
+            $arch = "sol";
+        } else {
+            $arch="sun4";
+        }
+
+        # sun (at least) seems to need the socket library (linux does not)
+        push @libpath, "/usr/openwin/lib";
+        push @incpath, "/usr/openwin/include";
+
+        # XXX this is a problem
+        print STDERR "need to add system dependent libraries (eg, libsocket, libnsl)\n";
+        exit 1;
+        $needlibs = "$needlibs libsocket libnsl";
+        $ranlib = "touch";
+        return;
+    }
+
+    if ($sys eq "Linux") {
+        $arch = "linux";
+
+        if (-e "/etc/sidious.config") {
+            $arch = "sid";
+            return;
+        }
+
+        $mach = `uname -m`; chomp $mach;
+
+        if ($mach eq "x86_64") {
+            $arch = "lin64";
+            unshift @libpath, "/lib64";
+            unshift @libpath, "/usr/lib64";
+            unshift @libpath, "/usr/X11R6/lib64";
+            return;
+        }
+        return;
+    }
+
+    if ($sys eq "Darwin") {
+        $mach = `uname -m`; chomp $mach;
+        if ($mach eq "i386") {
+            $arch="darwin_x86";
+        } else {
+            $arch = "darwin";
+        }
+        $dlltype = "dylib";
+        unshift @libpath, "/sw/lib";
+        unshift @incpath, "/sw/include";
+        unshift @incpath, "/usr/include/sys";
+        return;
+    }
+
+    if ($sys eq "HP-UX") {
+        $arch = "hpux";
+        return;
+    }
+
+    print "unknown architecture";
+    exit 1;
+}
+
+sub usage {
+    print STDERR "USAGE: pschecklibs [-version] [-build] [-only module] [-force module] [-force all]\n";
+    print STDERR "  multiple [-force (module)] options may be specified\n";
+    print STDERR "USAGE: pschecklibs [-list] : show C libraries file\n";
+    print STDERR "USAGE: pschecklibs [-modules] : list available C modules\n";
+    exit 2;
+}
+
+sub vsystem {
+    print STDERR "@_\n";
+    $status = system ("@_");
+    $status;
+}
+
+sub list_distributions {
+    @list = <$tagsets/*.perl>;
+    foreach $line (@list) {
+        chomp $line;
+        ($dist) = $line =~ m|$tagsets/(\S*).perl|;
+        print STDERR "$dist\n";
+    }
+    exit 2;
+}
+
+sub list_modules {
+
+    foreach $line (@list) {
+	chop $line;
+	if ($line =~ m|^\s*$|) { next; }
+	if ($line =~ m|^\s*\#|) { next; }
+
+	($type, $name, $altnames, $altpaths, $tarball, $tardir, $auto_force, $configure_opts, $make_opts, $install_opts) = split (" ", $line);
+	if ($type eq "bin") {
+	    print STDERR "bin: $name\n";
+	}
+	if ($type eq "lib") {
+	    print STDERR "lib: $name\n";
+	}
+    }
+    exit 0;
+}
+
+sub failure {
+    system ("ls");
+    die "problem building $_[0] : $_[1]\n";
+    print "\033]0; ** pschecklibs: failure  ** \007";
+}
+

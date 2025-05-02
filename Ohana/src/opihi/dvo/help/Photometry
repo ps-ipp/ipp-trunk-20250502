@@ -1,0 +1,26 @@
+
+cals: Plot residuals for reference stars. 
+
+ This function takes the currently displayed region and looks for all
+ stars which have 'reference' photometry and plots the difference
+ between the reference magnitude (in the given filter) and the
+ observed magnitude (same filter) versus one of several options:  the
+ star color (based on the 'reference' photometry), the star magnitude,
+ the airmass, time, secqunce, etc.
+
+ These plots can use one of two options for the 'observed' magnitude.
+ Either, the magnitude for individual measurement, using the currently
+ set values for the CCD zeropoints (from the photometry database), or
+ using the relative photometry determined for the particular star.  
+
+
+dmags: plot difference between two measured magnitudes
+
+resid: 
+
+abszero
+
+zeropts
+
+cmd
+

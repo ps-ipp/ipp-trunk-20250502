@@ -1,0 +1,10 @@
+
+  output (filename or "stdout")
+
+  redirect the output to a file (concat to the end of the file).  This
+  can also be done with the UNIX ">".  However, this command is useful
+  to send information to a file for a part of a Mana session.  For
+  example, you can save results of a "stats" command.
+
+  See Also: input, stats
+

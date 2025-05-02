@@ -1,0 +1,13 @@
+
+tests for the largefiles upgrade:
+
+* basic tools:
+  * fhead
+  * ftable
+  * fields
+  * fits_insert
+
+* addstar
+* getstar
+* delstar
+* 

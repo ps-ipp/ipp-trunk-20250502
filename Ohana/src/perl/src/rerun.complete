@@ -1,0 +1,31 @@
+#!/usr/bin/env perl
+
+$fifo = `gconfig FIFOS`; chop $fifo;
+$failure = "$fifo/complete.failure"; 
+
+$Nflatten = `grep flatten $failure | wc -l`; chop $Nflatten;
+$Ngophot  = `grep gophot  $failure | wc -l`; chop $Ngophot;
+$Nimclean = `grep imclean $failure | wc -l`; chop $Nimclean;
+$Ngastro  = `grep gastro  $failure | wc -l`; chop $Ngastro;
+$Naddstar = `grep addstar $failure | wc -l`; chop $Naddstar;
+
+print "flatten: $Nflatten\n";
+print "gophot:  $Ngophot\n";
+print "imclean: $Nimclean\n";
+print "gastro:  $Ngastro\n";
+print "addstar: $Naddstar\n";
+
+# get the list of things to re-run:
+$runid  = `gconfig RUNID.POSTRUN`; chop $runid;
+$camera = `gconfig CAMERA.POSTRUN`; chop $camera;
+$catdir = `gconfig DB_STDS -D RUNID $runid -D CAMERA $camera`; chop $catdir;
+$datdir = `gconfig DATDIR`; chop $datdir;
+$ptlist = "$datdir/$runid/$runid.rerun.dat";
+$ptlist = "$datdir/$runid/$runid.rerun.log";
+
+#system ("grep addstar $failure | awk '{print \$1, \$2, \$3, \$4}' > $ptlist");
+#system ("elixir -D global.pending addstar -D RUNID $runid -D CAMERA $camera -D mode sexcomplete $ptlist >& $ptlog &");
+
+system ("cat $failure | awk '{print \$1, \$2, \$3, \$4}' > $ptlist");
+system ("elixir -D RUNID $runid -D CAMERA $camera -D mode sexcomplete $ptlist >& $ptlog &");
+

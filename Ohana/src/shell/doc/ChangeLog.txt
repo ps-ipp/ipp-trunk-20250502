@@ -1,0 +1,10 @@
+
+- shell 1.2
+  * fixed to work with mana 1.0 changes (only one cmd line input file)
+  * replace addspphot with addstar -skyprobe
+
+shell-1-1:
+  - changed sp_phot to use unified addstar, not addspphot
+
+shell-1-0:
+  - initial release

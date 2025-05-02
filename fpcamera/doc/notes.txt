@@ -1,0 +1,15 @@
+
+psphotSetHeaderNstars : counts N_STARS and writes to a header metadata
+
+psphotReadoutCleanup:
+  psphotPSFstatsSources : measure stats for PSF model (e.g., FWHM_MAJ) [readout->analysis]
+  psphotMomentsStats    : measure stats based on 2nd moments           [readout->analysis]
+  psphotSetHeaderNstars : count stars (& subsets)                      [PSPHOT.HEADER]
+  psphotDefineHeader    : moves the values from readout->analysis to PSPHOT.HEADER
+  
+pmSourceID : appends the header MD entries from PSPHOT.HEADER & PSASTRO.HEADER to the output cmf
+
+psastro ---
+
+psastroMosaicOneChip : measure stats for astrom, Nstars, etc : PSASTRO.HEADER
+

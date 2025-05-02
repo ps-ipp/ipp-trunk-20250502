@@ -1,0 +1,13 @@
+
+test directories which are currently (2008.05.04) working:
+
+types : OK
+sys : OK
+mathtypes : OK, but tap_psImageInterpolate does not build
+math : many problems
+jpeg : no tests
+imageops : many problems
+fits : many problems
+fft : OK
+db : probably needs a working db installation
+astro : many problems

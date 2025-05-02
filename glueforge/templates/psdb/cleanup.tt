@@ -1,0 +1,4 @@
+void [% pkg_namespace %]Cleanup(psDB *dbh)
+{
+    psDBCleanup(dbh);
+}

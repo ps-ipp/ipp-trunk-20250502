@@ -1,0 +1,14 @@
+long long [% table.namespace %]Delete(psDB *dbh, const psMetadata *where, unsigned long long limit)
+{
+    long long       deleted = 0;
+
+    long long count = psDBDeleteRows(dbh, [% table.namespace FILTER upper %]_TABLE_NAME, where, limit);
+    if (count < 0) {
+        psError(PS_ERR_UNKNOWN, true, "failed to delete row from [% table.namespace %]");
+        return count;
+
+        deleted += count;
+    }
+
+    return deleted;
+}

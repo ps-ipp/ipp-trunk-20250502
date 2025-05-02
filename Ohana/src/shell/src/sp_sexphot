@@ -1,0 +1,32 @@
+#!/bin/csh -f
+# load the file, determine bias and sky, then extract a subraster
+# write out the subraster 
+
+if ($#argv != 2) then
+ echo "USAGE: skyprobephot file.fits file.sx"
+ exit 2;
+endif
+
+set infile = $1
+set outfile = $2
+
+# sex $1 -c $script -CATALOG_NAME $2
+# exit $status
+
+# find the appropriate script file
+set confdir=`gconfig CONFDIR`
+
+# sextractor needs full paths to:
+set sexconf = "$confdir/sextract/skyprobe.sex"
+set sexpars = "$confdir/sextract/skyprobe.param"
+set sexfilt = "$confdir/sextract/default.conv"
+set sexnnw  = "$confdir/sextract/default.nnw"
+
+sex $infile \
+    -c $sexconf \
+    -PARAMETERS_NAME $sexpars \
+    -FILTER_NAME     $sexfilt \
+    -STARNNW_NAME    $sexnnw \
+    -CATALOG_NAME    $outfile
+
+exit $status

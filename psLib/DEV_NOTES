@@ -1,0 +1,175 @@
+---- Developing in the autotools environment for non-autotools developers. ----
+
+
+There are many detailed resources on the web about the autotools (autoconf,
+automake, libtools).  Being GNU tools, the primary resources are found there
+at:
+  o  http://www.gnu.org/software/autoconf/manual/autoconf-2.57/autoconf.html
+  o  http://www.gnu.org/software/automake/manual/automake.html
+  o  http://www.gnu.org/software/libtool/manual.html
+
+This document will deal with only the basic required tasks for developing in
+the autotools environment, namely:
+  o  Creating the configuration environment from CVS check-out,
+  o  Configuring the library,
+  o  Making the library,
+  o  Adding and removing a source code file, and
+  o  Adding and removing a test code file.
+
+
+Creating the configuration environment from CVS check-out
+===============================================================================
+
+The autotools as a group help you create software distributions which will
+build reliably on a large variety of platforms.  The minimum required contact
+with the autotools is to generate the files which will let you configure a
+freshly checked-out directory before working on it, since these configuration
+files are not checked in to the repository. The Makefile.cvs makefile will do
+this for you, but it can only do this if the autotools are installed (which is
+commonly included into every Linux Distribution as well as Mac OSX).
+
+The command sequence example for this step is as follows:
+  > cvs co psLib
+  > cd psLib
+  > make -f Makefile.cvs
+
+Configuring the library
+===============================================================================
+
+Running the configure script is basically very simple: ./configure.  There are,
+however, options and arguments which can help you, or catch you out.  You can
+see the full list of options with the command ./configure --help.
+
+You set the place where the configured component will be installed with the
+--prefix option. This names a directory which will end up with the standard
+directories bin, lib and so on.  The default is `pwd` currently, but that may
+change to something like $HOME in the future.
+
+The psLib autoconf adds a couple of extra options to ./configure that may be
+of interest to a developer.
+
+--enable-perlmodule
+  enables the building of the perl module using SWIG.  The default is to not
+  build the perl modules
+
+--enable-optimize
+  by default, the build disables compiler optimization for C files to speed up
+  the compile time.  By adding this, '-O2' is added to CFLAGS.
+
+--enable-static
+  by default, only a shared, dynamically-linked, library is built.  This option
+  enables the creation of a static library at the cost of doubling the compiling
+  time.  To create only a static library, include the --disable-shared option
+  as well.
+
+--with-cfitsio=DIR
+  specifies the location of the CFITSIO installation prefix, e.g., /usr/local.
+  To specify the include and/or library directories directly, use the options
+  --with-cfitsio-include=DIR and --with-cfitsio-lib=DIR respectively.  If not
+  specified, CFITSIO is assumed to have been installed in the standard paths
+  for the OS, e.g., /usr or /usr/local.
+
+--with-fftw3=DIR
+  specifies the location of the FFTW3 installation prefix, e.g., /usr/local.
+  To specify the include and/or library directories directly, use the options
+  --with-fftw3-include=DIR and --with-fftw3-lib=DIR respectively.  If not
+  specified, FFTW3 is assumed to have been installed in the standard paths
+  for the OS, e.g., /usr or /usr/local.
+
+--with-gsl-config=FILE
+  specifies the gsl-config script to use to gather the GSL library information.
+  This is the full path to the gsl-config script included in the package's
+  installation, e.g., /usr/local/bin/gsl-config.  If not specified, $PATH is
+  used to find the script.
+
+--with-xml2-config=FILE
+  specifies the xml2-config script to use to gather the XML2 library
+  information.  This is the full path to the xml2-config script included in
+  the package's installation, e.g., /usr/local/bin/xml2-config.  If not
+  specified, $PATH is used to find the script.
+
+--with-swig=FILE
+  specifies the swig executable to use to generate the SWIG wrapper code.
+  This is the full path to the swig executable, e.g., /usr/bin/swig.  If not
+  specified, $PATH is used to find the executable.
+
+--with-perl=FILE
+  specifies the perl executable to use to generate the SWIG wrapper code.
+  This is the full path to the perl executable, e.g., /usr/bin/perl.  If not
+  specified, $PATH is used to find the executable.
+
+--with-perlprefix=DIR
+  specifies the installation prefix for the perl module.  If not
+  specified, the PREFIX as specified by the --prefix option (or its default)
+  is used.
+
+
+The command sequence example for this step, using all default settings, is as
+follows:  
+  > ./configure
+
+  
+Adding and removing a source code file
+===============================================================================
+
+The library is built from a number of smaller, 'convienence' libraries, one
+convienence library for each subdirectory off of src.  To add a file to the
+pslib library, you need to add it to one of convienence libraries in the
+appropriate subdirectory
+
+To add functionality, you need to add the filenames to the Makefile.am in the
+subdirectory in which the file is being added.
+  o  The source filename needs to added to the libpslibSUBDIR_la_SOURCES
+     variable, where SUBDIR is the subdirectory name.
+  o  Any header files needed to be installed (which is generally going to be
+     all header files) should be added to the pslibinclude_HEADERS variable.
+  o  Any other file needed to be included in the distribution tarball but are
+     not to be installed should be included in the EXTRA_DIST variable.
+
+Upon saving Makefile.am, the existing Makefile will detect the change and
+automagically perform any executation of automake/autoconf, so a simple
+'make' should fold in these changes for you.
+
+
+Adding and removing a test code file
+===============================================================================
+
+Tests are added into a subdirectory of the test directory which corresponds to
+the functionality location under src being tested.  For example, if testing
+functionality found in src/astronomy/psFoo.c, you will need to add the
+corresponding tests in test/astronomy/tst_psFoo.c.  If the test driver code
+file does not current exist, use test/tst_template.c as a template on how to
+utilize the psLib test facilities.
+
+To add a test, you need to add the filenames to the Makefile.am in the
+subdirectory in which the file is being added.
+  o  The source filename minux the .c suffix needs to added to the
+     TESTS and variable.  This specifies the executable target name.
+  o  Using the name you added to TESTS, create a line of the form
+        tst_psFoo_SOURCES = tst_psFoo.c
+     This specifies the source files needed to create the test driver
+     executable (in the psLib test suite, this is generally just one file).
+  o  Any test data file needs to be added to the check_DATA variable and
+     a rule needs to be created that will copy the file from the source
+     directory to the build directory.  This is because the directory in
+     which your data file exists is not necessarily where the test executable
+     is built.  The simpliest way to do this is to place the data file in
+     a subdirectory like 'verified' and create a rule like:
+        fBiOut.fits: verified/fBiOut.fits
+                cp $? $@
+     Automake will determine that the target directory of the cp should be
+     the build directory, so the file will be copied to the same directory
+     as your executable (so that in the code, you can assume the path is '.')
+     
+
+Upon saving Makefile.am, the existing Makefile will detect the change and
+automagically perform any executation of automake/autoconf, so a simple
+'make' should fold in these changes for you.
+
+-------------------------------------------------------------------------------
+N.B. this file is not to be included in distribution packages.
+
+Gotchas
+===============================================================================
+
+libtap uses asprintf() which is non-portable

@@ -1,0 +1,150 @@
+
+2005.10.20 : gophot v1.1
+
+  minor changes to use new libohana (v1.5) / libfits (v1.4)
+
+Old Notes
+
+Converting dophot to C: (I use dophot.f and dophot.c to refer to the
+fortran and C versions of dophot).
+
+some rules and goals for the first pass:
+
+1) I am maintaining the fortran dophot variable names as much as
+   possible, at least for now. 
+
+2) I am avoiding making proceedural changes / method changes, but I am
+willing to make minor modifications of things like looping strategies
+and if-statement order to clean the code a bit.
+
+3) I have placed all of the common-block variables in a single include
+file, gophot.h, with some attempt to define the names.  I've also placed the
+image data and noise matricies in gophot.h, along with nfast, nslow,
+so these are not passed endlessly back and forth among functions.
+
+4) My (sort-of) working fortran f2c dophot used an external loop,
+getfits.c which enclosed dophot.f and performed the image loading,
+big matrix allocation stuff.  I have renamed that gophot.c and cleaned
+it somewhat.  
+
+5) The biggest structural change so far is the infamous tuneup.f.  I
+have replaced it with my own ConfigInit function, based on my ohana
+config functions.  These have a much cleaner syntax for reading
+configuration values.  I have also placed the ConfigInit function much
+earlier, in gophot.c at the very beginning.  this means that config
+values can be overridden by image header values, if the fits_scan
+lines are coded.  currently, itop is read from the header (SATVALUE).
+
+For the moment, I am only making those changes needed to get a working
+dophot version, not a complete version.  Thus, I am skipping:
+warmstart, autothresh, median sky, hubble sky. 
+
+some function with significant adjustments, other than getfits.c and
+tuneup.f:
+
+message.c: actually this didn't exist in dophot.f - I have created a
+function mprint, which conditionally prints a message based on the
+verbosity level and an associated threshold.  the verbosity is
+registered with set_verbosity (level) and is stored static in
+message.c (not visible to the rest of dophot.c).  the prototype is:
+mprint (int level, char format, ...), with a format and argument
+syntax identical to printf.  all messages go to stderr, for now.
+
+makenoise.c: I am using pointers to do the loops. this should speed
+life alot.
+
+findsky.c: a new addition of mine to determine skyvalue from median of
+image.  this is implemented in the most recent dophot.f, but only
+since March 2000.
+
+There are some typical coding structures in the fortran that I am
+changing to make more legible:
+
+1) a = a + 1, a = a + b --> I'm using C inc args: a++, a+=b
+
+2) nested logic:
+
+{ /* some block */
+
+ code, code, code;
+
+ if (condition) then 
+
+   big block;
+
+ endif
+
+} /* end block */  
+
+there are many of these structures which conditionally perform a large
+operation, and otherwise do nothing or almost nothing.  I'm inverting
+these like this:
+
+{ /* some block */
+
+ code, code, code;
+
+ if (!condition) continue
+
+ big block;
+
+} /* end block */  
+
+data hard.soft.mat 
+read m1 4 m2 15
+set dm = m1 - m2
+lim -17 -7 -1 1; clear; box; plot m1 dm
+
+I have been making some significant changes to the dophot strategy for
+finding stars.  The goal is to handle saturated stars more
+effectively.  The strategy should not really change for faint stars.
+There are a few problems with the old strategy.  
+
+First, we were using an image array and a noise array.  To inhibit
+finding fake stars in the wings of bright stars, the noise array was
+enhanced when the stars were subtracted.  But for each loop, we were
+fitting and re-fitting each star several times.  As a result, we were
+adding, subtracting, adding, and subtracting the noise, which was of
+the order Nstar^2, many times.  Round off errors eventually made the
+noise array useless in the vicinity of bright stars.  Second, bright
+stars likely have many bad pixels, either low from sagging counts at
+or near saturation or high from bleeding.  Since these all have quite
+high flux, they highly discrepant points drive the fits
+significantly.  Finally, the initial guess location used the peak of
+the flux in a box around the trigger pixel.  This was problematic for
+bright stars because bleeding and saturation meant the peak was
+frequently far from the centroid.  I am addressing each of these
+problems separately.
+
+First, for the fits, we are now softening the errors by the residual
+from the initial guess fit.  This is a fitting method called 'robust
+fitting', and it allows significantly discrepant points to be part of
+the data without dominating or driving the fit to funny places.  This
+means the saturated stars are less biased by the few pixels in the
+core which are saturated and discrepant from the fit for the other
+pixels.
+
+Second, for the noise problem, I have made several related changes.
+First, I am now converting the image from DN to electrons (and
+re-scaling all relevant parameters to match).  This means the Poisson
+noise in the original image is now simply sqrt(Ncts).  I am putting
+only the square of the read noise in the noise array.  When I subtract
+a star, I move the counts from the image array to the noise array.
+Thus, the noise per pixel is always (Icts + Ncts) [where Icts = image
+array counts and Ncts = noise array counts] before or after the star
+subtraction.  I now have two tests for bump significance:  1) the
+signal-to-noise must be above a threshold: 
+
+sq(sum[image-sky]) > sum[noise + image] * ratio
+
+and the image counts must be significant:
+
+sub[image-sky] > sum[noise - readnoise^2] * ratio
+
+Finally, the initial guess will use a centroid in fillerup if the flux
+is high enough.
+
+
+
+
+

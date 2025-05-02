@@ -1,0 +1,116 @@
+
+automate MULTI
+
+# we run in the sequence BLOCK -> CHECK -> LAUNCH -> BLOCK -> CHECK
+# success on CHECK -> LAUNCH
+# failure on BLOCK -> CHECK
+
+# XXX these steps all refer to "@DBNAME@"; they need to be more generic, even for the basic simtest analysis
+
+automate METADATA
+  name       STR BIAS
+  check      STR "regtool -processedexp -exp_type BIAS -inst @CAMERA@ -dbname @DBNAME@"
+  ncheck     S32 20
+  launch     STR "dettool -definebyquery -workdir file://@CWD@/detwork -inst @CAMERA@ -det_type BIAS -select_exp_type BIAS -dbname @DBNAME@"
+  block      STR "dettool -runs -active -det_type BIAS -dbname @DBNAME@"
+END
+
+automate METADATA
+  name       STR DARK
+  check      STR "detselect -search -inst @CAMERA@ -det_type BIAS -dbname @DBNAME@"
+  launch     STR "dettool -definebyquery -workdir file://@CWD@/detwork -inst @CAMERA@ -det_type DARK -select_exp_type DARK -dbname @DBNAME@"
+  block      STR "dettool -runs -active -det_type DARK -dbname @DBNAME@"
+END
+ 
+automate METADATA
+  name       STR SHUTTER
+  check      STR "detselect -search -inst @CAMERA@ -det_type DARK -dbname @DBNAME@"
+  launch     STR "dettool -definebyquery -workdir file://@CWD@/detwork -inst @CAMERA@ -det_type SHUTTER -filter r -select_exp_type SKYFLAT -select_filter r -dbname @DBNAME@"
+  block      STR "dettool -runs -active -det_type SHUTTER -dbname @DBNAME@"
+END
+
+automate METADATA
+  name       STR FLAT-r
+  check      STR "detselect -search -inst @CAMERA@ -det_type SHUTTER -dbname @DBNAME@"
+  launch     STR "dettool -definebyquery -workdir file://@CWD@/detwork -inst @CAMERA@ -det_type FLAT -filter r -select_exp_type SKYFLAT -select_filter r -dbname @DBNAME@"
+  block      STR "dettool -runs -active -det_type FLAT -filter r -dbname @DBNAME@"
+END
+
+automate METADATA
+  name       STR FLAT-i
+  check      STR "detselect -search -inst @CAMERA@ -det_type SHUTTER -dbname @DBNAME@"
+  launch     STR "dettool -definebyquery -workdir file://@CWD@/detwork -inst @CAMERA@ -det_type FLAT -filter i -select_exp_type SKYFLAT -select_filter i -dbname @DBNAME@"
+  block      STR "dettool -runs -active -det_type FLAT -filter i -dbname @DBNAME@"
+END
+
+automate METADATA
+  name       STR OBJECT-i
+  check      STR "detselect -dbname @DBNAME@ -search    -inst @CAMERA@ -filter i -det_type FLAT"
+  launch     STR "chiptool  -dbname @DBNAME@ -updaterun -inst @CAMERA@ -filter i -label wait -set_label proc -set_data_group simtest_i -set_dist_group simtest"
+  block      STR NONE
+END
+
+automate METADATA
+  name       STR OBJECT-r
+  check      STR "detselect -dbname @DBNAME@ -search    -inst @CAMERA@ -filter r -det_type FLAT"
+  launch     STR "chiptool  -dbname @DBNAME@ -updaterun -inst @CAMERA@ -filter r -label wait -set_label proc -set_data_group simtest_r -set_dist_group simtest"
+  block      STR NONE
+END
+
+### Stack automation
+automate METADATA
+  name       STR STACK
+  regular    STR "stacktool -definebyquery -set_label proc -set_data_group simtest_r -set_dist_group simtest -set_workdir file://@CWD@/stack -min_new 4 -min_frac 2 -select_good_frac_min 0.2 -min_num 4 -dbname @DBNAME@"
+END
+
+### Diff automation
+automate METADATA
+  name       STR DIFF
+  regular    STR "difftool -definewarpstack -set_label proc -set_workdir file://@CWD@/diff -good_frac 0.2 -dbname @DBNAME@"
+END
+
+#### Magic automation???
+#automate METADATA
+#  name       STR MAGIC
+#  regular    STR "magictool -definebyquery -workdir file://@CWD@/magic -good_frac 0.2 -dbname @DBNAME@"
+#END
+
+### automate METADATA
+###   name       STR OBJECT-r
+###   check      STR "detselect -search -inst @CAMERA@ -det_type FLAT -dbname @DBNAME@ -filter r"
+###   launch     STR "chiptool -unblock -label simtest-r -dbname @DBNAME@"
+###   block      STR "chiptool -unmasked -label simtest-r -dbname @DBNAME@"
+### END
+
+### automate METADATA
+###   name       STR OBJECT-i
+###   check      STR "detselect -search -inst @CAMERA@ -det_type FLAT -dbname @DBNAME@ -filter i"
+###   launch     STR "chiptool -unblock -label simtest-i -dbname @DBNAME@"
+###   block      STR "chiptool -unmasked -label simtest-i -dbname @DBNAME@"
+### END
+
+### there is a weakness in the label / block business: the labels are
+### generic, and the blocks are against those fairly generic words.
+### that makes it difficult to block and unblock science exposures
+### based on different detrend types that are available.  For example,
+### to block the r-band against the absence of the desired r-band
+### flat, we would need to specify a label specific to the r-band
+### images and remove that block when ready.
+
+### a better approach might be to modify the labels rather than the
+### blocks.  we can define, eg, chiptool -set_label -definebyquery to
+### turn assign the label names based on various properties of the
+### interesting images.
+
+### here is what the automate element might look like for such a circumstance:
+
+### automate METADATA
+###   name       STR OBJECT-i
+###   block      STR "chiptool -dbname @DBNAME@ -unmasked -label wait -filter i -time_begin 2008/1/1 -time_end 2008/1/2"
+###   check      STR "detselect -dbname @DBNAME@ -search -inst @CAMERA@ -det_type FLAT -dbname @DBNAME@ -filter i -time_begin 2008/1/1 -time_end 2008/1/2" 
+###   launch     STR "chiptool -dbname @DBNAME@ -set_label proc -label wait -dbname @DBNAME@ -time_begin 2008/1/1 -time_end 2008/1/2"
+### END
+
+### XXX still not quite there....
+### the 'checks' or maybe the 'launch' needs to include a '-n_exp_min' ?
+### 

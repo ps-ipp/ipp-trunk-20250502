@@ -1,0 +1,18 @@
+#if !defined(PSTAMP_ERROR_CODES_H)
+#define PSTAMP_ERROR_CODES_H
+/*
+ * The line
+ *  PSTAMP_ERR_$X{ErrorCode},
+ * (without the X)
+ *
+ * will be replaced by values from errorCodes.dat
+ */
+typedef enum {
+    PSTAMP_ERR_BASE = 10000,
+    PSTAMP_ERR_${ErrorCode},
+    PSTAMP_ERR_NERROR
+} pstampErrorCode;
+
+void pstampErrorRegister(void);
+
+#endif

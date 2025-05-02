@@ -1,0 +1,4 @@
+
+   queuedelete (name)
+
+   Deletes the entire queue (name)

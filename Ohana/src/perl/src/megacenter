@@ -1,0 +1,91 @@
+#!/usr/bin/env perl
+
+if (@ARGV != 1) { die "USAGE: megacenter (filename)\n"; }
+$ENV{'PATH'} = "/apps/elixir/bin:$ENV{'PATH'}";
+
+# currently we keep things hardwired:
+
+$input = $ARGV[0];
+$camera = `gconfig CAMERA`; chop $camera;
+if ($camera eq "megacam") {
+    $ccd   = "amp44";
+    $Xref  = 973;
+    $Yref  = 4560;
+}
+if ($camera eq "meganorth") {
+    $ccd   = "amp26";
+    $Xref  = 1140;
+    $Yref  = 4717;
+}
+if ($ccd eq "") { die "ERROR: camera $camera not found\n"; }
+
+$temp = `mktemp /tmp/center.XXXXXX`; chop ($temp);
+
+# loop over cube planes:
+open (MANA, "|mana --norc >& /dev/null");
+
+print MANA "\$CCDKEYWORD = EXTNAME\n";
+print MANA "macro go\n";
+print MANA " rd a $input -n $ccd\n";
+print MANA " wd a $temp.fits\n";
+print MANA " exec gosexphot $temp.fits $temp.sx >& /dev/null\n";
+print MANA " exec imclean -sex $temp.fits $temp.sx $temp.smp >& /dev/null\n";
+print MANA " exec gastro $temp.smp >& /dev/null\n";
+print MANA " header a -w $temp.smp\n";
+print MANA " coords a -p $Xref $Yref\n";
+print MANA " exec echo \$RA \$DEC > $temp.coords\n";
+print MANA " exit 0\n";
+print MANA "end\n";
+
+print MANA "go\n";
+print MANA "exit 1\n";
+close (MANA);
+
+($Robs, $Dobs) = split (" ", `cat $temp.coords`);
+($tmp, $Rreq, $Dreq) = split (" ", `echo $input | fields RA_DEG DEC_DEG`);
+
+($tmp, $Nastro, $Cerror) = split (" ", `echo $temp.smp | fields NASTRO CERROR`);
+
+if ($Robs < 0.0)   { $Robs += 360.0 }
+if ($Robs > 360.0) { $Robs -= 360.0 }
+
+if ($Rreq < 0.0)   { $Rreq += 360.0 }
+if ($Rreq > 360.0) { $Rreq -= 360.0 }
+
+$dR = sprintf "%.2f", 3600.0 * ($Rreq - $Robs) * cos ($Dobs*3.141592643589/180.0);
+$dD = sprintf "%.2f", 3600.0 * ($Dreq - $Dobs);
+
+$obscoords = `echo $Rreq $Dreq | radec -hh`; chop $obscoords;
+$reqcoords = `echo $Robs $Dobs | radec -hh`; chop $reqcoords;
+
+print "\n";
+printf STDOUT "$Nastro stars used in astrometry, astrometry error: %.2f\n", $Cerror;
+
+printf STDOUT "REQ COORDS: %10.6f %10.6f ($reqcoords )\n", $Rreq, $Dreq;
+printf STDOUT "OBS COORDS: %10.6f %10.6f ($obscoords )\n", $Robs, $Dobs;
+printf STDOUT "OFFSET IS: $dR $dD (arcsec)\n";
+
+if ($Nastro == 0) { 
+    print "No Astrometry solution was found! please try again\n";
+    goto escape;
+}
+
+if ($Cerror > 2.5) { print "WARNING: astrometry error is surprisingly high\n"; }
+if ($dR > 3600.0)  { print "WARNING: RA offset > 1 degree! is this correct?\n"; }
+if ($dD > 3600.0)  { print "WARNING: DEC offset > 1 degree! is this correct?\n"; }
+
+print STDOUT "apply this offset? y/[n] ";
+$answer = <STDIN>; chop $answer;
+$answer = "\U$answer\E";
+
+if ($answer ne "Y") { 
+    print STDOUT "offset not applied\n";
+    goto escape;
+}
+
+system ("clicmd ocoords rel t $dR $dD\n");
+system ("clicmd tcs.offset\n");
+
+escape:
+system ("rm -f $temp $temp.fits $temp.sx $temp.smp $temp.coords");
+exit 0;

@@ -1,0 +1,16 @@
+
+gcov -f --object-file ./.libs/libpslibtypes_la-psArguments.o psArguments.c > arg_gcov.out
+gcov -f --object-file ./.libs/libpslibtypes_la-psArray.o psArray.c > arr_gcov.out
+gcov -f --object-file ./.libs/libpslibtypes_la-psBitSet.o psBitSet.c > bit_gcov.out
+gcov -f --object-file ./.libs/libpslibtypes_la-psHash.o psHash.c > hash_gcov.out
+gcov -f --object-file ./.libs/libpslibtypes_la-psList.o psList.c > list_gcov.out
+gcov -f --object-file ./.libs/libpslibtypes_la-psLookupTable.o psLookupTable.c > look_gcov.out
+gcov -f --object-file ./.libs/libpslibtypes_la-psMetadataConfig.o psMetadataConfig.c > mdc_gcov.out
+gcov -f --object-file ./.libs/libpslibtypes_la-psMetadataItemCompare.o psMetadataItemCompare.c > mdic_gcov.out
+gcov -f --object-file ./.libs/libpslibtypes_la-psMetadataItemParse.o psMetadataItemParse.c > mdip_gcov.out
+gcov -f --object-file ./.libs/libpslibtypes_la-psMetadata.o psMetadata.c > md_gcov.out
+gcov -f --object-file ./.libs/libpslibtypes_la-psPixels.o psPixels.c > pix_gcov.out
+gcc parse_gcov-out.c -o parse_gcov
+./parse_gcov
+rm *.out
+more Coverage-Report.txt

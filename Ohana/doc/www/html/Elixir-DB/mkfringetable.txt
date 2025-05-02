@@ -1,0 +1,35 @@
+
+mkfringetable (layout) (output)
+
+'mkfringetable' generates a MEF FITS ASCII Table of fringe couples
+based on a simple template file.  The layout file defines the basic
+constraints of the fringe couple lists (filter, time range, ccds,
+etc), and identifies the files used for each CCD.  The output file is
+a MEF FITS file with one extension per CCD.  Each extension consists
+of a table with four columns: X_MIN, Y_MIN, X_MAX, Y_MAX.  An example
+layout file is given below.  The primary header unit of the FITS file
+contains the basic information of the CAMERA, FILTER, etc.  
+
+
+Example layout file:
+
+# layout file for mkfringetable
+
+FILTER   I
+CAMERA   megaprime
+TVSTART  1999/9/1
+TVSTOP   2010/1/1
+NCCD     12
+CCD00    00  CFH12K-I-CCD00-FringeCoord.reg
+CCD01    01  CFH12K-I-CCD01-FringeCoord.reg
+CCD02    02  CFH12K-I-CCD02-FringeCoord.reg
+CCD03    03  CFH12K-I-CCD03-FringeCoord.reg
+CCD04    04  CFH12K-I-CCD04-FringeCoord.reg
+CCD05    05  CFH12K-I-CCD05-FringeCoord.reg
+CCD06    06  CFH12K-I-CCD06-FringeCoord.reg
+CCD07    07  CFH12K-I-CCD07-FringeCoord.reg
+CCD08    08  CFH12K-I-CCD08-FringeCoord.reg
+CCD09    09  CFH12K-I-CCD09-FringeCoord.reg
+CCD10    10  CFH12K-I-CCD10-FringeCoord.reg
+CCD11    11  CFH12K-I-CCD11-FringeCoord.reg
+

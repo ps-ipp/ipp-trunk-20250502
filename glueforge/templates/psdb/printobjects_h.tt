@@ -1,0 +1,13 @@
+/** Formats and prints an array of [% table.object_name %] objects
+ *
+ * When mdcf is set the formated output is in psMetadataConfig
+ * format, otherwise it is in a simple tabular format.
+ *
+ * @return true on success
+ */
+
+bool [% table.namespace %]PrintObjects(
+    FILE            *stream,            ///< a stream
+    psArray         *objects,           ///< An array of [% table.object_name %] objects
+    bool            mdcf                ///< format as mdconfig or simple
+);

@@ -1,0 +1,7 @@
+#  stack bycoord from MD08.refstack
+#
+#  REQ_NAME EXTVER ACTION EMAIL
+CHANGEME 2 PROCESS null
+#  ROWNUM CENTER_X CENTER_Y WIDTH HEIGHT COORD_MASK JOB_TYPE OPTION_MASK PROJECT SURVEY_NAME IPP_RELEASE REQ_TYPE IMG_TYPE ID TESS_ID COMPONENT DATA_GROUP              REQFILT MJD_MIN MJD_MAX RUN_TYPE FWHM_MIN FWHM_MAX | COMMENT
+2         241.54949 55.4273 500  500   2      stamp      2119         gpc1      null         null     bycoord    stack  null null   null      MD08.refstack.20130401       r        0      0        null      0        3.9       | 
+3         241.54949 55.4273 500  500   2      stamp      2119         gpc1      null      MD08.nightly bycoord    stack  null null   null      null                         i        0      0        null      0        3.9       | 

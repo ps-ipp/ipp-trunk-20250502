@@ -1,0 +1,276 @@
+
+2006.08.18
+
+ Outstanding issues related to pcontrol:
+
+ * disposition of HUNG jobs?
+ * probably should not save the history for pcontrol or pclient
+   (these will be many lines long very quickly...)
+ * need to add options to run/stop for hosts and jobs independently
+
+2006.08.11
+
+I have nearly finished the conversion of pcontrol to use a background
+thread for monitoring the remote machines.  A few questions are still
+outstanding:  
+
+- currently, we are thread-safe for interactions with the stacks.  As
+  long as an operation is only working with a single job/host, and all
+  jobs/hosts are selected by pulling them from the stacks, there will
+  never be a contention between threads for the same job/host.
+  However, are there problems for commands which require a specific
+  job or host but are unable to find it because the job/host may be in
+  flight from one stack to another.  
+
+- The CheckIdleHost command needs to join a job and a host.  In this
+  case, it is necessary to lock the job PENDING stack while searching
+  for a job to give to a host.  The host is pulled off of the IDLE
+  stack before being past to CheckIdleHost.
+
+o CheckIdleHost currently does not have a way to send a WANTHOST job
+  to any host other than the WANTHOST.  What should the rule be by
+  which a job is run on an alternative machine? (partial fix)
+
+- we are not starting any of the job or host timers?
+
+2006.08.09
+
+working on pcontrol CheckSystem background thread.  One thread runs
+the readline interaction and performs all of the user commands.  The
+second thread runs the CheckSystem loop and tests the hosts and jobs.
+We need to be sure these two do not interfere with one another.  Here
+is a list of all of the user commands and the ways in which they
+interact with the Job / Host queues:
+
+
+
+2006.08.04
+
+pcontrol gets a large delay every time it tries to connect to a host.
+this is because the readline interrupt has to wait for the connection
+to complete.  I probably need to fix this by using a threaded model
+and running CheckSystem in a background thread.
+
+-----
+
+typedef struct {
+  char *buffer;
+  int   Nalloc;
+  int   Nmaxread;
+  int   Nextra;
+  int   Nlast;
+  int   Nbuffer;
+} Fifo;
+
+typedef struct {
+  int argc; char **argv; /* a list of words that define this object */
+  struct timeval start, accum, timer;
+  int   status;
+  char *logfile;
+  char *lastproc;
+} Object;
+
+typedef struct {
+  Object **object;
+  int    Nobject;
+  int    NOBJECT;
+} Queue;
+
+typedef struct {
+  char   *hostname;
+  int     rsock, wsock;
+  int     status; /* idle, busy, etc... */
+  struct  timeval start, accum, timer;
+  Fifo    fifo;
+  int     code;
+  Object *object;
+} Machine;
+
+
+currently, the transport is /usr/bin/rsh, defined in InitMachines.c 
+
+the shell on the remote machines is /bin/tcsh, defined by rconnect.c
+
+---
+
+pcontrol.client:
+
+ - remote process initiated by pcontrol
+
+ - accepts jobs, returns status, stdout and stderr
+
+ - valid commands:
+
+   - job (argv)
+     returns PID or -1 (0?) on failure
+
+   - status
+     returns current job status:
+     BUSY
+     EXIT n 
+     CRASH n
+     
+   - stderr
+     returns the current stderr buffer:
+     NBYTES n
+     (DATA)
+
+   - stdout
+     returns the current stdout buffer:
+     NBYTES n
+     (DATA)
+
+   
+---
+
+the client needs to accept commands from the server (via
+stdin/stdout), but it also needs to monitor its process.  I can use
+the opihi structure to implement the command-line interpretation with
+readline.  I can use the readline function rl_event_hook to set the
+background functions to check and rl_set_keyboard_input_timeout to set
+the polling period.
+
+this same method can be used with the scheduler:  the command 'run'
+can set the CheckTask function to this hook (& unset it).
+
+---
+
+rl_event_hook -> CheckChild
+
+  - needs to handle the case when no child process yet exists
+  - needs to examine the child status,
+  - needs to read from child stderr and store
+  - needs to read from child stdout and store
+
+  * no warnings (will not do anything clever if buffers get too large)
+
+---
+
+ pcontrol commands:
+
+ job [options] argv0 argv1 argv2 ...
+  -host name : run job on specified host, or any other if not available
+  +host name : run job on specified host, error if not available (error when attempted, not when submitted)
+  -timeout N : seconds before controller gives up on job (once started)
+  -stdout name : redirect job stdout to file directly
+  -stderr name : redirect job stderr to file directly
+
+  * priority information?
+  * returns JobID
+  * adds job to pending queue
+
+ host (hostname) [-delete]
+ (may have multiple entries to the same machine, these are not distinguished)
+
+ stdout ID [-file name]
+ stderr ID [-file name]
+ delete ID
+
+ status -job ID
+ status -machine hostname
+ status -queues
+
+pcontrol may be given a timeout for each job.  pcontrol will monitor a
+job and kill/crash it if the timeout expires.  the timeout only
+governs how long it is allowed to execute, not how long it can sit in
+the queue.  (the scheduler / operator should decide if a job has been
+on pcontrol for too long -- this probably means there are no
+appropriate machines ).
+
+pcontrol currently does not distinguish between multiple instances of
+a single host.  all have the same name.  if you want to bring down a
+host, you need to issue N host -down commands.  perhaps this is
+silly.  a simple alternative would be for the host [-on -off -start
+-stop] commands to apply to all defined entries which match the
+hostname.  In this case, a command like 'host foo -off' would find and
+halt all connections to the machine 'foo', while 'host foo -on' would
+restart them all (or rather, given the functionality of pcontrol,
+would allow pcontrol to attempt to bring them on).
+
+It is not clear why a user should be able to execute 'start' (down ->
+idle) or 'stop' (idle -> down).  The transition down -> idle is
+automatically performed by pcontrol for any machines which are
+currently down, while the transition idle -> down is immediately
+followed by an attempt by pcontrol to move the host from down -> idle.
+This functionality can be used with non-automatic calling of
+CheckSystem to test the pcontrol host interface operations.
+
+does it makes sense to kill all jobs on a host?  this would only have
+the effect of clearing the host for a moment until pcontrol decided to
+start another job on that host.  the desired effect is gained putting
+the host to 'off'.
+ 
+currently the command 'host (hostname)' puts the host in 'down'
+state.  pcontrol then immediately tries to connect to the host, moving
+it to 'idle' state (and then 'busy' if any jobs are available).  it
+might be useful to be able to add a host in 'off' state as a starting
+point.  
+
+it is not obvious that the user should be able to run 'CheckHost',
+unless this gets expanded to return state information on the host.
+
+---
+
+Job States:
+
+PENDING
+BUSY
+EXIT
+CRASH
+NEW *
+DEL *
+
+* - invisible states 
+
+Job State Transitions:
+
+NEW     -> PENDING : AddJob
+PENDING -> BUSY    : StartJob
+PENDING -> DEL     : DelJob
+BUSY    -> DONE    : CheckBusyJob | KillJob
+DONE    -> EXIT    : CheckDoneJob
+DONE    -> CRASH   : CheckDoneJob
+BUSY    -> PENDING : CheckJob | CheckHost
+EXIT    -> DEL     : DelJob
+CRASH   -> DEL     : DelJob
+
+Host States:
+
+IDLE
+BUSY
+DOWN
+OFF
+NEW *
+DEL *
+
+* - invisible states 
+
+Host State Transitions:
+
+NEW      -> OFF      : AddHost
+OFF      -> DEL      : DelHost
+OFF      -> DOWN     : OnHost
+DOWN     -> OFF      : OffHost
+IDLE     -> OFF      : OffHost
+DOWN     -> IDLE     : StartHost
+IDLE     -> BUSY     : StartJob
+BUSY     -> IDLE     : CheckJob | KillJob
+BUSY     -> BUSY-OFF : OffHost
+BUSY     -> DOWN     : CheckJob | CheckHost
+BUSY-OFF -> OFF      : CheckJob
+
+AddJob    - U
+DelJob    - U
+StartJob  - P
+CheckJob  - P
+KillJob   - U
+
+AddHost   - U
+DelHost   - U
+OnHost    - U
+OffHost   - U
+StartHost - P
+CheckHost - P
+
+U - operation performed by the user
+P - operation performed by the program

@@ -1,0 +1,16 @@
+#!/bin/csh -f
+
+date
+
+ls -d *
+# sleep 3
+ls foo
+
+foreach f (*)
+  echo $f
+  ls $f/*
+#  sleep 1
+end
+
+date
+#exit 3

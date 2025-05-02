@@ -1,0 +1,49 @@
+This directory contains scripts for creating sample MOPS_DETECTABILTY_QUERY
+fits tables into a Data Store
+
+    testdquery.pl --query_id id [--input query_descriptor_file]
+
+Creates a detectability query table with a given QUERY_ID from a textual
+description. See below for format. If no file is provided a sample is 
+used. The request file is added to the data store product with a fileset
+name equal to the query_id
+
+testdquery.pl uses dsreg to register the fileset and thus the IPP
+configuration must be set up.
+
+The request file is created by the program
+
+    detect_query_create id  --input query_descriptor_file \
+                            --output query_file_name \
+                            [--query_id id]
+    
+
+This program creates a request file with given name and query id from the
+request descriptor file
+
+The request descriptor file format is simple. 
+
+Blank lines and lines that begin with the hash character '#' are ignored.
+
+The first valid line must contain 6 whitespace separated fields. These
+data are used to set the header keywords for the Query
+
+# QUERY_ID EXTVER FPA_ID       MJD-OBS FILTER OBSCODE
+QUERY42       1   o4608g0103o   54608     g     566
+
+If the command line option --query_id is provided it overrides the value
+in the descriptor file.
+
+Subsequent lines in the file are used to define the rows of the query.
+For example:
+
+# ROWNUM     RA1_DEG        DEC1_DEG    RA2_DEG     DEC2_DEG     MAG
+1            312.44049389 30.54022727  312.44051968 30.54024139  18.4228
+2            313.03337881 31.01317194  313.03344194 31.01324268  18.3961
+3            312.91159232 30.95195459  312.91153476 30.95190113  18.1110
+4            312.26742527 30.95207284  312.26744769 30.95206300  17.0908
+5            313.20263734 30.62317841  313.20266984 30.62310935  18.2890
+
+
+
+

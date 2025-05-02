@@ -1,0 +1,90 @@
+#!/usr/bin/env perl
+
+# grab the command line options [-C config] [-c configfile]
+$config = "";
+$preserve = 0;
+@tARGV = ();
+while (@ARGV) {
+    if ($ARGV[0] eq "-C") {
+	$config = "$config -C $ARGV[1]";
+        shift; shift; next;
+    }
+    if ($ARGV[0] eq "-c") {
+	$config = "$config -c $ARGV[1]";
+        shift; shift; next;
+    }
+    if ($ARGV[0] eq "-preserve") {
+        $preserve = 1;
+        shift; next;
+    }
+    push @tARGV, $ARGV[0];
+    shift;
+}
+@ARGV = @tARGV;
+
+if (@ARGV != 3) { die "ERROR: USAGE: detflips (inlist) (output) (type)\n" }
+
+$inlist = $ARGV[0];
+$output = $ARGV[1];
+$type   = "\U$ARGV[2]\E";
+
+# count lines in $inlist, adjust statmode (FLAT only)
+($nlines) = split (" ", `wc -l $inlist`);
+$statmode = 0;
+if ($nlines < 6) { $statmode = 1; }
+if ($nlines == 0) { die "ERROR: no files in source list, skipping\n"; }
+
+# delete old output file 
+if (-e $output) { unlink "$output"; }
+
+$temp1 = `mktemp /tmp/detflips.XXXXXX`; chop $temp1;
+$temp2 = `mktemp /tmp/\@detflips.XXXXXX`; chop $temp2;
+
+if ($type eq "BIAS")    { $paramkey = "FLIPS_PARAM_DARK";   $detype = "bias";    }
+if ($type eq "DARK")    { $paramkey = "FLIPS_PARAM_DARK";   $detype = "dark";    }
+if ($type eq "FLAT")    { $paramkey = "FLIPS_PARAM_FLAT";   $detype = "skyflat"; }
+if ($type eq "FRINGE")  { $paramkey = "FLIPS_PARAM_FRINGE"; $detype = "fringe";  }
+if ($type eq "STACK")   { $paramkey = "FLIPS_PARAM_STACK";  $detype = "science";  }
+
+if ($paramkey eq "")  { 
+    print STDERR "ERROR: invalid detrend type $type\n";
+    exit 1;
+}
+
+$paramfile = `gconfig $config $paramkey`; chop $paramfile;
+if ($?) { die "ERROR: missing parameter file $paramkey from config\n"; }
+
+open (FILE, "$paramfile");
+@params = <FILE>;
+close (FILE);
+
+print STDERR "detflips parameter file: $paramfile\n";
+
+foreach $line (@params) {
+    $line =~ s|LISTNAME|$temp2|;
+    $line =~ s|FILENAME|$output|;
+    $line =~ s|COMMENT|$type|;
+    $line =~ s|DETRENDTYPE|$detype|;
+    if ($type eq "FLAT") { $line =~ s|STATMODE|$statmode|; }
+}
+
+open (FILE, ">$temp1");
+print FILE "@params\n";
+close $temp1;
+
+system ("cp $inlist $temp2");
+system ("imcombred $temp1");
+$stat = $?;
+
+if (! $preserve) {
+    unlink ($temp1);
+    unlink ($temp2);
+}
+
+if ($stat) {
+    print STDERR "ERROR: failure in detflips\n";
+} else {
+    print STDERR "SUCCESS\n";
+}
+
+exit $stat;

@@ -1,0 +1,79 @@
+#!/usr/bin/env perl
+# calls flatten.flips, but no direct flips functions
+
+# check the usage
+if ($ARGV[0] eq "-h") { usage (); }
+if ($ARGV[0] eq "-help") { usage (); }
+if (@ARGV != 4) { die "USAGE: fr.detrend (path) (root) (mode) (outlist)\n" }
+
+# assign the command line arguments
+$path = $ARGV[0];
+$root = $ARGV[1];
+$mode = "\U$ARGV[2]\E";
+if (($mode ne "MEF") && ($mode ne "SPLIT")) { die "ERROR: mode must be either -split or -mef\n";}
+
+# load output list (must be created in ccd order)
+$outlist = $ARGV[3];
+open (FILE, "$outlist");
+@outlist = <FILE>;
+close (FILE);
+foreach $line (@outlist) { chop ($line); }
+       
+# double checks: should be Nccd 
+$Nccd = `cameraconfig -Nccd`; chop ($Nccd);
+if ($Nccd != @outlist) { die "ERROR: mis-matched number of images\n"; }
+@ccds    = split (" ", `cameraconfig -ccds`);
+if ($?) { die "ERROR: cameraconfig error\n"; }
+@ccdn    = split (" ", `cameraconfig -ccdn`);
+if ($?) { die "ERROR: cameraconfig error\n"; }
+
+# run flatten.flips for each input and output image:
+for ($ccd = 0; $ccd < $Nccd; $ccd++) {
+    
+    $infile  = mk_filename ($path, $root, $mode, $ccdn[$ccd]);
+    $outfile = $outlist[$ccd];
+
+    $status = vsystem ("flatten.flips -quiet $infile $outfile $ccds[$ccd] $mode");
+    if ($status) { die "ERROR: problem running flatten on $infile\n"; }
+}
+print STDOUT "SUCCESS: finished with fr.detrend\n";
+exit 0;
+
+## utilities
+
+sub mk_filename {
+    my ($path) = $_[0];
+    my ($root) = $_[1];
+    my ($mode) = $_[2];
+    my ($ccd)  = $_[3];
+
+    if ($mode eq "MEF") {
+	$name = sprintf "%s/%s.fits", $path, $root;
+	return $name;
+    }
+    if ($mode eq "SPLIT") {
+	$name = sprintf "%s/%s/%s%s.fits", $path, $root, $root, $ccd;
+	return $name;
+    }
+    return "";
+}
+
+sub vsystem {
+    print STDERR "@_\n";
+    $status = system ("@_");
+    $status;
+}
+
+sub goodbye {
+    die "@_\n";
+}
+
+sub usage {
+    print "\n";
+    print "USAGE: fr.detrend (path) (root) (mode) (outlist)\n";
+    print " path:    path to MEF image or SPLIT dir\n";
+    print " root:    root name of image (MEF = root.fits, SPLIT = root/rootNN.fits)\n";
+    print " mode:    MEF or SPLIT\n";
+    print " outlist: list of output files\n";
+    exit 1;
+}

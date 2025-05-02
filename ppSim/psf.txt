@@ -1,0 +1,59 @@
+
+Code to load a psf model and construct psf images.  This assumes there
+is an analysis loop which is performing pmFPAfileIOChecks at the
+appropriate levels. 
+
+** to supply a psf model from the command, define the command-line arguments (ppSimArguments.c)
+
+   pmConfigFileSetsMD (config->arguments, &argc, argv, "PSPHOT.PSF", "-psf", "-psflist");
+
+** if a psf model is supplied, generate a pmFPAfile to carry it. bind
+   it to the pmFPAfile in your main loop (ppSimCreate.c):
+
+    // have we supplied a psf model?
+    if (psMetadataLookupPtr(NULL, config->arguments, "PSPHOT.PSF")) {
+	bool status = false;
+
+	// tie the psf file to the chipMosaic 
+	// file is the pmFPAfile used for the analysis loop
+        pmFPAfileBindFromArgs(&status, file, config, "PSPHOT.PSF.LOAD", "PSPHOT.PSF");
+        if (!status) {
+            psError(PS_ERR_UNKNOWN, false, "Failed to find/build PSPHOT.PSF.LOAD");
+	    // XXX free things to be freed...
+            return NULL;
+        }
+    }
+
+** generate source models from the psf and insert into a readout:
+
+   // load the psf model from the corresponding chip.  note: you may
+   // need to select the chip from the current readout, eg: (ppSimInsertSources.c)
+   // pmCell *cell = readout->parent;
+   // pmChip *chip = cell->parent;
+   pmPSF *psf = psMetadataLookupPtr (&mdok, chip->analysis, "PSPHOT.PSF");
+
+
+   // instantiate a model for the PSF at this location, set desired flux
+
+   // note that pmModelFromPSFforXY takes the chip coordinate.  you many
+   // need to convert the x,y coordinate in the readout to/from the x,y
+   // coordinate. (ppSimInsertSources.c)
+   pmModel *model = pmModelFromPSFforXY (psf, xChip, yChip, 1.0);
+   pmModelSetFlux (model, flux);
+
+   // define the radius of valid pixels
+   float radius = model->modelRadius (model->params, noise);
+   radius = PS_MAX (radius, 1.0);
+
+   // construct a source, with model flux pixels set, based on the model
+   pmSource *source = pmSourceFromModel (model, readout, radius, PM_SOURCE_TYPE_STAR);
+
+   // insert the source flux in the image.  dX,dY is the coordinate of
+   // the readout 0,0 pixel in the chip frame.
+   pmSourceAddWithOffset (source, PM_MODEL_OP_FULL, 0xff, dX, dY);
+
+** given a pmSource, generate the its cached model flux:
+
+   // this fills in the pixels in the image source->modelFlux
+   pmSourceCacheModel (source, maskVal);
+

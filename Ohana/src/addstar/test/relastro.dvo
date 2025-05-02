@@ -1,0 +1,156 @@
+# -*-sh-*-
+
+input tap.dvo
+input ptolemy.dvo
+
+# generates ptolemy.rc, dvo.photcodes, $zpt_nominal:g,r $klam_nominal:g,r
+mkptolemy.rc
+
+macro test.all
+  test.relastro PS1_DEV_0 PS1_V1
+  test.relastro PS1_DEV_1 PS1_V1
+  test.relastro PS1_V1 	PS1_V1
+  test.relastro PS1_V2 	PS1_V1
+  test.relastro PS1_DEV_0 PS1_V2
+  test.relastro PS1_DEV_1 PS1_V2
+  test.relastro PS1_V1 	PS1_V2
+  test.relastro PS1_V2 	PS1_V2
+end  
+
+# this set fails because the match radius does not equal the keep radius:
+list offset
+  0.0
+ -1.0
+  1.0
+  0.5
+  1.0
+  2.99
+end
+
+# offset values are in pixels
+list offset
+  0.0
+ -1.0
+  1.0
+  0.5
+  1.0
+  2.0
+end
+
+# offset values are in pixels
+list offset.small
+  0.5
+ -0.5
+  0.5
+  0.5
+end
+
+# create a populated catdir with a couple of cmf files
+macro test.relastro
+  if ($0 != 3)
+    echo "test.relastro (cmftype) (dvotype)"
+    break
+  end
+
+  tapPLAN 42
+
+  exec rm -rf catdir.test
+
+  $RA = 10.0
+  $DEC = 20.0
+  $dOFF = 0.15
+
+  for i 0 $offset:n
+    mkinput $offset:$i
+    exec mkcmf test.in.txt test.cmf -date 2008/1/1 -time $i\:00:00 -radec $RA $DEC -type $1
+    exec addstar -D CATDIR catdir.test -D CAMERA gpc1 test.cmf -D CATFORMAT $2
+  end
+
+  rd im test.cmf -head
+  keyword im CDELT1 cdelt
+
+  catdir catdir.test
+  skyregion {$RA-1.0} {$RA+1.0} {$DEC-1.0} {$DEC+1.0} 
+
+  mextract RA DEC RA:AVE DEC:AVE dR dD
+  create n 0 RA[]
+
+  echo raw
+  for i 0 $offset:n
+    subset dr = dR if (n % $offset:n == $i)
+    vstat -q dr
+    # echo $offset:0 {$MEAN / (3600*$cdelt)} $offset:$i {abs($offset:0 - $MEAN / (3600*$cdelt) - $offset:$i)} 
+    tapOK {abs($offset:0 - $MEAN / (3600*$cdelt) - $offset:$i) < $dOFF} "raw dX $i = {$MEAN / (3600*$cdelt)} : {abs($offset:0 - $MEAN / (3600*$cdelt) - $offset:$i)}"
+  end
+
+  for N 0 3
+    exec relastro -D CATDIR catdir.test -region {$RA-1.0} {$RA+1.0} {$DEC-1.0} {$DEC+1.0} -update-objects -update -plot -plotdelay 1.0
+    mextract RA DEC RA:AVE DEC:AVE dR dD mag
+    create n 0 RA[]
+  
+    $dXmean = 0
+    for i 0 $offset:n
+      $dXmean = $dXmean + $offset:$i
+    end
+    $dXmean = $dXmean / $offset:n
+  
+    echo objects
+    for i 0 $offset:n
+      subset dr = dR if (n % $offset:n == $i)
+      vstat -q dr
+  
+      $dXexpect = $MEAN / (3600*$cdelt)
+      if ($N == 0)
+        $dXexpect = $dXmean - $MEAN / (3600*$cdelt) - $offset:$i 
+      end
+      # echo $dXmean {$MEAN / (3600*$cdelt)} $offset:$i  {$dXmean - $MEAN / (3600*$cdelt) - $offset:$i}
+      tapOK {abs($dXexpect) < $dOFF} "update objects dX $i = {$MEAN / (3600*$cdelt)} : $dXexpect"
+  
+      # subset ms = mag if (n % $offset:n == $i)
+      # lim ms dr; clear; box; plot ms dr
+      # cursor
+    end
+  
+    exec relastro -D CATDIR catdir.test -region {$RA-1.0} {$RA+1.0} {$DEC-1.0} {$DEC+1.0} -update-simple -update -plot -plotdelay 1.0
+    mextract RA DEC RA:AVE DEC:AVE dR dD
+    create n 0 RA[]
+  
+    echo simple
+    for i 0 $offset:n
+      subset dr = dR if (n % $offset:n == $i)
+      vstat -q dr
+  
+      $dXexpect = $MEAN / (3600*$cdelt)
+      # echo {$MEAN / (3600*$cdelt)}
+      tapOK {abs($dXexpect) < $dOFF} "update simple dX $i = {$MEAN / (3600*$cdelt)}"
+  
+      # subset ms = mag if (n % $offset:n == $i)
+      # lim ms dr; clear; box; plot ms dr
+      # cursor
+    end
+  end
+
+  exec rm test.cmf test.in.txt
+  exec rm -r catdir.test
+
+  tapDONE
+end
+
+# make a simple input file for mkcmf
+macro mkinput
+  if ($0 != 2)
+    echo "mkinput (offset)"
+    break
+  end
+
+  local i j
+  exec rm -f test.in.txt
+
+  output test.in.txt
+  for i 10 1024 100
+    for j 10 1024 100
+      fprintf " %6.1f %6.1f  %7.3f" {$i + $1} $j {-15.0 + 2.5*($i + $j)/1000.0}
+    end
+  end
+  output stdout
+end

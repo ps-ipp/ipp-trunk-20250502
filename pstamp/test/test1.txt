@@ -1,0 +1,28 @@
+# test1.txt
+# A sample Postage Stamp request description file.
+# This can be parsed by the program pstamp_req_create to build a PS1_PSTAMP_REQUEST fits binary table
+
+# First line of data is for the extension header
+#
+# Note that value for REQ_NAME may be overriden by the pstamp_req_create command line argument --req_name
+# Blank and comment lines (like this one) are ignored
+
+# REQ_NAME      EXTVER
+test1            1
+
+# subsequent lines define the rows in the table
+
+# If ROWNUM is set to zero, pstamp_request_file will set insert a value for each row beginning with 1
+# If a later input row reuses a value an error occurs
+
+#
+# ID    |     ROI Specification                   |  JOB Specification | Images of interest specification
+# ROWNUM CENTER_X    CENTER_Y  WIDTH HEIGHT COORD_MASK JOB_TYPE OPTION_MASK PROJECT REQ_TYPE IMG_TYPE    ID   TESS_ID COMPONENT    DATA_GROUP  REQFILT MJD_MIN MJD_MAX | COMMENT
+#
+0       135.49921     34.92035 100    100      2        stamp       1        gpc1    bycoord   chip       null    null   null           null        null 55249   55250   |search by coords (make the server work)
+# just change the coordinates for the next request
+0       135.63231     34.92165 100    100      2  | different coords in same images of interest
+0       135.49921     34.92035 100    100      2        stamp       1        gpc1    byid     chip       62326    null   XY62           null        null   0       0     |specific image
+0       135.49921     34.92035 100    100      2        stamp       3        gpc1    byid     chip       62326    null   XY62           null        null   0       0     |image,mask,and weight
+0       135.49921     34.92035 100    100      2        stamp      63        gpc1    byid     chip       62326    null   XY62           null        null   0       0     |image,mask,weight,cmf, psf,backmdl
+0       135.49921     34.92035 100    100      2        stamp       1        gpc1    bycoord   chip       null    null   null           null        null 55249   55250   |search by coords (make the server work)

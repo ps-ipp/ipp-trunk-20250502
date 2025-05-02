@@ -1,0 +1,56 @@
+
+$NX = 2048
+$NY = 2048
+
+macro go
+  mkref
+  mksrc
+  exec pswarp -file src.fits out ref.fits
+  exec rm -f src.fits out.fits ref.fits
+end
+
+macro mkref
+  mcreate ref $NX $NY
+  keyword ref CTYPE1 -w "RA---TAN"
+  keyword ref CTYPE2 -w "DEC--TAN"
+  keyword ref CRVAL1 -wf 0.0
+  keyword ref CRVAL2 -wf 0.0
+  keyword ref CRPIX1 -wf {$NX/2}
+  keyword ref CRPIX2 -wf {$NY/2}
+
+  keyword ref CDELT1 -wf {1/3600}
+  keyword ref CDELT2 -wf {1/3600}
+
+  keyword ref PC001001 -wf 1.0
+  keyword ref PC001002 -wf 0.0
+  keyword ref PC002001 -wf 0.0
+  keyword ref PC002002 -wf 1.0
+
+  wd ref ref.fits -bitpix -32 -bzero 0 -bscale 1
+end
+
+macro mksrc
+  mcreate src $NX $NY
+  for i 0 $NX 64
+    for j 0 $NY 64
+      zap src $i $j 1 1 -v 1
+    end
+  end
+
+  keyword src CTYPE1 -w "RA---TAN"
+  keyword src CTYPE2 -w "DEC--TAN"
+  keyword src CRVAL1 -wf 0.0
+  keyword src CRVAL2 -wf 0.0
+  keyword src CRPIX1 -wf {$NX/2}
+  keyword src CRPIX2 -wf {$NY/2}
+
+  keyword src CDELT1 -wf {1/3600}
+  keyword src CDELT2 -wf {1/3600}
+
+  keyword src PC001001 -wf {dcos(20)}
+  keyword src PC001002 -wf {-1*dsin(20)}
+  keyword src PC002001 -wf {dsin(20)}
+  keyword src PC002002 -wf {dcos(20)}
+
+  wd src src.fits -bitpix -32 -bzero 0 -bscale 1
+end

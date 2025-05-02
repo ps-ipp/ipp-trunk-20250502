@@ -1,0 +1,35 @@
+#!/usr/bin/env perl
+
+# the specific ccd is passed in from outside
+
+if (@ARGV != 3) { die "USAGE: ckphotom (name) (ccd) (mode)\n" ;}
+
+$name = $ARGV[0];
+$ccd  = $ARGV[1];
+$mode = "\U$ARGV[2]\E";
+
+if (($mode ne "SPLIT") && ($mode ne "MEF")) {
+    print STDERR "mode must be SPLIT or MEF\n";
+    exit (2);
+}
+
+if (vsystem ("photsearch -trans -image $name $ccd $mode -equiv")) {
+    print STDOUT "$name fails, no photom data\n";
+    exit 1;
+} else {
+    print STDOUT "$name: pass\n";
+    exit 0;
+}
+
+# utilities ############################
+
+sub vsystem {
+#    print STDERR "@_\n";
+    $status = system ("@_");
+    $status;
+}
+
+sub goodbye {
+    die "@_\n";
+}
+

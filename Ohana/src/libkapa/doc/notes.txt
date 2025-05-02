@@ -1,0 +1,31 @@
+
+KII library functions:
+
+KiiOpen ()
+KiiClose ()
+KiiNewPicture ()
+KiiLoadOverlay ()
+KiiLoadTickmarks ()
+KiiEraseOverlay ()
+KiiSaveOverlay ()
+KiiPS
+KiiJPEG
+KiiResize 
+
+
+-----------------------
+
+KapaOpen ()
+KapaClose
+KapaPS
+KapaPNG
+KapaPPM
+KapaResize
+KapaLoadObject
+KapaSetLimits
+KapaLoadLabels
+KapaSetSection
+KapaLoadText
+KapaSetFont
+KapaErase
+KapaLoadBox

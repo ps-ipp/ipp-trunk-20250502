@@ -1,0 +1,26 @@
+/*
+ * The line
+    { PPNORM_ERR_$X{ErrorCode}, "$X{ErrorDescription}"},
+ * (without the Xs)
+ * will be replaced by values from errorCodes.dat
+ */
+#include "pslib.h"
+#include "ppNormErrorCodes.h"
+
+void ppNormErrorRegister(void)
+{
+    static psErrorDescription errors[] = {
+       { PPNORM_ERR_BASE, "First value we use; lower values belong to psLib" },
+       { PPNORM_ERR_${ErrorCode}, "${ErrorDescription}"},
+    };
+    static int nerror = PPNORM_ERR_NERROR - PPNORM_ERR_BASE; // number of values in enum
+
+    for (int i = 0; i < nerror; i++) {
+       psErrorDescription *tmp = psAlloc(sizeof(psErrorDescription));
+       p_psMemSetPersistent(tmp, true);
+       *tmp = errors[i];
+       psErrorRegister(tmp, 1);
+       psFree(tmp);			/* it's on the internal list */
+    }
+    nerror = 0;			                // don't register more than once
+}

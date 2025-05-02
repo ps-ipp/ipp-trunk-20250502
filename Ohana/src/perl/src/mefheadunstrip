@@ -1,0 +1,88 @@
+#!/usr/bin/env perl
+
+$xtline = "XTENSION= 'IMAGE   '           / Image extension ";
+$rwline = "SIMPLE  =                    T / Standard FITS   ";
+
+# input file is PHU: foo.fits.hdr
+# expect NEXTEND files: fooNN.fits.hdr
+
+if (@ARGV != 2) { die "ERROR: USAGE: mefheadunstrip (input) (output)\n" }
+$input  = $ARGV[0];
+$output = $ARGV[1];
+($root) = $input =~ m|(\S*).fits.hdr|;
+
+# blank line for padding:
+$blank = "";
+for ($i = 0; $i < 80; $i++) { $blank = $blank . " "; }
+
+if (-e $output) { die "remove existing target\n"; }
+
+open (OUT, ">$output");
+
+# load primary header
+@head = &loadheader ($input);
+foreach $line (@head) {
+    print OUT "$line";
+}
+
+# find N extensions
+$Nextend = 0;
+foreach $line (@head) {
+    if ($line =~ m|^NEXTEND =\s+\d+|) {
+	($Nextend) = $line =~ m|^NEXTEND =\s+(\d+)|;
+	last;
+    }
+}
+if (!$Nextend) { die "ERROR: no extensions\n"; }
+
+# load extension headers
+for ($i = 0; $i < $Nextend; $i++) {
+    $file = sprintf "%s%02d.fits.hdr", $root, $i;
+    print STDERR "$file\n";
+    
+    @head = &loadheader ($file);
+    foreach $line (@head) {
+	if ($line =~ s|^$rwline|$xtline|) {
+	    print STDERR "fixed SIMPLE\n";
+	}
+    }
+    foreach $line (@head) {
+	print OUT "$line";
+    }
+}
+
+close (OUT);
+exit 0;
+
+# load, strip, pad, fix NAXIS:
+sub loadheader {
+
+    my ($file) = $_[0];
+    my (@input, $i);
+
+    open (FILE, "$file");
+    @input = <FILE>;
+    close (FILE);
+    
+    # strip return chars
+    foreach $line (@input) { chop $line; }
+
+    # pad end of block
+    $N = @input;
+    if ($N % 36) {
+	$Nxtra = 36 - ($N % 36);
+	for ($i = 0; $i < $Nxtra; $i++) {
+	    @input = (@input, $blank);
+	}
+    }
+
+    # NAXIS = 2 -> NAXIS = 0
+    foreach $line (@input) {
+	if ($line =~ s|^NAXIS   =                    2|NAXIS   =                    0|) {
+	    print STDERR "fixed NAXIS\n";
+	}
+    }
+    
+    return (@input);
+}
+

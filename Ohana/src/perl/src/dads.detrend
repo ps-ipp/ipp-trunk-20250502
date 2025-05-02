@@ -1,0 +1,324 @@
+#!/usr/bin/env perl
+# calls flatten.flips & defringe, but no flips components directly
+
+$CLEANUP     = 1;
+$DO_DEFRINGE = 0;
+$DO_DEMODE   = 0;
+$config = "";
+if ($ENV{'PTOLEMY'}) { $config = "-c $ENV{'PTOLEMY'}"; }
+$tmpenv = `mktemp /tmp/elixir.XXXXXX`; chop ($tmpenv);
+
+@opt = ();
+@tARGV = ();
+$LIMITMODES = "";
+for (; @ARGV > 0; ) {
+    if ($ARGV[0] eq "-c") {
+        $config = "-c $ARGV[1]";
+        shift; shift; next;
+    }
+    if ($ARGV[0] eq "-C") {
+        push @opt, "-C $ARGV[1]";
+        shift; shift; next;
+    }
+    if ($ARGV[0] eq "-D") {
+        push @opt, "-D $ARGV[1] $ARGV[2]";
+        shift; shift; shift; next;
+    }
+    if ($ARGV[0] eq "-cleanup") {
+	$CLEANUP = 0;
+        shift; next;
+    }
+    if ($ARGV[0] eq "-limitmodes") {
+	$LIMITMODES = "-limitmodes $ARGV[1]";
+        shift; shift; next;
+    }
+    @tARGV = (@tARGV, $ARGV[0]);
+    shift;
+}
+@ARGV = @tARGV;
+
+$config = join (" ", $config, @opt);
+$status = system ("gconfig -raw $config > $tmpenv");
+if ($status) { &escape ("error in elixir configuration: gconfig fails"); }
+$ENV{'PTOLEMY'} = "$tmpenv";
+
+if (@ARGV != 3) { &escape ("USAGE: dads.detrend (input) (outbase) (level) [-cleanup] [elixir options]"); }
+
+$input  = $ARGV[0];   # input : /path/path/654321o.fits 
+$outdir = $ARGV[1];   # output: /path/path/654321p
+$level =  $ARGV[2];   # level : perfect, best, raw
+
+# validate level
+$level = "\U$level\E";
+if (($level ne "PERFECT") && ($level ne "BEST") && ($level ne "RAW")) {
+    &escape ("ERROR: invalid entry for (level)");
+}
+$close = "";
+if ($level eq "BEST") { $close = "-close"; }
+
+# check for input file (must be MEF)
+if (! -e $input) { &escape ("ERROR: input file not found"); }
+
+# for raw distribution, simply use fhtool to split the files:
+if ($level eq "RAW") {
+    system ("rmdir $outdir");
+    if ($?) { &escape ("ERROR: can't remove target directory for fhtool"); }
+    system ("fhtool $input $outdir");
+    if ($?) { &goodbye ("ERROR: failure in fhtool"); }
+    print STDOUT "SUCCESS: finished with dads.detrend\n";
+    &goodbye;
+}
+
+# force output directory to exist
+if (! -d $outdir) { 
+    system ("mkdir -p $outdir"); 
+    if ($?) { &goodbye ("ERROR: can't create output directory"); }
+}
+
+# load ccd config information
+@ccdn   = split (" ", `cameraconfig -ccdn`); if ($?) { &goodbye ("ERROR in cameraconfig"); }
+@ccds   = split (" ", `cameraconfig -ccds`); if ($?) { &goodbye ("ERROR in cameraconfig"); }
+
+# load abstracted keywords
+($typekwd, $filtkwd, $exptkwd) = split (" ", `gconfig IMAGETYPE-KEYWORD FILTER-KEYWORD EXPTIME-KEYWORD`);
+if ($?) { &goodbye ("ERROR: config system missing keyword abstractions"); }
+
+# extract keyword values:
+($junk, $type, $exptime, $filtvalue) = split (" ", `echo $input | fields $typekwd $exptkwd $filtkwd`);
+if ($?) { &goodbye ("ERROR: failure reading header keywords (1)"); }
+
+# check for valid imagetype & filter
+if ($type ne "OBJECT") { &goodbye ("ERROR: $input: wrong image type"); }
+$filter = `filtnames $filtvalue`; chop $filter;
+if ($?) { &goodbye ("ERROR: filter not found"); }
+
+# check recipe file for detrend types & cutoff exptime values
+$recipefile = `gconfig DETREND_RECIPES`; chop $recipefile;
+($detypes, $cutoffs) = split (" ", `gconfig -c $recipefile $filter`);
+if ($?) { &goodbye ("ERROR: failure to get detrend recipes"); }
+@detypes = split (",", $detypes);
+@cutoffs = split (",", $cutoffs);
+
+# check for DEFRINGE, DEMODE 
+$DO_DEFRINGE = 0;
+for ($i = 0; $i < @detypes; $i++) {
+    if ($detypes[$i] eq "fringe") {
+	if ($exptime >= $cutoffs[$i]) { $DO_DEFRINGE = 1; }
+	last;
+    }
+}
+$DO_DEMODE = 0;
+for ($i = 0; $i < @detypes; $i++) {
+    if ($detypes[$i] eq "modes") {
+	if ($exptime >= $cutoffs[$i]) { $DO_DEMODE = 1; }
+	last;
+    }
+}
+$camera = `gconfig CAMERA`; chop $camera;
+if ($camera eq "meganorth") { $DO_DEMODE = 0; }
+
+# check the GEOMETRY:
+($tmp, $bin1, $bin2, $raster) = split (" ", `echo $input | fields CCDBIN1 CCDBIN2 RASTER`);
+if ($?) { &goodbye ("ERROR: failure reading header keywords (2)"); }
+
+if ($bin1 != 1) { &goodbye ("ERROR: $input: binned image"); }
+if ($bin2 != 1) { &goodbye ("ERROR: $input: binned image"); }
+if ($raster ne "FULL") { &goodbye ("ERROR: $input: sub-rastered image"); } 
+
+# print a summary of the processing
+print STDOUT "\n";
+print STDOUT "image: $input, filter: $filter, exptime: $exptime\n";
+print STDOUT "detrend processing: defringe: $DO_DEFRINGE, demode: $DO_DEMODE, level: $level\n\n";
+
+# get image size:
+@words = stat ($input);
+$Nbyte = $words[7];
+
+# check space on /tmp:
+@answer = `df -k /tmp`;
+@words = split (" ", $answer[1]);
+$Nfree = $words[3]*1024;
+
+# need space in workdir for one image for each of DEMODE & DEFRINGE:
+$Need  = 0;
+if ($DO_DEMODE)   { $Need ++; }
+if ($DO_DEFRINGE) { $Need ++; }
+$Nneed = $Need*$Nbyte*1.01;
+
+# choose a work directory (/tmp vs $outdir):
+$workdir = $outdir;
+if ($Nfree > $Nneed) {
+    $workdir = "/tmp";
+}
+
+print STDERR "Need workspace for $Need images: $Nfree vs $Nneed\n";
+
+# extract image rootname from $outdir:
+$base = &basename ($outdir);
+
+# create output lists:
+@detlist = ();
+@deflist = ();
+@demlist = ();
+@fitlist = ();
+foreach $ccd (@ccdn) {
+    push @fitlist, "$outdir/$base$ccd.fits";
+    push @detlist, "$workdir/$base$ccd.det";
+    push @deflist, "$workdir/$base$ccd.def";
+}
+# phu file:
+$phufile = "$outdir/$base.phu";
+
+# detrend  $input[ccd] @detlist
+# defringe @detlist    @deflist
+# demode   @deflist    @demlist
+# output               @fitlist
+
+#* flatten.flips input fitlist
+
+#* flatten.flips input detlist
+#* demode detlist fitlist
+
+# flatten.flips input detlist
+# defringe detlist deflist
+
+#* flatten.flips input detlist
+#* defringe detlist deflist
+#* demode deflist fitlist
+
+#            @demlist = @fitlist
+# !demode:   @deflist = @demlist
+# !defringe: @detlist = @deflist
+
+if ($DO_DEMODE) {
+    @demlist = @fitlist;
+} else {
+    if ($DO_DEFRINGE) { 
+	@deflist = @fitlist; 
+    } else {
+	@detlist = @fitlist; 
+    }
+}
+
+# run the detrend system
+for ($i = 0; $i < @ccds; $i++) {
+    $status = &vsystem ("flatten.flips $close -quiet $input $detlist[$i] $ccds[$i] mef");
+    if ($status) { &escape ("ERROR: problem running flatten on $input, $ccds[$i]"); }
+}
+$status = &vsystem ("flatten.flips $close -quiet $input $phufile phu mef");
+if ($status) { &escape ("ERROR: problem running flatten on $input, phu"); }
+
+# we need files containing detlist, demlist, deflist:
+if ($DO_DEMODE || $DO_DEFRINGE) {
+    $detlist = "$outdir.detlist";
+    open (FILE, ">$detlist");
+    foreach $name (@detlist) {
+	print FILE "$name\n";
+    }
+    close (FILE);
+}
+if ($DO_DEMODE) {
+    $mapfile = "$outdir.map.fits";
+    $deflist = $detlist;
+    $demlist = "$outdir.demlist";
+    open (FILE, ">$demlist");
+    foreach $name (@demlist) {
+	print FILE "$name\n";
+    }
+    close (FILE);
+}
+if ($DO_DEFRINGE) {
+    $deflist = "$outdir.deflist";
+    open (FILE, ">$deflist");
+    foreach $name (@deflist) {
+	print FILE "$name\n";
+    }
+    close (FILE);
+}
+
+if ($DO_DEFRINGE) {
+    $status = &vsystem ("defringe $detlist $deflist $close");
+    if ($status) { &escape ("ERROR: problem running defringe on $outdir"); }
+}
+
+if ($DO_DEMODE) {
+    $status = &vsystem ("demodemap $deflist $demlist -mapfile $mapfile $LIMITMODES $close");
+    if ($status) { &escape ("ERROR: problem running demodemap on $outdir"); }
+}
+
+# update the phu header with the results from ccd # 0
+if ($DO_DEMODE || $DO_DEFRINGE) {
+    $temp = `mktemp /tmp/elixir.XXXXXX`; chop ($temp);
+    system ("fhead $detlist[0] > $temp.1.hdr");
+    system ("fhead $fitlist[0] > $temp.2.hdr");
+    
+    @answer = `diff $temp.1.hdr $temp.2.hdr`;
+    open (FILE, ">$temp.hdr");
+    foreach $line (@answer) {
+	if ($line =~ m|^>\s|) {
+	    ($head) = $line =~ m|^>\s(.*)$|;
+	    print FILE "$head\n";
+	}
+    }
+    close FILE;
+  
+    vsystem ("fits_insert $phufile $temp.hdr");
+    if ($?) { &escape ("ERROR: cannot update phu"); }
+    unlink ("$temp");
+    unlink ("$temp.1.hdr");
+    unlink ("$temp.2.hdr");
+    unlink ("$temp.hdr");
+}
+&goodbye ("SUCCESS: finished with dads.detrend");
+
+########################################################################
+
+sub cleanup {
+
+    if (!$CLEANUP) { return; }
+
+    unlink $tmpenv;
+    # detlist, demlist, deflist
+    foreach $name (@detlist) {
+	if (-e $name && ($name =~ m|^/tmp/|)) { unlink ($name); }
+    }
+    foreach $name (@demlist) {
+	if (-e $name && ($name =~ m|^/tmp/|)) { unlink ($name); }
+    }
+    foreach $name (@deflist) {
+	if (-e $name && ($name =~ m|^/tmp/|)) { unlink ($name); }
+    }
+    
+    if (-e $detlist) { unlink ($detlist); }
+    if (-e $demlist) { unlink ($demlist); }
+    if (-e $deflist) { unlink ($deflist); }
+    
+    return;
+}
+
+sub basename {
+
+    my ($file) = $_[0];
+    my ($base, @words);
+
+    @words = split ("/", $file);
+    $base = $words[-1];
+    return $base;
+}
+
+sub vsystem {
+    $status = system ("@_");
+    $status;
+}
+
+sub goodbye {
+    &cleanup; 
+    print STDERR "@_\n";
+    exit 0;
+}
+
+sub escape {
+    &cleanup;
+    print STDERR "@_\n";
+    exit 1;
+}

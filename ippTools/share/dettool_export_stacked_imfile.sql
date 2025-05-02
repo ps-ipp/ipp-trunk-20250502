@@ -1,0 +1,3 @@
+SELECT
+    detStackedImfile.*
+FROM detStackedImfile

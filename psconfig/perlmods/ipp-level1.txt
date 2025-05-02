@@ -1,0 +1,57 @@
+# Here is a complete list of the EXTERNAL, NON-CORE Perl Modules used by IPP code
+#
+  64    Astro::FITS::CFITSIO           Astro-FITS-CFITSIO-1.12.tar.gz           0              NONE      NONE
+# https://cpan.metacpan.org/authors/id/P/PR/PRATZLAFF/Astro-FITS-CFITSIO-1.12.tar.gz
+  56    Cache                          Cache-2.11.tar.gz                        0              NONE      NONE
+# https://cpan.metacpan.org/authors/id/S/SH/SHLOMIF/Cache-2.11.tar.gz
+  70    Config::YAML                   Config-YAML-1.42.tar.gz                  0              NONE      NONE
+# https://cpan.metacpan.org/authors/id/M/MD/MDXI/Config-YAML-1.42.tar.gz [got it]
+  40    Data::Validate::URI            Data-Validate-URI-0.07.tar.gz            0              NONE      NONE
+# https://cpan.metacpan.org/authors/id/S/SO/SONNEN/Data-Validate-URI-0.07.tar.gz
+  06    DateTime                       DateTime-1.50.tar.gz                     0              NONE      NONE
+# https://cpan.metacpan.org/authors/id/D/DR/DROLSKY/DateTime-1.50.tar.gz
+  11    DateTime::Format::Strptime     DateTime-Format-Strptime-1.76.tar.gz     0              NONE      NONE
+# https://cpan.metacpan.org/authors/id/D/DR/DROLSKY/DateTime-Format-Strptime-1.76.tar.gz
+  73    DBI                            DBI-1.642.tar.gz                         0              NONE      NONE
+# https://cpan.metacpan.org/authors/id/T/TI/TIMB/DBI-1.642.tar.gz
+  27    Digest::MD5                    Digest-MD5-2.55.tar.gz                   0              NONE      NONE
+  CORE
+# https://cpan.metacpan.org/authors/id/G/GA/GAAS/Digest-MD5-2.55.tar.gz
+  38    Digest::MD5::File              Digest-MD5-File-0.08.tar.gz              0              NONE      NONE
+# https://cpan.metacpan.org/authors/id/D/DM/DMUEY/Digest-MD5-File-0.08.tar.gz
+  55    IPC::Run                       IPC-Run-20180523.0.tar.gz                0              NONE      NONE
+# https://cpan.metacpan.org/authors/id/T/TO/TODDR/IPC-Run-20180523.0.tar.gz
+  59    Log::Log4perl                  Log-Log4perl-1.49.tar.gz                 0              NONE      NONE
+# https://cpan.metacpan.org/authors/id/M/MS/MSCHILLI/Log-Log4perl-1.49.tar.gz
+  37    LWP                            libwww-perl-6.38.tar.gz                  0              NONE      NONE
+# https://cpan.metacpan.org/authors/id/O/OA/OALDERS/libwww-perl-6.38.tar.gz
+  00    Module::Build                  Module-Build-0.4224.tar.gz               0              NONE      NONE
+# https://cpan.metacpan.org/authors/id/L/LE/LEONT/Module-Build-0.4224.tar.gz
+  02    Params::Validate               Params-Validate-1.29.tar.gz              0              NONE      NONE
+# https://cpan.metacpan.org/authors/id/D/DR/DROLSKY/Params-Validate-1.29.tar.gz
+  58    SOAP::Lite                     SOAP-Lite-1.27.tar.gz                    0              NONE      yes,yes,no [verify these]
+# https://cpan.metacpan.org/authors/id/P/PH/PHRED/SOAP-Lite-1.27.tar.gz
+  78    SQL::Interp                    SQL-Interp-1.24.tar.gz                   0              NONE      NONE
+# https://cpan.metacpan.org/authors/id/M/MA/MARKSTOS/SQL-Interp-1.24.tar.gz 
+  46    Statistics::Descriptive        Statistics-Descriptive-3.0702.tar.gz     0              NONE      NONE
+# https://cpan.metacpan.org/authors/id/S/SH/SHLOMIF/Statistics-Descriptive-3.0702.tar.gz
+  45    Template                       Template-Toolkit-2.28.tar.gz             0              NONE      n,n [verify these]
+# https://cpan.metacpan.org/authors/id/A/AT/ATOOMIC/Template-Toolkit-2.28.tar.gz
+  21    URI                            URI-1.76.tar.gz                          0              NONE      NONE
+# https://cpan.metacpan.org/authors/id/O/OA/OALDERS/URI-1.76.tar.gz
+  42    YAML                           YAML-1.27.tar.gz                         0              NONE      y   [verify these]
+# https://cpan.metacpan.org/authors/id/T/TI/TINITA/YAML-1.27.tar.gz
+
+# these are only used by Nebulous-Server (do not include in standard build)
+# File::ExtAttr
+# Net::Server::Daemonize
+# SOAP::Transport::HTTP
+
+#  50    Digest::SHA1                   Digest-SHA1-2.13.tar.gz                  0              NONE      NONE
+# https://cpan.metacpan.org/authors/id/G/GA/GAAS/Digest-SHA1-2.13.tar.gz
+
+# NOTE: only used by DataStoreServer (do not include in standard build)
+# Term::ReadKey
+
+# NOTE: only used by ippMonitor (do not include in standard build)
+# CGI

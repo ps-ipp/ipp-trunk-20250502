@@ -1,0 +1,141 @@
+#!/usr/bin/env perl
+
+# grab the command line options
+$close = "";
+$quiet = 0;
+$preserve = 0;
+@tARGV = ();
+for (; @ARGV > 0; ) {
+    if ($ARGV[0] eq "-close") {
+	$close = "-close";
+        shift; next;
+    }
+    if ($ARGV[0] eq "-quiet") {
+	$quiet = 1;
+        shift; next;
+    }
+    if ($ARGV[0] eq "-preserve") {
+        $preserve = 1;
+        shift; next;
+    }
+    @tARGV = (@tARGV, $ARGV[0]);
+    shift;
+}
+@ARGV = @tARGV;
+
+if (@ARGV != 4) { &escape ("USAGE: defringe.chip (input) (output) (ccd) (mode) [-close]"); }
+
+# various lists
+$input  = $ARGV[0];
+$output = $ARGV[1];
+$ccd    = $ARGV[2];
+$mode   = uppercase ($ARGV[3]);
+if ($mode ne "SPLIT") { &escape ("defringe.ccd requires SPLIT input data for now"); }
+
+# load config info
+$dbmode = `gconfig DETREND-DB-MODE`; chop $dbmode;
+$ccdn   = `cameraconfig -N $ccd`; chop $ccdn;
+
+# find fringe-point file (always MEF)
+$frpts  = `detsearch -quiet -image $input $ccd split -type frpts`; chop $frpts;
+if ($?) { &escape ("can't get fringe points for image"); }
+
+# measure fringe amplitude of input image
+($name, $sky, $rng, $drng) = split (" ", `getfringe $input $ccd $frpts 1`);
+if ($?) { &escape ("failure to measure fringe amplitude"); }
+
+# find fringe master frames
+$file = `detsearch -quiet $close -image $input $ccd split -type fringe`; chop $file;
+if ($?) { &escape ("can't find fringe master for $input"); }
+
+$frmaster = $file;
+if ($dbmode eq "MEF") { $frmaster = "$file\[$ccd\]"; }
+
+# get fringe master stats
+if ($dbmode eq "MEF") {
+    ($name, $C0, $C1, $SKY, $RNG) = split (" ", `echo $file | fields -x $ccdn FRNG_C0 FRNG_C1 FRNG_SKY FRNG_RNG`);
+} else {
+    ($name, $C0, $C1, $SKY, $RNG) = split (" ", `echo $file | fields FRNG_C0 FRNG_C1 FRNG_SKY FRNG_RNG`);
+}
+
+if (-e $output) { unlink $output; }
+
+# load flips parameter file
+$paramfile = `gconfig FLIPS_PARAM_DEFRINGE`; chop $paramfile;
+open (FILE, "$paramfile");
+@rawpars = <FILE>;
+close (FILE);
+
+$infile  = mktemp ("\@defringe");
+$parfile = mktemp ("defringe");
+
+# create input list file
+$s0 = $sky;
+$s1 = $SKY;
+$RF = $RNG / $rng;
+$ds = 0.0;
+open (FILE, ">$infile");
+print FILE "$input    $s0 1.0 $ds\n";
+print FILE "$frmaster $s1 $RF $ds\n";
+close (FILE);
+
+# create input par file
+@params = @rawpars;
+foreach $line (@params) {
+    $line =~ s|LISTNAME|$infile|;
+    $line =~ s|FILENAME|$output|;
+    $line =~ s|COMMENT|Elixir Defringing|;
+}
+open (FILE, ">$parfile");
+foreach $line (@params) { print FILE "$line"; }
+close (FILE);
+
+vsystem ("imcombred $parfile");
+if ($?) { &escape ("failure running imcombred"); }
+
+&goodbye;
+
+########
+
+sub vsystem {
+    print STDERR "@_\n";
+    $status = system ("@_");
+    $status;
+}
+
+@temp = ();
+sub mktemp {
+
+    my ($base) = $_[0];
+    my ($name);
+    $name = `mktemp /tmp/$base.XXXXXX`;
+    chop $name;
+
+    push @temp, $name;
+    return $name;
+}
+
+sub uppercase {
+    return "\U$_[0]\E";
+}
+
+sub escape {
+    $message = $_[0];
+    foreach $name (@temp) {
+	unlink ($name);
+    }
+    if ($quiet) { 
+	die "$message\n";
+    } else {
+	die "ERROR: $message\n"; 
+    }
+}
+
+sub goodbye {
+    foreach $name (@temp) { 
+	if ($preserve) { print STDERR "tmp file: $name\n"; }
+	else { unlink ($name); }
+    }
+    if (!$quiet) { print STDERR "SUCCESS\n"; }
+    exit 0;
+}

@@ -1,0 +1,566 @@
+#!/usr/bin/env perl
+#
+# Data Store file set registration and de-registration program
+#
+
+use strict;
+use warnings;
+
+use Getopt::Long qw( GetOptions );
+use Pod::Usage qw( pod2usage );
+use Carp;
+use Digest::MD5::File qw( file_md5_hex );
+use DBI;
+use PS::IPP::Metadata::Config;
+use PS::IPP::Metadata::Stats;
+use PS::IPP::Metadata::List qw( parse_md_list );
+use File::Copy;
+use File::Basename;
+
+use PS::IPP::Config qw($PS_EXIT_SUCCESS
+                       $PS_EXIT_UNKNOWN_ERROR
+                       $PS_EXIT_SYS_ERROR
+                       $PS_EXIT_CONFIG_ERROR
+                       $PS_EXIT_PROG_ERROR
+                       $PS_EXIT_DATA_ERROR
+                       $PS_EXIT_TIMEOUT_ERROR
+                       metadataLookupStr
+                       metadataLookupBool
+                       caturi
+                       );
+my $product;
+my $fileset;
+my $filelist;
+my $empty;
+
+my $fstype;
+my ($ps0, $ps1, $ps2, $ps3, $ps4, $ps5, $ps6, $ps7);
+
+my $linkfiles;      # if set, put links to files in the Data Store. The actuall directory is $datapath
+my $copyfiles;      # if set, copy files from this directory to the Data Store fileset
+my $datapath;       # source for files required if $linkfiles or $copyfiles
+my $abspath;			# Path specified is absolute
+
+my $dbname;         # Database name
+my $dbserver;       # Database host
+my $dsroot;         # root directory of the data store
+
+my $add;
+my $del;
+my $remove;
+my $force;          # on --del don't return error if fileset doesn't exist
+
+my $verbose = 0;
+my $no_cleanup = 0; # if something goes wrong don't delete copied or linked files for debug
+
+# XXX allow group write permission: 
+# TODO: set the group to a more restrictive one than users
+umask 2;
+
+#
+# parse args
+#
+
+GetOptions(
+        'add=s'         =>      \$add,
+        'del=s'         =>      \$del,
+        'product=s'     =>      \$product,
+        'list=s'        =>      \$filelist,
+        'empty'         =>      \$empty,
+        'type=s'        =>      \$fstype,
+        'datapath=s'    =>      \$datapath,
+	'abspath'       =>      \$abspath,
+        'link'          =>      \$linkfiles,
+        'copy'          =>      \$copyfiles,
+        'rm'            =>      \$remove,
+        'force'         =>      \$force,
+        'ps0=s'         =>      \$ps0,          # product specific columns 0 - 7
+        'ps1=s'         =>      \$ps1,
+        'ps2=s'         =>      \$ps2,
+        'ps3=s'         =>      \$ps3,
+        'ps4=s'         =>      \$ps4,
+        'ps5=s'         =>      \$ps5,
+        'ps6=s'         =>      \$ps6,
+        'ps7=s'         =>      \$ps7,
+        'dbname=s'      =>      \$dbname,
+        'dbserver=s'    =>      \$dbserver,
+        'ds_dbname=s'   =>      \$dbname,       # some scripts use these names
+        'dbhost=s'      =>      \$dbserver,
+        'ds_dbserver=s' =>      \$dbserver,
+        'dsroot=s'      =>      \$dsroot,
+        'verbose'       =>      \$verbose,
+) or pod2usage(2);
+
+pod2usage( -msg => "Unknown option: @ARGV", -exitval => 2 ) if @ARGV;
+
+# collect all command line argument errors and only fail once below.
+my $err = "";
+
+$err .= "--product is required\n" unless defined $product;
+
+# will exit if neither --add and --del is specified or if they both are specified
+$err .= "Must specify either --add or --del.\n"
+    unless $add xor $del;
+
+if ($add) {
+    $fileset = $add;
+    $err .= "--type is required\n" unless defined $fstype;
+    $err .= "--list is required\n" unless defined $filelist or $empty;
+    if ($linkfiles and $copyfiles) {
+        $err .= "only one of --link and --copy is allowed\n";
+    }
+    if (($linkfiles or $copyfiles) and !$datapath and !$abspath) {
+        $err .= "need to specify datapath or abspath with --link and --copy\n";
+    }
+    if (!$abspath && $linkfiles && (substr($datapath, 0, 1) ne "/")) {
+        $err .= "datapath must begin with / when using --link\n";
+    }
+} else {
+    $fileset = $del;
+}
+
+
+#
+# lookup the location of the Data Store
+#
+
+my $ipprc =  PS::IPP::Config->new(); # IPP Configuration
+my $siteConfig = $ipprc->{_siteConfig};
+if (!$dsroot) {
+    $dsroot = metadataLookupStr($ipprc->{_siteConfig}, 'DATA_STORE_ROOT');
+    if (!$dsroot) {
+        &my_die("Data Store root directory not set", $PS_EXIT_CONFIG_ERROR);
+    }
+}
+
+if (!stat("$dsroot/index.txt")) {
+    $err .= "Data Store not found at '$dsroot'.\n"
+}
+
+# bail if any errors above
+show_usage($err) if ($err);
+
+show_usage("Invalid data store product '$product'.")
+    unless defined stat("$dsroot/$product/index.txt");
+
+$dbname      = metadataLookupStr($siteConfig, 'DS_DBNAME') unless defined $dbname;
+$dbserver    = metadataLookupStr($siteConfig, 'DS_DBSERVER') unless defined $dbserver;
+my $dbuser   = metadataLookupStr($siteConfig, 'DS_DBUSER');
+my $dbpass   = metadataLookupStr($siteConfig, 'DS_DBPASSWORD');
+exit ($PS_EXIT_CONFIG_ERROR) unless defined $dbserver and $dbname and $dbuser and $dbpass;
+
+my $dsn = "DBI:mysql:host=$dbserver;database=$dbname";
+# mysql cookbook says 'PrintError can interfere with failure detection in some cases'
+my %conn_attrs = (PrintError => 0, RaiseError => 1, AutoCommit => 0);
+
+my $dbh = DBI->connect_cached($dsn, $dbuser, $dbpass, \%conn_attrs)
+        or &my_die("Cannot connect to DB server\n", $PS_EXIT_SYS_ERROR);
+
+print STDERR "dbh: $dbh\n" if $verbose;
+
+my $fileset_dir = "$dsroot/$product/$fileset";
+my $index_script_name = "$fileset_dir/index.txt";
+
+if ($del) {
+    #
+    # delete fileset
+    #
+
+    my $stmt = $dbh->prepare("SELECT prod_id, last_fs FROM dsProduct WHERE prod_name = ?");
+    my $execute_status = $stmt->execute($product);
+    if (!$execute_status) {
+        print STDERR "failed to execute product lookup\n";
+        exit 2;
+    }
+
+    my $prod_row = $stmt->fetchrow_hashref();
+    my $prod_id = $prod_row->{prod_id};
+    my $old_last_fs = $prod_row->{last_fs};
+
+    if (!$prod_id) {
+        print STDERR "product '$product' not found\n";
+        if ($force) {
+            exit(0);
+        } else {
+            exit(1);
+        }
+    }
+    $stmt = $dbh->prepare("SELECT fileset_id,fileset_name FROM dsFileset" .
+                                 " WHERE fileset_name = ? AND prod_id = $prod_id");
+
+    $stmt->execute($fileset);
+    my $fs_row = $stmt->fetchrow_hashref();
+
+    if (!$fs_row) {
+        print STDERR "Fileset '$fileset' not found in $product.\n";
+        if ($force) {
+            exit 0;
+        } else {
+            exit 1;
+        }
+    }
+    $stmt->finish();
+
+    my $fileset_id = $fs_row->{fileset_id};
+
+    my $rows_affected;
+    eval {
+        $dbh->do("DELETE from dsFile where fileset_id = $fileset_id");
+        $rows_affected = $dbh->do("DELETE from dsFileset where fileset_id = $fileset_id");
+
+        if ($old_last_fs eq $fs_row->{fileset_name}) {
+            # print STDERR "deleting most recent fileset in $product\n";
+
+            $stmt = $dbh->prepare("SELECT fileset_name from dsFileset " .
+                        "WHERE prod_id = $prod_id ORDER BY reg_time DESC LIMIT 1");
+            $stmt->execute();
+            my $new_last_fs;
+            my $new_newest = $stmt->fetchrow_hashref();
+            if ($new_newest) {
+                $new_last_fs = $new_newest->{fileset_name};
+            } else {
+                $new_last_fs = undef;
+            }
+            $stmt->finish();
+            $dbh->do("UPDATE dsProduct SET last_fs = ? WHERE prod_id = $prod_id", undef, ($new_last_fs));
+        }
+        $dbh->commit();
+    };
+    if (!$rows_affected or $@) { # an error occured
+        print STDERR "transaction failed, rolling back error was:\n$@\n";
+        # roll back within eval to prevent rollback failure from terminating the script
+        eval {$dbh->rollback();};
+        exit 1;
+    }
+
+    $dbh->disconnect();
+
+    if ($remove and -e $fileset_dir) {
+        my $rc;
+        if (($rc = system "rm -rf $fileset_dir")) {
+            &my_die("failed to remove $fileset_dir error code: $rc", $PS_EXIT_UNKNOWN_ERROR);
+        }
+    } else  {
+        # just zap the index script
+        unlink("$index_script_name");
+    }
+    exit 0;
+
+} else {
+    #
+    # add a new fileset
+    #
+
+    if (!$datapath) {
+        $datapath = $fileset_dir;
+    }
+
+    my $stmt = $dbh->prepare("SELECT prod_id FROM dsProduct WHERE prod_name = ?");
+    $stmt->execute($product);
+    my $row = $stmt->fetchrow_hashref();
+    my $prod_id = $row->{prod_id};
+    $stmt->finish();
+
+    if (!$prod_id) {
+        &my_die("product $product not found", $PS_EXIT_UNKNOWN_ERROR);
+    }
+    my $count = $dbh->do("SELECT fileset_id FROM dsFileset WHERE fileset_name = ?" .
+                        " AND prod_id = $prod_id", undef, ($fileset));
+    if ($count != 0E0) {
+        print STDERR "Fileset '$fileset' already exists in product $product.\n";
+        exit 1;
+    }
+
+
+    # Note: There is a race condition here. Somebody could sneak in now and add a fileset with
+    # fileset_name = $fileset. So later we'll check again that only one fileset with the name exists
+
+    ## create the fileset directory
+    if (! -e $fileset_dir) {
+        if (!mkdir $fileset_dir) {
+            &my_die("failed trying to create fileset directory $fileset_dir", $PS_EXIT_SYS_ERROR);
+        }
+	if (! -d $fileset_dir ) {
+            &my_die("cannot access just created fileset directory $fileset_dir", $PS_EXIT_SYS_ERROR);
+	}
+    }
+
+    my @files;
+    if (!$empty) {
+        my $in;
+        if ($filelist eq "-") {
+            $in = *STDIN;
+        } else {
+            open $in, "<$filelist" or &my_die("cannot open filelist file $filelist\n", $PS_EXIT_UNKNOWN_ERROR);
+        }
+
+        my $lineno = 0;
+        while (<$in>) {
+            chomp;
+            $lineno++;
+
+            my $filename;
+            my $bytes;
+            my $md5sum;
+            my $filetype;
+
+            my @fields = split /\|/;
+            if (@fields < 4) {
+                &my_die("malformed input line at $filelist line $lineno: $_\n", $PS_EXIT_PROG_ERROR);
+            }
+            $filename = shift @fields;
+            $bytes    = shift @fields;  # if this is null it will be calculated below
+            $md5sum   = shift @fields;  # if this is null it will be calculated below
+            $filetype = shift @fields;
+
+            # make sure the length of the type specific columns is 8
+            while (@fields < 8) {
+                push @fields, undef;
+            }
+            my $ts_cols = [@fields];
+
+            my $hashref = {
+                'file'      => $filename,
+                'bytes'     => $bytes,
+                'md5sum'    => $md5sum,
+                'type'      => $filetype,
+                'ts_cols'   => $ts_cols,
+            };
+
+            push @files, $hashref;
+        }
+
+        &my_die("empty filelist\n", $PS_EXIT_PROG_ERROR) if (@files == 0);
+
+        # Prepare the fileset directory
+        if ($linkfiles or $copyfiles) {
+            eval {
+                ## then copy or symlink the files into place
+                foreach my $ref (@files) {
+                    my $src_path = (defined $abspath ? '' : "$datapath/") . "$ref->{file}";
+                    my $filename = fileparse($ref->{file}, ());
+                    my $dest = "$fileset_dir/$filename";
+
+                    my $src = $ipprc->file_resolve($src_path);
+                    if (!$src) {
+		    	print STDERR "failed to resolve file $src_path\n";
+			exit $PS_EXIT_SYS_ERROR;
+                    }
+		    if ( !-e $src or !-r $src) {
+		    	print STDERR "source file $src does not exist or is not accessible\n";
+			exit $PS_EXIT_SYS_ERROR;
+		    }
+		    if ( -e $dest ) {
+		    	print STDERR "destination $dest already exists removing\n";
+			if (! unlink $dest ) {
+                            print STDERR "failed trying to unlink $dest\n";
+			    exit $PS_EXIT_SYS_ERROR;
+			}
+		    }
+
+                    if ($linkfiles) {
+                        if (! symlink $src, $dest) {
+                            print STDERR "failed trying to link $src to $dest\n";
+			    exit $PS_EXIT_SYS_ERROR;
+                        }
+                    } else {
+                        if (!copy($src, $dest)) {
+                            &my_die("copy($src, $dest) failed", $PS_EXIT_UNKNOWN_ERROR);
+                        }
+                    }
+                }
+            };
+            if ($@) { # an error occured
+                print STDERR "error preparing the fileset directory: $@\n";
+
+                if (!$no_cleanup && system "rm -r $fileset_dir") {
+                    &my_die("failed to remove $fileset_dir", $PS_EXIT_UNKNOWN_ERROR);
+                }
+                exit $PS_EXIT_UNKNOWN_ERROR;
+            }
+        }
+
+        # now calculate the md5sum and file size if they weren't provided
+        foreach my $file (@files) {
+            my $filename = fileparse($file->{file}, ());
+            my $path = "$fileset_dir/$filename";
+            if (! -e $path ) {
+                &my_die("file $path not found", , $PS_EXIT_UNKNOWN_ERROR);
+            }
+            # get the size of the file
+            my @finfo = stat($path);
+            unless (@finfo) {
+                &my_die ("can't stat $path", $PS_EXIT_UNKNOWN_ERROR);
+            }
+            # if size was supplied make sure that it matches the actual
+            # size
+            my $current_size = $finfo[7];
+            if ($file->{bytes}) {
+                if ($file->{bytes} != $current_size) {
+
+#                   XXX we are getting to many instances where sizes and md5sums change between 
+#                   the time that a job runs and measures the value and when the filesets are registered.
+#                   So far it looks as though the files are actually ok.
+#                   For now just remeasure if size changes. Might want to do something more
+#                   clever and raise an error if the difference is larger than some fraction
+
+#                    &my_die("size on disk: $current_size does not match supplied"
+#                    . " size: $file->{bytes} for $path", $PS_EXIT_PROG_ERROR);
+
+                    print STDERR "\nWarning: size on disk for $path: $current_size does not match supplied size: $file->{bytes}.\nUsing current size.\n";
+                    $file->{bytes} = $current_size;
+                    $file->{md5sum} = undef;
+                }
+            } else {
+                $file->{bytes}  = $current_size;
+            }
+            if (!$file->{md5sum}) {
+                # Get MD5 sum
+                $file->{md5sum} = file_md5_hex($path);
+                &my_die("failed to compute valid md5sum for $path", $PS_EXIT_UNKNOWN_ERROR) if !$file->{md5sum};
+            }
+        }
+    }
+
+
+    if (! $dbh->ping()) {
+        # database connection has gone away, reconnect
+        $dbh->disconnect();
+        $dbh = DBI->connect_cached($dsn, $dbuser, $dbpass, \%conn_attrs)
+            or &my_die("Cannot connect to server\n", $PS_EXIT_SYS_ERROR);
+        print STDERR "ping failed new dbh: $dbh\n" if $verbose;
+    }
+
+    eval {
+        my $qstring = "INSERT into dsFileset" .
+                " (prod_id, fileset_name, reg_time, type," .
+                " prod_col_0, prod_col_1, prod_col_2, prod_col_3, prod_col_4, prod_col_5, " .
+                " prod_col_6, prod_col_7)" .
+                " VALUES(?, ?, UTC_TIMESTAMP(), ?, ?, ?, ?, ?, ?, ?, ?, ?)";
+
+        $count = $dbh->do($qstring, undef, ($prod_id, $fileset, $fstype, 
+                            $ps0, $ps1, $ps2, $ps3, $ps4, $ps5, $ps6, $ps7));
+
+        &my_die("failed to insert $fileset", $PS_EXIT_UNKNOWN_ERROR) if (!defined($count) or ($count == 0E0));
+
+        # I don't use last_insert_id() because I've seen some problems with it and
+        # the DBI perldoc says that it's use is problematic
+        my @fsids = $dbh->selectrow_array("SELECT fileset_id FROM dsFileset" .
+                        " WHERE fileset_name = '$fileset' AND prod_id = $prod_id");
+        my $nfs = @fsids;
+        if (!$nfs) {
+            &my_die("fileset '$fileset' missing even though we just added it", $PS_EXIT_UNKNOWN_ERROR);
+        } elsif ($nfs > 1) {
+            &my_die("Fileset '$fileset' already exists under $product.", $PS_EXIT_PROG_ERROR);
+        }
+        my $fileset_id = $fsids[0];
+
+        foreach my $ref (@files) {
+	    my $filename = fileparse($ref->{file}, ());
+            my $query = "INSERT INTO dsFile" .  
+                    " (fileset_id, file_id, file_name, bytes, md5sum, type," .
+                    " type_col_0, type_col_1, type_col_2, type_col_3, type_col_4, type_col_5," .
+                    " type_col_6, type_col_7)" .
+                    " VALUES($fileset_id, 0, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
+
+            my $aref = $ref->{ts_cols};
+            my $do_args =  [($filename, $ref->{bytes}, $ref->{md5sum}, $ref->{type}), @$aref];
+
+            $count = $dbh->do($query, undef, @$do_args);
+
+            if ($count == 0E0) {
+                &my_die("failed to insert $filename into $fileset", $PS_EXIT_UNKNOWN_ERROR);
+            }
+        }
+
+        $count = $dbh->do("UPDATE dsProduct SET last_update = UTC_TIMESTAMP(), last_fs = \'$fileset\'"
+                                . " WHERE prod_id = $prod_id");
+        if ($count == 0E0) {
+            &my_die("failed to update dsProduct $prod_id", $PS_EXIT_UNKNOWN_ERROR);
+        }
+
+        $dbh->commit();
+
+        # create the cgi script index.txt by making a copy of its parent's
+        if (!copy("$dsroot/$product/index.txt", $index_script_name)) {
+            &my_die("failed to copy index script to file set", $PS_EXIT_UNKNOWN_ERROR);
+        }
+    };
+    if ($@) { # an error occured
+        print STDERR "transaction failed, rolling back error was:\n$@\n";
+        eval {$dbh->rollback();};
+        cleanup();
+        exit 1;
+    }
+
+    print STDERR "calling disconnect before exit\n" if $verbose;
+    $dbh->disconnect();
+
+    exit 0;
+}
+
+
+sub show_usage {
+    my $str = shift;
+
+    chomp $str;
+
+    my @tmp = split(/\//, $0);
+
+    pod2usage(
+        -msg =>
+"usage: $tmp[$#tmp] --add fs_name |--del fs_name --product prod_name --type fs_type --list filelist [options]
+
+Commands:
+
+    --add       Add a new fileset with the given metadata to the specified product.
+                File information will be read per-line from the file specifed by the
+                list option.
+                Input lines are in the following format:
+
+                    fileID|size|md5sum|type|ts0|ts1|ts2|ts3
+
+                These entries are read until EOF is reached.
+
+                If either size or md5sum are left blank they will be calculated by dsreg
+
+                (The type specific fields ts[0-3]fields are optional and may be omitted)
+
+    --del       Remove the fileset fs_name.
+
+
+
+Options:
+    --product   the product for the given file set (required)
+    --list      file containing list of files (use - for STDIN) (required)
+    --link      Link files from datapath to Data Store
+    --copy      Copy files from datapath to Data Store
+    --datapath  path to source files for --copy or --link
+    --abspath   path to source files is absoloute (--datapath not needed)
+    --ps0 - ps7 Optional product specific data
+    --rm        with --del remove the fileset directory from the Data Store
+    --force     with --del do not return error status if the fileset does not exist
+    --dbname    select the Data Store's database name
+                (usually required depending on configuration)
+
+$str",
+        -exitval => 2
+    );
+}
+
+sub cleanup {
+    if (!$no_cleanup && ($linkfiles or $copyfiles)) {
+        if (system "rm -r $fileset_dir") {
+            print STDERR "failed to remove $fileset_dir";
+        }
+    } else {
+        unlink($index_script_name);
+    }
+}
+
+sub my_die {
+    my $msg = shift;
+    my $fault = shift;
+    carp $msg;
+    exit $fault;
+}

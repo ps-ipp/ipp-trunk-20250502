@@ -1,0 +1,21 @@
+[% FOREACH table = tables -%]
+[% PERL %] print "\\clearpage\n\n" if not [% loop.count %] % 10 [% END -%]
+\begin{table}[ht]
+\begin{center}
+\caption{\label{[% table.namespace %]}[% table.namespace.replace('_', '\\_') %]}
+\begin{tabular}{|l|l|l|}
+\hline
+\textbf{name}   & \textbf{type} & \textbf{description} \\
+\hline
+[% FOREACH item = table.columns -%]
+[%- IF item.type == 'STR' -%]
+[% item.name.replace('_', '\\_') %] & [% item.type %] (up to [% item.value %] chars) & \parbox[t]{3.0in}{[% item.comment.replace('\#', '') %]} \\ \hline
+[% ELSE -%] 
+[% item.name.replace('_', '\\_') %] & [% item.type %] & \parbox[t]{3.0in}{[% item.comment.replace('\#', '') %]} \\ \hline
+[% END -%]
+[% END -%]
+\end{tabular}
+\end{center}
+\end{table}
+
+[% END %]

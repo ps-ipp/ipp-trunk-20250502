@@ -1,0 +1,58 @@
+#!/usr/bin/env perl
+
+# we need a mechanism to define the appropriate ext value 
+
+if (@ARGV != 3) { die "USAGE: ckastrom (run) (root) (Nccd)\n" ;}
+
+$runid = $ARGV[0];
+$root = $ARGV[1];
+$Nccd = $ARGV[2];
+
+$tmpdir = `gconfig -q -D RUNID $runid HDXDIR`; chop ($tmpdir);
+if ($?) {
+    print STDERR "can't find config entry HDXDIR\n";
+    exit 1;
+}
+chop ($runid);
+
+$Nbad = 0;
+$Nmiss = 0;
+for ($ccd = 0; $ccd < $Nccd; $ccd++) {
+
+    $found = 0;
+
+    $name = sprintf "%s/%s/%s%02d.hdx", $tmpdir, $root, $root, $ccd;
+    if (-e $name) {
+	$found = 1;
+	$answer = `echo $name | fields NASTRO`;
+	@words = split (" ", $answer);
+	if ($words[1] > 0) { next; }
+    }
+
+    if (! $found) { $Nmiss ++; }
+    $Nbad ++;
+}
+
+if (!$Nbad) {
+    print STDOUT "pass\n";
+    exit 0;
+} 
+if ($Nbad < 0.4*$Nccd) {
+    print STDOUT "pass $Nbad bad\n";
+    exit 0;
+}
+print STDOUT "$Nbad bad\n";
+exit 1;
+
+# utilities ############################
+
+sub vsystem {
+    print STDERR "@_\n";
+    $status = system ("@_");
+    $status;
+}
+
+sub goodbye {
+    die "@_\n";
+}
+

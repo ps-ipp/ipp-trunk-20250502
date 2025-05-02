@@ -1,0 +1,29 @@
+    psMetadata *md = psMetadataAlloc();
+[% FOREACH item = table.columns -%]
+[% IF item.comment;
+    SET item.comment = "\"$item.comment\"";
+ELSE;
+    SET item.comment = 'NULL';
+END;
+-%]
+[% IF item.type == "STR" -%]
+    if (!psMetadataAdd(md, PS_LIST_TAIL, "[% item.name %]", [% item.mtype %], [% item.comment %], "[% item.value %]")) {
+[% ELSIF item.mtype == "PS_DATA_TIME" -%]
+[% IF DEFINED(item.value) -%]
+    [% item.ctype %] [% item.name %] = psTimeFromISO("[% item.value %]", [% item.timetype %]);
+    if (!psMetadataAdd(md, PS_LIST_TAIL, "[% item.name %]", [% item.mtype %], [% item.comment %], [% item.name %])) {
+        psFree([% item.name %]);
+[% ELSE -%]
+    if (!psMetadataAdd(md, PS_LIST_TAIL, "[% item.name %]", [% item.mtype %], [% item.comment %], NULL)) {
+[% END -%]
+[% ELSE -%]
+    if (!psMetadataAdd(md, PS_LIST_TAIL, "[% item.name %]", [% item.mtype %], [% item.comment %], [% item.value %])) {
+[% END -%]
+        psError(PS_ERR_UNKNOWN, false, "failed to add item [% item.name %]");
+        psFree(md);
+        return false;
+    }
+[% IF item.mtype == "PS_DATA_TIME" AND DEFINED(item.value) -%]
+    psFree([% item.name %]);
+[% END -%]
+[% END -%]

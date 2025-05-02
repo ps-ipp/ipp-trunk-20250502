@@ -1,0 +1,21 @@
+# Description:
+
+  package		FITS Keyword Registry
+  version		0
+  organization		Pan-STARRS
+  email			isani@ifa.hawaii.edu
+  year			2004
+
+# Contents:
+
+  Makefile		Use with GNU make to build libfhreg
+
+  dummy.c		Placeholder.  There is no C code with libfhreg now.
+  macros.h		CPP macros to make fhreg work, automatically included
+  general.h		General FITS structure keyword registry entries
+  gpc_all.h		Top-level include file that includes all categories
+  gpc_detector.h	Pan-STARRS Giga Pixel Camera detector keywords
+  gpc_instrument.h	Pan-STARRS instrument FITS header keywords
+  gpc_shutter.h	        Pan-STARRS shutter FITS header keywords
+  gpc_telescope.h	Pan-STARRS TCS FITS header keywords
+  gpc_plant.h		Pan-STARRS plant-related FITS header keywords

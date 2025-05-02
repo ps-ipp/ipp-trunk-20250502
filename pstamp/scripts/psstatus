@@ -1,0 +1,299 @@
+#!/bin/env perl
+
+use strict;
+use warnings;
+
+use DBI;
+use PS::IPP::Config 1.01 qw( :standard );
+use Getopt::Long qw( GetOptions :config auto_help auto_version gnu_getopt );
+use Pod::Usage qw( pod2usage );
+use File::Temp qw(tempfile);
+
+my $limit = 0;
+my $running;
+my $finished;
+my $finishing;
+my $totals;
+my $dbname;
+my $dbserver;
+my $dbuser;
+my $dbpassword;
+my $verbose;
+
+GetOptions(
+    'running|r',     \$running,
+    'finished|f',    \$finished,
+    'finishing',     \$finishing,
+    'totals|t',      \$totals,
+    'limit|l=i',     \$limit,
+    'dbname=s',      \$dbname,
+    'verbose|v',     \$verbose,
+) or pod2usage (2);
+
+pod2usage( -msg => "Unknown option: @ARGV", -exitval => 2 ) if @ARGV ;
+
+$running = 1 if (!$finished and !$finishing and !$running and !$totals);
+
+my $no_args = ! (defined $running or defined $finished or defined $finishing or defined $totals );
+
+die "cannot supply --running and --finished\n" if ($running and $finished);
+    
+
+my $ipprc =  PS::IPP::Config->new();
+my $dbh = getDBHandle();
+
+my $totals_query = "
+SELECT label,
+    count(job_id) AS 'Unfinished Jobs',
+    IFNULL(priority,10000) as priority
+FROM pstampRequest join pstampJob USING(req_id)
+LEFT JOIN Label USING(label)
+WHERE pstampJob.state ='run' and pstampRequest.state ='run'
+GROUP by label";
+
+my $running_query = "
+SELECT 
+    unfinishedReq.req_id,
+    name,
+    label,
+    reqType,
+   -- priority,
+    state,
+    fault,
+    rowcount AS 'Num Rows',
+    jobcount AS 'Total Jobs',
+    IFNULL(completedJobs,0) AS 'Completed Jobs',
+    IFNULL(runningJobs, 0) AS 'Pending Jobs',
+    IFNULL(faultedJobs, 0) AS 'Faulted Jobs',
+    IFNULL(depcount, 0) AS 'Image updates'
+    , timestamp AS 'last state change (UTC)'
+    , registered AS 'Submit time (UTC)'
+FROM (
+    SELECT
+        req_id,
+        name,
+        label,
+        reqType,
+        pstampRequest.state,
+        pstampRequest.fault,
+        timestamp,
+        registered,
+        IFNULL(priority,10000) AS priority
+FROM pstampRequest
+LEFT JOIN Label USING(label)
+    WHERE pstampRequest.state = 'run' or pstampRequest.state ='new' 
+    	OR pstampRequest.state = 'parsed'
+   --     OR pstampRequest.state = 'run.wait'
+) as unfinishedReq
+LEFT JOIN (
+    SELECT req_id,
+        count(job_id)          AS jobcount,
+        count(distinct rownum) AS rowcount
+FROM pstampRequest JOIN pstampJob USING(req_id)
+    WHERE (pstampRequest.state = 'run' or pstampRequest.state = 'new' 
+        OR pstampRequest.state = 'run.wait'
+        OR pstampRequest.state = 'parsed')
+    GROUP BY req_id
+) as rowCounts
+ON unfinishedReq.req_id = rowCounts.req_id
+
+LEFT JOIN (
+    SELECT req_id,
+        count(distinct dep_id) AS depcount
+FROM pstampRequest
+    JOIN pstampJob USING(req_id)
+    JOIN pstampDependent USING(dep_id) 
+    WHERE (pstampRequest.state = 'run' or pstampRequest.state = 'new' 
+	    OR pstampRequest.state = 'parsed'
+            OR pstampRequest.state = 'run.wait')
+        AND dep_id > 0
+        AND pstampDependent.state = 'full'
+    GROUP BY req_id
+) as depCounts
+ON unfinishedReq.req_id = depCounts.req_id
+
+LEFT JOIN (
+    SELECT req_id,
+        count(job_id) AS runningJobs
+    FROM pstampRequest JOIN pstampJob USING(req_id)
+    WHERE (pstampRequest.state = 'run' or pstampRequest.state ='new' 
+        OR pstampRequest.state = 'run.wait')
+        AND pstampJob.state = 'run'
+        AND pstampJob.fault = 0
+    GROUP BY req_id
+) as runningJobs
+ON unfinishedReq.req_id = runningJobs.req_id
+
+LEFT JOIN (
+    SELECT req_id,
+        count(job_id) AS faultedJobs
+    FROM pstampRequest JOIN pstampJob USING(req_id)
+    WHERE (pstampRequest.state = 'run' or pstampRequest.state ='new'
+        OR pstampRequest.state = 'run.wait')
+        -- AND pstampJob.state = 'run'
+        AND pstampJob.fault > 0
+    GROUP BY req_id
+) as faultedJobs
+ON unfinishedReq.req_id = faultedJobs.req_id
+LEFT JOIN (
+    SELECT req_id,
+        count(job_id) AS completedJobs
+    FROM pstampRequest JOIN pstampJob USING(req_id)
+    WHERE (pstampRequest.state = 'run' or pstampRequest.state ='new'
+        OR pstampRequest.state = 'run.wait')
+        AND pstampJob.state = 'stop'
+    GROUP BY req_id
+) as finishedJobs
+ON unfinishedReq.req_id = finishedJobs.req_id
+
+ORDER by unfinishedReq.req_id
+";
+
+my $finishing_query = "
+SELECT
+    req_id,
+    name,
+    label,
+    reqType,
+    pstampRequest.state,
+    pstampRequest.fault,
+    count(job_id) as 'Finished jobs',
+    timestamp as 'last state change'
+FROM pstampRequest
+    JOIN pstampJob USING(req_id)
+WHERE pstampRequest.state ='run'
+    AND (
+        SELECT count(job_id) FROM pstampJob
+            WHERE pstampJob.req_id = pstampRequest.req_id
+                AND pstampJob.state != 'stop'
+    ) = 0
+GROUP BY req_id
+ORDER by req_id
+";
+
+my $finished_query = "
+SELECT 
+    finishedReq.req_id,
+    name,
+    label,
+    reqType,
+    rowcount AS 'Num Rows',
+    jobcount AS 'Total Jobs',
+    IFNULL(success, 0) AS 'Successful Jobs',
+    IFNULL(faulted,0) AS 'Faulted Jobs',
+    IFNULL(depcount, 0) AS 'Image updates completed',
+    timestamp AS 'Completion Time (UTC)',
+    registered AS 'Submit Time (UTC)'
+FROM (
+    SELECT
+    req_id,
+    name,
+    label,
+    reqType,
+--    pstampRequest.state,
+--    pstampRequest.fault,
+    timestamp,
+    registered
+FROM pstampRequest
+    WHERE pstampRequest.state = 'stop'
+        AND date_add(timestamp, interval 1 day) >=utc_timestamp()
+) as finishedReq
+
+LEFT JOIN (
+    SELECT req_id,
+        count(job_id)          AS jobcount,
+        count(distinct rownum) AS rowcount
+FROM pstampRequest JOIN pstampJob USING(req_id)
+    WHERE pstampRequest.state = 'stop'
+        AND date_add(timestamp, interval 1 day) >=utc_timestamp()
+    GROUP BY req_id
+) as rowCounts
+ON finishedReq.req_id = rowCounts.req_id
+
+LEFT JOIN (
+    SELECT req_id,
+        count(distinct dep_id) AS depcount
+FROM pstampRequest JOIN pstampJob USING(req_id)
+    WHERE pstampRequest.state = 'stop'
+        AND date_add(timestamp, interval 1 day) >=utc_timestamp()
+        AND dep_id > 0
+    GROUP BY req_id
+) as depCounts
+ON finishedReq.req_id = depCounts.req_id
+
+LEFT JOIN (
+    SELECT req_id,
+        count(job_id) AS success
+    FROM pstampRequest JOIN pstampJob USING(req_id)
+    WHERE pstampRequest.state = 'stop'
+        AND date_add(timestamp, interval 1 day) >=utc_timestamp()
+        AND pstampJob.fault = 0
+    GROUP BY req_id
+) as successfulJobs
+ON finishedReq.req_id = successfulJobs.req_id
+LEFT JOIN (
+    SELECT req_id,
+        count(job_id) AS faulted
+    FROM pstampRequest JOIN pstampJob USING(req_id)
+    WHERE pstampRequest.state = 'stop'
+        AND date_add(timestamp, interval 1 day) >=utc_timestamp()
+        AND pstampJob.fault > 0
+    GROUP BY req_id
+) as faultedJobs
+ON finishedReq.req_id = faultedJobs.req_id
+ORDER by timestamp desc
+";
+
+
+my $sql;
+if ($totals) {
+    $sql = $totals_query;
+} elsif ($finished) {
+    $sql = $finished_query;
+} elsif ($running) {
+    $sql = $running_query;
+} elsif ($finishing) {
+    $sql = $finishing_query;
+} else {
+    die "can't happen";
+}
+
+if ($limit and !$no_args) {
+    $sql .= " LIMIT $limit";
+}
+
+{
+    print STDERR "$sql\n" if $verbose;
+    my @args = ( "--table", "--user=$dbuser",  "--host=$dbserver", "--password=$dbpassword", $dbname);
+
+    push @args, '--verbose' if $verbose;
+
+    open my $mysql_pipe, "|-", 'mysql', @args or die "failed to run mysql\n";
+    print $mysql_pipe "$sql;\n";
+    close $mysql_pipe;
+
+}
+
+exit 0;
+
+
+sub getDBHandle {
+    $dbserver = metadataLookupStr($ipprc->{_siteConfig}, "PS_DBSERVER");
+    $dbuser = metadataLookupStr($ipprc->{_siteConfig}, "DS_DBUSER");
+    $dbpassword = metadataLookupStr($ipprc->{_siteConfig}, "DS_DBPASSWORD");
+    if (!$dbname) {
+        $dbname = metadataLookupStr($ipprc->{_siteConfig}, "PS_DBNAME");
+    }
+
+    die "database configuration set up" unless defined($dbserver) and defined($dbuser)
+        and defined($dbpassword) and defined($dbname);
+
+    my $dsn = "DBI:mysql:host=$dbserver;database=$dbname";
+
+    my $dbh = DBI->connect($dsn, $dbuser, $dbpassword) 
+        or die "Cannot connect to database.\n";
+
+    return $dbh;
+}
+
+

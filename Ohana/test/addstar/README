@@ -1,0 +1,13 @@
+
+This directory contains DVO/addstar tests.  DVO/addstar has a large
+number of modes and options which must be tested.  Each directory
+defines tests for a major addstar mode.  The tests are also divided
+into those using the stand-alone version of addstar (TEST.sa) and
+those using the client/server version (TEST.cs).  There are also a set
+of tests using the unthreaded client/server setup (TEST.cu).  
+
+refcat:  add stars to a database from the reference catalog
+reflist: add stars to a database from an ascii list
+image: addstar to a database from an image
+fakeimage: add simulated images to the database
+

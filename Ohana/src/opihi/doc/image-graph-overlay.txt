@@ -1,0 +1,103 @@
+
+the kapa display tool has the ability to show both images (2D grid
+with grey or color scale) and graphs (plot of points and lines).
+
+normally, the kapa graph and image displays are used independently
+(either in different windows or in different sections of the same
+window).  
+
+there are situations in which it is useful to combine these two tools
+and show graphs overlayed on images.
+
+there are several mana / dvo functions which enable graph/image
+overlays, and have use in different contexts.
+
+* basic points
+
+  here are some aspects of image/graph overlays to keep in mind.
+
+  * the image and graph are not dynamically linked.  althought it is
+    possible to set the graph to have limits that correspond to the
+    image in some way (see below), this relationship is not maintained
+    dynamically.  if you change the view of the image (eg, by
+    clicking, zooming, or recentering), the graph does not change
+    without re-issuing some of the commands given below.
+
+  * the boundaries of the image and the graph are dependent on whether
+    or not they are both present and on whether or not the zoom box
+    tools are displayed.  the status of the zoom tools is modifed with
+    the 'section' command as follows:
+
+    section (name) -imtool (option)
+
+    where (option) may be one of -x, +x, -y, +y or none
+
+    for example, use: section default -imtool none to remove the zoom
+    tool from the default section of the current display.
+
+* set graph limits based on the current image
+
+  the simplest way to have the image and the graph interact is to
+  display an image and graph in the same window, and to set the graph
+  limits based on the view of the displayed image:
+
+  # create a contour and overlay in pixel coordinates
+  contour image xc yc 100
+  tv image -50 200
+  box
+  limits -image
+  plot xc yc -pt 100 -c red
+
+* image with WCS overlay on display 'region'
+
+  if you have an image with WCS elements, then it is possible to
+  define the sky region to correspond to the displayed portion of the
+  image.
+
+  # create a contour and convert to celestial coords based on the image:
+  contour image xc yc 100
+  set rc = xc
+  set dc = yc
+  coords image -p rc dc
+
+  # display the image, set the sky region, plot the contour
+  tv image -50 200
+  box -ticks 0000 -labels 0000
+  region -image
+  cplot rc dc -pt 100 -c red
+
+* setting the display size based on the image size
+
+  sometimes it is convenient to ensure the whole image will fit on a
+  graph.  it is possible to use the 'resize -by-image' and section
+  -image options to control this behavior:
+
+  * resize -by-image adjusts the display size so that the image in the
+    currently active section completely fills that section (not that
+    this command assumes the image is centered, but does not center
+    it.
+
+    for example, the following commands display a sample 1000x1000
+    image in a section:
+
+    section view 0.2 0.2 0.6 0.6
+    section view -imtool none
+    box -ticks 0000 -labels 0000
+    tv image -50 200
+    center 500 500 -2
+    resize -by-image
+    
+  * section -image gives something like the opposite behavior.  It
+    defines the size of the section to completely contain the image,
+    with the lower-left corner defined.  Note: this may result in a
+    section which extends beyond the edge of the window.
+
+    resize 800 800
+    section view -imtool none
+    tv image -50 200
+    center 500 500 -2
+    section view -image 0.1 0.1
+
+NOTE: in the examples above, the 'box' command is currently necessary
+to ensure a graph box is defined.  Otherwise, the coordinate systems
+may be inconsistent.

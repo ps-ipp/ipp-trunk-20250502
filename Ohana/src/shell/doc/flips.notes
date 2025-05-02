@@ -1,0 +1,51 @@
+
+Some of the Elixir scripts call Flips programs.  Here is a list of the
+programs in Flips being used by Elixir:
+
+fr.defringe   : flipsrun (imcombred)
+fr.gtfringe   : flipsrun (imstat)
+defringe      : flipsrun (imcombred)
+doflips       : flatccd
+doflips       : darkccd
+flatten.flips : redccd 
+fr.mkrough    : flipsrun (imcombred)
+fr.smooth     : flipsrun (imfilter)
+gtfringe      : flipsrun (imstat)
+
+noni: file *
+RCS:            directory
+block:          C shell script text
+checkdisks:     C shell script text
+dads.cleanup:   C shell script text
+dads.remef:     C shell script text  - to be deprecated?
+dads.split:     C shell script text  - to be deprecated
+defringe:       C shell script text  - perl
+detstats:       C shell script text  - (mkdetrend)
+doflips:        C shell script text  - perl/detflips
+dumptape:       C shell script text
+el_plots:       C shell script text
+elixir.fork:    C shell script text
+elixir.launch:  C shell script text
+fits2jpeg:      C shell script text
+flatten.flips:  C shell script text  - perl
+flatten.subaru: C shell script text  - old
+fr.defringe:    C shell script text  - perl
+fr.mkrough:     C shell script text  - perl/detflips
+fr.smooth:      C shell script text  - perl TBD
+getfocus:       C shell script text
+getfringe:      bash shell script    - perl
+getseeing:      C shell script text
+gettemps:       C shell script text
+gopsfphot:      C shell script text
+gosexphot:      C shell script text
+irsex:          C shell script text
+mk.ptlist:      C shell script text
+mkjpeg:         C shell script text
+pt.export:      C shell script text
+rm.elixir:      C shell script text
+setpath:        C shell script text
+sexstats:       C shell script text
+sp_command:     C shell script text
+sp_phot:        C shell script text
+sp_plots:       C shell script text
+sp_sexphot:     C shell script text

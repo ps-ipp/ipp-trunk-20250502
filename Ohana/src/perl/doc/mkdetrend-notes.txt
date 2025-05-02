@@ -1,0 +1,46 @@
+
+files used by mkdetrend:
+
+flips/02Bk06.flat.I.00.0.fits     - master image, unnormalized
+flips/02Bk06.flat.I.00.0.imbin	  - binned master image
+flips/02Bk06.flat.I.00.0.log	  - log
+flips/02Bk06.flat.I.00.0.master	  - list of input images
+flips/02Bk06.flat.I.00.0.medbin	  - binned residual stack (50)
+flips/02Bk06.flat.I.00.0.mef	  - list of mef images
+flips/02Bk06.flat.I.00.0.msplit	  - list of split mef images
+flips/02Bk06.flat.I.00.0.norm	  - master image, normalized
+flips/02Bk06.flat.I.00.0.split	  - list of split images
+flips/02Bk06.flat.I.00.0.stats	  - residual stats per input image
+flips/02Bk06.flat.I.00.0.subset	  - list of images to be stacked
+flips/02Bk06.flat.I.00.0.tenbin	  - binned residual stack (10)
+
+changes:
+
+dt.select2: 
+mkdetrend2
+mode.mkdetrend2
+cfh12k.config.mef
+
+
+chip ID rules:
+
+there are two chip identifiers:  CCD ID & CCD N
+
+CCD ID is an arbitrary string
+CCD N  is a two digit code for the CCDs base on the camera config file
+
+CCD ID: cameraconfig -ccds
+CCD N:  cameraconfig -ccdn
+
+detsearch / imsearch use CCD ID for -ccd filter
+
+filenames of derivative products should use CCD N as a marker
+eg: 654321o.fits -> 654321o23.fits (for megacam ccd23 image)
+
+---
+
+dt.select2    : CCD ID fixed
+merge.lists   : CCD n/a
+create.subset : CCD n/a
+detflips      : CCD n/a - flips path needs to be set?
+normalize     : CCD ID Keyword used to id REF ccd (OK)

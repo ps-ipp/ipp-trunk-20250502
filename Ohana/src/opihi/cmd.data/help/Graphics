@@ -1,0 +1,20 @@
+
+  Kapa, the graphics window.
+
+  Kapa is the program which Status uses to display plots on an X
+terminal.  There are actually 5 graphics windows available to Status,
+though several functions write to specific windows by default.  All
+plots of sky coordinates are displayed on window 0, while 
+functions which plot other types of data use window 1.  Most functions
+have an option -n which allows the user to specify which Kapa window.
+If it is not specified, the last window used will receive the action.
+
+  Below are the available Resources.  
+
+  kii*Foreground:			white
+  kii*Background:			maroon
+  kii*geometry:				540x540+10+10
+
+  See Also: box, clear, limits, plot
+
+

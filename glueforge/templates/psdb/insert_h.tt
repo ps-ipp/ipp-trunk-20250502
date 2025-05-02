@@ -1,0 +1,21 @@
+[% USE format -%]
+[% indented = format('%-15s %s') -%]
+/** Insert a single row into a table
+ *
+ * This function constructs and inserts a single row based on it's parameters.
+ *
+ * @return true on success
+ */
+
+bool [% table.namespace %]Insert(
+    psDB            *dbh,               ///< Database handle
+[%- SET i = 0 -%]
+[% FOREACH item = table.columns -%]
+[% IF i == 0 %][% i = 1 %][% ELSE %],[% END %]
+[% IF item.type == "STR" -%]
+    [% indented("const char", "*$item.name") -%]
+[% ELSE -%]
+    [% indented("$item.ctype", "$item.name") -%]
+[% END -%]
+[% END %]
+);

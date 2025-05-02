@@ -1,0 +1,91 @@
+
+detRunDef MULTI
+
+detRunDef METADATA
+  detRunName   STR BIAS
+  prereq       STR NONE
+  options      STR "-definebyquery -inst ISP-Apogee -workdir path://ISP/detrend/bias -det_type bias -select_exp_type bias -select_dateobs_begin 2007-01-13T00:00:00"
+  dbname       STR isp
+  pantaskState STR DONE
+  detRunID     STR 1
+END
+
+detRunDef METADATA
+  detRunName   STR DARK-warm
+  prereq       STR BIAS
+  options      STR "-definebyquery -inst ISP-Apogee -workdir path://ISP/detrend/dark -det_type dark -select_exp_type dark -select_exp_time_min 0.5 -select_ccd_temp_min -27.5 -select_ccd_temp_max -24.0 -ccd_temp_min -27.5 -ccd_temp_max -24.0"
+  dbname       STR isp
+  pantaskState STR NULL
+END
+
+detRunDef METADATA
+  detRunName   STR DARK-cool
+  prereq       STR BIAS
+  options      STR "-definebyquery -inst ISP-Apogee -workdir path://ISP/detrend/dark -det_type dark -select_exp_type dark -select_exp_time_min 0.5 -select_ccd_temp_max -27.5 -ccd_temp_max -27.5"
+  dbname       STR isp
+  pantaskState STR NULL
+END
+
+detRunDef METADATA
+  detRunName   STR SHUTTER
+  prereq       STR "DARK-warm DARK-cool"
+  options      STR "-definebyquery -inst ISP-Apogee -workdir path://ISP/detrend/shutter -det_type shutter -select_exp_type skyflat -select_exp_time_min 0.05 -select_filter g -select_dateobs_begin 2007-01-14T04:00:00 -select_dateobs_end 2007-01-14T05:00:00 -select_sat_pixel_frac_max 0.1"
+  dbname       STR isp
+  pantaskState STR NULL
+END
+
+detRunDef METADATA
+  detRunName   STR FLAT-g
+  prereq       STR SHUTTER
+  options      STR "-definebyquery -inst ISP-Apogee -workdir path://ISP/detrend/flat/g -det_type flat -select_exp_type skyflat -select_exp_time_min 0.05 -select_sat_pixel_frac_max 0.1 -select_filter g -filter g -select_dateobs_begin 2007-01-14T00:00:00 -select_dateobs_end 2007-01-15T00:00:00"
+  dbname       STR isp
+  pantaskState STR NULL
+END
+
+detRunDef METADATA
+  detRunName   STR FLAT-r
+  prereq       STR SHUTTER
+  options      STR "-definebyquery -inst ISP-Apogee -workdir path://ISP/detrend/flat/r -det_type flat -select_exp_type skyflat -select_exp_time_min 0.05 -select_sat_pixel_frac_max 0.1 -select_filter r -filter r -select_dateobs_begin 2007-01-14T00:00:00 -select_dateobs_end 2007-01-15T00:00:00"
+  dbname       STR isp
+  pantaskState STR NULL
+END
+
+detRunDef METADATA
+  detRunName   STR FLAT-i
+  prereq       STR SHUTTER
+  options      STR "-definebyquery -inst ISP-Apogee -workdir path://ISP/detrend/flat/i -det_type flat -select_exp_type skyflat -select_exp_time_min 0.05 -select_sat_pixel_frac_max 0.1 -select_filter i -filter i -select_dateobs_begin 2007-01-14T00:00:00 -select_dateobs_end 2007-01-15T00:00:00"
+  dbname       STR isp
+  pantaskState STR NULL
+END
+
+detRunDef METADATA
+  detRunName   STR FLAT-z
+  prereq       STR SHUTTER
+  options      STR "-definebyquery -inst ISP-Apogee -workdir path://ISP/detrend/flat/z -det_type flat -select_exp_type skyflat -select_exp_time_min 0.05 -select_sat_pixel_frac_max 0.1 -select_filter z -filter z -select_dateobs_begin 2007-01-14T00:00:00 -select_dateobs_end 2007-01-15T00:00:00"
+  dbname       STR isp
+  pantaskState STR NULL
+END
+
+detRunDef METADATA
+  detRunName   STR FLAT-y
+  prereq       STR SHUTTER
+  options      STR "-definebyquery -inst ISP-Apogee -workdir path://ISP/detrend/flat/y -det_type flat -select_exp_type skyflat -select_exp_time_min 0.05 -select_sat_pixel_frac_max 0.1 -select_filter y -filter y -select_dateobs_begin 2007-01-14T00:00:00 -select_dateobs_end 2007-01-15T00:00:00"
+  dbname       STR isp
+  pantaskState STR NULL
+END
+
+detRunDef METADATA
+  detRunName   STR FRINGE-z
+  prereq       STR FLAT-z
+  options      STR "-definebyquery -inst ISP-Apogee -workdir path://ISP/detrend/fringe/z -det_type fringe -select_exp_type object -select_exp_time_min 0.05 -select_filter z -filter z -select_dateobs_begin 2007-01-14T09:19:00 -select_dateobs_end 2007-01-18"
+  dbname       STR isp
+  pantaskState STR NULL
+END
+
+detRunDef METADATA
+  detRunName   STR FRINGE-y
+  prereq       STR FLAT-y
+  options      STR "-definebyquery -inst ISP-Apogee -workdir path://ISP/detrend/fringe/y -det_type fringe -select_exp_type object -select_exp_time_min 0.05 -select_filter y -filter y -select_dateobs_begin 2007-01-13 -select_dateobs_end 2007-01-18"
+  dbname       STR isp
+  pantaskState STR NULL
+END

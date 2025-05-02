@@ -1,0 +1,64 @@
+
+* option to set window margin
+* option to add section outer box
+* option to set limits based on associated image (and change dynamically...)
+o need consistency of graph defaults : axis, tick, labels should come from kapa
+o clear should erase current plot
+
+-> The "plot" command needs to be fixed so that boundaries of contours do
+not cause it to draw excessive amounts of lines connecting unrelated
+contours. A specific "contour line type" would be useful.
+(-pt 100?)
+
+-> DVO does not plot the end-points of histograms properly (e.g., the
+line from the final data point on each end down to the x-axis is missing)
+(fixed)
+
+-> When opening a file of output, the "echo" and "fprintf" commands do not
+relay output to the file in the same order. Also, until DVO is closed, the
+output does not appear in the file.
+(fixed both issues)
+
+-> DVO is not consistently placing the x/y axis labels, especially in
+user-defined sections of the plot window. 
+(fixed)
+* box -labelpad -labelpad[x,y] +labelpad[x,y] -
+
+
+---
+
+
+1)You wanted me to remind you to update ~ipp-svn; this was so I could have
+the latest version of DVO on-hand
+
+2)The plotting of axis labels remains inconsistent; depending on section
+dimensions and the presence/absence of tick-marks, labels will change
+their distance from their corresponding axis. This results in labels
+falling off the screen or overlapping with other plot sections
+
+3)Plot section locations in the plot window shift if labels/tick-marks are
+present or absent
+
+4)It would be useful to have an option for the box or section command that
+causes the background to be opaque. This will allow plots to have insets.
+
+5)It would be useful to have a rectangle plotting command in order to
+shade out regions on plots
+
+6)The limits command combined with box will sometimes produce tick-marks
+with only the zero-point labeled, making the axes difficult to interpret
+
+7)Text is printed to a file at different times when using either the echo
+or fprintf commands alongside the output command. Sometimes output is
+printed to the file immediately, while other times it is printed only when
+the file is closed for output.
+
+8)The use of ^C as an interrupt does not always work when a macro is doing
+for loops.
+
+9)It would be useful for DVO to echo which line of a macro contains an
+error, or at which line it was forced to stop. This would help debugging a
+lot.
+
+10)The cgrid could use an option to print RA/DEC tick-mark labels so that
+image plots would be more informative

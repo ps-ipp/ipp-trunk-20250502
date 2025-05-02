@@ -1,0 +1,8 @@
+/** Creates a new [% table.name %] table
+ *
+ * @return true on success
+ */
+
+bool [% table.namespace %]CreateTable(
+    psDB            *dbh                ///< Database handle
+);

@@ -1,0 +1,119 @@
+#!/bin/csh -f
+# measure the seeing on a subraster of a specific CCD
+# write the results to a file for the TCL display
+
+setenv PATH /bin:/usr/bin:/usr/local/bin:/usr/bin/X11:/apps/elixir/bin
+
+set screen=0
+if (($#argv == 4) && ("$4" == "-screen")) then
+ set screen=1
+ set argv=($1 $2 $3)
+endif
+
+if ($#argv != 3) then
+ echo "USAGE: getseeing (fdir) (file) (mode) [-screen]"
+ echo "(mode) may be 'on' for mef, 'off' for split"
+ exit;
+endif
+
+# kill off other processes with this name, and their children
+set procname=getseeing
+set list=`/bin/ps -eo pid,user,comm | awk -v n=$procname -v m=$$ '($3==n)&&($1!=m){print $1}'`
+foreach pid ($list)
+ echo "kill $pid"
+ set children=`/bin/ps -eo pid,ppid | awk -v p=$pid '($2==p){print $1}'`
+ kill $pid
+ foreach child ($children)
+   echo "kill $child"
+   kill $child
+ end
+end
+
+# set up references & defaults
+set fdir=$1
+set name=$2
+set mode=$3
+
+set pixscale = `gconfig ASEC_PIX`
+set ccd      = `gconfig SEEING_REF_CCD`
+set amp      = `gconfig SEEING_REF_AMP`
+set datdir   = `gconfig DATDIR`
+set confdir  = `gconfig CONFDIR`
+
+# sextractor needs full paths to:
+set sexconf = "$confdir/sextract/seeing.sex"
+set sexpars = "$confdir/sextract/seeing.param"
+set sexfilt = "$confdir/sextract/default.conv"
+set sexnnw  = "$confdir/sextract/default.nnw"
+
+set script  = "$confdir/mana/seeing.pro"
+set output  = "$datdir/plots/seeing.dat"
+
+# MEF / SPLIT mode
+if ("$mode" == "on") then
+ set mef=1
+ set file=$fdir/$name.fits
+else
+ set mef=0
+ set file=$fdir/$name/$name$ccd.fits
+endif
+
+# wait for file to exist
+block $file -t 60 || exit 1;
+
+# create mana script 
+set temp=`mktemp /tmp/seeing.XXXXXX`
+rm -f $temp $temp.fits $temp.stats $temp.pro $temp.cat
+if ($mef) then
+ set Nextend = `echo $file | fields NEXTEND | awk '{print $2}'` 
+ set Nccds   = `echo $file | fields NCCDS | awk '{print $2}'` 
+ set tccd = $ccd
+ if ($Nextend != $Nccds) set tccd = $amp
+ # use amp for un-spliced data, ccd for spliced
+ echo "input $script" > $temp.pro
+ echo "subraster.mef   $file $tccd $temp.fits $temp.stats" >> $temp.pro
+else
+ echo "input $script" > $temp.pro
+ echo "subraster.split $file $ccd $temp.fits $temp.stats" >> $temp.pro
+endif
+
+# run mana
+mana --only $temp.pro || goto failure;
+
+# run sextractor
+sex $temp.fits \
+    -c $sexconf \
+    -PARAMETERS_NAME $sexpars \
+    -FILTER_NAME     $sexfilt \
+    -STARNNW_NAME    $sexnnw \
+    -CATALOG_NAME    $temp.cat
+
+set fwhm   = `seeingstats $temp.cat | awk -v scale=$pixscale '{print $1*scale}'`
+set filter = `echo $temp.fits | fields FILTER`
+
+# send output (screen || $output & QSO)
+if ($screen) then
+ echo $name $fwhm $filter
+else
+ echo $name $fwhm $filter > $output
+ imstatqso $temp.fits $temp.stats $temp.cat
+endif 
+
+# cleanup 
+rm -f $temp $temp.fits $temp.stats $temp.pro $temp.cat
+exit 0;
+
+# failure:
+failure:
+ rm -f $temp $temp.fits $temp.stats $temp.pro $temp.cat
+ echo $name died X.XX 0.0 0.0 X > $output
+ exit 1;
+ 
+
+
+# old method of sending data to QSO db:
+#set obs=`echo $name | awk '{n=substr($1,1,6)}{print n}'`
+#/cfht/bin/update_xexpe.sh -U qso_elixir -P op1eliw --obsid $obs --iq $fwhm
+
+
+

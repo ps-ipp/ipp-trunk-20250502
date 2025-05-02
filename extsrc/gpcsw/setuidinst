@@ -1,0 +1,4 @@
+#!/bin/csh -f
+# the camera build tools call setuidinst, but we don't need it
+
+exit 0

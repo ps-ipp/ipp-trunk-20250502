@@ -1,0 +1,407 @@
+## these are Level 2 modules: those required by the modules required by IPP code
+## any modules marked 'HAVE' are already Level 1 modules
+AnyEvent
+ https://cpan.metacpan.org/authors/id/M/ML/MLEHMANN/AnyEvent-7.15.tar.gz
+Astro::FITS::CFITSIO
+ HAVE
+Authen::NTLM
+ https://cpan.metacpan.org/authors/id/N/NB/NBEBOUT/NTLM-1.09.tar.gz
+AutoLoader
+ https://cpan.metacpan.org/authors/id/S/SM/SMUELLER/AutoLoader-5.74.tar.gz
+BerkeleyDB
+ https://cpan.metacpan.org/authors/id/P/PM/PMQS/BerkeleyDB-0.61.tar.gz 
+Cache
+ Cache::File
+ Cache::File::Entry
+ Cache::File::Heap
+ Cache::IOString
+ Cache::Memory
+ Cache::Memory::Entry
+ Cache::Memory::HeapElem
+ Cache::Null
+ Cache::Null::Entry
+ Cache::Tester
+ HAVE : Cache-2.11.tar.gz
+Carp
+ CORE
+CGI
+ HAVE
+Class::Inspector
+ https://cpan.metacpan.org/authors/id/P/PL/PLICEASE/Class-Inspector-1.34.tar.gz
+Class::Prototyped
+ https://cpan.metacpan.org/authors/id/T/TE/TEVERETT/Class-Prototyped-1.13.tar.gz
+Config
+ CORE
+Config::YAML
+ HAVE
+Coro
+ Coro::Handle
+ Coro::Select
+  https://cpan.metacpan.org/authors/id/M/ML/MLEHMANN/Coro-6.54.tar.gz
+Cwd
+ CORE
+Data::Dump
+  Data::Dump::Trace
+  https://cpan.metacpan.org/authors/id/G/GA/GAAS/Data-Dump-1.23.tar.gz
+Data::Dumper
+ CORE
+Data::Validate::Domain
+  https://cpan.metacpan.org/authors/id/D/DR/DROLSKY/Data-Validate-Domain-0.14.tar.gz
+Data::Validate::IP
+  https://cpan.metacpan.org/authors/id/D/DR/DROLSKY/Data-Validate-IP-0.27.tar.gz
+Data::Validate::URI
+  HAVE
+Date::Parse
+  https://cpan.metacpan.org/authors/id/G/GB/GBARR/TimeDate-2.30.tar.gz
+DateTime
+  DateTime::Duration
+  DateTime::Helpers
+  DateTime::LeapSecond
+  DateTime::Types
+  HAVE https://cpan.metacpan.org/authors/id/D/DR/DROLSKY/DateTime-1.50.tar.gz
+DateTime::Format::Strptime
+  DateTime::Format::Strptime::Types
+  HAVE
+DateTime::Locale
+  DateTime::Locale::Base
+  DateTime::Locale::FromData
+  https://cpan.metacpan.org/authors/id/D/DR/DROLSKY/DateTime-Locale-1.24.tar.gz
+DateTime::TimeZone
+  https://cpan.metacpan.org/authors/id/D/DR/DROLSKY/DateTime-TimeZone-2.34.tar.gz
+DBD::Mock
+  https://cpan.metacpan.org/authors/id/D/DI/DICHI/DBD-Mock/DBD-Mock-1.45.tar.gz
+DB_File
+  https://cpan.metacpan.org/authors/id/P/PM/PMQS/DB_File-1.851.tar.gz
+  CORE
+DBI
+  DBD::Mem
+  DBI::Const::GetInfo::ANSI
+  DBI::Const::GetInfo::ODBC
+  DBI::Const::GetInfoType
+  DBI::Gofer::Execute
+  DBI::Gofer::Request
+  DBI::Gofer::Response
+  DBI::Gofer::Serializer::DataDumper
+  DBI::Gofer::Serializer::Storable
+  DBI::Profile
+  DBI::ProfileDumper
+  DBI::ProxyServer
+  DBI::SQL::Nano
+  DBI::W32ODBC
+  Win32::DBIODBC
+  HAVE https://cpan.metacpan.org/authors/id/T/TI/TIMB/DBI-1.642.tar.gz
+DBIx::Interp
+  https://cpan.metacpan.org/authors/id/M/MA/MARKSTOS/SQL-Interp-1.24.tar.gz
+DBIx::Simple
+  https://cpan.metacpan.org/authors/id/J/JU/JUERD/DBIx-Simple-1.37.tar.gz
+Devel::CheckOS
+  Devel::AssertOS
+  https://cpan.metacpan.org/authors/id/D/DC/DCANTRELL/Devel-CheckOS-1.81.tar.gz
+Digest::MD5
+  CORE https://cpan.metacpan.org/authors/id/G/GA/GAAS/Digest-MD5-2.55.tar.gz
+Digest::MD5::File
+  HAVE https://cpan.metacpan.org/authors/id/D/DM/DMUEY/Digest-MD5-File-0.08.tar.gz
+Digest::SHA
+  CORE https://cpan.metacpan.org/authors/id/M/MS/MSHELOR/Digest-SHA-6.02.tar.gz  
+Dist::CheckConflicts
+  https://cpan.metacpan.org/authors/id/D/DO/DOY/Dist-CheckConflicts-0.11.tar.gz  
+DistGen -- ???
+Dist::Zilla::File::InMemory
+  https://cpan.metacpan.org/authors/id/R/RJ/RJBS/Dist-Zilla-6.012.tar.gz
+DynaLoader
+  CORE
+Encode
+  CORE
+Errno
+  CORE
+Exception -- ??? maybe not needed?
+Exporter
+  CORE
+ExtUtils::Install
+  CORE
+ExtUtils::MakeMaker
+  CORE
+ExtUtils::TBone
+  https://cpan.metacpan.org/authors/id/E/ER/ERYQ/ExtUtils-TBone-1.124.tar.gz
+Fcntl
+  CORE
+File::Basename
+  CORE
+File::Compare
+  CORE
+File::Copy
+  CORE
+File::Find
+  CORE
+File::Find::Rule
+  https://cpan.metacpan.org/authors/id/R/RC/RCLAMP/File-Find-Rule-0.34.tar.gz
+FileHandle
+  CORE
+File::Listing
+  https://cpan.metacpan.org/authors/id/G/GA/GAAS/File-Listing-6.04.tar.gz
+File::NFSLock
+  https://cpan.metacpan.org/authors/id/B/BB/BBB/File-NFSLock-1.29.tar.gz
+File::Path
+  CORE
+File::Spec
+  CORE
+File::Spec::Functions
+  CORE
+File::Temp
+  CORE
+Foobar -- ???
+Getopt::Std
+  CORE
+Heap::Elem
+  https://cpan.metacpan.org/authors/id/J/JM/JMM/Heap-0.80.tar.gz
+Heap::Fibonacci
+  https://cpan.metacpan.org/authors/id/J/JM/JMM/Heap-0.80.tar.gz
+HTTP::Date
+  https://cpan.metacpan.org/authors/id/G/GA/GAAS/HTTP-Date-6.02.tar.gz
+HTTP::Negotiate
+  https://cpan.metacpan.org/authors/id/G/GA/GAAS/HTTP-Negotiate-6.01.tar.gz
+HTTP::Request
+  HTTP::Request::Common
+  HTTP::Response
+  HTTP::Status
+  https://cpan.metacpan.org/authors/id/O/OA/OALDERS/HTTP-Message-6.18.tar.gz
+  https://cpan.metacpan.org/authors/id/O/OA/OALDERS/HTTP-Message-6.18.tar.gz
+IO::Dir
+  CORE
+IO::File
+  CORE
+IO::Handle
+  CORE
+IO::Pty
+  https://cpan.metacpan.org/authors/id/T/TO/TODDR/IO-Tty-1.12.tar.gz
+IO::Pty's -- ???
+IO::Select
+  CORE https://cpan.metacpan.org/authors/id/T/TO/TODDR/IO-1.39.tar.gz
+IO::SessionData
+  IO::SessionSet
+  CHECK : does not have standard tarball?  
+IO::Socket
+  CORE
+IO::Socket::INET
+  CORE
+IO::String
+  https://cpan.metacpan.org/authors/id/G/GA/GAAS/IO-String-1.08.tar.gz
+IPC::Open3
+  CORE
+IPC::Run
+  IPC::Run::Debug
+  IPC::Run::IO
+  IPC::Run::Win32Helper
+  IPC::Run::Win32IO
+  HAVE
+IPC::SysV
+  IPC::Semaphore
+  CORE https://cpan.metacpan.org/authors/id/M/MH/MHX/IPC-SysV-2.07.tar.gz
+List::MoreUtils
+  https://cpan.metacpan.org/authors/id/R/RE/REHSACK/List-MoreUtils-0.428.tar.gz
+List::Util
+  CORE
+Log::Dispatch::File
+  Log::Dispatch::Screen
+  Log::Dispatch::Syslog
+  https://cpan.metacpan.org/authors/id/D/DR/DROLSKY/Log-Dispatch-2.68.tar.gz
+Log::Dispatch::FileRotate
+  https://cpan.metacpan.org/authors/id/M/MS/MSCHOUT/Log-Dispatch-FileRotate-1.36.tar.gz
+Log::Log4perl
+  Log::Log4perl::Appender
+  Log::Log4perl::Appender::File
+  Log::Log4perl::Appender::Screen
+  Log::Log4perl::Appender::Socket
+  Log::Log4perl::Appender::String
+  Log::Log4perl::Appender::TestArrayBuffer
+  Log::Log4perl::Appender::TestBuffer
+  Log::Log4perl::Appender::TestFileCreeper
+  Log::Log4perl::Catalyst
+  Log::Log4perl::Config
+  Log::Log4perl::Config::BaseConfigurator
+  Log::Log4perl::Config::PropertyConfigurator
+  Log::Log4perl::Config::Watch
+  Log::Log4perl::DateFormat
+  Log::Log4perl::Filter
+  Log::Log4perl::Filter::Boolean
+  Log::Log4perl::Internal::Test
+  Log::Log4perl::JavaMap
+  Log::Log4perl::Layout
+  Log::Log4perl::Layout::NoopLayout
+  Log::Log4perl::Layout::PatternLayout
+  Log::Log4perl::Layout::PatternLayout::Multiline
+  Log::Log4perl::Layout::SimpleLayout
+  Log::Log4perl::Layout::XMLLayout
+  Log::Log4perl::Level
+  Log::Log4perl::Logger
+  Log::Log4perl::MDC
+  Log::Log4perl::NDC
+  Log::Log4perl::Resurrector
+  Log::Log4perl::Util
+  Log::Log4perl::Util::Semaphore
+  Log::Log4perl::Util::TimeTracker
+  HAVE
+LWP
+  LWP::ConnCache
+  LWP::MediaTypes
+  LWP::Protocol
+  LWP::RobotUA
+  LWP::Simple
+  LWP::UserAgent
+  HAVE
+MIME::Base64
+  CORE
+MIME::Entity
+  https://cpan.metacpan.org/authors/id/D/DS/DSKOLL/MIME-tools-5.509.tar.gz
+MIME::Lite
+  https://cpan.metacpan.org/authors/id/R/RJ/RJBS/MIME-Lite-3.030.tar.gz
+MLDBM
+  https://cpan.metacpan.org/authors/id/C/CH/CHORNY/MLDBM-2.05.tar.gz
+Module::Build
+  Module::Build::Base
+  Module::Build::Compat
+  Module::Build::Config
+  Module::Build::Dumper
+  Module::Build::Notes
+  Module::Build::Platform::Unix
+  HAVE
+Module::Implementation
+  https://cpan.metacpan.org/authors/id/D/DR/DROLSKY/Module-Implementation-0.09.tar.gz
+Module::Metadata
+  https://cpan.metacpan.org/authors/id/E/ET/ETHER/Module-Metadata-1.000033.tar.gz
+Moose
+  https://cpan.metacpan.org/authors/id/E/ET/ETHER/Moose-2.2011.tar.gz
+namespace::autoclean
+  https://cpan.metacpan.org/authors/id/E/ET/ETHER/namespace-autoclean-0.28.tar.gz
+Net::POP3
+  CORE
+Params::Validate
+  Params::Validate::Constants
+  HAVE
+Params::ValidationCompiler
+  https://cpan.metacpan.org/authors/id/D/DR/DROLSKY/Params-ValidationCompiler-0.30.tar.gz
+Perl::OSType
+  https://cpan.metacpan.org/authors/id/D/DA/DAGOLDEN/Perl-OSType-1.010.tar.gz
+Pod::POM
+  https://cpan.metacpan.org/authors/id/N/NE/NEILB/Pod-POM-2.01.tar.gz
+POE
+  https://cpan.metacpan.org/authors/id/R/RC/RCAPUTO/POE-1.367.tar.gz
+RPC::PlClient
+  RPC::PlServer
+  https://cpan.metacpan.org/authors/id/M/MN/MNOONING/PlRPC/PlRPC-0.2020.tar.gz
+Scalar::Util
+  CORE
+SOAP::Lite
+  SOAP::Constants
+  SOAP::Lite::Deserializer::XMLSchema1999
+  SOAP::Lite::Deserializer::XMLSchemaSOAP1_1
+  SOAP::Lite::Deserializer::XMLSchemaSOAP1_2
+  SOAP::Lite::Utils
+  SOAP::Packager
+  SOAP::Test
+  SOAP::Transport::HTTP
+  SOAP::Transport::POP3
+  HAVE
+Socket
+  CORE
+Software::License
+  https://cpan.metacpan.org/authors/id/L/LE/LEONT/Software-License-0.103014.tar.gz
+Specio
+  Specio::Declare
+  Specio::Library::Builtins
+  Specio::Library::Numeric
+  Specio::Library::String
+  https://cpan.metacpan.org/authors/id/D/DR/DROLSKY/Specio-0.43.tar.gz
+SQL::Interp
+  HAVE
+Statistics::Descriptive
+  Statistics::Descriptive::Full
+  Statistics::Descriptive::Smoother
+  Statistics::Descriptive::Sparse
+  HAVE
+Storable
+  CORE https://cpan.metacpan.org/authors/id/X/XS/XSAWYERX/Storable-3.11.tar.gz
+Sub::Exporter
+  https://cpan.metacpan.org/authors/id/R/RJ/RJBS/Sub-Exporter-0.987.tar.gz
+Symbol
+  CORE 
+Sys::Hostname
+  CORE 
+Template
+  Template::Base
+  Template::Config
+  Template::Constants
+  Template::Context
+  Template::Directive
+  Template::Document
+  Template::Exception
+  Template::Filters
+  Template::Grammar
+  Template::Iterator
+  Template::Namespace::Constants
+  Template::Parser
+  Template::Plugin
+  Template::Plugin::File
+  Template::Plugin::Filter
+  Template::Plugin::Procedural
+  Template::Plugin::ProcFoo
+  Template::Plugins
+  Template::Provider
+  Template::Service
+  Template::Stash
+  Template::Stash::Context
+  Template::Stash::XS
+  Template::Test
+  Template::View
+  Template::VMethods
+  HAVE
+Term::ANSIColor
+  CORE 
+Test
+  CORE 
+Test::Builder
+  CORE 
+Test::Fatal
+  https://cpan.metacpan.org/authors/id/R/RJ/RJBS/Test-Fatal-0.014.tar.gz
+Test::More
+  CORE 
+Test::YAML
+  https://cpan.metacpan.org/authors/id/T/TI/TINITA/Test-YAML-1.07.tar.gz
+Text::ParseWords
+  CORE 
+Text::Wrap
+  CORE 
+Tie::CPHash
+  https://cpan.metacpan.org/authors/id/C/CJ/CJM/Tie-CPHash-2.000.tar.gz
+Time::HiRes
+  CORE https://cpan.metacpan.org/authors/id/A/AT/ATOOMIC/Time-HiRes-1.9760.tar.gz
+Try::Tiny
+  https://cpan.metacpan.org/authors/id/E/ET/ETHER/Try-Tiny-0.30.tar.gz
+URI
+  URI::Escape
+  URI::file
+  URI::Heuristic
+  URI::_punycode
+  URI::QueryParam
+  URI::Split
+  HAVE
+Win32API::File
+  https://cpan.metacpan.org/authors/id/C/CH/CHORNY/Win32API-File-0.1203.tar.gz
+Win32::Console::ANSI
+  https://cpan.metacpan.org/authors/id/J/JL/JLMOREL/Win32-Console-ANSI-1.11.tar.gz
+Win32::ODBC
+  https://cpan.metacpan.org/authors/id/J/JD/JDB/Win32-ODBC-0.035.tar.gz
+Win32::Process
+  https://cpan.metacpan.org/authors/id/J/JD/JDB/Win32-Process-0.16.tar.gz
+XML::DOM
+  https://cpan.metacpan.org/authors/id/T/TJ/TJMATHER/XML-DOM-1.46.tar.gz
+XSLoader
+  CORE
+YAML
+  YAML::Dumper::Base
+  YAML::Loader::Base
+  YAML::Mo
+  YAML::Node
+  YAML::Tag
+  YAML::Types
+  HAVE

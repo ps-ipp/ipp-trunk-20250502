@@ -1,0 +1,54 @@
+
+DETSEC - It looks like it is defining the real pixel coordinates of
+each chip relative to the mosaic, including the gaps.  This means it
+is not affected by binning.  For now, let's leave it off from
+subrastering until we can calculate the correct coornates in that
+case.
+
+CRPIX1,2 - these need to be adjusted to the effective coordinate of
+the same pixel in the new coordinate frame:
+
+if you read a subraster (x1 - x2, y1 - y2) [unbinned pixels] with
+binning dx, 
+
+CRPIX1 = (CRPIX1' - x1) / dx
+CRPIX2 = (CRPIX2' - y1) / dy
+
+CD1_1, CD1_2, CD2_1, CD2_2 just need to be rescaled:
+
+CD1_1' = CD1_1 / dx
+CD2_1' = CD2_1 / dx
+
+CD1_2' = CD1_2 / dy
+CD2_2' = CD2_2 / dy
+
+GAIN stays fixed (we are providing the sum of the binned pixels, not
+the average). 
+
+what about the terms PIXSIZEn, PIXSCALn (I don't know whether these
+refer to physical pixels or image pixels.  in the former case, they
+stay constant, in the later case, they get scaled by dx, dy).
+
+As for the issue of the number of valid pixels...  Well, I can see
+arguments both ways.  Perhaps we *should* stick with the old
+definition of the valid data area.  In that case, make it:
+
+X1 = 6
+X2 = (Nx + 1) / dx
+Y1 = 5
+Y2 = (Ny + 4) / dy
+
+for DATASEC, which seems to match what we use now.
+
+you are right about the BIASSEC, we want the vertical region, not the corner.
+
+X1 = Nx / dx + 2
+X2 = Nx / dx + Sx
+Y1 = 5
+Y2 = (Ny + 4) / dy
+
+(currently we don't use the full Y-direction overscan -- BIASSEC is
+[6:2049,5:4100]).
+
+gene
+

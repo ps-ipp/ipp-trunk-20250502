@@ -1,0 +1,105 @@
+
+timing on ipp008 *unoptimized* :
+
+06 :  0.003753 sec : psphotDeblendSatstars             
+22 :  0.005017 sec : psphotRoughClass                  
+08 :  0.026426 sec : psphotRoughClass                  
+07 :  0.038862 sec : psphotBasicDeblend                
+24 :  0.215222 sec : psphotReplaceAllSources           
+16 :  0.217380 sec : psphotAddNoise                    
+20 :  0.217596 sec : psphotSubNoise                    
+14 :  0.233694 sec : psphotReplaceAllSources           
+21 :  0.366264 sec : psphotSourceStats                 
+29 :  0.435839 sec : psphotSkyReplace                  
+23 :  0.572896 sec : psphotGuessModels                 
+01 :  0.650438 sec : psphotSubtractBackground          
+03 :  0.711178 sec : psphotFindDetections (peaks)      
+18 :  0.735544 sec : psphotFindDetections (peaks)      
+12 :  0.775521 sec : psphotSourceSize                  
+26 :  0.777268 sec : psphotSourceSize                  
+10 :  1.154189 sec : psphotGuessModels                 
+00 :  1.589681 sec : psphotModelBackground             
+11 :  1.724959 sec : psphotFitSourcesLinear            
+15 :  1.853397 sec : psphotFitSourcesLinear            
+25 :  2.392153 sec : psphotFitSourcesLinear            
+04 :  2.949543 sec : psphotFindDetections (footprints) 
+27 :  3.238548 sec : psphotApResid                     
+05 :  3.339873 sec : psphotSourceStats                 
+19 :  6.059952 sec : psphotFindDetections (footprints) 
+28 :  6.948404 sec : psphotMagnitudes                  
+13 :  8.305355 sec : psphotBlendFit                    
+09 : 11.317836 sec : psphotChoosePSF                   
+17 : 16.353613 sec : psphotFindDetections (smooth)     
+02 : 16.857492 sec : psphotFindDetections (smooth)     
+
+complete psphot run: 95.722628 sec
+
+timing on ipp008 *optimized* :
+
+06 :  0.001866 sec : psphotDeblendSatstars             
+22 :  0.003328 sec : psphotRoughClass                  
+08 :  0.016906 sec : psphotRoughClass                  
+07 :  0.020168 sec : psphotBasicDeblend                
+24 :  0.068499 sec : psphotReplaceAllSources           
+16 :  0.069682 sec : psphotAddNoise                    
+20 :  0.072236 sec : psphotSubNoise                    
+14 :  0.087402 sec : psphotReplaceAllSources           
+29 :  0.093756 sec : psphotSkyReplace                  
+21 :  0.151939 sec : psphotSourceStats                 
+03 :  0.203476 sec : psphotFindDetections (peaks)      
+18 :  0.210160 sec : psphotFindDetections (peaks)      
+01 :  0.242636 sec : psphotSubtractBackground          
+23 :  0.366264 sec : psphotGuessModels                 
+11 :  0.506939 sec : psphotFitSourcesLinear            
+15 :  0.539799 sec : psphotFitSourcesLinear            
+12 :  0.542919 sec : psphotSourceSize                  
+26 :  0.550523 sec : psphotSourceSize                  
+25 :  0.724011 sec : psphotFitSourcesLinear            
+00 :  0.777303 sec : psphotModelBackground             
+10 :  0.780365 sec : psphotGuessModels                 
+05 :  1.332723 sec : psphotSourceStats                 
+27 :  1.728141 sec : psphotApResid                     
+04 :  2.009312 sec : psphotFindDetections (footprints) 
+28 :  4.153111 sec : psphotMagnitudes                  
+13 :  4.527469 sec : psphotBlendFit                    
+19 :  4.538490 sec : psphotFindDetections (footprints) 
+09 :  5.504840 sec : psphotChoosePSF                   
+02 :  7.316287 sec : psphotFindDetections (smooth)     
+17 :  7.367393 sec : psphotFindDetections (smooth)     
+
+complete psphot run: 49.315078 sec
+
+timing on ipp008 *threaded* : currently (2009.01.22, 11:48 HST) only affects psphotFindDetections (smooth)
+
+06 :  0.001843 sec : psphotDeblendSatstars             
+22 :  0.003371 sec : psphotRoughClass                  
+08 :  0.016955 sec : psphotRoughClass                  
+07 :  0.020379 sec : psphotBasicDeblend                
+16 :  0.069632 sec : psphotAddNoise                    
+20 :  0.072203 sec : psphotSubNoise                    
+24 :  0.085762 sec : psphotReplaceAllSources           
+14 :  0.087238 sec : psphotReplaceAllSources           
+29 :  0.093757 sec : psphotSkyReplace                  
+21 :  0.153800 sec : psphotSourceStats                 
+03 :  0.214963 sec : psphotFindDetections (peaks)      
+18 :  0.232736 sec : psphotFindDetections (peaks)      
+01 :  0.248905 sec : psphotSubtractBackground          
+23 :  0.458357 sec : psphotGuessModels                 
+26 :  0.510125 sec : psphotSourceSize                  
+11 :  0.513049 sec : psphotFitSourcesLinear            
+15 :  0.538855 sec : psphotFitSourcesLinear            
+12 :  0.654045 sec : psphotSourceSize                  
+00 :  0.774769 sec : psphotModelBackground             
+25 :  1.024339 sec : psphotFitSourcesLinear            
+05 :  1.329678 sec : psphotSourceStats                 
+10 :  1.347421 sec : psphotGuessModels                 
+04 :  2.043960 sec : psphotFindDetections (footprints) 
+27 :  2.075074 sec : psphotApResid                     
+02 :  2.824503 sec : psphotFindDetections (smooth) ** threaded **    
+17 :  2.986548 sec : psphotFindDetections (smooth) ** threaded **    
+28 :  4.184633 sec : psphotMagnitudes                  
+19 :  4.323182 sec : psphotFindDetections (footprints) 
+09 :  5.611547 sec : psphotChoosePSF                   
+13 :  5.620031 sec : psphotBlendFit                    
+
+complete psphot run: 41.861923 sec

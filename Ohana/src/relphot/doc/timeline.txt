@@ -1,0 +1,36 @@
+
+timeline for processing on PV2 (31 remote hosts):
+
+load images, ready to launch hosts : 160s
+remote hosts begin:
+ * set up mosaic indexes: 388s - 1330s (from client launch time)
+ * loop 0 done: 1086s - 15870s (~ synchronous, thus clients took ~15ksec to load)
+ * loop 7 done: 4443s - 19251s (~ 3400sec total after load is done)
+ * finalized Mcal : 4444s - 19315s
+ * remote hosts done (5.4hr)
+
+remote client update Mcal average times:
+ * load catalog : 5963s (longest one is 11569s)
+ * make tiny : 113s
+ * find images: 576s
+ * set Mrel : 4793s
+ * save catalog: 2531s
+
+elapsed time for update Mcal: 51318s (14.3h)
+
+--> consistent with 3x longest single client times
+
+end of relphot: 70633s (19.6h)
+
+
+relastro timeline:
+on remote hosts:
+  * load catalog data: 247s - 4444s (loading more detections than relphot), 
+    * wall time of the load is NOT sum(load time), because clients are launched before slurp is started
+  * update chips: 23981s for last one 
+  ** end of load + analysis ~ 7hr
+  * analysis takes ~1-2hr
+
+update time ~ 9hr (compare with ~3-4h for relphot) 
+
+*** the I/O is NOT dominant. 

@@ -1,0 +1,183 @@
+#!/bin/env  perl
+
+# program to create a sample detectability query or postage stamp request file
+# and register it in a Data Store
+
+#  default products for local configuration
+
+my $dquery_product = "detectability_query";
+my $pstamp_product = "pstamprequests";
+
+# note: dsreg also needs IPP site configuration to connect to the database
+
+
+use Getopt::Long qw( GetOptions :config auto_help auto_version gnu_getopt );
+use Pod::Usage qw( pod2usage );
+use IPC::Cmd 0.36 qw( can_run run );
+use File::Temp qw(tempfile);
+
+
+my ($query_id, $req_name, $product, $input, $fs_name, $verbose, $save_temps);
+
+GetOptions(
+    'input|i=s'     => \$input,
+    'query_id|q=s'  => \$query_id,
+    'req_name|r=s'  => \$req_name,
+    'verbose|v'     => \$verbose,
+    'save-temps'    => \$save_temps,
+    'dbname|d=s'    => \$dbname,
+    'product|p=s'   => \$product,
+) or pod2usage( 2 );
+
+die "--query_id or --req_name is required\n" if ((!$query_id) && (!$req_name));
+die "only one of --query_id or --req_name is allowed\n" if ($query_id && $req_name);
+
+my $dsreg = can_run("dsreg") or die "cant'f find dsreg";
+my $detect_query_create = can_run("detect_query_create") or die "cant'f find detect_query_create";
+my $pstamp_req_create = can_run("pstamp_req_create") or die "cant'f find pstamp_req_create";
+
+my $fileset_type;
+my $create_cmd;
+
+# if query_id is supplied we make a detectability query
+# else req_name was supplied and we make a postage stamp request
+if ($query_id) {
+    $create_prog = $detect_query_create;
+    $req_name = $query_id;
+    $product = $dquery_product if !$product;
+    $fileset_type = "MOPS_DETECTABILITY_QUERY";
+    $create_cmd = "$detect_query_create --query_id $query_id";
+} else {
+    die "must supply input request decription file\n" if !$input;
+    $product = $pstamp_product if !$product;
+    $fileset_type = "PSREQUEST";
+    $create_cmd = "$pstamp_req_create --req_name $req_name";
+}
+$fs_name = $req_name;
+
+# request fits table
+my $req_file;
+my $RFH;
+my $datapath;
+if ($save_temps) {
+    $req_file = "${req_name}.fits";
+    $datapath = ".";
+} else {
+    ($RFH, $req_file) = tempfile("/tmp/${req_name}.fits.XXXX", UNLINK => 1);
+    die "failed to create tempfile" if !$RFH;
+
+    $datapath = "/";
+}
+
+
+my $query_txt_file;
+my $FH;
+# if no query file is supplied make one from the Here document in the subroutine make_default_query
+if ($input) {
+    $query_txt_file = $input;
+} else {
+    ($FH, $query_txt_file) = tempfile("/tmp/dquery.txt.XXXX", UNLINK => !$save_temps);
+    die "failed to create tempfile" if !$FH;
+    make_default_dquery($FH);
+}
+
+die "can't find request description file $query_txt_file" if (!-e $query_txt_file);
+
+$create_cmd .= " --input $query_txt_file --output $req_file";
+
+my $reg_cmd = "echo '$req_file|||table|'"
+            . " | $dsreg --product $product --type $fileset_type"
+            . " --add $fs_name --copy --datapath $datapath --list -"
+            . " --dbname $dbname" if $dbname;
+
+{
+    my $command = "$create_cmd";
+    my ( $success, $error_code, $full_buf, $stdout_buf, $stderr_buf ) =
+        run(command => $command, verbose => $verbose);
+    unless ($success) {
+        print STDERR "command failed error code: $error_code\nstderr:\n\t";
+        print STDERR @$stderr_buf;
+        print "\n";
+
+        my $exit_status = $error_code >> 8;
+        print STDERR "exiting with status $exit_status\n" if $verbose;
+        exit $exit_status;
+    }
+}
+{
+    my $command = "$reg_cmd";
+    my ( $success, $error_code, $full_buf, $stdout_buf, $stderr_buf ) =
+        run(command => $command, verbose => $verbose);
+    unless ($success) {
+        print STDERR "command failed error code: $error_code\nstderr:\n\t"
+            if $verbose;
+        print STDERR @$stderr_buf;
+        print "\n" if $verbose;
+
+        my $exit_status = $error_code >> 8;
+        print STDERR "exiting with status $exit_status\n" if $verbose;
+        exit $exit_status;
+    }
+}
+exit 0;
+
+sub make_default_dquery()
+{
+    my $FH = shift;
+    my $data = <<'THE_END';
+# Sample data
+# First line of data is for the HEADER
+# order of keywords follows TABLE 6 of ICD
+# QUERY_ID EXTVER FPA_ID       MJD-OBS FILTER OBSCODE
+QUERY42       1   o4608g0103o   54608     g     566
+#
+# ROWNUM     RA1_DEG        DEC1_DEG    RA2_DEG     DEC2_DEG     MAG
+1            312.44049389 30.54022727  312.44051968 30.54024139  18.4228     
+2            313.03337881 31.01317194  313.03344194 31.01324268  18.3961     
+3            312.91159232 30.95195459  312.91153476 30.95190113  18.1110     
+4            312.26742527 30.95207284  312.26744769 30.95206300  17.0908     
+5            313.20263734 30.62317841  313.20266984 30.62310935  18.2890     
+6            312.85365023 30.45667552  312.85358645 30.45661659  16.9252     
+7            312.86257534 30.73005531  312.86264564 30.73012644  16.5870     
+8            312.62651492 30.28398046  312.62654595 30.28390213  16.6911     
+9            312.30703743 30.99927709  312.30708709 30.99927981  17.4722     
+10           312.95440987 30.21452885  312.95434880 30.21444691  18.5156     
+11           313.09947609 30.93800421  313.09940219 30.93795549  17.8855     
+12           312.97417836 31.11301952  312.97423473 31.11296140  16.9911     
+13           313.11781918 30.37359317  313.11784695 30.37360958  16.7468     
+14           312.76927925 30.53972354  312.76933224 30.53976126  16.8949     
+15           313.14717536 30.25958068  313.14710913 30.25951218  16.8300     
+16           312.30604633 30.88958513  312.30599425 30.88959415  18.2257     
+17           312.43565662 30.43038293  312.43560908 30.43037934  19.0005     
+18           312.55589195 30.81649562  312.55594584 30.81655133  18.6992     
+19           312.48925222 30.79092013  312.48924050 30.79087193  19.2099     
+20           312.94560207 31.15170816  312.94554641 31.15162988  17.2162     
+21           313.19589134 30.74674862  313.19594142 30.74682054  16.6793     
+22           312.70278940 30.52926292  312.70271911 30.52926109  19.0436     
+23           312.56015422 30.77354938  312.56021167 30.77360353  19.2750     
+24           312.87989916 30.78926857  312.87996776 30.78920032  18.2502     
+25           312.81101394 30.65212801  312.81096654 30.65215390  18.5487     
+26           312.55607541 30.23260894  312.55612602 30.23263745  17.2404     
+27           312.47366234 31.02186968  312.47372919 31.02192895  18.9959     
+28           312.90062087 31.13704835  312.90061590 31.13697785  17.5652     
+29           313.01177949 31.16629118  313.01181621 31.16626516  17.0270     
+30           312.40371494 30.98672316  312.40366292 30.98677392  19.1234     
+31           312.56662477 31.01082034  312.56665651 31.01078413  17.6238     
+32           312.61398923 30.64616956  312.61399907 30.64618259  18.5522     
+33           313.07268041 30.96857880  313.07272131 30.96859005  17.7002     
+34           312.36144521 30.43367984  312.36146205 30.43373589  16.6557     
+35           312.74549146 30.89623741  312.74554546 30.89630365  18.8037     
+36           312.49256362 30.78465056  312.49260740 30.78459825  16.7909     
+37           312.92641571 30.76107785  312.92634812 30.76111408  17.2734     
+38           312.84561663 30.38510072  312.84561100 30.38515538  18.3349     
+39           312.48297202 31.08290934  312.48297374 31.08290383  17.6822     
+40           312.27670734 30.89704117  312.27664961 30.89698871  17.4518     
+41           312.82856967 30.65880493  312.82859245 30.65878537  18.8543     
+42           313.05680974 30.97207965  313.05672748 30.97211785  16.6627     
+THE_END
+
+    print $FH $data;
+
+    close $FH;
+}
+

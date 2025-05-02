@@ -1,0 +1,71 @@
+# include "fakeastro.h"
+# define DEBUG 1
+
+int save_fakestars (FakeAstro_Stars *stars, int Nstars, HostTable *hosts, SkyRegion *region, char *fullname) {
+
+  char uniquer[12];
+  int TIME = time(NULL);
+  int PID = getpid();
+  snprintf_nowarn (uniquer, 12, "%05d.%05d", PID, TIME % 100000);
+
+  // if this region is a parallel thing, save and launch remote
+  if (!PARALLEL) { 
+    fakestar_catalog (stars, Nstars, region, fullname);
+  } else {
+    int N = hosts->index[region->hostID];
+    HostInfo *hostMach = &hosts->hosts[N];
+
+    // save to a unique filename
+    char filename[1024]; // CATDIR/tmpdir/starpar.PID.index.fits
+    snprintf_nowarn (filename, 1024, "%s/tmpdir/starpar.%s.%05d.fits", CATDIR, uniquer, region->index);
+
+    // write the data to the given FITS file
+    fakestar_save_stars (filename, stars, Nstars);
+
+    int slot = -1;
+    while (slot == -1) {
+      slot = find_empty_slot ();
+      if (slot == -1) {
+	usleep (50000);
+	slot = harvest_host();
+	myAssert (slot != -2, "we should not call harvest_host here if we have open slots");
+      }
+    }
+
+    // allocate a host for this job
+    HostInfo *host = NULL;
+    ALLOCATE (host, HostInfo, 1);
+
+    // we want to run this job on the host described by hostMach.  copy
+    // immutable data from hostMach to a locally allocated host:
+    host->hostID = hostMach->hostID;
+    host->hostname = strcreate (hostMach->hostname);
+    host->pathname = strcreate (hostMach->pathname);
+    InitIOBuffer (&host->stdout, 1000);
+    InitIOBuffer (&host->stderr, 1000);
+
+    // got a valid slot, so launch a new host
+
+    // need to generate the remote command
+    char *command = NULL;
+    strextend (&command, "fakestar_client");
+    strextend (&command, "-galaxy");
+    strextend (&command, "-hostID %d", host->hostID);
+    strextend (&command, "-D CATDIR %s", CATDIR);
+    strextend (&command, "-hostdir %s", host->pathname);
+    strextend (&command, "-cpt %s", region->name);
+    strextend (&command, "-input %s", filename);
+
+    // launch the job on the remote machine (no handshake)
+    int errorInfo = 0;
+    int pid = rconnect ("ssh", host->hostname, command, host->stdio, &errorInfo, FALSE);
+    if (!pid) {
+      if (DEBUG) fprintf (stderr, "failure to start %s (error %d)\n", host->hostname, errorInfo);
+      exit (1);
+    }
+    host->pid = pid; // save for future reference
+    
+    save_remote_host (host);
+  }
+  return TRUE;
+}

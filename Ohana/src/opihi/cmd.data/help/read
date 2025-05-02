@@ -1,0 +1,10 @@
+
+   read vect col [vect col, ...]
+
+   read vector values from a file.  An arbitrary number of vectors can
+   be specified, and the (whitespace-separated) field number given for
+   each vector.  Data is read from the file defined by "datafile".
+
+   See also: datafile
+
+

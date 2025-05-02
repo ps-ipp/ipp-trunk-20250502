@@ -1,0 +1,232 @@
+#!/usr/bin/env perl
+
+use strict;
+
+if (@ARGV != 1) { die "USAGE: mkidx (directory)\n"; }
+
+# input is the name of a directory and current level
+# outputs are: directory list, document list, index file for directory
+# menu for that directory
+
+# parse input info
+my($path);
+$path  = $ARGV[0];
+$path  =~ s|/*$||; # strip trailing /'s to clean path
+
+local($mkidx::root) = $path;
+
+&mksubidx ($path, 0, 0, "template.htm");
+exit 0;
+
+sub mksubidx {
+    # USAGE: mksubidx (path) (entry) (template) (index)
+    my($path)  	  = shift @_;
+    my($level) 	  = shift @_;
+    my($entry)    = shift @_;
+    my($template) = shift @_;
+    my(@updex)    = @_;
+
+    my($i, $j);
+    my($line, $value, $dir);
+    my(@list);
+    my($file, $root, $link, $ext);
+    my(@seq)    = ();
+    my(@dirs)   = ();
+    my(@mydirs) = ();
+    my(@docs)   = ();
+    my(@txts)   = ();
+    my(@index)  = ();
+    my(@mydex)  = ();
+    my($Nmydex);
+    my(@seqline);
+
+    # if this directory contains a template file, reset entry and level
+    # supply the template file to mkhtml here and below
+    if (-e "$path/template.htm") {
+	@updex = ();
+	$level = 0;
+	$entry = 0;
+	$template = "$path/template.htm";
+    }
+    # print STDERR "idx: $template\n";
+
+    # put leading portion of updex here
+    for ($i = 0; $i < $entry; $i++) {
+	push @index, $updex[$i];
+    }
+
+    # find all dirs in this directory
+    @list = <$path/*>;
+    foreach $file (@list) {
+	if (-e "$path/nochild.idx") { last; }
+	if (! -d $file) { next; }
+	$root = &basename ($file);
+	$link = $file;
+	$link =~ s|^$mkidx::root|ROOT|;
+
+	# list special directories here
+	if ($root eq "CVS") { next; }
+	if (-e "$file/noindex.idx") { next; }
+
+	push @mydirs, $file;
+
+	$line = sprintf "<tr><td class=dir%d> <a class=dl %-30s -%20s </a></td></tr>", $level, "href=$link>", $root;
+	push @mydex, $line;
+	push @seq, $root;
+    }
+
+    # find all docs (htm, txt) in this directory
+    @list = (<$path/*.htm>,<$path/*.hts>,<$path/*.txt>);
+    foreach $file (@list) {
+	if (! -f $file) { next; }
+
+	$ext = &extname ($file);
+	$root = &rootname ($file);
+
+	$link = $file;
+	$link =~ s|.$ext$|.html|;
+	$link =~ s|^$mkidx::root|ROOT|;
+
+	# list special files here
+	if ($root eq "index") { next; }
+	if ($root eq "template") { next; }
+	if ($root eq "sequence") { next; }
+
+	# print STDERR "ext: $ext, root: $root\n";
+
+	push @docs, $file;
+	push @mydirs, "0";
+	
+	if ($ext ne "hts") {
+	    # simple case: no extra information:
+	    $line = sprintf "<tr><td class=doc%d> <a class=dl %-30s &nbsp; %20s </a></td></tr>", $level, "href=$link>", $root;
+	    push @mydex, $line;
+	    push @seq, &basename ($file);
+	}
+    }
+
+    # look for directory sequencing information
+    if (-f "$path/sequence.idx") { 
+	open (FILE, "$path/sequence.idx");
+	@seqline = <FILE>;
+	close (FILE);
+      OUT:
+	for ($i = 0; $i < @seqline; $i++) {
+	    $Nmydex = @mydex;
+	    chop $seqline[$i];
+	  IN:
+	    for ($j = 0; $j < $Nmydex; $j++) {
+		$line  = shift @mydex;
+		$value = shift @seq;
+		$dir   = shift @mydirs;
+		if ($seqline[$i] eq $value) {
+		    push @index, $line;
+		    push @dirs, $dir;
+		    # print "ADD SEQ: $dir, $line\n";
+		    next OUT;
+		} else {
+		    push @mydex, $line;
+		    push @mydirs, $dir;
+		    push @seq, $value;
+		}
+	    }
+	}	
+    }
+    # add trailing portion of updex here
+    foreach $line (@mydex) {
+	$dir = shift @mydirs;
+	# print "ADD VAL: $dir, $line\n";
+	push @dirs, $dir;
+	push @index, $line;
+    }
+
+    # add trailing portion of updex here
+    for ($i = $entry; $i < @updex; $i++) {
+	push @index, $updex[$i];
+    }
+
+    for ($i = 0; $i < @dirs; $i++) {
+	if ($dirs[$i] eq 0) { next; }
+	&mksubidx ($dirs[$i], $level + 1, $i + $entry + 1, $template, @index);
+    }
+
+    # output index for this directory
+    open (FILE, ">$path/index.idx");
+    foreach $line (@index) {
+	print FILE "$line\n";
+    }
+    close (FILE);
+
+    # create html for docs in this directory
+    foreach $file (@docs, "$path/index.htm") {
+	$ext  = &extname ($file);
+	# print STDERR "ext: $ext\n";
+	# $root  = &rootname ($file);
+	# print STDERR "root: $root\n";
+	$link = $file;
+	$link =~ s|.$ext$|.html|;
+	system "mkhtml -template $template $mkidx::root $file $link";
+    }
+    return;
+}
+
+# behaves just like system basename function (returns last portion of path)
+sub basename {
+
+    my ($file) = $_[0];
+    my ($base, @words);
+
+    @words = split ("/", $file);
+    $base = $words[-1];
+    return $base;
+}
+
+# behaves just like system basename function (returns last portion of path)
+sub extname {
+    my ($file) = &basename ($_[0]);
+    my($ext) = $file =~ m|\S*\.(\S*)$|;
+    return $ext;
+}
+
+# behaves just like system basename function (returns last portion of path)
+sub rootname {
+    my ($file) = &basename ($_[0]);
+    my($ext) = $file =~ m|(\S*)\.\S*$|;
+    return $ext;
+}
+
+# behaves just like system dirname function (strips last portion of path)
+sub dirname {
+
+    my ($file) = $_[0];
+    my ($base, @words);
+
+    @words = split ("/", $file);
+    if (@words == 1) { return "."; }
+
+    pop @words;
+    $file = join ('/', @words);
+    return $file;
+}
+
+###
+#    # find all txt files in this directory
+#    @list = <$path/*.txt>;
+#    foreach $file (@list) {
+#	if (! -f $file) { next; }
+#
+#	$ext = &extname ($file);
+#
+#	$root = &basename ($file);
+#	$root =~ s|.txt$||;
+#	$link = $file;
+#	$link =~ s|.txt$|.html|;
+#	$link =~ s|^$mkidx::root|ROOT|;
+#
+#	push @txts, $file;
+#
+#	# simple case: no extra information:
+#	$line = sprintf "<tr><td class=doc%d> <a class=dl %-30s  %20s </a></td></tr>", $level, "href=$link>", $root;
+#	push @index, $line;
+#    }
+

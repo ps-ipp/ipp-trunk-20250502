@@ -1,0 +1,49 @@
+
+2010.08.24
+
+  Remaining work to be done:
+
+  * test and turn on CR masking
+  * double-check source size analysis:
+    * are we doing the right thing with sources flagged as bad in 'rough'?
+    * are we doing the right thing for SAT, CR, EXT, PSF after SourceSize?
+  * convert CR_SIGMA and EXT_SIGMA to probabilities
+  * example results of model fits vs fake inputs
+  * what is the right solution for the stack PSF photometry?
+    * Nigel sees 4-6%
+    * we see 1.9% at the worst
+    * non-poisson errors are clearly better -- check on the chisq values
+    * why is QGAUSS so good for the one example (better for poisson, if trendy)
+
+2010.08.12
+
+  speeding up the PCM fitting.  
+
+  * first, I need to convert the convolutions to FFTs (double check that this will actually be faster!)
+  * second, I need to thread the PCM fitting process
+
+  I have three options:
+
+  1) use the FFT threading in fftw -- each convolution would run threaded, but separate ones would be run in series
+     * con: the images are generally small, so the threading overhead may be large compared to the operation (test?)
+  2) each pass of the minimization has 1 + N convolutions to perform: run these in separate threads
+     * can only use 1+N threads, where N is the number of free parameters (Io, Sxx, Syy, Sxy, but maybe also Xo, Yo)
+  3) thread by source, using the system defined for the other fitting. 
+     * since these source are large, this is a bit trickier to guarantee non-collision. 
+     + infrastructure is easy -- copy psphotBlendFit.
+
+2010.07.15
+
+various psphot issues that need to be addressed:
+
+* update extNsigma based on kron mags 
+* convert EXT sigmas to a probability (watch that extNsigma is correctly defined)
+* psphot forced fails for negative flux
+  - do a run, plot a histogram of fluxes as various steps
+  FIXED: this was caused by minimum limit of 0.0 in linear fitting
+
+* capability to choose extended source fits based on |b|
+
+* update psf-convolved fitting to work with sersic (iteration)
+  DONE: but, needs to be sped up
+

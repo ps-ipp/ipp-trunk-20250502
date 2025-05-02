@@ -1,0 +1,38 @@
+
+  date [-var variable] [-seconds] [-reftime seconds]
+
+  Return the date and place it into (variable).
+
+  Default: print to window
+
+* by itself, just echoes the date & time
+
+* to set a variable with the date, add -var name, where 'name' is the
+  name of your variable.  by default, this is a human readable date,
+  eg Wed Mar 12 08:30:11 2008
+
+* to calculate time differences, add the -seconds flag, and the value
+  will be in seconds since 1970 Jan 01 00:00:00.  NOTE: There is a bug
+  in that the variable is represented as a float, and the value is now
+  > 1.2e9 seconds.  The difference is thus not very accurate.  To get
+  around this, use the -reftime feature to report the seconds since a
+  more recent date.  A value of something like 1205340000 works at the
+  moment.
+
+examples:
+
+  dvo: date
+  Wed Mar 12 08:30:11 2008
+
+  dvo: date -var foo -seconds
+  dvo: echo $foo
+  1205346664
+
+  dvo: date -var foo -seconds -reftime 1205340000
+  dvo: echo $foo
+  6700
+  dvo: date -var bar -seconds -reftime 1205340000
+  dvo: echo $bar
+  6708
+  dvo: echo {$bar - $foo}
+  8

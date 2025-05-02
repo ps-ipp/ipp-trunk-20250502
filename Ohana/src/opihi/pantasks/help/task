@@ -1,0 +1,27 @@
+
+   task (name)
+
+   Define or modify a task.  A task is defined by issuing a series of
+   task commands, listed below (see their individual help pages).  A
+   task describes the rules for constructing jobs.  At a minimum, a
+   task must include a command, defining the UNIX command to run for
+   each job.  Other task commands define optional concepts for the
+   task.  These include: 
+
+   - a macro to be run before the job is constructed (task.exec).
+   - a set of macros to be run when the job is completed (task.exit)
+   - time ranges in which the task should be run (or not) (trange) 
+   - required / desired parallel controller hosts (host)
+   - job contruction time interval (periods -exec)
+   - job polling time interval (periods -poll)
+   - job timeouts (periods -timeout)
+   - maximum number of jobs to construct
+
+   See also:
+   task.command
+   task.exit
+   task.exec
+   task.trange
+   task.nmax
+   task.host
+   task.periods

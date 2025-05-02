@@ -1,0 +1,154 @@
+#!/usr/bin/env perl
+
+# Copyright (C) 2007  Joshua Hoblitt
+#
+# $Id: neb-rm,v 1.2 2007-04-28 01:19:59 jhoblitt Exp $
+
+use strict;
+use warnings FATAL => qw( all );
+
+use vars qw( $VERSION );
+$VERSION = '0.01';
+
+use Nebulous::Client;
+
+use Getopt::Long qw( GetOptions :config auto_help auto_version );
+use Pod::Usage qw( pod2usage );
+
+my (
+    $force,
+    $move,
+    $invalid,
+    $server,
+);
+
+$server = $ENV{'NEB_SERVER'} unless $server;
+
+GetOptions(
+    'force|f'       => \$force,
+    'move|m'        => \$move,
+    'invalid|i'     => \$invalid,
+    'server|s=s'    => \$server,
+) || pod2usage( 2 );
+
+pod2usage( -msg => "Required options: --server <key...>", -exitval => 2 )
+        unless defined $server;
+
+my $neb = Nebulous::Client->new(
+    proxy => "$server",
+);
+
+die "can't connected to Nebulous Server: $server"
+    unless defined $neb;
+
+foreach my $key (@ARGV) {
+    unless (defined $move) {
+	eval {
+	    $neb->delete($key, $force,$invalid) or warn "failed to delete key: $key";
+	}
+    } else {
+        $neb->move($key, "${key}.rm") or warn "failed to move key: $key";
+    }
+}
+
+__END__
+
+=pod
+
+=head1 NAME
+
+neb-rm - remove Nebulous keys
+
+=head1 SYNOPSIS
+
+    neb-rm [--server <URL>] [--force] [--move] <key...>
+
+=head1 DESCRIPTION
+
+This program removes Nebulous keys in the whitespace seperated list
+C<<key...>>.
+
+=head1 OPTIONS
+
+=over 4
+
+=item * --force|-f
+
+When set, C<<key>> will be removed from the nebulous database even if the on
+disk file(s) are missing.
+
+Optional.
+
+=item * --move|-m
+
+When set, this flag causes C<<key>> to be renamed to C<<key>.rm> instead of
+being deleted.
+
+Optional.
+
+=item * --invalid|-i
+
+When set, unavailable instances of C<<key>> will be removed from the nebulous database.
+
+Optional.
+
+=item * --server|-s <URL>
+
+URL of the Nebulous server to connect to.
+
+Optional if the appropriate environment variable is set.
+
+=back
+
+=head1 ENVIRONMENT
+
+These environment variables may be used in place of the specified command line
+options.  All command line option will override the corresponding environment
+value.
+
+=over 4
+
+=item * C<NEB_SERVER>
+
+Equivalent to --server|-s
+
+=back
+
+=head1 CREDITS
+
+Just me, myself, and I.
+
+=head1 SUPPORT
+
+Please contact the author directly via e-mail.
+
+=head1 AUTHOR
+
+Joshua Hoblitt <jhoblitt@cpan.org>
+
+=head1 COPYRIGHT
+
+Copyright (C) 2007  Joshua Hoblitt.  All rights reserved.
+
+This program is free software; you can redistribute it and/or modify it under
+the terms of the GNU General Public License as published by the Free Software
+Foundation; either version 2 of the License, or (at your option) any later
+version.
+
+This program is distributed in the hope that it will be useful, but WITHOUT ANY
+WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A
+PARTICULAR PURPOSE.  See the GNU General Public License for more details.
+
+You should have received a copy of the GNU General Public License along with
+this program; if not, write to the Free Software Foundation, Inc., 59 Temple
+Place - Suite 330, Boston, MA  02111-1307, USA.
+
+The full text of the license can be found in the L<perlgpl> Pod as supplied
+with Perl 5.8.1 and later.
+
+=head1 SEE ALSO
+
+L<Nebulous::Server>, L<neb-initdb>, L<neb-addvol>, L<nebdiskd>, L<neb-df>,
+L<neb-touch>, C<regex(7)>
+
+=cut

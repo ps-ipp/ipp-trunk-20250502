@@ -1,0 +1,150 @@
+#!/usr/bin/env perl
+
+# Copyright (C) 2007-2008  Joshua Hoblitt
+#
+# $Id: neb-shift,v 1.5 2008-01-22 21:40:39 jhoblitt Exp $
+
+use strict;
+use warnings FATAL => qw( all );
+
+use vars qw( $VERSION );
+$VERSION = '0.01';
+
+use Nebulous::Client;
+
+use Getopt::Long qw( GetOptions :config auto_help auto_version );
+use Pod::Usage qw( pod2usage );
+
+my ($volume, $server);
+
+die "this tool may fail since find_instances will return an instance which is not on the hard volume";
+
+$server = $ENV{'NEB_SERVER'} unless $server;
+
+GetOptions(
+    'volume=s'      => \$volume,
+    'server|s=s'    => \$server,
+) || pod2usage( 2 );
+
+my $src = shift;
+my $abandon_vol = shift;
+
+pod2usage( -msg => "Unknown option: @ARGV", -exitval => 2 ) if @ARGV;
+pod2usage( -msg => "Required options: --server --volume <source key> <source volume>",
+        -exitval => 2 )
+        unless defined $server and defined $src and defined $abandon_vol and defined $volume;
+
+my $neb = Nebulous::Client->new(
+    proxy => "$server",
+);
+
+die "can't connected to Nebulous Server: $server"
+    unless defined $neb;
+
+my $uris = $neb->find_instances($src, "~$abandon_vol");
+unless (defined $uris) {
+    die "No copy of $src exists on $abandon_vol";
+}
+
+my $all_uris = $neb->find_instances($src);
+
+my $status;
+$status = $neb->replicate( $src, $volume);
+die "Replicate phase failed for $src ($abandon_vol) ($volume)" unless $status;
+
+$uris = $neb->find_instances($src, "~$volume");
+unless (defined $uris) {
+    die "Replicate phase failed for $src ($abandon_vol) ($volume)";
+}
+
+$status = $neb->cull($src,$abandon_vol);
+
+warn "Cull phase failed for $src from $abandon_vol" unless $status;
+
+__END__
+
+=pod
+
+=head1 NAME
+
+neb-shift - list Nebulous keys
+
+=head1 SYNOPSIS
+
+    neb-shift [--server <URL>] [--volume <destination volume name>] <source key> <source volume>
+
+=head1 DESCRIPTION
+
+Shift a Nebulous storage key from a specific source volume, optionally assigning it
+to a specific destination volume.
+
+=head1 OPTIONS
+
+=over 4
+
+=item * --server|-s <URL>
+
+URL of the Nebulous server to connect to.
+
+Optional if the appropriate environment variable is set.
+
+=item * --volume <volume name>
+
+The volume to place the key's new storage instance on.
+
+Optional.
+
+=back
+
+=head1 ENVIRONMENT
+
+These environment variables may be used in place of the specified command line
+options.  All command line option will override the corresponding environment
+value.
+
+=over 4
+
+=item * C<NEB_SERVER>
+
+Equivalent to --server|-s
+
+=back
+
+=head1 CREDITS
+
+Just me, myself, and I.
+
+=head1 SUPPORT
+
+Please contact the author directly via e-mail.
+
+=head1 AUTHOR
+
+Joshua Hoblitt <jhoblitt@cpan.org>
+
+=head1 COPYRIGHT
+
+Copyright (C) 2007-2008  Joshua Hoblitt.  All rights reserved.
+
+This program is free software; you can redistribute it and/or modify it under
+the terms of the GNU General Public License as published by the Free Software
+Foundation; either version 2 of the License, or (at your option) any later
+version.
+
+This program is distributed in the hope that it will be useful, but WITHOUT ANY
+WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A
+PARTICULAR PURPOSE.  See the GNU General Public License for more details.
+
+You should have received a copy of the GNU General Public License along with
+this program; if not, write to the Free Software Foundation, Inc., 59 Temple
+Place - Suite 330, Boston, MA  02111-1307, USA.
+
+The full text of the license can be found in the L<perlgpl> Pod as supplied
+with Perl 5.8.1 and later.
+
+=head1 SEE ALSO
+
+L<Nebulous::Server>, L<neb-initdb>, L<neb-addvol>, L<nebdiskd>, L<neb-df>,
+L<neb-touch>, C<regex(7)>
+
+=cut

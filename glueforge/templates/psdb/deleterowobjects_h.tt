@@ -1,0 +1,13 @@
+/** Deletes up to limit rows from the database and returns the number of rows actually deleted. 
+ *
+ *  Note that a 'where' search psMetadata is constructed from each object and
+ *  used to find rows to delete.
+ *
+ * @return A The number of rows removed or a negative value on error
+ */
+
+long long [% table.namespace %]DeleteRowObjects(
+    psDB            *dbh,               ///< Database handle
+    const psArray   *objects,           ///< Array of objects to delete
+    unsigned long long limit            ///< Maximum number of elements to delete 
+);

@@ -1,0 +1,59 @@
+
+mkfringe states & programs [fringe only]
+
+running.init              : mode.fringe1 (config.mosaic)
+
+ - fr.select
+ - fr.mklists -initial
+ - fr.mklists -imlist
+ - fr.mklists -mosaic
+ - fr.mklists -detrend
+ - fr.mklists -maplist
+ - fr.mklists -mlist
+
+running.detrend           : mode.fringe2 (image)
+
+ - fr.ckfile
+ - fr.detrend
+ - fr.medbin.spline
+ - fr.getfringe
+ - fr.imdata
+ - fr.jpegs
+ - fr.mklists -master
+
+running.merge		  : mkfringe (config.mosaic)
+
+ - fr.mklists -subset
+ - fr.frstats -fitpars
+ - fr.frstats -plotstats
+ - fr.frstats -frstats
+ - fr.frstats -dfstats
+ - fr.mklists -imstats
+ - fr.jpegs
+ - fr.mkhtml -imstats
+ - fr.mkhtml -jpglist
+
+running.mkrough           : mkfringe / mode.fringe4 
+
+ - fr.mklists  -subset
+ - fr.frstats  -fitpars
+ - fr.frstats  -frstats
+ - fr.frstats  -dfstats
+ - fr.mklists  -imstats
+ - fr.mklists  -ccdstast
+ - fr.mkrough
+
+running.defringe          : mode.fringe3
+
+ - fr.defringe
+ - fr.getfringe
+ - fr.jpegs
+
+running.smooth            : mode.fringe4
+
+ - fr.smooth
+
+running.reg               : mkfringe
+
+ - detregister
+

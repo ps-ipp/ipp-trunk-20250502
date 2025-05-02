@@ -1,0 +1,94 @@
+#             msec                   - multithread?
+#             item                   |
+15.558560 sec 37.31    NBRT   417  : y  non-linear fits
+ 0.000736 sec  0.00    NPEAK  550  : ?  satstar blends
+ 0.005947 sec  0.00    NPEAK 1315  : ?  source sizes
+ 0.076172 sec  0.01    NPEAK 7636  : ?  set footprint ids (NPIX?)
+ 0.003383 sec  0.01    NPEAK  550  : ?  source sizes
+ 0.019354 sec  0.04    NPEAK  550  : ?  other blends
+ 0.050572 sec  0.08    NPEAK  627  : ?  set footprint ids
+ 0.049778 sec  0.09    NPEAK  550  : ?  replaced models
+ 0.051736 sec  0.09    NPEAK  550  : ?  add noise
+ 0.051929 sec  0.09    NPEAK  550  : ?  sub noise
+ 0.055094 sec  0.10    NPEAK  550  : ?  replaced models
+ 0.152204 sec  0.20    NPEAK  765  : ?  rough class
+ 0.8      sec  0.26    NPEAK 3100  : ?  merge footprints
+ 0.268983 sec  0.49    NPEAK  550  : ?  rough class
+ 0.7      sec  1.25    NPEAK  560  : ?  cull peaks
+ 2.092846 sec  2.74    NPEAK  765  : ?  moments
+ 8.9      sec  3.05    NPEAK 2914  : ?  cull peaks
+ 3.339909 sec  4.37    NPEAK  765  : ?  built models
+ 2.572153 sec  4.68    NPEAK  550  : ?  build models
+ 3.816792 sec  6.94    NPEAK  550  : ?  moments
+ 9.337548 sec  7.10    NPEAK 1315  : ?  measure magnitudes :  for 1315 objects (643 with apertures)
+ 4.301656 sec  7.82    NPEAK  550  : ?  linear fit
+ 4.429642 sec  8.05    NPEAK  550  : ?  linear fit
+ 4.947403 sec  9.00    NPEAK  550  : ?  linear fit 
+ 0.2      sec  0.02    NPIX 8300 k : ?  found grown footprints: 
+ 0.205680 sec  0.02    NPIX 8300 k : ?  find footprints
+ 0.211664 sec  0.03    NPIX 8300 k : ?  replace background
+ 0.348357 sec  0.04    NPIX 8300 k : ?  subtracted background
+ 0.598805 sec  0.07    NPIX 8300 k : ?  find peaks
+ 0.599952 sec  0.07    NPIX 8300 k : ?  find peaks 
+ 0.723508 sec  0.09    NPIX 8300 k : ?  found footprints: 
+ 1.4      sec  0.17    NPIX 8300 k : ?  found grown footprints: 
+ 0.809106 sec 12.64    NPSF    64  : ?  psf fit
+ 2.155031 sec 34.21    NPSF    63  : ?  full fit
+ 2.592620 sec 74.07    NPSF    35  : ?  psf residuals
+ 5.931090 sec  0.71   sNPIX 8300 k : ?  smoothed signficance
+ 7.780419 sec  0.94   sNPIX 8300 k : ?  smoothed signficance
+12.947970 sec  1.56   sNPIX 8300 k : ?  convolved with grow disc: 
+14.525486 sec  1.75   sNPIX 8300 k : ?  convolved with grow disc: 
+
+Notes:
+
+Note:
+
+* PSF Residuals is the most expensive per item, but will always be
+  performed on a limited number of items (typically < 300 PSF stars).
+  The maximum impact is thus limited.
+
+* The non-linear fitting is (not surprisingly) very expensive per
+  item, but again will only be performed on a limited subset (S/N >
+  20?).
+
+* the linear fits are the next most costly, and will dominate the
+  timing since all sources must be so fit, and multiple times.
+
+* measure magnitudes is expensive, but only runs once
+
+* measure moments is expensive, but only runs once (and/or on a bright subset?)
+
+Adding it up:
+
+GPC1 : 10^11 det for 60*5000* 60 chips --> 5500 det / chip
+     : 23 megapix
+
+* cost per object:
+  
+  56.5 msec -> 310 sec for detection analysis (on kawelu, not optimized)
+
+* cost for bright detections
+
+  ~ 35 sec (for 1000 bright sources)
+
+* cost per megapixel:
+
+  5.5 sec
+
+  -> 126 sec for GPC1
+
+* other overhead (psf construction, background, smoothing)
+
+  -> 20 sec
+
+** total : 490 sec (kawelu, not optimized, 1.0GHz!)
+
+** ~ 220 sec optimized 
+** ~ 100 sec on 2.3GHz machines
+(probably there are other gains on the real hardware: memory bandwidth, ?)
+
+assuming 100sec is all we get, we need ~1.5 cores per chip to keep up at 60sec / exposure (average)
+
+120 cores for ppImage (chip)
+

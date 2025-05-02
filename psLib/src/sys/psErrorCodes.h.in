@@ -1,0 +1,90 @@
+/** @file  psErrorCodes.h
+ *
+ *  @brief Contains the error codes for the error classes
+ *
+ *  @author RHL, Princeton
+ *  @author Robert DeSonia, MHPCC
+ *
+ *  @version $Revision: 1.6 $ $Name: not supported by cvs2svn $
+ *  @date $Date: 2007-02-08 01:59:28 $
+ *
+ *  Copyright 2004-2005 Maui High Performance Computing Center, University of Hawaii
+ */
+
+#ifndef PS_ERROR_CODES_H
+#define PS_ERROR_CODES_H
+
+/// @addtogroup SysUtils System Utilities 
+/// @{
+
+#include "psType.h"
+
+/** enumeration of the static error code classes
+ */
+typedef enum {
+    PS_ERR_NONE = 0,                   ///< not an error
+    PS_ERR_BASE = 256,
+    /**< base error.  Any psErrorCode less than this should be taken to be
+     *   valid values of errno
+     */
+    PS_ERR_${ErrorCode},
+    PS_ERR_N_ERR_CLASSES               ///< end marker - should not be used as a true error
+} psErrorCode;
+
+
+/** An error code with description
+ */
+typedef struct
+{
+    psErrorCode code;                  ///< An error code
+    const char *description;           ///< the associated description
+}
+psErrorDescription;
+
+
+/** Allocates a new psErrorDescription
+ *
+ *  @return psErrorDescription*        new psErrorDescription struct.
+ */
+psErrorDescription* psErrorDescriptionAlloc(
+    psErrorCode code,                  ///< An error code
+    const char *description            ///< the associated description
+);
+
+
+/** Retrieves the description of an error code.
+ *
+ *  The routine psErrorCodeString returns the string associated with an error
+ *  code.
+ *
+ *  @return const char*     the description associated with the given code.
+ */
+const char *psErrorCodeString(
+    psErrorCode code                   ///< the associated error code
+);
+
+
+/** Register an error code
+ *
+ *  Any project needed to use psLib must define the necessary error codes and
+ *  associated message strings.  This function registers an array of error
+ *  codes with the error handling subsystem.
+ *
+ */
+void psErrorRegister(
+    const psErrorDescription* errors,  ///< Array of error codes to register
+    int errorCode                      ///< number of errors in input array
+);
+
+
+/** Clears error codes registered via psErrorRegister.
+ *
+ *  @return bool    TRUE if given errorcode was removed, otherwise FALSE.
+ */
+bool p_psErrorUnregister(
+    psErrorCode code                   ///< the error code to find and remove
+);
+
+
+/// @}
+#endif // #ifndef PS_ERROR_CODES_H

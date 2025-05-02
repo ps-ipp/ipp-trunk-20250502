@@ -1,0 +1,9 @@
+
+pmSubtractionEquation.v0.c
+
+  This version of the code includes the old-style form of the matrix
+  equations, in which the normalization and background were calculated
+  as part of the matrix inversion.  We've decided that this method is
+  too sensitive to errors in the normalization and no longer use this
+  approach.
+

@@ -1,0 +1,229 @@
+#!/usr/bin/env perl
+
+# find out which "images" in a collection contain a given coordinate
+#
+# The collection can be a DVO database or an smf file.
+# If none is supplied we search all tess_id in the site configuration
+# uses dvoImagesAtCoords
+
+use warnings;
+use strict;
+
+use Getopt::Long qw( GetOptions :config auto_help auto_version gnu_getopt );
+use Pod::Usage qw( pod2usage );
+use File::Temp qw( tempfile );
+use File::Basename;
+use PS::IPP::Config qw( :standard );
+use IPC::Cmd 0.36 qw( can_run run );
+
+my ( $ra,
+     $dec,
+     $tess_id,
+     $dvo_dir,
+     $smf,
+     $listchipcoords,
+     $one,
+     $verbose,
+     $save_temps,
+     );
+
+GetOptions(
+           'tess_id|t=s'  => \$tess_id,
+           'dvo_dir=s' => \$dvo_dir,
+           'smf=s'      => \$smf,
+           'listchipcoords|c'        => \$listchipcoords,
+           'one'        => \$one,
+           'verbose'    => \$verbose,
+	   'save-temps' => \$save_temps,
+) or pod2usage( 2 );
+
+pod2usage( -msg => "Unknown option: @ARGV", -exitval => 2 ) if @ARGV > 2;
+pod2usage( -msg => "Required options: ra decl",
+           -exitval => 3) if @ARGV < 2;
+
+my $missing_tools;
+my $dvoImagesAtCoords = can_run('dvoImagesAtCoords') or (warn "Can't find dvoImagesAtCoords" and $missing_tools = 1);
+if ($missing_tools) {
+    die("Can't find required tools.");
+}
+
+my $ipprc = PS::IPP::Config->new();
+
+# By convention our tess_ids are upper case
+$tess_id = uc($tess_id);
+
+$ra = shift;
+$dec = shift;
+
+# convert from sexagesimal to decimal degrees if coordinates contain ':'
+if ($ra =~ /:/) {
+    my ($h, $m, $s) = split /:/, $ra;
+
+    die "invalid ra: $ra\n" if !$h;
+
+    my $sign = 1;
+    if ($h =~ /-/) {
+        $sign = -1;
+        $h = - $h;
+    }
+        
+    $h += ($m / 60) if $m;
+    $h += ($s / 3600) if $s;
+
+    $ra = $h * 15 * $sign;
+}
+if ($dec =~ /:/) {
+    my ($d, $m, $s) = split /:/, $dec;
+
+    die "invalid dec: $dec\n" if !$d;
+
+    my $sign = 1;
+    if ($d =~ /-/) {
+        $sign = -1;
+        $d = - $d;
+    }
+        
+    $dec = $d;
+    $dec += ($m / 60) if $m;
+    $dec += ($s / 3600) if $s;
+
+    $dec *= $sign;
+}
+
+my ($ch, $coord_file) = tempfile ( "/tmp/coord.$$.XXXX", UNLINK => !$save_temps);
+print $ch "1 $ra $dec\n";
+close $ch;
+
+my $cmd = "dvoImagesAtCoords -chipcoords $coord_file";
+$cmd .= " -listchipcoords" if $listchipcoords;
+
+$tess_id = uc($tess_id) if $tess_id;
+
+my $status = 0;
+if ($dvo_dir) {
+    my $dvo_dir_resolved = $ipprc->convert_filename_absolute( $dvo_dir );
+    die "failed to resolve $dvo_dir"  if !$dvo_dir_resolved;
+    die "$dvo_dir not found" if ! -d $dvo_dir_resolved;
+
+    my $label = basename($dvo_dir) if !$tess_id;
+
+    if (!check_one($coord_file, " -D CATDIR $dvo_dir_resolved", $label)) {
+        $status = 0;
+    }
+} elsif ($smf) {
+    my $smf_resolved = $ipprc->file_resolve($smf) or die "failed to resolve $smf";
+
+    $status = check_one($coord_file, " -astrom $smf_resolved", "chip");
+} else  {
+    # assume that we will fail
+    $status = 1;
+    my @tess_ids_to_check;
+    if ($tess_id) {
+        @tess_ids_to_check = ($tess_id);
+    } else {
+        my $tessellations = metadataLookupMD($ipprc->{_siteConfig}, 'TESSELLATIONS');
+        unless(defined $tessellations) {
+            die "Can't find TESSELLATIONS in site configuration";
+        }
+        foreach my $tess (@$tessellations) {
+            my $tess_name = $tess->{name};
+            # next if $tess_name eq 'FIXNS';
+            # next if $tess_name eq 'ALLSKY';
+            next if $tess_name eq 'RINGS.V0';
+            push @tess_ids_to_check, $tess_name;
+        }
+    }
+    foreach $tess_id (@tess_ids_to_check) {
+        my $tess_dir = $ipprc->tessellation_catdir( $tess_id );
+        # XXX: we are just skipping tessellations that are not resovlable
+        # perhaps we should raise an error
+        next if !$tess_dir;
+        my $tess_dir_resolved = $ipprc->convert_filename_absolute( $tess_dir );
+        next if !$tess_dir_resolved;
+        next if ! -d $tess_dir_resolved;
+
+        if (!check_one($coord_file, " -D CATDIR $tess_dir_resolved", $tess_id)) {
+            $status = 0;
+            last if $one;
+        }
+    }
+}
+
+print STDERR "coordinates not found\n" if $status;
+
+exit $status;
+
+sub check_one {
+    my $infile = shift;
+    my $images_arg = shift;
+    my $component_label = shift;
+
+    my $command = "$dvoImagesAtCoords -full-names -coords $infile $images_arg";
+    $command .= " -listchipcoords" if $listchipcoords;
+
+    my ( $success, $error_code, $full_buf, $stdout_buf, $stderr_buf ) =
+        run(command => $command, verbose => $verbose);
+    if ($success) {
+        my @lines = split "\n", join("", @$stdout_buf);
+        foreach my $line (@lines) {
+            chomp $line;
+            my ($row, $ra, $dec, $component, $x, $y) = split " ", $line;
+            print "$ra $dec $component_label $component";
+            if ($listchipcoords) {
+                print " $x $y";
+            }
+            print "\n";
+        }
+    }
+    return ! $success;
+}
+
+__END__
+
+=pod
+
+=head1 NAME
+
+whichimage - find images or skycells that contain a given ra and dec
+
+=head1 SYNOPSIS
+
+    whichimage ra dec
+        [--tess_id <tess_id> | --dvo_dir <dvo_dir> | --smf <smf_file> | --one]
+
+=head1 DESCRIPTION
+
+whichimage finds which "images" in a given collection contain the given ra and dec. The collection is
+determine by the arguments --tess_id --dvo_dir and --smf. If none of these is supplied all of the tesselations
+in the site configuration are searched.
+
+=head1 OPTIONS
+
+=over 4
+=item * ra dec
+
+Coordinates to search for.
+
+=item * --tess_id <tess_id>
+
+Optional, Tessellation id to search for the coordinates.
+
+=item * --dvo_dir <dvo_dir>
+
+Optional, DVO database to search to search for the coordinates
+
+=item * --smf <smf_file>
+
+Optional, SMF file to search for the coordinates
+
+=item * --one
+
+Stop searching after finding one match.
+
+=back
+
+=head1 SEE ALSO
+
+L<dvoImagesAtCoords>
+
+=cut

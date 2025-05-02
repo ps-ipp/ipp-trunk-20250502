@@ -1,0 +1,623 @@
+# -*- perl -*-
+
+macro navigate
+  style -n 0
+  limits
+  $DRAWSTARS  = -1
+  $DRAWIMAGES =  1
+  $DRAWGRID   = -1
+  $ZOOM = 180 / ($YMAX - $YMIN)
+  #this should be changed to a while loop, except 'while' is broken for some reason
+  $KEY = "none"
+  while ("$KEY" != "q")
+    cursor -g 1
+
+    # help list
+    if ("$KEY" == "h")
+     echo "Arrow Keys - pan in that direction"
+     echo "PgUp,PgDn - zoom in/out a factor of 1.2"
+     echo "Home,End  - zoom in/out a factor of 2"
+     echo "1 - zoom in factor of 2 at the cursor"
+     echo "2 - zoom in factor of 1.2 at the cursor"
+     echo "3 - recenter at cursor"
+     echo "4 - zoom out factor of 1.2 at the cursor"
+     echo "5 - zoom out factor of 2 at the cursor"
+     echo "6 - zoom out factor of 10 at the cursor"
+     echo "z - zoom to radius (requires 2nd keystroke)"
+     echo "f - show full sky"
+     echo ""
+     echo "q - quit"
+     echo "S - toggle auto-plotting of stars"
+     echo "A - toggle auto-plotting of image borders"
+     echo "g - toggle skygrid on/off"
+     echo "c - plot status catalog boundaries"
+     echo "C - list catalog at cursor location"
+     echo "i - list info about images touching cursor location" 
+     echo "I - list info about images, with pixel coords of cursor position"
+     echo "j - adjust mag scale, +0.5"
+     echo "k - adjust mag scale, -0.5"
+     echo "J - adjust dmag scale, /1.25"
+     echo "K - adjust dmag scale, *1.25"
+     echo "r - plot detected asteroids (rocks)"
+     echo "l - plot HST GSC"
+     echo "L - plot Landolt stars"
+     echo "m - list measurements for stars within 1 pixel of cursor"
+     echo "M - list measurements for stars within 1.8 arcsec of cursor"
+     echo "p - ****(don't know what this does)"
+     echo "s - ****(don't know what this does)"
+     echo "t - plot light curve for star within 2 arcsec of cursor position"
+     echo "T - plot 'galaxy' light curve for star within 2 arcsec of cursor position"
+     echo "u - ****(don't know what this does)"
+     echo "x - plot stars scaled by magnitude Chisq"
+     echo "X - plot stars by magnitude scatter"
+     echo "y - ****(don't know what this does)"
+     echo ""
+     echo "@ - execute macro `user_macro`"
+     echo ": - ****input a line and execute (not yet implemented)"
+    end
+
+    # quit from navigate
+    if ("$KEY" == "q") continue
+
+    #pan controls
+    if (("$KEY" == "Left") || ("$KEY" == "Right") || ("$KEY" == "Up") || ("$KEY" == "Down"))
+      $SHIFT = 0.2
+      $R$KEY  = $RMAX-$XMAX  
+      $D$KEY  = $DMAX-$YMAX
+      #assumes standard sky orientation!! (N up, E left)
+      if ("$KEY"=="Left")
+        $R$KEY = $R$KEY + $SHIFT*$XMAX
+      end
+      if ("$KEY"=="Right")
+        $R$KEY = $R$KEY + $SHIFT*$XMIN
+      end
+      if ("$KEY"=="Up")
+        $D$KEY = $D$KEY + $SHIFT*$YMAX
+      end
+      if ("$KEY"=="Down")
+        $D$KEY = $D$KEY + $SHIFT*$YMIN
+      end
+      #pretend like I hit '3' in the place to recenter it
+      nav_zoom 1      
+    end
+
+    # NEW zoom controls
+    if (("$KEY" == "Prior") || ("$KEY" == "Next") || ("$KEY" == "Home") || ("$KEY" == "End") || ("$KEY" == "Button4") || ("$KEY" == "Button5"))    
+      #move where key was hit to center      
+      $R$KEY  = $RMAX-$XMAX  
+      $D$KEY  = $DMAX-$YMAX
+      if ("$KEY" == "Prior")
+        $zfac=1.2
+      end
+      if ("$KEY" == "Next")
+        $zfac={1/1.2}
+      end
+      if ("$KEY" == "Home")
+        $zfac=2
+      end
+      if ("$KEY" == "End")
+        $zfac={1/2.}
+      end
+      if ("$KEY"=="Button4")
+        $zfac=1.6
+      end
+      if ("$KEY"=="Button5")
+        $zfac={1/1.6}
+      end
+      nav_zoom $zfac
+    end
+
+    if ("$KEY"=="Button1")
+      nav_zoom 1
+    end
+    if ("$KEY"=="Button2")
+      nav_zoom {1/2.}
+    end
+    if ("$KEY"=="Button3")
+      nav_zoom 2
+    end
+
+
+
+    # zoom controls
+    if ("$KEY" == "1")
+      nav_zoom 2
+    end
+    if ("$KEY" == "2")
+      nav_zoom 1.2
+    end
+    if ("$KEY" == "3")
+      nav_zoom 1
+    end
+    if ("$KEY" == "4")
+      nav_zoom {1/1.2}
+    end
+    if ("$KEY" == "5")
+      nav_zoom {1/2.}
+    end
+    if ("$KEY" == "6")
+      nav_zoom {1/20.}
+    end
+
+ 
+   # measure distance
+    if ("$KEY" == "d")
+      $r0 = $R$KEY
+      $d0 = $D$KEY
+      $ok = $KEY
+      echo "type 'd' again at endpoint"
+      cursor -g 1
+      $r1 = $R$KEY
+      $d1 = $D$KEY
+      $dr = 3600*((dcos($d0)*($r0-$r1))^2 + ($d0-$d1)^2)^0.5
+      echo "$dr arcsec"
+    end
+    # show ra, dec
+    if ("$KEY" == "w")
+      $tmp = $R$KEY
+      if ($tmp < 0) 
+        $tmp = $R$KEY + 360.0
+      end
+      echo "$tmp $D$KEY" 
+      exec echo $tmp $D$KEY | radec -hh
+    end
+    # zoom to radius
+    if ("$KEY" == "z")
+      $r0 = $R$KEY
+      $d0 = $D$KEY
+      $ok = $KEY
+      echo "type 'z' again at radius"
+      cursor -g 1
+      $r1 = $R$KEY
+      $d1 = $D$KEY
+      $dr = (($r0-$r1)^2 + ($d0-$d1)^2)^0.5
+      $ZOOM = $RAD / $dr
+      nav_recenter
+      nav_redraw
+      $KEY = $ok
+      $R$KEY = $r0
+      $D$KEY = $d0
+    end
+
+    # adjust mag scaling
+    if ("$KEY" == "J")
+      $MAG = $MAG - 0.5
+      nav_redraw
+    end
+    if ("$KEY" == "K")
+      $MAG = $MAG + 0.5
+      nav_redraw
+    end
+    if ("$KEY" == "j")
+      $dMAG = $dMAG * 0.8
+      nav_redraw
+    end
+    if ("$KEY" == "k")
+      $dMAG = $dMAG * 1.25
+      nav_redraw
+    end
+    echo "mag, dmag: $MAG, $dMAG"
+
+
+
+    # plot full sky
+    if ("$KEY" == "f") 
+      echo "full"
+      $ZOOM = 1
+      resize 1150 600		      
+      region 0 0 90 ait
+      $RMIN = 0
+      $RMAX = 360
+      $DMIN = -90
+      $DMAX = +90
+      style -c red; cgrid
+      style -c black
+      images
+    end
+
+    # plot rocks
+    if ("$KEY" == "r") 
+#      plot.rocks
+      style -c blue   -pt 1; procks -speed 0.0041 1
+      style -c red    -pt 1; procks -speed 0.00041 0.0041
+      style -c indigo -pt 1; procks -speed 0 0.00041
+      style -c black -lw 0;
+    end
+    # plot HST-GSC
+    if ("$KEY" == "l") 
+      style -c blue -pt 7; cat -all -g -m 9 16
+      style -c black
+    end
+    # plot Landolt
+    if ("$KEY" == "L") 
+#      style -c red  -lw 2 -pt 3; cat -a 1 2 3 /data/elixir/srcdir/refs/stetson/stetsonBn.txt -m 9 18
+#      style -c blue -lw 2 -pt 3; cat -a 25 26 8 /data/elixir/srcdir/refs/landolt/new/Landolt92.fix -m 9 18
+      style -c red -lw 2 -pt 7; cat -a 1 2 3 /data/elixir/srcdir/refs/sdss/g_SDSS.dat -m 9 14
+#      style -c red -lw 2 -pt 3; cat -a 25 26 8 /data/elixir/srcdir/refs/landolt/new/Landolt92.hq -m 9 18
+#      style -c red -lw 2 -pt 3; cat -a 22 23 8 /data/elixir/srcdir/refs/landolt/new/Landolt92.unfix -m 9 18
+#      style -c blue -lw 2 -pt 7; cat -a 1 2 4 /data/elixir/srcdir/refs/landolt/extreme/extreme.match -m 0 20
+#      style -x 2 -c red -pt 7 ; cplot RA DEC
+      style -c black -lw 0
+    end
+
+    # list star measurements
+    if ("$KEY" == "m") 
+        $dR = $RAD/$ZOOM/300
+        if ($dR < 0.0005)
+	 $dR = 0.0005
+        end
+	gstar $R$KEY $D$KEY $dR -m
+    end
+
+    # plot mag residuals
+    if ("$KEY" == "R") 
+      echo "filter: "
+      cursor 1
+      clear -n 1 -s; lim 10 22 -0.2 0.2; clear; box
+      dmags $KEY\:rel - $KEY : $KEY -type 0
+      plot -x 2 -pt 0 -sz 0.3 -c red yv xv
+      dmags $KEY\:rel - $KEY : $KEY -type 0 -flag 0 -nphot +3 -chisq 2.0
+      plot -x 2 -pt 2 -sz 0.5 -c black yv xv
+      $KEY = R
+      style -n 0
+    end
+
+    if ("$KEY" == "M") 
+	gstar $R$KEY $D$KEY 0.0005 -m
+    end
+    # list images
+    if ("$KEY" == "i") 
+	gimages $R$KEY $D$KEY
+    end
+    if ("$KEY" == "I") 
+	gimages $R$KEY $D$KEY -pix
+    end
+
+    #toggle images on / off
+    if ("$KEY" == "A")
+      $DRAWIMAGES = $DRAWIMAGES * -1
+      if ($DRAWIMAGES == 1)
+        images
+      end
+    end
+    # toggle stars on / off
+    if ("$KEY" == "S")
+      $DRAWSTARS = $DRAWSTARS * -1
+      if (($ZOOM > 20) && ($DRAWSTARS == 1))
+       style -pt 7
+       pmeasure -all -m $MAG {$MAG + $dMAG}
+      end
+    end
+    # turn grid on / off
+    if ("$KEY" == "g")
+      $DRAWGRID = $DRAWGRID * -1
+      if (($ZOOM > 20) && ($DRAWGRID==1))
+        style -c black; cgrid
+      end
+      if (($ZOOM > 20) && ($DRAWGRID==-1))
+        nav_redraw
+      end
+    end
+
+    # plot light-curve interactive
+    if ("$KEY" == "t")
+      style -n 1 -pt 2 -x 2
+      clear
+      if ($R$KEY < 0) 
+       $R$KEY = $R$KEY + 360
+      end
+      lcurve -l $R$KEY $D$KEY {30/3600} -d -v time mag
+      box
+      lcv
+      style -n 0
+    end
+    # plot light-curve 
+    if ("$KEY" == "T")
+      style -n 1 -pt 1 -c red -x 2
+      lcurve $R$KEY $D$KEY {30/3600} -d
+      style -c black
+      style -n 0 
+    end
+    # plot catalogs
+    if ("$KEY" == "c")
+      style -c blue; pcat; style -c black
+    end
+    # list catalogs
+    if ("$KEY" == "C")
+      gcat $R$KEY $D$KEY
+    end
+
+    # plot image chisqs
+    if ("$KEY" == "x") 
+       gcat $R$KEY $D$KEY
+       extract $CATNAME Xm -photcode R
+       extract $CATNAME ra
+       extract $CATNAME dec
+       style -x 2 -pt 7 -c blue
+       czplot ra dec Xm 3 30
+       style -c black -pt 1
+    end
+    # plot meas errors
+    if ("$KEY" == "X") 
+       gcat $R$KEY $D$KEY
+       extract $CATNAME dM -photcode R
+       extract $CATNAME ra
+       extract $CATNAME dec
+       style -x 2 -pt 7 -c red
+       czplot ra dec dM 0 30
+       style -c black -pt 1
+    end
+
+
+    # temp plot for skyprobe
+    if ("$KEY" == "u") 
+      imextract -region time
+      imextract -region mcal
+      imextract -region airmass
+      imextract -region nstar
+      vstat time
+      clear -n 1;
+      section a 0 0.00 1 0.33
+      lim {$MEDIAN-0.3} {$MEDIAN+0.3} -0.8 -0.5; box; plot time mcal
+      section b 0 0.33 1 0.33
+      lim {$MEDIAN-0.3} {$MEDIAN+0.3}  0.95 3.0; box; plot time airmass
+      section c 0 0.66 1 0.33
+      lim {$MEDIAN-0.3} {$MEDIAN+0.3} 0 3000; box; plot time nstar
+      style -n 0
+    end
+    if ("$KEY" == "s")
+      $tmp = $R$KEY
+      if ($tmp < 0) 
+        $tmp = $R$KEY + 360.0
+      end
+      $line = `echo $tmp $D$KEY | radec -hh`
+      imextract -region photcode
+      imextract -region time
+     
+      subset t = time if (int(photcode/100) == 1)
+      uniq t T
+      $Bn = t[]
+      $BN = T[]
+      
+      subset t = time if (int(photcode/100) == 2)
+      uniq t T
+      $Vn = t[]
+      $VN = T[]
+      
+      subset t = time if (int(photcode/100) == 3)
+      uniq t T
+      $Rn = t[]
+      $RN = T[]
+      
+      subset t = time if (int(photcode/100) == 4)
+      uniq t T
+      $In = t[]
+      $IN = T[]
+     
+      echo "$line  $Bn $BN  $Vn $VN  $Rn $RN  $In $IN"
+    end
+
+    if ("$KEY" == "p") 
+      echo "P - new coords; p - old coords"
+      cursor -g 1
+      exec echo $Rp $Dp $RP $DP >> fix.coords
+    end
+
+    if ("$KEY" == "y")
+      ccd I - 2MASS_J : 2MASS_J - 2MASS_K
+      lim -n 1 -1 10 -1 3; clear; box; plot -x 2 -pt 2 -sz 0.5 xv yv
+      dev -n 0 -g
+    end
+
+    #  User-defined macro
+    if ("$KEY" == "at")
+      user_macro
+    end
+
+    if ("$KEY" == "colon")
+      #make this work similar to ':' in vi or iraf
+      #does not work correctly now.
+      scan stdin line
+      $line
+    end
+
+  end
+end
+
+#define this so navigate doesn't crash if you try to call it.
+#If you define a user_macro, be sure to do so AFTER this in .dvorc.
+macro user_macro
+  #echo "success!"
+  $do_nothing=0
+end
+    
+
+macro nav_zoom
+  $ZOOM = $ZOOM * $1
+  nav_recenter
+  nav_redraw
+  $Rnum = $R$KEY		      
+  $Dnum = $D$KEY
+  $KEY = num
+end
+
+macro nav_recenter
+  region $R$KEY $D$KEY {$RAD/$ZOOM} sin
+  #assumes standard sky orientation!! (N up, E left)
+  $RMIN = $R$KEY + $XMIN
+  $RMAX = $R$KEY + $XMAX
+  $DMIN = $D$KEY + $YMIN
+  $DMAX = $D$KEY + $YMAX
+end
+
+macro nav_redraw
+  clear
+  if ($ZOOM <= 20) 
+    style -c red; cgrid
+  end
+  if (($ZOOM > 20) && ($DRAWGRID==1))
+    style -c black; cgrid
+  end
+  if (($ZOOM > 20) && ($DRAWSTARS == 1))
+    pmeasure -all -m $MAG {$MAG + $dMAG}
+  end    
+  style -c black
+  if ($DRAWIMAGES == 1)
+    images
+  end
+end
+
+
+
+#==================================================
+#=================   END BSNAV   ==================
+#==================================================
+
+
+macro sigclip
+  if ("$0" == "1")
+    echo ""
+    echo "sigclip <clipvector> <N_iterations> <N_sigma> [other vectors ..]"
+    echo ""
+  end
+
+  #required parameters
+  $CLIPVECT = $1
+  $NITERATE = $2
+  $NSIGCLIP = $3
+  
+  for i 0 $NITERATE
+    vstat -q $CLIPVECT
+    #clip boundaries
+    $top = $MEAN + ($NSIGCLIP*$SIGMA)
+    $bot = $MEAN - ($NSIGCLIP*$SIGMA)
+    
+    #clip it good.
+    subset temp = $CLIPVECT if (($CLIPVECT < $top) && ($CLIPVECT > $bot))
+    
+    #if you specify other vectors, clip the same elements from them too.
+    #they must all be the same length, of course!!
+    if ($0>4)
+      for j 4 $0
+        subset $$j = $$j if (($CLIPVECT < $top) && ($CLIPVECT > $bot))
+      end
+    end
+    
+    #copy temp back to $CLIPVECT and reiterate!
+    delete $CLIPVECT
+    concat temp $CLIPVECT  
+  end
+end
+
+
+macro binvec
+  if ("$0" == "1")
+    echo ""
+    echo "binvec <vec> <Nbins> [other vectors...]"
+    echo ""
+    echo "Bin the vector 'vec' into Nbin bins.  Listing other vectors will"
+    echo "put the corresponding elements of those into other vectors which"
+    echo "are the subset of the vector in that bin.  (That can probably be"
+    echo "stated better.)  This macro makes lots of new vectors.  Hooray!"
+    echo ""
+    echo "Creates"
+  end
+
+  #REQUIRED PARAMS
+  $binvect = $1
+  $NBINS   = $2
+
+  vstat -q $binvect
+  $step = ($MAX-$MIN)/$NBINS
+  $vmin = $MIN
+  $vmax = $MAX
+  delete -q $binvect\_bins
+  delete -q $binvect\_num
+  for i 1 {$NBINS+1}
+    $top = $vmin + ( $i   *$step)
+    $bot = $vmin + (($i-1)*$step)
+    #      sightly different behavior for last bin    -------v
+    if ($i != $NBINS)
+      subset temp = $binvect if (($binvect>=$bot)&&($binvect< $top))
+    else
+      subset temp = $binvect if (($binvect>=$bot)&&($binvect<=$top))
+    end
+    set $binvect\_bin$i = temp
+    set temp2 = temp
+    delete temp
+    #if you specify other vectors, grab the same elements from them too.
+    #they must all be the same length, of course!!
+
+    if ($0>3)
+      for j 3 $0
+        if ($i != $NBINS)
+          subset temp = $$j if (($binvect>=$bot)&&($binvect< $top))
+        else 
+          subset temp = $$j if (($binvect>=$bot)&&($binvect<=$top))
+        end
+        set $$j\_bin$i = temp
+        delete temp
+      end
+    end
+
+
+    concat {$bot+($step/2)} $binvect\_bins
+    concat temp2[] $binvect\_num
+    #dvo didn't like me saying 'concat $binvect\_bin$i[] $binvect\_num
+    delete temp2
+  end
+end
+
+macro binvec.2
+  if ("$0" == "1")
+    echo ""
+    echo "binvec.2 <vec> <min> <max> <binsize> [other vectors...]"
+    echo ""
+    echo ""
+    echo "see also 'binvec'"
+  end
+
+  #REQUIRED PARAMS
+  $binvect = $1
+  $vmin    = $2
+  $vmax    = $3
+  $step    = $4
+
+  $NBINS = ($MAX-$MIN)/$step
+
+  delete -q $binvect\_bins
+  delete -q $binvect\_num
+  for i 1 {$NBINS+1}
+    $top = $vmin + ( $i   *$step)
+    $bot = $vmin + (($i-1)*$step)
+    #      sightly different behavior for last bin    -------v
+    if ($i != $NBINS)
+      subset temp = $binvect if (($binvect>=$bot)&&($binvect< $top))
+    else
+      subset temp = $binvect if (($binvect>=$bot)&&($binvect<=$top))
+    end
+    set $binvect\_bin$i = temp
+    set temp2 = temp
+    delete temp
+    #if you specify other vectors, grab the same elements from them too.
+    #they must all be the same length, of course!!
+
+    if ($0>5)
+      for j 5 $0
+        if ($i != $NBINS)
+          subset temp = $$j if (($binvect>=$bot)&&($binvect< $top))
+        else 
+          subset temp = $$j if (($binvect>=$bot)&&($binvect<=$top))
+        end
+        set $$j\_bin$i = temp
+        delete temp
+      end
+    end
+
+
+    concat {$bot+($step/2)} $binvect\_bins
+    concat temp2[] $binvect\_num
+    #dvo didn't like me saying 'concat $binvect\_bin$i[] $binvect\_num
+    delete temp2
+  end
+end

@@ -1,0 +1,17 @@
+<pre>
+  fields (file) (header) [-X N] [-comment N line]
+
+  Add header entries to the given file.  The header information to be
+  inserted is read from the provided header file, which contains
+  abbreviated FITS header lines:  each line must consist of a keyword
+  and data value, following the FITS conventions, but lines are broken
+  with returns, and there are no required keys or minimum number of
+  lines.  By default, the primary header unit is used, but if the -X
+  flag is used, the Nth extension is used instead, where 0 corresponds
+  to the first extension after the PHU.  If the -comment option is
+  provided, the Nth comment is replaced with the provided line.  By
+  default, this function will search for blank lines and overwrite the
+  data in-situ.  However, if it is necessary to extend the header, a
+  new file will be written.
+
+</pre>

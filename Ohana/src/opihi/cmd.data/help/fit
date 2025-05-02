@@ -1,0 +1,15 @@
+
+   fit (-q) x y (order) (-dy wt) (-clip sig N)
+
+   perform a lease-square polynomial fit to the data defined 
+   by vectors x and y.  the coefficients are placed in the variables
+   $C0, $C1, ..., and the order is placed in $Cn.
+
+   order: order of fit
+   -q: quiets the fit (no output to window)
+   -dy: take into account the error vector wt
+   -clip: remove outliers beyond sig*sigma from the fit;
+           perform N iterations of this
+
+   See also: applyfit
+

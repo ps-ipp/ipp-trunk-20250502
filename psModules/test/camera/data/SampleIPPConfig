@@ -1,0 +1,45 @@
+### Example .ipprc file
+    PATH            STR     .
+    DATAPATH	str	datapath
+
+### Database configuration
+    DBSERVER	STR	localhost
+    DBUSER		STR	test
+    DBPASSWORD	STR	""
+    DBNAME          STR     test
+    DBPORT		S32	0
+
+### Setups for each camera system
+    CAMERAS		METADATA
+	CAMERA0		STR	camera0/camera.config
+	CAMERA1		STR	camera1/camera.config
+    END
+
+### Setups for psLib
+    TIME		STR	time.config
+    LOGLEVEL	S32	3
+    LOGFORMAT	STR	HLNM
+    LOGDEST	STR	STDOUT
+
+### Default trace logging initializations
+    TRACE		METADATA
+	dummyTraceFacility01	S32	1
+	dummyTraceFacility02	S32	2
+    END
+
+### Predefined recipe files
+    RECIPES         METADATA                # Site-level recipes
+        R00		STR	recipes/R00.config
+        R01		STR	recipes/R01.config
+        R02		STR	recipes/R02.config
+        R03		STR	recipes/R03.config
+    END
+
+### Misc arbitraty metadata
+    ARBITRARY_STRING_S32	S32	20
+    ARBITRARY_STRING_F32	F32	21.0
+    ARBITRARY_STRING_F64	F64	22.0
+    ARBITRARY_STRING_STR	STR	19.0
+    ARBITRARY_STRING_BOOL_T	BOOL	true
+    ARBITRARY_STRING_BOOL_F	BOOL	false
+

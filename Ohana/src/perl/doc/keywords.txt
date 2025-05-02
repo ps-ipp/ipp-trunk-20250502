@@ -1,0 +1,130 @@
+
+Elixir data products are modified by several programs, each of which
+needs to make certain additions or changes to the headers.  this is a
+summary of those programs and the relevant keywords.  These programs
+may also add COMMENT and HISTORY fields, but these are ignored.
+
+* basic master bias, flat, dark frames are created by 'imcombred'
+  and adjusted by 'normalize'.
+
+- 'imcombred' adds the following keywords:
+
+IMCMB_DT= 'FLIPS ver 2.0 - Elixir by CFHT - Tue Aug 12 2003 -  9:09:32' / Date 
+IMCMB_AL= 'SIGMA   '           / CCD or SIGMA clipping, Scaled or Weighted Diff
+IMCMB_CA= 'MEAN    '           / Combining algorithm on final stack            
+IMCMB_LS=                  3.5 / Lower threshold for clipping rejection        
+IMCMB_HS=                  3.5 / Lower threshold for clipping rejection        
+IMCMB_FT= 'MASTER_DETREND_SKYFLAT' / Stacked frame type                        
+IMCMB_OP= '1DYMODEL_OVERSCAN + COMPUTED_MODE_RESCALING' / Input operations     
+IMCMB_NI=                   16 / Number of input files                         
+IMCMB_DA=                    T / Dual amplifier A,B (IMCMB_XX list format)     
+IMCMB_IF= 'NAME BIAS_A MODE_A BIAS_B MODE_B' / Input file parameters           
+IMCMB_nn= '712143f.fits[ccd00] 1287 3204 1232 3266' / Input file stats         
+
+- 'normalize' adds the following keywords:
+
+FLATSCAL=         1.0642668848 /                                               
+TVSTART = '2000/1/1          ' / data validity start time
+TVSTOP  = '2001/1/1          ' / data validity start time
+ELCONF  = '03Bm01.flat.g.0   ' / Original Elixir config
+EL_SYS  = '2.0               ' / Elixir System Version
+EL_NRM  = '1.4               ' / Elixir Normalize Version
+REL_DATE= '2003-09-30T15:59:33' / UTC Release Date
+
+* scatter-corrected flats are created by 'fixscat'
+- 'fixscat' adds the following keywords:
+
+EL_SFILE= '02Bm05.scatter.g.36.00.fits' / Scattered Light Image Used
+EL_SVER = 'B.0               ' / Scatter Correction Version
+
+* scatter frames are created by 'mkscat'
+- 'mkscat' adds the following keywords:
+
+TVSTART = '2000/1/1          ' / data validity start time
+TVSTOP  = '2001/1/1          ' / data validity start time
+FILTER  = 'g                 ' / filter uxed for model
+EL_SYS  = '2.0               ' / Elixir System Version
+EL_SVER = 'B.0               ' / Scatter Correction Version
+VERSION = 'B.0               ' / Scatter Correction Version
+
+* master fringe frames are created by 'imcombred' and adjusted by
+  'fr.smooth'
+
+- imcombred adds the following keywords:
+
+IMCMB_DT= 'FLIPS ver 2.1 - Elixir by CFHT - Tue Sep 16 2003 - 14:00:18' / Date 
+IMCMB_AL= 'SIGMA   '           / CCD or SIGMA clipping, Scaled or Weighted Diff
+IMCMB_CA= 'MEDIAN  '           / Combining algorithm on final stack            
+IMCMB_LS=                  2.0 / Lower threshold for clipping rejection        
+IMCMB_HS=                  2.0 / Lower threshold for clipping rejection        
+IMCMB_FT= 'MASTER_DETREND_FRINGE' / Stacked frame type                         
+IMCMB_OP= 'MODE_OFFSETING + FRINGE_RESCALING' / Input operations               
+IMCMB_NI=                   31 / Number of input files                         
+IMCMB_DA=                    F / Dual amplifier A,B (IMCMB_XX list format)     
+IMCMB_IF= 'NAME BIAS MODE SCALING' / Input file parameters                     
+IMCMB_00= '714505o00.fits 0 2582 0.441' / Input file stats                     
+
+- fr.smooth adds the following keywords:
+
+FRNG_C0 =         0.0000000000 / Fringe Cross Correlation linear fit term
+FRNG_C1 =         0.7197280000 / Fringe Cross Correlation linear fit term
+FRNG_SKY=      2882.0000000000 / Fringe Frame sky level
+FRNG_RNG=       -80.0000000000 / Fringe Frame fringe strength
+FRNG_REF= 'ccd13             ' / Fringe Cross Correlation reference chip
+FRNG_PTS= '2003A.frpts.i.36.00.fits' / Fringe Point File
+TVSTART = '2000/1/1          ' / data validity start time
+TVSTOP  = '2001/1/1          ' / data validity stop time
+EL_SYS  = '2.0               ' / Elixir System Version
+
+
+* processed science images are created by 'imred', defringed with
+  'imcombred', and keywords are updated with 'grab.keywords'
+
+- imred adds the following keywords:
+
+IMRED_DT= 'FLIPS ver 2.1 - Elixir by CFHT - Tue Sep 9 2003 - 12:29:37' / Date  
+IMRED_IF= '703406o.fits[ccd00]' / Input file to process by imred               
+IMRED_OF= '703406p00.fits'     / Output file resulting from the process by imre
+IMRED_OP= 'MASK_BP + OVERSCAN + BIAS + DARK_CURRENT + FLAT-FIELD' / Operation(s
+IMRED_MK= '2003A.mask.0.36.00.fits[ccd00]' / Mask of bad pixels (0/1) input fil
+IMRED_OV= '1DYMODEL_OVERSCAN'  / Type of overscan level correction             
+IMRED_BS= '03Am04n.bias.0.18.00.fits[ccd00]' / Bias frame input file           
+IMRED_DK= '03Am04n.dark.300.18.00.fits[ccd00]' / Dark frame input file         
+IMRED_DS=               1.0000 / Dark frame scaling factor                     
+IMRED_DB=                    T / Dark frame first corrected by bias frame      
+IMRED_FF= '03Am04n.flat.r.18.01.fits[ccd00]' / Flat-field frame input file     
+IMRED_NF=                    T / Normalized flat-field                         
+IMRED_SF=          1.009331465 / Output file dynamic stretching factor (BSCALe)
+
+- imcombred adds the following keywords:
+
+IMCMB_DT= 'FLIPS ver 2.1 - Elixir by CFHT - Tue Sep 9 2003 - 12:16:00' / Date  
+IMCMB_AL= 'SD      '           / CCD or SIGMA clipping, Scaled or Weighted Diff
+IMCMB_CA= 'SCALED_DIFFERENCE'  / Combining algorithm on final stack            
+IMCMB_LS=                  2.0 / Lower threshold for clipping rejection        
+IMCMB_HS=                  2.0 / Lower threshold for clipping rejection        
+IMCMB_FT= 'DEFRINGE_SCIENCE'   / Stacked frame type                            
+IMCMB_OP= 'MODE_OFFSETING + FRINGE_RESCALING' / Input operations               
+IMCMB_NI=                    2 / Number of input files                         
+IMCMB_DA=                    F / Dual amplifier A,B (IMCMB_XX list format)     
+IMCMB_IF= 'NAME BIAS MODE SCALING' / Input file parameters                     
+IMCMB_00= '703266p00.det 0 3808 1.000' / Input file stats                      
+IMCMB_01= '03Am04n.fringe.i.18.00.fits[ccd00] 0 4062 1.108' / Input file stats 
+
+- grab.keywords adds the following keywords:
+
+NASTRO  =                   49 / number of stars used for astrometry           
+CERROR  =         0.7334717934 / scatter in astrometry soln (arcsec)           
+PHOT_C  =               25.715 / Nightly zero point - actual                   
+PHOT_C0 =               25.743 / Nightly zero point - nominal                  
+PHOT_CS =                0.017 / Nightly zero point - scatter                  
+PHOT_NS =                    3 / Nightly zero point - N stars                  
+PHOT_NM =                    3 / Nightly zero point - N images                 
+PHOT_X  =                0.083 / Nightly zero point - color term               
+PHOT_K  =                -0.04 / Nightly zero point - airmass term             
+PHOT_C1 = 'r_SDSS            ' / Nightly zero point - color 1                  
+PHOT_C2 = 'i_SDSS            ' / Nightly zero point - color 2                  
+MAG_SAT =              13.8063 / approx saturation (mag)                       
+MAG_LIM =              23.2063 / approx completeness limit (mag)               
+DATEPROC= '2003-09-30T17:14:50' / Processing Date                                      
+EL_SYS  = '2.0                ' / Elixir System Version                               

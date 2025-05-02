@@ -1,0 +1,37 @@
+
+COMM | Kapa Function  	| libkapa file  | libkapa API 
+-----------------------------------------------------
+DBOX | LoadFrame      	| KapaWindow.c  | KapaBox
+ERSP | ErasePlots       | KapaWindow.c  | KapaClearPlots
+ERSS | EraseSections    | KapaWindow.c  | KapaClearSections
+ERSI | EraseImage       | KapaWindow.c  | KapaClearImage
+ERSC | EraseCurrentPlot | KapaWindow.c  | KapaClearCurrentPlot
+LSEC | ListSection    	| KapaWindow.c  | KapaGetSection
+PNGF | PNGit          	| KiiConvert.c  | KapaPNG
+PPMF | PPMit          	| KiiConvert.c  | KapaPPM
+PLOT | LoadObject     	| KapaWindow.c  | KapaPrepPlot
+SSEC | SetSection     	| KapaWindow.c  | KapaSelectSection
+LABL | LoadLabels     	| KapaWindow.c  | KapaSendLabel
+PTXT | LoadTextlines  	| KapaWindow.c  | KapaSendTextline
+FONT | SetFont        	| KapaWindow.c  | KapaSetFont
+SLIM | SetLimits      	| KapaWindow.c  | KapaSetLimits
+DSEC | DefineSection  	| KapaWindow.c  | KapaSetSection
+MSEC | MoveSection  	| KapaWindow.c  | KapaMoveSection
+CENT | Center           | KapaWindow.c  | KiiCenter
+QUIT | Quit           	| KiiOpen.c     | KiiClose
+NCUR | !ACTIVE_CURSOR 	| KiiCursor.c   | KiiCursorOff
+CURS | +ACTIVE_CURSOR 	| KiiCursor.c   | KiiCursorOn
+ERSO | EraseOverlay     | KiiOverlay.c  | KiiEraseOverlay
+JPEG | JPEGit24         | KiiConvert.c  | KiiJPEG
+LOAD | LoadOverlay      | KiiOverlay.c  | KiiLoadOverlay
+READ | LoadPicture      | KiiPicture.c  | KiiNewPicture1D
+READ | LoadPicture      | KiiPicture.c  | KiiNewPicture2D
+PSIT | PScommand      	| KiiConvert.c  | KiiPS
+RSIZ | Resize         	| KapaWindow.c  | KiiResize
+SAVE | SaveOverlay      | KiiOverlay.c  | KiiSaveOverlay
+CSVE | CSaveOverlay     | KiiOverlay.c  | KiiSaveOverlay
+SLIM | GetLimits      	| KapaWindow.c  | KapaGetLimits
+SSTY | SetGraphData	| KapaWindow.c 	| KapaSetGraphData
+GSTY | GetGraphData	| KapaWindow.c 	| KapaGetGraphData
+SIMD | SetImageData	| KapaWindow.c 	| KapaSetImageData
+GIMD | GetImageData	| KapaWindow.c 	| KapaGetImageData

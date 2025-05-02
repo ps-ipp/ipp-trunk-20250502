@@ -1,0 +1,6 @@
+AT_SETUP([[% table.namespace %]Init()])
+AT_KEYWORDS([[% table.namespace %]Init])
+
+AT_CHECK([init])
+
+AT_CLEANUP

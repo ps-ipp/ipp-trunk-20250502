@@ -1,0 +1,8 @@
+# place the target location here; last value is used
+# cfht values:
+ROOT = /Instruments/Elixir
+WWW  = /h/www/cfhti/Instruments/Elixir
+
+# kawelu values:
+ROOT = /eugene/idx
+WWW  = /var/www/kiawe/eugene/idx

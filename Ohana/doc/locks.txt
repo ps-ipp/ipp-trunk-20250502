@@ -1,0 +1,70 @@
+
+NFS locks & file locks in ohana / elixir
+
+There are three types of locks in use in the elixir system:
+
+SOFT, XCLD, HARD
+
+SOFT - a soft lock on a file prevents a xcld or hard lock on that
+       file,  but allows other soft locks to be set.  the soft lock
+       uses NFS locking and is ephmeral, vanishing if the holding
+       program ends, whether or not the program explicitly removes the
+       lock. 
+
+XCLD - an xcld lock on a file prevents all other locks: soft, xcld, or
+       hard; only one xcld lock may be active on a file at a time.
+       The xcld lock uses NFS locking is ephemeral, vanisihing when
+       the program exits.
+
+HARD - a hard lock on a file prevents all other locks: soft, xcld, or
+       hard; only one hard lock may be active on a file at a time.
+       The hard lock is sticky and will remain unless the program
+       actively removes the lock.  It is implemented by first setting
+       an XCLD lock in NFS and then creating a lock file (.file.lck)
+       which contains the work BUSY.  until this file is removed or
+       the contents changed, the lock remains.
+
+basic lock APIs:
+
+int setlockfile2 (char *filename, double timeout, int type, int *state)
+FILE *fsetlockfile (char *filename, double timeout, int type, int *state)
+
+setlockfile2 sets a lock of the requested type on the given file,
+  returning an open file descriptor to the file.  If the requested
+  lock is SOFT and the file does not exist, setlockfile2 returns -1
+  and sets the state to  LCK_EMPTY - the lock is not set.  In the case
+  of XCLD or HARD locks, if the file does not exist, it is created.
+  If the lock cannot be set immediately, setlockfile2 will block for
+  up to 'timeout' seconds, at which point it will return -1 and exit
+  with state LCK_TIMEOUT.  
+
+fsetlockfile behaves identically to setlockfile2, but generates and
+returns a stream associated with the open file descriptor.  An error
+will result in the return of (FILE *) NULL.
+
+int clearlockfile2 (char *filename, int fd, int type, int *state)
+int fclearlockfile (char *filename, FILE *f, int type, int *state)
+
+clearlockfile2 clears the lock associated with a file and file
+descriptor.  If the type is HARD, it will clear the associated hard
+lock file before removing the NFS level file lock.  If only the
+filename is passed to clearlockfile2, the NFS-level locks cannot be
+unset, but the hardlock will be unset.  this is useful if a program is
+known to then exit.
+
+fclearlockfile behaves identically to setlockfile2, but requires the
+associated stream, rather than the file descriptor.  
+
+
+-----
+
+
+int lock_catalog (Catalog *catalog, int lockmode)
+
+lock_catalog attempts to set a lock on the specified photometry
+catalog file.  If successful, the catalog file pointer is set to the
+beginning of the catalog and the function returns the value 1.  If the
+file is empty, the return value is 2.  This only indicates an error if
+the file pointer is NULL, which occurs if the requested locktype is
+SOFT. 
+

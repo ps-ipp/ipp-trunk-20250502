@@ -1,0 +1,9 @@
+AT_SETUP([[% table.namespace %]DropTable()])
+AT_KEYWORDS([[% table.namespace %]DropTable])
+
+# make sure the table is not there.
+AT_CHECK([dbsetup])
+AT_CHECK([droptable])
+AT_CHECK([dbcleanup])
+
+AT_CLEANUP

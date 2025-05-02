@@ -1,0 +1,24 @@
+# Sample Postage stamp request description file
+# This can be parsed by the program pstamp_request_file to build a PS1_PSTAMP_REQUEST binary table
+
+# First line of data is for the extension header
+# The order of keywords follows TABLE 6 of ICD
+#
+# Note that value for REQ_NAME may be overriden by a command line
+# argument to pstamp_request_create.
+# Blank and comment lines are ignored
+
+# REQ_NAME      EXTVER
+byskycell_test     1
+
+# subsequent lines define the rows in the table
+
+# If ROWNUM is set to zero, pstamp_request_file will set insert a value for each row beginning with 1
+# If a later input row reuses a value an error is preported
+
+# ID    |     ROI Specification                   |  JOB Specification | Images of interest specification
+# ROWNUM CENTER_X         CENTER_Y         WIDTH HEIGHT COORD_MASK JOB_TYPE OPTION_MASK PROJECT REQ_TYPE IMG_TYPE    ID   TESS_ID COMPONENT    LABEL  REQFILT MJD_MIN MJD_MAX | COMMENT
+#
+0        214.509667604725 52.5181290488877 200    200      2        stamp       1        gpc1    byskycell warp      null   MD07   skycell.044  null   i.00000   54938  54939   |i filter
+0        214.509667604725 52.5181290488877 200    200      2        stamp       1        gpc1    byskycell warp      null   MD07   skycell.044  null   r.00000   54950  54951   |r filter
+9        214.509667604725 52.5181290488877 200    200      2        stamp       1        gpc1    byskycell warp      null   MD07   skycell.044  MD07.200905.v1   g.00000   54979.451  54979.55   |g filter use label too

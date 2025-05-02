@@ -1,0 +1,9 @@
+#  Table with valid types and index-values
+#
+#psF32     psU16    psU32     psU64    psS8    psS16    psS32    psS64    psU8   psF64
+-10.05    2        4         8        0       -2        1       -8       5      -1.5
+ 1e-20     4        8         16       -1      -4       1       -16      0      -1.0
+2e-20     6        12        24       -2      -6        1       -24      5      -0.25
+3500.67   8        16        32       -3      -8        1      -32      75     1.75
+
+#

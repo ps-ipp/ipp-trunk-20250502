@@ -1,0 +1,138 @@
+
+FITS I/O APIs
+
+  - I/O to a binary FITS table
+  - one extension per file?
+  - no locking
+  - always read/write to/from matched structure
+  - user needs to supply idiosyncratic conversions
+
+  - basic APIs:
+    - fits_read_datatable_NAME
+    - fits_write_datatable_NAME
+    - fits_IO_convert_NAME
+    - fits_fread_datatable_NAME
+    - fits_fwrite_datatable_NAME
+
+FITS db APIs
+
+Basic Rules:
+
+  - All db files are Binary FITS tables
+  - There is only one extension per file
+  - The PHU contains basic information like status & date
+  - There is no data array for the PHU (NAXIS = 0)
+
+typedef struct {
+  FILE *f;
+  char *filename;
+  Header header;
+  FTable ftable;
+  int Nrows;
+  int Ncols;
+  int Nbyte;
+  int lockstate;
+  int lockreq;
+  NAME *data;
+} NAME_DB;
+
+NAME_DB *NAME_DB_Init (NAME_DB *db);
+
+  - 
+
+NAME_DB *NAME_DB_Load (char *filename, int lockreq);
+
+  - lock the database file
+  - load PHU
+  - load the header
+  - validate the EXTNAME
+  - validate the header
+  - load the data into ftable
+  - convert to memory format
+
+  * if SOFT & database file does not exist (file is empty), 
+    - return structure w/ 0 entries
+
+  * if HARD & database file does not exist (file is empty), 
+    - open, lock, return structure w/ 0 entries
+
+  * if database file cannot be locked
+    - return an error (NULL)
+
+  * if header does not validate: 
+    - unlock file
+    - return an error (NULL)
+
+NAME_DB *NAME_DB_Loadset (char *filename, int lockreq, int start, int Nrows);
+
+  - lock the database file
+  - load PHU
+  - load the header
+  - validate the EXTNAME
+  - validate the header
+  - load the data into vtable
+  - convert to memory format
+
+  * if database file does not exist (file is empty), 
+    - open, lock, return structure w/ 0 entries
+  * if requested entries don't exist
+    - unlock file
+    - return an error (NULL)
+
+NAME_DB *NAME_DB_Save ();
+
+  - if Nrows = 0, delete the file
+
+  - write PHU
+  - write header
+  - write ftable
+
+  - if vtable: 
+    - update 
+  - if ftable: 
+    - update 
+
+NAME_DB *NAME_DB_Saveset ();
+
+  - if Nrows = 0, delete the file
+
+  - write PHU
+  - write header
+  - write ftable
+
+  - if vtable: 
+    - update 
+  - if ftable: 
+    - update 
+
+NAME_DB *NAME_DB_Free ();
+
+  - unlock file
+
+
+---
+
+DVO tables
+
+I am converting all DVO tables to have an internal representation of
+the table with the necessary precision (ie, double for RA & DEC, etc),
+and a set of external representations in which the precision and
+available columns are truncated to fit a specific representation.  the
+autocode tables then include the internal name (ie, measure.d) and the
+external versions (ie, measure-elixir.d, etc).  
+
+To pursue this, I have modifed the definion of measure.d to replace,
+eg, dR with dR_PS.  I am now compiling all of ohana and looking for
+places where the new name is needed in the code, stopping the
+compilation.  (In the process, I am being forced to clean up the
+relphot - at least - coding problems: unused variables, undeclared
+functions, etc).  After I have made the changes, I will search for all
+instances of dR_PS and return them to their original.
+
+The only things to watch for in this process are units for the
+values.  In the older code, the value of measure.dR was interpreted as
+1/100th of an arcsec.  Everywhere this was the interpretation must be
+changed to make the value represent 1 arcsec.  This will also be an
+issue for the internal magnitude representations, which all use
+millimags...
+

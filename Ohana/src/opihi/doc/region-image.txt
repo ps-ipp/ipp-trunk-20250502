@@ -1,0 +1,13 @@
+
+I have done some work on getting region to use the image projection
+for the dvo display.  The pieces are almost there, except:
+
+* there is apparently a small offset between the two systems?
+
+* SelectRegions relies on the values of xmax and ymax being degrees
+  from a 0,0 coordinate.  this is a little tricky: this should not
+  fail for large AITOFF projections.
+
+* kapa does not do non-linear projections
+* kapa does not do multi-level projections
+

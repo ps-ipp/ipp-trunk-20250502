@@ -1,0 +1,3 @@
+SELECT
+    chipProcessedImfile.*
+FROM chipProcessedImfile

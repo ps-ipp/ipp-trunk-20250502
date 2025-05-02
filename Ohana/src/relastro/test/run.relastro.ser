@@ -1,0 +1,44 @@
+#!/bin/csh -f
+
+set REALRUN = 1
+
+if ($REALRUN) then
+  alias GO 'echo === \!* ===; \!*; if ($status) exit 2'
+else
+  alias GO 'echo === \!* ==='
+endif
+
+set catdir = "catdir.ser.i0"
+set region = "-region 320 340 -10 10"
+
+set threads = "-threads 4"
+# set threads = ""
+
+set options = ""
+set options = "$options -v"
+set options = "$options -update"
+set options = "$options -photcode ICRF_S,ICRF_C,ICRF_X,ICRF_U,ICRF_K"
+set options = "$options -D RELASTRO_DPOS_MAX 120"
+set options = "$options -max-mean-offset 120"
+set options = "$options -D RELASTRO_SRC_MEAS_TOOFEW 3"
+set options = "$options  $threads"
+
+if (1) then
+  set mode = "-images -update-chips"
+  GO relastro -D CATDIR $catdir $region $options $mode
+endif
+
+if (1) then
+  set mode = "-update-offsets"
+  GO relastro -D CATDIR $catdir $region $options $mode
+endif
+
+if (1) then
+  set mode = "-update-objects -pmpar"
+  GO relastro -D CATDIR $catdir $region $options $mode
+endif
+
+if (1) then
+  set mode = "-images -update-chips -apply-offsets -pmpar"
+  GO relastro -D CATDIR $catdir $region $options $mode
+endif

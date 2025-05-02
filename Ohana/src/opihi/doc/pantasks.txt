@@ -1,0 +1,52 @@
+
+- task spawning speed
+
+  I have been examining things which affect the speed of the pantasks
+  processing. I have learned some interesting things:
+
+  * pcontrol was being slammed with requests for status by pantasks.
+    this may account for Paul's controller hang-ups.  I have added a
+    long (500ms) sleep to the controller thread to limit the rate at
+    which controller checks are run
+
+  * adding even a small usleep to the task_thread or job_thread puts
+    them to sleep for a long time (>> 10ms).  it seems longer than the
+    linux time slicer.  I have removed sleeps from the task and job
+    threads.
+
+  * the job submit rate is apparently limited by two things:
+
+    * when the job is submitted (SubmitJob) the interaction with
+      the controller seems to take ~30ms or more.
+
+    * some thread (controller thread? main readline thread?) seems to
+      introduce timeouts which are very long (up to 100ms).  These
+      introduce bit delays if when they happen during the task_thread
+      loop. 
+
+- updates for queues:
+
+  -key 1:2:4 (key is string with possibly multiple columns joined)
+  string function to drop first word
+
+
+- todo:
+
+  - create the processing threads:
+    - check tasks
+    - check jobs
+    - check controller  
+    - load inputs
+
+- additional issues:
+  - server input needs to place files for input on a stack which is 
+    actually loaded by the RunScheduler loop
+  - have the client run a special multicommand function which passes 
+    any unfound commands along to the server.  the server should not 
+    be running multicommand, but it probably does not hurt.
+    (the client is not allowed to send ';' to the server)
+
+  - pantasks input: this passes an 'input' command to the server, which
+    performs the input in a different thread.  is this the same thread
+    as the scheduler loop?  another option within the scheduler loop?
+

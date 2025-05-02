@@ -1,0 +1,72 @@
+
+hi christian,
+
+The path you need depends on the machine type, either:
+
+/h/eugene/src/ohana/bin/linux  or  /h/eugene/src/ohana/bin/sol
+
+(the linux version is usually a little more up to date, but both
+should work just fine for you). 
+
+you also need to copy the following files to you home directory:
+
+ ~dougados/.ptolemyrc
+ ~eugene/.statusrc
+
+The configuration scheme is much too complex to go into here, but
+basically, the first defines the location of certain data, and in this
+case, by choosing Catherine's .ptolemyrc file, you'll be looking at
+the Taurus data by default, instead of the archive analysis I've been
+running.  
+
+The second file defines various macros for you, in particular
+'ecliptic' and 'galactic', which draw the ecliptic and galactic
+planes.  
+
+start the program by running 'status'.  It is command-line driven, and
+has some limited help files.  type '?' to see a list of commands and
+'help' to get a list of help files.  
+
+I think most things you'd want to do, you can do.  In some cases the
+syntax can be a little cumbersome.  To get you started, here is a
+macro to generate a box from (10,20) to (15,25), with an offset.
+this could be more easily done by loading the reference coordinates
+from a file with the 'data (filename)' and 'read' commands.  I'll try
+to help you figure things out when you have had a chance to play with
+it a bit.
+
+gene
+
+the syntax for somr
+macro skybox
+ create ra 0 2
+ set ra = ra * 0
+ set dec = ra * 0
+ concat {10+$1} ra 
+ concat {15+$1} ra 
+	      
+ concat {15+$1} ra 
+ concat {15+$1} ra 
+	      
+ concat {15+$1} ra 
+ concat {10+$1} ra 
+	      
+ concat {10+$1} ra 
+ concat {10+$1} ra 
+
+ concat {20+$2}  dec
+ concat {20+$2}  dec
+       	       
+ concat {20+$2}  dec
+ concat {25+$2}  dec
+       	       
+ concat {25+$2}  dec
+ concat {25+$2}  dec
+       	       
+ concat {25+$2}  dec
+ concat {20+$2}  dec
+
+ style -x 2 -c red -lw 3 -pt 100
+ cplot ra dec
+end
+

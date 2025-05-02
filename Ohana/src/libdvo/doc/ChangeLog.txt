@@ -1,0 +1,20 @@
+
+- libdvo 1.3 : 2006.08.23
+  * converted to gfits APIs (forces libfits 1.6)
+  * unified DVO APIs
+  * fixed DVO API naming (dvo_catalog..., dvo_image...)
+  * fixes to polynomial conversions in coords.c
+  * less restrictive ctypes for polynomials (coords.c)
+  * fixes to dvo locking strategy
+
+- libdvo 1.2
+  * added PMTEST format
+  * added dvo_image_lock,unlock functions
+  * fixes to the skyregion support
+  * dropped _PS from average.R,D,M
+  * fixed bug in coord interpretation of CROTA2
+  * fixed reallocation logic in skyregions
+
+- libdvo 1.1
+  * added skyregion support functions and structures
+

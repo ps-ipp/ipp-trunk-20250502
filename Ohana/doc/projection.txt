@@ -1,0 +1,51 @@
+
+/* 
+here is some C code to project from R,D to x,y (all in decimal
+degrees) in a SIN projection, with Ro, Do as projection center:
+*/
+
+# define DEG_RAD 57.295779513082322
+# define RAD_DEG  0.017453292519943
+
+project (double *x, double *y, double R, double D, double Ro, double Do) {
+
+  double sdp, cdp, salp, calp, sdel, cdel, stht, sphi, cphi;
+		 
+  sdp  = sin(RAD_DEG*Do);
+  cdp  = cos(RAD_DEG*Do);
+  salp = sin(RAD_DEG*(ra - Ro));
+  calp = cos(RAD_DEG*(ra - Ro));
+  sdel = sin(RAD_DEG*dec);
+  cdel = cos(RAD_DEG*dec);
+  
+  stht = sdel*sdp + cdel*cdp*calp;    /* sin(theta) */
+  sphi = cdel*salp;                   /* = cos(theta)*sin(phi) */
+  cphi = cdel*sdp*calp - sdel*cdp;    /* = cos(theta)*cos(phi) */
+  if (stht < 0) { return 0; /* projection from the wrong side of the sphere */ }
+  
+  X =  DEG_RAD * sphi;
+  Y = -DEG_RAD * cphi;
+  
+# if (0) 
+  
+  /* 
+     these lines allow for a rotation / distortion 2x2 matrix (pci_j),
+     a (two direction) plate-scale shift (cdelt1, cdelt2), 
+     and a reference center offset of Xo, Yo, if desired. 
+  */
+
+  tmp_d = 1.0 / (pc_1_1*pc_2_2 - pc_1_2*pc_2_1); 
+  *x = tmp_d * (pc_2_2*X - pc_1_2*Y) / cdelt1 + Xo;
+  *y = tmp_d * (pc_1_1*Y - pc_2_1*X) / cdelt2 + Yo;
+
+# else
+
+  *x = X;
+  *y = Y;
+  
+# endif
+
+
+  return (1);
+
+}

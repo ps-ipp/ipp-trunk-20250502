@@ -1,0 +1,690 @@
+#!/usr/bin/env perl
+
+# check usage
+if (@ARGV == 0) { &usage; }
+if ($ARGV[0] eq "help") { &usage; }
+
+@ARGV = elixir_config (@ARGV);
+
+if ($ARGV[0] eq "config") { &set_config; }
+if ($ARGV[0] eq "set")    { &set_entry; }
+if ($ARGV[0] eq "state")  { &state; }
+if ($ARGV[0] eq "update") { &update; }
+
+&load_state;
+   
+if ($ARGV[0] eq "imstats")   { &imstats_state ("imstats");     &save_state; &goodbye; }
+if ($ARGV[0] eq "ptolemy")   { &ptolemy_state ("ptolemy");     &save_state; &goodbye; }
+if ($ARGV[0] eq "standards") { &standards_state ("standards"); &save_state; &goodbye; }
+if ($ARGV[0] eq "validate")  { &validate_state ("validate");   &save_state; &goodbye; }
+
+&escape ("unknown command $ARGV[0]");
+
+############# change current run ##############
+sub set_config {
+    if (@ARGV != 3) { &escape ("USAGE: elixir.postrun config (camera) (run)"); }
+    
+    $camera = $ARGV[1];
+    $run    = $ARGV[2];
+
+    # set current run id:
+    system ("mkrun sys camera.postrun $camera");
+    if ($?) { &escape ("can't define camera: error in mkrun"); }
+    
+    # set current run id:
+    system ("mkrun sys runid.postrun $run");
+    if ($?) { &escape ("can't define run: error in mkrun"); }
+    
+    &goodbye;
+}
+
+##############
+sub state {
+    print STDOUT "CAMERA: $camera\n";
+    print STDOUT "RUNID:  $runid\n";
+    print STDOUT "RUNDIR: $rundir\n";
+
+    &load_state;
+    foreach $entry (@entry) {
+	printf STDERR "%-15s %-10s\n", $entry,  $state{$entry};
+    }
+    &goodbye;
+}
+
+##############
+sub load_state {
+    # db contains: (entry) (state)
+    open (FILE, $dbfile);
+    @list = <FILE>;
+    close (FILE);
+
+    # there should be one line for each possible entry in @entry
+    # if a line is missing, set it to init
+    # if a line is extra, kill it.
+
+    # look for invalid entries
+    foreach $line (@list) {
+	($entry, $state) = split (" ", $line);
+	if (! $def_state{$entry}) { next; }
+	$state{$entry} = $state;
+    }
+
+    # look for missing entries
+    foreach $entry (@entry) {
+	if (! $state{$entry}) { $state{$entry} = $def_state{$entry}; }
+    }
+}
+
+##############
+sub save_state {
+    open (FILE, ">$dbfile");
+    foreach $entry (@entry) {
+	print FILE "$entry $state{$entry}\n";
+    }
+    close (FILE);
+}
+   
+##############
+sub set_entry {
+
+    if (@ARGV != 3) { &escape ("USAGE: elixir.postrun set (entry) (value)"); }
+
+    $reset = $ARGV[1];
+    $value = $ARGV[2];
+    
+    &load_state;
+
+    if (! $state{$reset}) { &escape ("invalid entry $reset"); }
+
+    $state{$reset} = $value;
+    &save_state;
+    &goodbye;
+}
+
+##############
+sub update {
+    
+    &load_state;
+	   
+    foreach $entry (@entry) {
+	update_state ($entry);
+	printf STDERR "%-15s %-10s\n", $entry,  $state{$entry};
+    }
+
+    &save_state;
+    &goodbye;
+}
+
+##############
+sub update_state {
+    
+    my ($entry) = $_[0];
+    
+    if ($entry eq "camera")    { &camera_state    ($entry); }
+    if ($entry eq "imstats")   { &imstats_state   ($entry); }
+    if ($entry eq "mkdetrend") { &detrend_state   ($entry); }
+    if ($entry eq "mkfringe")  { &detrend_state   ($entry); }
+    if ($entry eq "ptolemy")   { &ptolemy_state   ($entry); }
+    if ($entry eq "standards") { &standards_state ($entry); }
+    if ($entry eq "validate")  { &validate_state  ($entry); }
+}
+
+##############
+sub ptolemy_state {
+    
+    my ($entry) = "ptolemy";
+    $current = $state{$entry};
+    if (! $current) { &escape ("error: ptolemy state not set?"); }
+    
+    $fifos  = `gconfig FIFOS`; chop $fifos;
+    $ptlist = "$datdir/$runid/$runid.ptlist";
+    $ptlog  = "$datdir/$runid/$runid.log";
+    
+    # if we can, run 'elixir complete'
+    if (($current eq "init") && ($state{"mkdetrend"} eq "done")) {
+	$state{$entry} = "running";
+	&save_state;
+
+	if (-e "$fifos/complete.pid") { 
+	    print STDERR "elixir (sex)complete already running? check pid file $fifos/complete.pid"; 
+	    &save_escape ($entry, "failed to start ptolemy"); 
+	}
+
+	if (! -d "$datdir/$runid") { mkdir ("$datdir/$runid", 0777); }
+	($tmp, $start, $stop) = split (" ", `mkrun run $runid`);
+	if ($?) { &save_escape ($entry, "error in RUNID $runid"); }
+	vsystem ("imsearch -type object -trange $start $stop -pt > $ptlist");
+	if ($?) { &save_escape ($entry, "error extracting images from db"); }
+ 	vsystem ("elixir -D mode sexcomplete $ptlist >& $ptlog &");
+
+	# wait for up to 10 seconds for $fifos/complete.pid to exist 
+	for ($Nwait = 0; ($Nwait < 30) && (! -e "$fifos/complete.pid"); $Nwait ++) { sleep 2; }
+
+
+	if (! -e "$fifos/complete.pid") { &save_escape ($entry, "failed to start elixir (sex)complete"); }
+    }
+
+    # has 'elixir complete' finished? successfully?
+    if ($current eq "running") {
+	if (-e "$fifos/complete.end") {
+	    $answer = `wc -l $fifos/complete.success`;
+	    ($Nsuccess) = split (" ", $answer);
+	    $answer = `wc -l $fifos/complete.failure`;
+	    ($Nfailure) = split (" ", $answer);
+	    $answer = `wc -l $ptlist`;
+	    ($Ntotal) = split (" ", $answer);
+
+	    $state{$entry} = "fail";
+	    if ($Nsuccess > 0.8*$Ntotal) { 
+		$state{$entry} = "done"; 
+	    } else {
+		print STDERR "too many failures: $Nsuccess of $Ntotal\n";
+	    }
+	    if ($Nsuccess + $Nfailure > $Ntotal) { 
+		print STDERR "output list is inconsistent\n";
+		$state{$entry} = "fail"; 
+	    }
+	}
+	if ((! -e "$fifos/complete.end") && (! -e "$fifos/complete.pid")) {
+	    print STDERR "elixir complete killed?\n";
+	    $state{$entry} = "fail"; 
+	}
+    }
+}
+
+##############
+sub standards_state {
+
+    my ($entry) = "standards";
+    $current = $state{$entry};
+
+    print "entry: $entry\n";
+    print "current: $current\n";
+
+    if (! $current) { &escape ("error: standards state not set?"); }
+
+    # if elixir complete is done, add standards, run photometry routines
+    if (($current eq "init") && ($state{"ptolemy"} eq "done")) {
+	$state{$entry} = "running";
+	&save_state;
+
+	$refs = `gconfig REFSDIR`; chop $refs;
+	$stds = "$refs/standards";
+    
+	# insert standards in photometry database
+	foreach $filter (@filter) {
+	    @words = split (" ", `filtnames $filter -cal`);
+	    if ($words[1] == 0) { next; }
+	    $photref = $words[2];
+	    vsystem ("addstar -replace -v -ref $stds/$photref.dat -p $photref");
+	}
+
+	# cd to $rundir so photreport plots land there?
+	chdir $rundir;
+
+	# run elixir.photreport to generate plots (eg 02Ak03.B.time.png) and phot.reg files
+	vsystem ("elixir.photreport $runid $catdir");
+	if ($?) { goto standards_fail; }
+
+	# load lines from phot.reg files and execute:
+	@reglist = ();
+	foreach $filter (@filter) {
+	    $regfile = "$runid.$filter.phot.reg";
+	    open (FILE, $regfile);
+	    @list = <FILE>;
+	    close (FILE);
+	    @reglist = (@reglist, @list);
+	}
+	foreach $line (@reglist) {
+	    vsystem ($line);
+	}
+
+	# get date range for this run
+	$answer = `mkrun run $runid`;
+	($tmp, $start, $stop) = split (" ", $answer);
+	if ($start eq "") { &escape ("error with date range: $line"); }
+	if ($stop eq "") { &escape ("error with date range: $line"); }
+
+	# create transparency list, execute
+	vsystem ("mktrans $start $stop > $runid.trans.reg");
+	open (FILE, "$runid.trans.reg");
+	@list = <FILE>;
+	close (FILE);
+	foreach $line (@list) {
+	    vsystem ($line);
+	}
+
+	# create transparency report, execute
+	vsystem ("mktreport $start $stop > $runid.trans.txt");
+
+	$state{$entry} = "done";
+	&save_state;
+    }
+    return;
+
+  standards_fail:
+    $state{$entry} = "fail";
+    return;
+}
+
+##############
+sub camera_state {
+
+    # camera : 'pending' (date < start) 
+    # camera : 'on' (date in range start - stop) 
+    # camera : 'off' (date > stop) 
+
+    # transition on -> off : trigger message about mkdetrend 
+    
+    # get date range for this run
+    $answer = `mkrun run $runid`;
+    ($tmp, $start, $stop) = split (" ", $answer);
+    if ($start eq "") { &escape ("error with date range: $line"); }
+    if ($stop eq "") { &escape ("error with date range: $line"); }
+    $mjd_start = &date_to_mjd ($start);
+    $mjd_stop  = &date_to_mjd ($stop);
+    
+    # get current value of mjd
+    ($sec, $min, $hour, $mday, $mon, $year, $wday, $yday) = gmtime ();
+    $year += 1900;
+    $mon += 1;
+    $mjd_now = &get_mjd ($year, $mon, $mday);
+
+    # check appropriate state
+    $state = "on";
+    if ($mjd_now < $mjd_start) { $state = "pending"; }
+    if ($mjd_now > $mjd_stop)  { $state = "off"; }
+
+    # if we are at end of run, check that mkdetrend has been started
+    if (($state{"camera"} eq "on") && ($state eq "off")) {
+	if ($state{"mkdetrend"} eq "init") {
+	    &notify ("start mkdetrend");
+	}
+    }
+    $state{"camera"} = $state;
+}
+	       
+##############
+sub notify {
+    print STDERR "$_[0]\n";
+}
+
+##############
+sub validate_state {
+
+    my ($entry) = "validate";
+    $current = $state{$entry};
+    if (! $current) { &escape ("error: validate state not set?"); }
+
+    chdir $rundir;
+
+    # if elixir complete is done, add standards, run photometry routines
+    if (($current eq "init") && ($state{"standards"} eq "done")) {
+	$state{$entry} = "running";
+	&save_state;
+	
+	# find the first unused val file (run.val.N)
+	$ver = 1;
+	$outfile = "$rundir/$runid.val.$ver";
+	while (-e $outfile) {
+	    $ver ++;
+	    $outfile = "$rundir/$runid.val.$ver";
+	}
+
+	# run first pass
+	vsystem ("validate $runid > $outfile");
+	if ($?) { goto validate_fail; }
+
+	# check output results
+	print STDERR "validate $runid -stats -infile $outfile\n";
+	@result = `validate $runid -stats -infile $outfile`;
+	if ($?) { goto validate_fail; }
+	
+	system ("validate $runid -infile $outfile -update");
+
+	# order should be: run, valid, invalid, subvalid, dataerr
+	($value, $Nvalid) = split (" ", $result[1]);
+	if ($value ne "valid") { goto validate_fail; }
+	($value, $Ninvalid) = split (" ", $result[2]);
+	if ($value ne "invalid") { goto validate_fail; }
+	($value, $Nsubvalid) = split (" ", $result[3]);
+	if ($value ne "subvalid") { goto validate_fail; }
+	($value, $Ndataerr) = split (" ", $result[4]);
+	if ($value ne "dataerr") { goto validate_fail; }
+	
+	if ($invalid > 0) { goto validate_fail; }
+	if ($dataerr > 0) { goto validate_fail; }
+
+	# if we pass validation, run validate -update:
+
+	$state{$entry} = "done";
+    }
+
+    if ($current eq "fail") {
+
+	# recheck the last validation file (run.val.N)
+	$outfile = "";
+	$ver = 1;
+	$try = "$rundir/$runid.val.$ver";
+	while (-e $try) {
+	    $outfile = $try;
+	    $ver ++;
+	    $try = "$rundir/$runid.val.$ver";
+	}
+	if ($outfile eq "") { goto validate_fail; }
+
+	# check output results
+	print STDERR "validate $runid -stats -infile $outfile\n";
+	@result = `validate $runid -stats -infile $outfile`;
+	if ($?) { goto validate_fail; }
+	
+	system ("validate $runid -infile $outfile -update");
+
+	# order should be: run, valid, invalid, subvalid, dataerr
+	$Nvalid = $Ninvalid = $Nsubvalid = $Ndataerr = -1;
+	foreach $line (@result) {
+	    ($value, $Nvalue) = split (" ", $line);
+	    if ($value eq "valid")    { $Nvalid    = $Nvalue; }
+	    if ($value eq "invalid")  { $Ninvalid  = $Nvalue; }
+	    if ($value eq "subvalid") { $Nsubvalid = $Nvalue; }
+	    if ($value eq "dataerr")  { $Ndataerr  = $Nvalue; }
+	}
+	if ($Nvalid == -1)                        { goto validate_fail; }
+	if ($Nsubvalid == -1)                     { goto validate_fail; }
+	if (($Ninvalid == -1) || ($Ninvalid > 0)) { goto validate_fail; }
+	if (($Ndataerr == -1) || ($Ndataerr > 0)) { goto validate_fail; }
+
+	# if we pass validation, run validate -update:
+	$state{$entry} = "done";
+    }
+    return ;
+
+  validate_fail:
+    $state{$entry} = "fail";
+    return;
+}
+
+##############
+sub imstats_state {
+
+    my ($entry) = "imstats";
+    $current = $state{$entry};
+    if (! $current) { &escape ("error: imstats state not set?"); }
+    
+    $fifos  = `gconfig FIFOS`; chop $fifos;
+    $pid    = "$fifos/imstats.pid";
+    $end    = "$fifos/imstats.pid";
+    $ptlist = "$datdir/$runid/$runid.redo.list";
+    $ptlog  = "$datdir/$runid/$runid.redo.log";
+
+    # if we can, run 'elixir complete'
+    if (($current eq "init") && ($state{"camera"} eq "off")) {
+	$state{$entry} = "running";
+	&save_state;
+	
+	# check for currently running imstats
+	if (-e $pid) { 
+	    print STDERR "elixir imstats still running?\n"; 
+	    print STDERR "run 'elixir -C $camera -D mode imstats -kill' to stop\n";
+	    &save_escape ($entry, "failure on imstats");
+	}
+
+	# extract redo list, run processing
+	($tmp, $start, $stop) = split (" ", `mkrun run $runid`);
+	if ($?) { &save_escape ($entry, "error in RUNID $runid"); }
+	vsystem ("imsearch -trange $start $stop -proc f -pt > $ptlist");
+	if ($?) { &save_escape ($entry, "error extracting unprocessed data"); }
+	vsystem ("elixir -D mode imstats $ptlist >& $ptlog &");
+	
+	# wait for up to 10 seconds for $pid to exist 
+	for ($Nwait = 0; ($Nwait < 30) && (! -e "$pid"); $Nwait ++) { sleep 2; }
+	if (! -e "$pid") { &save_escape ($entry, "failed to start elixir imstats"); }
+    }
+
+    # has 'elixir complete' finished? successfully?
+    if ($current eq "running") {
+	if (-e "$fifos/imstats.end") {
+	    $answer = `wc -l $fifos/imstats.success`;
+	    ($Nsuccess) = split (" ", $answer);
+	    $answer = `wc -l $fifos/imstats.failure`;
+	    ($Nfailure) = split (" ", $answer);
+	    $answer = `wc -l $ptlist`;
+	    ($Ntotal) = split (" ", $answer);
+
+	    print "Ntotal: $Ntotal\n";
+	    print "Nsuccess: $Nsuccess\n";
+	    print "Nfailure: $Nfailure\n";
+
+	    if ($Nsuccess < 0.5*$Ntotal) { &save_escape ($entry, "too many failures: $Nsuccess of $Ntotal"); }
+	    if ($Nsuccess + $Nfailure > $Ntotal) { &save_escape ($entry, "output list is inconsistent"); }
+	    $state{$entry} = "done"; 
+	    &save_state;
+	    return;
+	}
+	if ((! -e "$fifos/imstats.end") && (! -e "$fifos/imstats.pid")) { &save_escape ($entry, "elixir complete killed?"); }
+    }
+}
+
+##############
+sub detrend_state {
+
+    # force sequencing (mkdetrend -> mkfringe):
+    if (($entry eq "mkfringe") && ($state{"mkdetrend"} ne "done")) {
+	$state{$entry} = "init";
+	return;
+    }
+
+    # mkdetrend & mkfringe determine run from their own references, 
+    # which can be overridden with the '-run RUNID' flag
+
+    # determine state from mkdetrend / mkfringe response
+    $entry = $_[0];
+    print STDERR "$entry state\n";
+    @list = `$entry state`;
+    print STDERR "@list\n";
+
+    # skip first 4 lines
+    shift @list; shift @list; shift @list; shift @list; shift @list;
+
+    $Ninit = $Nfail = $Ndone = $Nrun = $Nmiss = 0;
+    foreach $line (@list) {
+	# interesting values for state: 
+	# init, not.available, running.xxx, done, fail.xxx
+	@words = split (" ", $line);
+	if ($words[7] eq "not.available") { $Nmiss ++; }
+	if ($words[7] eq "init")          { $Ninit ++; }
+	if ($words[7] eq "done")          { $Ndone ++; }
+	if ($words[7] eq "clean")         { $Ndone ++; }
+	if ($words[7] =~ /^fail./)        { $Nfail ++; }
+	if ($words[7] =~ /^running./)     { $Nrun ++; }
+    }
+
+    $state = "running";
+    if ($Ninit > 0) { $state = "init"; }
+    if ($Nfail > 0) { $state = "fail"; }
+    if ($Nrun  > 0) { $state = "running"; }
+    if ($Ndone + $Nmiss == @list) { $state = "done"; }
+
+    # check for mkdetrend transition -> "done"
+    if (($entry eq "mkdetrend") && ($state{$entry} ne "done") && ($state eq "done")) {
+	&notify ("start mkfringe");
+    }
+
+    $state{$entry} = $state;
+}
+
+#######################################
+
+sub vsystem {
+    print STDERR "@_\n";
+    my($status) = system ("@_");
+    $status;
+}
+
+sub goodbye {
+    unlink $tmpenv;
+    if ($_[0]) {
+	print STDERR "@_\n";
+    }
+    exit 0;
+}
+
+sub escape { 
+    unlink $tmpenv;
+    print "$_[0]\n";
+    exit 1;
+}
+
+sub save_escape {
+    my ($entry) = $_[0];
+    my ($message) = $_[1];
+    $state{$entry} = "fail";
+    &save_state;
+    &escape ($message);
+}
+
+sub elixir_config {
+    my (@arg) = @_;
+    my ($opt, $config, @tmparg, $status);
+    $config = "";
+    if ($ENV{'PTOLEMY'}) { $config = "-c $ENV{'PTOLEMY'}"; }
+
+    # default values, override on command line
+    $runid  = `gconfig RUNID.POSTRUN`;  chop $runid;
+    $camera = `gconfig CAMERA.POSTRUN`; chop $camera;
+
+    # extract command line options
+    @tmparg = ();
+    while (@arg > 0) {
+	
+	# grab elixir/ptolemy config option -c 
+	if ($arg[0] eq "-c") {
+	    shift @arg;
+	    $config = "-c $arg[0]";
+	    shift @arg;
+	    next;
+	}
+	
+	# grab elixir/ptolemy config option -C 
+	if ($arg[0] eq "-C") {
+	    @opt = (@opt, $arg[0]);
+	    shift @arg;
+	    @opt = (@opt, $arg[0]);
+	    $elconf = $arg[0];
+	    shift @arg;
+	    next;
+	}
+	
+	# grab elixir/ptolemy config option -D
+	if ($arg[0] eq "-D") {
+	    @opt = (@opt, $arg[0]);
+	    shift @arg;
+	    @opt = (@opt, $arg[0]);
+	    shift @arg;
+	    @opt = (@opt, $arg[0]);
+	    shift @arg;
+	    next;
+	}
+	
+	# by default, $run is loaded from state.data file
+	if ($arg[0] eq "-run") {
+	    shift @arg;
+	    $runid = $arg[0];
+	    shift @arg;
+	    next;
+	}
+	
+	# by default, $camera is loaded from state.data file
+	if ($arg[0] eq "-camera") {
+	    shift @arg;
+	    $camera = $arg[0];
+	    shift @arg;
+	    next;
+	}
+	@tmparg = (@tmparg, $arg[0]);
+	shift @arg;
+    }
+
+    # create temporary ptolemy.rc file:
+    $catdir = `gconfig DB_STDS -D RUNID $runid -D CAMERA $camera`; chop $catdir;
+    @opt = (@opt, "-D CATDIR $catdir");
+    @opt = (@opt, "-D RUNID $runid");
+    @opt = (@opt, "-D CAMERA $camera");
+    @opt = (@opt, "-D RUNID.MKDETREND $runid");
+    @opt = (@opt, "-D CAMERA.MKDETREND $camera");
+    @opt = (@opt, "-D RUNID.MKFRINGE $runid");
+    @opt = (@opt, "-D CAMERA.MKFRINGE $camera");
+
+    $config = join (" ", $config, @opt);
+    $tmpenv = `mktemp /tmp/elixir.XXXXXX`; chop ($tmpenv);
+    $status = system ("gconfig -raw $config > $tmpenv");
+    if ($status) { &escape ("error in elixir configuration: gconfig fails"); }
+
+    $ENV{'PTOLEMY'} = "$tmpenv";
+
+    # global variables
+    # add this from the filter configuration system, eventually
+    @filter = split (" ", `filtnames list`);
+
+    @def_state = ("camera",    "off",
+		  "imstats",   "init",
+		  "mkdetrend", "init",
+		  "mkfringe",  "init", 
+		  "ptolemy",   "init", 
+		  "standards", "init", 
+		  "validate",  "init");
+    %def_state = @def_state;
+
+    # generate list of keys
+    @entry = ();
+    foreach $name (@def_state) {
+	push @entry, $name;
+	shift @def_state;
+    }
+
+    # global configuration variables
+    $datdir = `gconfig DATDIR`;  chop $datdir;
+    $rundir = "$datdir/$runid";
+    $dbfile = "$rundir/postrun.db";
+
+    if (! -d $rundir) { mkdir ($rundir, 0777); }
+
+    return (@tmparg);
+}
+
+sub set_globals {
+}    
+
+sub date_to_mjd {
+    my ($date) = $_[0];
+    my ($year, $month, $day, $mjd);
+
+    ($year, $month, $day) = $date =~ /(\d+)\/(\d+)\/(\d+)/;
+    $mjd = get_mjd ($year, $month, $day);
+
+    return ($mjd);
+}
+
+sub get_mjd {
+
+    my($year) = $_[0];
+    my($month) = $_[1];
+    my($day) = $_[2];
+
+    my($jd) = $day - 32075 + int (1461*($year + 4800 + int (($month - 14)/12))/4)
+	+ int(367*($month - 2 - int(($month - 14)/12)*12)/12)
+	    - int(3*int(($year + 4900 + int(($month - 14)/12))/100)/4) - 0.5 - 2400000.5;
+    
+
+    return ($jd);
+
+}
+
+sub usage {
+    
+    print STDERR "elixir.postrun (mode)\n";
+    print STDERR "  state  - show current states\n";
+    print STDERR "  update - update system states\n";
+    print STDERR "  set (entry) (value) - manually set a state\n";
+    &goodbye;
+}

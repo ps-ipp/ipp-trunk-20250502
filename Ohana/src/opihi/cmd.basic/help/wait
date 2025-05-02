@@ -1,0 +1,5 @@
+
+  wait [anything]
+
+  wait echos the rest of the line and waits for <return> to be typed.
+Very useful for pausing the processing of an input file or a macro.

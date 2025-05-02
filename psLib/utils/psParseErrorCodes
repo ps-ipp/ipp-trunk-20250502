@@ -1,0 +1,85 @@
+#!/usr/bin/env perl
+
+# Provides functions for handling long command line options
+use Getopt::Long;
+
+my $data;                       # Input data
+my $outdir = ".";               # Output directory
+
+# Assign variables based on the presence of command line options to the script
+GetOptions(
+           "data=s"   => \$data,
+           "outdir=s" => \$outdir,
+           "verbose"  => \$verbose,
+           "help"     => \$help
+           );
+
+if ($help
+    or not defined $data) {
+    print "Usage: parseErrorCodes ", "[--data=dataFile] ", "[--outdir=directory] ", "[--help] ",
+        "[--verbose] filename\n\n";
+    exit(0);
+}
+
+print "Using data file '$data'\n" if $verbose;
+unless ( open( DATAFILE, "<", $data ) ) {
+    die "Can not open data file $data.";
+}
+
+my @ErrorCodes        = ();
+my @ErrorDescriptions = ();
+
+print "Datafile:\n" if $verbose;
+while (<DATAFILE>) {
+    chop;
+    if (/^\s*\#/) {
+        print "C $_\n" if $verbose;
+    }
+    else {
+        if (/^\s*(\w+)\s+([\%\w].*)/) {
+            my $ErrorCode        = $1;
+            my $ErrorDescription = $2;
+            print "  $ErrorCode: '$ErrorDescription'\n" if $verbose;
+            push( @ErrorCodes,        $ErrorCode );
+            push( @ErrorDescriptions, $ErrorDescription );
+        } else {
+            print "I $_\n" if $verbose;
+        }
+    }
+}
+close(DATAFILE);
+
+my $found = $#ErrorCodes + 1;
+print "\nFound $found error codes.\n" if $verbose;
+
+foreach (@ARGV) {
+    my $filename = $_.".in";
+    m/\/?([\w\.]+)$/;
+    my $output = "$outdir/$1";
+
+    die "Failed to open input file '$filename'"
+      if !open( INFILE, "<", $filename );
+    die "Failed to open output file '$output'"
+      if !open( OUTFILE, ">", $output );
+
+    print "\nOutput File: $output\n" if $verbose;
+    while (<INFILE>) {
+        if (/\$\{ErrorCode}/ || /\$\{ErrorDescription}/ || /\$\{n}/) {
+            $line = $_;
+            for ( $n = 0 ; $n < $found ; $n++ ) {
+                $_ = $line;
+                s/\$\{ErrorCode}/$ErrorCodes[$n]/g;
+                s/\$\{ErrorDescription}/$ErrorDescriptions[$n]/g;
+                s/\$\{n}/$n/g;
+                print OUTFILE;
+                print if $verbose;
+            }
+        } else {
+            print OUTFILE;
+            print if $verbose;
+        }
+    }
+
+    close(INFILE);
+    close(OUTFILE);
+}

@@ -1,0 +1,55 @@
+#!/usr/bin/env perl
+
+# the specific CCD is specified on the command line
+
+if ((@ARGV != 3) && (@ARGV != 4)) { die "USAGE: ckdetrend (name) (ccd) (mode) [-fringe]\n" ;}
+
+$fringe = 0;
+if (@ARGV == 4) { $fringe = 1; }
+
+$name = $ARGV[0];
+$ccd  = $ARGV[1];
+$mode = "\U$ARGV[2]\E";
+
+if (($mode ne "SPLIT") && ($mode ne "MEF")) {
+    print STDERR "mode must be SPLIT or MEF\n";
+    exit (2);
+}
+
+if ($fringe) {
+    @type = ("fringe");
+} else {
+    @type = ("mask", "bias", "dark", "flat");
+}
+
+@missing = ();
+
+foreach $type (@type) {
+    if (vsystem ("detsearch -image $name $ccd $mode -type $type")) {
+	print STDERR "can't find $type\n";
+	@missing = (@missing, $type);
+    }
+}
+
+if (@missing) {
+    print STDOUT "$name fails, missing: @missing\n";
+    exit 1;
+} else {
+    print STDOUT "$name: pass\n";
+    exit 0;
+}
+
+# utilities ############################
+
+sub vsystem {
+    print STDERR "@_\n";
+    $status = system ("@_");
+    $status;
+}
+
+sub goodbye {
+    die "@_\n";
+}
+
+### this is no needed anymore - superceeded by detsearch -mosaic filename.fits -recipe
+

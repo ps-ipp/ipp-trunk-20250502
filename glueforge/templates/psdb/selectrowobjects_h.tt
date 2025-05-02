@@ -1,0 +1,12 @@
+/** Selects up to limit rows from the database and returns as [% table.object_name %] objects in a psArray
+ *
+ *  See psDBSelectRows() for documentation on the format of where.
+ *
+ * @return A psArray pointer or NULL on error
+ */
+
+psArray *[% table.namespace %]SelectRowObjects(
+    psDB            *dbh,               ///< Database handle
+    const psMetadata *where,            ///< Row match criteria
+    unsigned long long limit            ///< Maximum number of elements to return
+);

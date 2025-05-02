@@ -1,0 +1,63 @@
+
+problem:  imstatreg is too slow because of network I/O
+
+option 1: add mysql db to imstats system
+
+option 2: create client / server pair for imregister / imstatreg
+
+option 3: create buffer file for network I/O, local daemon for update
+
+1: best soln but will take a while
+2: ok option, but significant programming effort (worse than 1)
+3: easy programming, acceptable
+
+for imstatreg update, we need the only following data:
+
+obstime (unsigned int)
+ccd     (char or int)
+fwhm
+bias
+sky
+ra
+dec
+
+imstatreg -client:
+
+ read image info
+ load temp db
+ append data
+ close
+
+imstatreg -daemon:
+
+ load temp db
+ load main db
+ match images
+ update db
+ close db
+ empty temp db
+
+------------------------------------------------------
+
+detsearch needs optional alternative detrend.db paths
+
+- add column ALTPATH : true / false
+- add option -altpath :
+  - select images
+  - select ALTPATH images
+  - find subset 'add'
+  - find subset 'remove'
+  - 'remove': unlink files & unset ALTPATH
+  - 'add'   : copy files & set ALTPATH
+  
+
+if (ADD)    : all images in match are 'add', no images are 'delete'
+if (DELETE) : all images in match are 'delete', no images are 'add'
+if (UPDATE) : ??
+
+-----------------------------------------------------
+
+photreg / photsearch 
+
+- need to define the target photometry system in the output table.
+

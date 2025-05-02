@@ -1,0 +1,203 @@
+#!/usr/bin/perl
+
+# ftpsrequest
+
+# Creates a PS1 postage stamp request table using the FTOOLS program ftcreate.
+# The input file format is one line per row with columns described in the array columnsAndTypes given
+# below. 
+#
+# Note: The input format is the same as that used for the rows by the IPP program pstamp_request_file with
+# the exception that the comment is contained in the last column as a quoted string rather than by the |
+# character.
+
+# the option --print-sample may be used to print out an example of a line in an input file to stdout.
+#
+
+# The program ftcreate is part of the FTOOLS package which is described at http://heasarc.gsfc.nasa.gov/ftools
+# and in
+# Blackburn, J. K. 1995, in ASP Conf. Ser., Vol. 77, Astronomical Data Analysis Software and Systems IV, 
+# ed. R. A. Shaw, H. E. Payne, and J. J. E. Hayes (San Francisco: ASP), 367. 
+
+use strict;
+use warnings;
+
+# using a minimal number of perl modules for ease of portablity
+
+use File::Temp qw(tempfile);
+use Getopt::Long qw( GetOptions :config auto_help auto_version gnu_getopt );
+use Pod::Usage qw( pod2usage );
+
+# Array describing the columns in the request table and the order of the columns in the input file
+# third column is value for sample request. A stamp for an i band stack of the tadpole galaxy.
+my @columnsAndTypes = qw(
+        ROWNUM      J   1
+        CENTER_X    D   241.516417
+        CENTER_Y    D   55.425369
+        WIDTH       D   1000
+        HEIGHT      D   1000
+        COORD_MASK  J   2
+        JOB_TYPE    16A stamp
+        OPTION_MASK J   65
+        PROJECT     16A gpc1
+        SURVEY_NAME 16A 3PI
+        IPP_RELEASE 64A null
+        REQ_TYPE    16A bycoord
+        IMG_TYPE    16A stack
+        ID          16A null
+        TESS_ID     64A null
+        COMPONENT   64A null
+        DATA_GROUP  64A null
+        REQFILT     16A i
+        MJD_MIN     D   0
+        MJD_MAX     D   0
+        RUN_TYPE    16A null
+        FWHM_MIN    D   0
+        FWHM_MAX    D   0
+        COMMENT     64A tadpole_galaxy
+);
+
+
+my ( $input,			# Name of input text file
+     $output,			# Name of output table
+     $req_name, 
+     $print_sample,
+     $email, 
+     $clobber,
+     $help,
+     $verbose,
+     $save_temps,
+     );
+
+
+GetOptions(
+	   'input|i=s'      => \$input,
+	   'output|o=s'     => \$output,
+	   'req_name|r=s'   => \$req_name,
+	   'email=s'        => \$email,
+           'help'           => \$help,
+           'print-sample'   => \$print_sample,
+           'clobber'        => \$clobber,
+	   'save-temps'     => \$save_temps,
+	   'verbose'        => \$verbose,
+) or pod2usage( 2 );
+
+my $usageMessage = "$0: --input <input> --output <output> -req_name <request_name>";
+if ($help) {
+    # pod2usage( -msg => $usageMessage, -exitval => 0);
+    pod2usage( -exitval => 0);
+}
+if ($print_sample) {
+    printSample();
+}
+
+pod2usage ( -msg => "Required options: --input --output --req_name\n", -exitval => 1)
+    unless 
+        defined $input and
+        defined $output and
+        defined $req_name;
+
+
+system "which ftcreate >& /dev/null";
+if ($?){
+    die "Can't find required program ftcreate\n";
+}
+
+# temp files for header keyword file and column descriptor file
+my ($hfile, $hfilename) = tempfile( "/tmp/hfile.XXXX", UNLINK => !$save_temps, SUFFIX => '.txt');
+my ($cfile, $cfilename) = tempfile( "/tmp/cfile.XXXX", UNLINK => !$save_temps, SUFFIX => '.txt');
+
+# create the temp files
+makeHeaderFile($hfile, $req_name, $email);
+makeColumnDescriptorFile($cfile);
+
+# here is the command that builds the fits table
+my $cmd = "ftcreate extname=PS1_PS_REQUEST headfile=$hfilename $cfilename $input $output";
+$cmd .= ' clobber=yes' if $clobber;
+
+print STDERR "$cmd\n" if $verbose;
+
+my $rc = system $cmd;
+if ($rc) {
+    my $status = $rc >> 8;
+    die "ftcreate exited with $status ($rc)\n";
+}
+
+exit 0; 
+
+############################
+
+sub makeHeaderFile {
+    my ($hfile, $req_name, $email) = @_;
+
+    $email = 'null' if !defined $email;
+
+    print $hfile "EXTVER=2 / PSTAMP request format version\n";
+    print $hfile "ACTION=PROCESS\n";
+    print $hfile "REQ_NAME=$req_name / unique name for the postage stamp request\n";
+    print $hfile "EMAIL=$email\n";
+    close $hfile;
+}
+
+
+
+sub makeColumnDescriptorFile {
+    my $cfile = shift;
+
+    my $n = scalar @columnsAndTypes;
+
+    die "ERROR: number of columnsAndTypes must be multiple of 3\n" if $n % 3;
+
+    for (my $i = 0; $i < $n; $i += 3) {
+        print $cfile "$columnsAndTypes[$i]\t$columnsAndTypes[$i+1]\n";
+    }
+    close $cfile;
+}
+
+sub printSample {
+    # header line as a comment
+    print "#";
+    for (my $i = 0; $i < scalar @columnsAndTypes; $i += 3) {
+        print " $columnsAndTypes[$i]";
+    }
+    print "\n";
+
+    # sample values
+    my $i;
+    for ($i = 0; $i < scalar @columnsAndTypes - 3; $i += 3) {
+        print " $columnsAndTypes[$i+2]";
+    }
+    # last column is the COMMENT and it needs to be quoted
+    print " '$columnsAndTypes[$i+2]'";
+    print "\n";
+
+    exit 0;
+}
+
+__END__
+
+=pod
+
+=head1 NAME
+
+ftpsrequest - use ftcreate to create a postage stamp request fits table from a textual description
+
+=head1 SYNOPSIS
+
+  ftpsrequest --req_name <request name> --input <input text file> --output <output file name>
+
+    Options:
+        --req_name      REQ_NAME value for the fits header
+        --input         name of ASCII file giving the table values
+        --output        name of output fits table
+        --email         email address of user (optional)
+        --clobber       overwrite existing output file
+        --help          print usage message
+        --print-sample  print out an sample input text file
+
+=head1 NOTE
+
+  In order for ftpsrequest to succeed the ftools program ftcreate must be found in the users path.
+
+  FTOOLS are described at http://heasarc.gsfc.nasa.gov/ftools
+
+=cut

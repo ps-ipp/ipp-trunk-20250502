@@ -1,0 +1,13 @@
+
+The DVO locking policy is a little bit broken.  DVO currently
+(2009.08.10) requires that users have write access to files because
+the code does not distinguish well cases where read-only (soft locks)
+are used vs cases of read/write (hard locks) are needed.
+
+locks set in DVO:
+
+dvo_catalog_lock -- on catalog open & catalog create (all files for
+		    split mode)
+
+gfits_db_lock -- on photcode table read/write and dvo_image_lock
+

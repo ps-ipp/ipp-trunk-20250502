@@ -1,0 +1,276 @@
+#!/usr/bin/env perl
+
+### darks are currently disabled (look for dark detsearch and darkfactor)
+
+# grab the command line options
+$defringe = 0;
+$use_mask = 1;
+$fast = 0;
+$quiet = 0;
+$close = "";
+$config = "";
+$preserve = 0;
+@tARGV = ();
+for (; @ARGV > 0; ) {
+    if ($ARGV[0] eq "-C") {
+        $config = "$config -C $ARGV[1]";
+        shift; shift; next;
+    }
+    if ($ARGV[0] eq "-c") {
+        $config = "$config -c $ARGV[1]";
+        shift; shift; next;
+    }
+    if ($ARGV[0] eq "-D") {
+        $config = "$config -D $ARGV[1] $ARGV[2]";
+        shift; shift; shift; next;
+    }
+    if ($ARGV[0] eq "-preserve") {
+        $preserve = 1;
+        shift; next;
+    }
+    if ($ARGV[0] eq "-fast") {
+        $fast = 1;
+        shift; next;
+    }
+    if ($ARGV[0] eq "-quiet") {
+	$quiet = 1;
+        shift; next;
+    }
+    if ($ARGV[0] eq "-close") {
+	$close = "-close";
+        shift; next;
+    }
+    if ($ARGV[0] eq "-defringe") {
+	$defringe = 1;
+        shift; next;
+    }
+    if ($ARGV[0] eq "-nomask") {
+	$use_mask = 0;
+        shift; next;
+    }
+    @tARGV = (@tARGV, $ARGV[0]);
+    shift;
+}
+@ARGV = @tARGV;
+
+if (@ARGV != 4) { &usage; }
+
+# command line arguments
+$input  = $ARGV[0];
+$output = $ARGV[1];
+$ccd    = $ARGV[2];
+$mode   = uppercase ($ARGV[3]);
+
+$chipname = "-chipname";
+$infile = $input;
+if ($mode eq "MEF") { $infile = "$input\[$ccd]"; }
+if ($ccd eq "phu") {
+    $infile = "$input"; 
+    $ccd = "ccd00";
+    $chipname = "";
+}
+
+# remove old file if it exists
+if (-e $output) { unlink "$output"; }
+ckpathname ($output);
+
+# find the appropriate detrend images (need to fix output name for MEF - option?)
+$flat=`detsearch $config $chipname -quiet -image $input $ccd $mode -type flat $close`; chop ($flat);
+if ($?) { die "ERROR: can't get flat for image\n"; }
+
+if (!$fast) {
+    $bias=`detsearch $config $chipname -quiet -image $input $ccd $mode -type bias $close`; chop ($bias);
+    if ($?) { die "ERROR: can't get bias for image\n"; }
+
+#    $dark=`detsearch $config $chipname -quiet -image $input $ccd $mode -type dark $close`; chop ($dark);
+#    if ($?) { die "ERROR: can't get dark for image\n"; }
+}
+
+# find the appropriate mask image
+$mask = "none";
+if ($use_mask) {
+    $mask=`detsearch $config $chipname -quiet -image $input $ccd $mode -type mask $close`; chop ($mask);
+    if ($?) { die "ERROR: can't get mask for image\n"; }
+}
+
+# abstracted keywords
+$ccdkeyword  = `gconfig $config CCDNUM-KEYWORD`;    chop ($ccdkeyword);
+$darkword    = `gconfig $config DARKTIME-FUNCTION`; chop ($darkword);
+$exptimeword = `gconfig $config EXPTIME-KEYWORD`;   chop ($exptimeword);
+
+# find the appropriate fringe frame & coords file
+$fringe = "none";
+$frpts  = "none";
+if ($defringe) {
+
+    $filterword  = `gconfig $config FILTER-KEYWORD`;    chop ($filterword);
+
+    # check the FILTER and EXPTIME, include fringe correction?:
+    ($junk, $exptime, $filter) = `echo $input | fields $exptimeword $filterword`;
+    $filter = uppercase ($filter);
+
+    # recipe file defines detrend types & cutoff exptime values
+    $recipefile = `gconfig $config DETREND_RECIPES`; chop $recipefile;
+    ($detypes, $cutoffs) = split (" ", `gconfig -c $recipefile $filter`);
+    if ($?) { die "ERROR: failure to get detrend recipes\n"; }
+    @detypes = split (",", $detypes);
+    @cutoffs = split (",", $cutoffs);
+    
+    # check for DEFRINGE, DEMODE 
+    $defringe = 0;
+    for ($i = 0; $i < @detypes; $i++) {
+	if ($detypes[$i] eq "fringe") {
+	    if ($exptime >= $cutoffs[$i]) { $defringe = 1; }
+	    last;
+	}
+    }
+}
+
+if (! $fast && 0) {
+    # determine scale factor for dark image (use MEF rootname if EXTNAME is given)
+    $darkfile = $dark;
+    $darkfile =~ s|\[.*\]||;
+    ($junk, $t1) = split (" ", `echo $input    | fields $exptimeword`);
+    ($name, $t2) = split (" ", `echo $darkfile | fields $exptimeword`);
+    $darkfactor = `darktime.$darkword $t1 $t2`; chop ($darkfactor);
+    if ($?) { die "ERROR: failure to get darkfactor $t1 $t2\n"; }
+}
+
+# load FLIPS parameter file, fill in missing words:
+$paramfile = `gconfig $config FLIPS_PARAM_IMRED`; chop $paramfile;
+if ($?) { die "ERROR: missing FLIPS_PARAM_IMRED in config\n"; }
+open (FILE, "$paramfile");
+@params = <FILE>;
+close (FILE);
+
+foreach $line (@params) {
+    # input / output file names
+    $line =~ s|INFILE|$infile|;
+    $line =~ s|OUTFILE|$output|;
+    $line =~ s|COMMENT|Elixir / Flips2 flatten.flips|;
+
+    # overscan correction
+    $line =~ s|DOOVER|1|;
+
+    if ($fast) {
+	$line =~ s|DOBIAS|0|;
+	$line =~ s|DODARK|0|;
+    } else {
+	# bias corrections
+	$line =~ s|DOBIAS|1|;
+	$line =~ s|BIASNAME|$bias|;
+
+	# dark corrections - avoid for now
+	$line =~ s|DODARK|0|;
+#	$line =~ s|DODARK|1|;
+#	$line =~ s|DARK_FACT|$darkfactor|;
+#	$line =~ s|DARKNAME|$dark|;
+    }
+
+    # flat corrections
+    $line =~ s|DOFLAT|1|;
+    $line =~ s|FLATNAME|$flat|;
+
+    # mask corrections
+    if ($mask eq "none") {
+	$line =~ s|DOMASK|0|;
+    } else {
+	$line =~ s|DOMASK|1|;
+	$line =~ s|MASKNAME|$mask|;
+    }
+
+    # header blocks - we need an extra block for elixir keywords
+    $line =~ s|DOHEADER|1|;
+    $line =~ s|NBLOCKS|2|;
+}
+
+$temp = `mktemp /tmp/flatten.XXXXXX`; chop $temp;
+open (FILE, ">$temp");
+foreach $line (@params) {
+    print FILE "$line";
+}
+close (FILE);
+
+system ("imred $temp");
+$stat = $?;
+
+if ($preserve) { 
+    print STDERR "imred input file: $temp\n"; 
+} else {
+    unlink $temp; 
+}
+
+if ($stat) {
+    if (! $quiet) { print STDOUT "ERROR: failure running flatten.flips\n"; }
+    exit 1;
+}
+
+if ($defringe) {
+    system ("mv $output $output.det");
+    if ($?) { 
+	print STDERR "failure to save temporary output file\n";
+	exit 1;
+    }
+
+    system ("defringe.ccd -quiet $close $output.dat $output $ccd SPLIT");
+    if ($?) { 
+	print STDERR "failure in defringe\n";
+	$stat = 1;
+    }
+    unlink "$output.dat";
+}    
+
+if (! $quiet) {
+    if ($stat) { 
+	print STDOUT "ERROR: failure running flatten.flips\n"; 
+    } else {
+	print STDOUT "SUCCESS\n"; 
+    }
+}
+
+# always return 1, don't return just the exit status
+if ($stat) {
+    exit 1;
+} else {
+    exit 0;
+}
+
+sub vsystem {
+    print STDERR "@_\n";
+    $status = system ("@_");
+    $status;
+}
+
+sub goodbye {
+    die "@_\n";
+}
+
+sub usage {
+    print STDERR "USAGE: flatten.flips (input) (output) CCD MODE [-fast] [-close] [-quiet]\n";
+    exit 2;
+}
+
+sub uppercase {
+    return "\U$_[0]\E";
+}
+
+# given a filename, check that its path exists, create it if not
+sub ckpathname {
+    my ($file) = $_[0];
+    my (@words, $dir);
+
+    @words = split ("/", $file);
+    pop (@words);
+    $dir = join ("/", @words);
+
+    if ($dir eq "") { $dir = "."; }
+
+    if (! -d $dir) {
+	system ("mkdir -p $dir");
+	if ($?) {
+	    print STDERR "ERROR: can't make directory component for $file\n";
+	    exit 1;
+	}
+    }
+}
+

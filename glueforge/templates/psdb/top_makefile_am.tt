@@ -1,0 +1,30 @@
+SUBDIRS = src tests
+
+pkgconfigdir = $(libdir)/pkgconfig
+pkgconfig_DATA= [% pkg_name %].pc
+
+EXTRA_DIST = [% pkg_name %].pc.in Doxyfile.in
+
+if HAVE_DOXYGEN
+
+man_MANS = \
+    $(top_builddir)/docs/man/man3/[% pkg_name %].3 \
+[%- FOREACH table = tables %]
+[% IF NOT loop.last -%]
+    $(top_builddir)/docs/man/man3/[% table.object_name %].3 \
+[%- ELSE -%]
+    $(top_builddir)/docs/man/man3/[% table.object_name %].3 
+[% END -%]
+[% END %]
+
+docs/man/man3/[% pkg_name %].3
+[%- FOREACH table = tables -%]
+ docs/man/man3/[% table.object_name %].3
+[%- IF loop.last %]:[% END -%]
+[%- END %]
+	$(DOXYGEN)
+
+endif
+
+clean-local:
+	-rm -rf docs

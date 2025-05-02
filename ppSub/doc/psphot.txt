@@ -1,0 +1,36 @@
+
+Notes on psphot function calls within ppsub:
+
+we have these psphotReadout varients:
+
+* psphotReadout : ppImagePhotom.c, ppSimPhotom*, 
+* psphotReadoutFindPSF : used by ppSubMatchPSFs.c, ppSubMakePSF.c, pswarpLoop.c
+* psphotReadoutKnownSources : used by ppStackPhotometry.c 
+* psphotReadoutMinimal : used by ppSubReadoutPhotometry.c
+
+* psphotStackReadout : used only by psphotStack.c
+* psphotForcedReadout : used only by psphotForced.c
+* psphotMakePSFReadout : used only by psphotMakePSF.c
+
+psphotReadout:
+  * operates on pmFPAfile "PSPHOT.INPUT" -> convert to an input argument (filerule)
+  * expects a readout at the current view, populated with a image (can create mask and variance)
+  * XXX what about the headers?
+
+  * adds a photcode to readout->analysis
+  * creates a mask and optionally modifies the variance (NOTE!)
+  * if needed, generates PSPHOT.BACKMDL & PSPHOT.BACKMDL.STDEV pmFPAfiles (internal)
+  * optionally copies PSF model from PSPHOT.PSF.LOAD to PSPHOT.INPUT
+  * detetections / sources saved on readout->analysis as PSPHOT.DETECTIONS
+  * result psf goes on readout->analyss as PSPHOT.PSF
+  * detection efficiency data goes on readout->analyss as DETEFF
+  * copy input sources from PSPHOT.SOURCES.CMF & PSPHOT.SOURCES.TXT -> PSPHOT.DETECTIONS
+  * header data goes into PSPHOT.HEADER
+  * psf clump stuff goes on readout->analysis
+
+
+
+---
+
+in ppSubMatchPSFs.c : we call psphotReadoutFindPSF to measure the PSF using sources already loaded
+  (PPSUB.INPUT & PPSUB.REF)

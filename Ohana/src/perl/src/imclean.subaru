@@ -1,0 +1,52 @@
+#!/usr/bin/env perl
+
+sub vsystem {
+    print STDERR "@_\n";
+    $status = system ("@_");
+    $status;
+}
+
+sub goodbye {
+    print STDERR "ending execution\n";
+    die "@_";
+}
+
+if (@ARGV < 3) { 
+    print STDERR "ERROR: USAGE: USAGE: imclean.cfht (fits) (obj) (cmp) [option]\n";
+    print STDERR "  corrects for errors with CD1_1, CRPIX1 on 12k for 51400 < MJD < 51540\n";
+    print STDERR "  also determines and inserts the photcode for the image\n";
+    exit 2;
+}
+
+# input image must already be in SPLIT mode
+# determine the photcode of this image:
+$photcode=`photcode -quiet $ARGV[0] 0 split`;
+if ($?) {
+    print STDERR "ERROR: cannot find photcode\n";
+    exit 1;
+}
+chop ($photcode);
+
+# check if we need to correct the WCS terms
+$line = `echo $ARGV[0] | fields DET-ID`;
+chop ($line);
+($name, $id) = split (" ", $line);
+
+$cfix = "";
+if ($id == 0) { $cfix = "-key CRPIX1 %f 4000.0 -key CRPIX2 %f  5000.0"; }
+if ($id == 1) { $cfix = "-key CRPIX1 %f 4000.0 -key CRPIX2 %f  3000.0"; }
+if ($id == 2) { $cfix = "-key CRPIX1 %f    0.0 -key CRPIX2 %f  1000.0"; }
+if ($id == 3) { $cfix = "-key CRPIX1 %f    0.0 -key CRPIX2 %f -1000.0"; }
+if ($id == 4) { $cfix = "-key CRPIX1 %f 4000.0 -key CRPIX2 %f -1000.0"; }
+if ($id == 5) { $cfix = "-key CRPIX1 %f 4000.0 -key CRPIX2 %f  1000.0"; }
+if ($id == 6) { $cfix = "-key CRPIX1 %f    0.0 -key CRPIX2 %f  5000.0"; }
+if ($id == 7) { $cfix = "-key CRPIX1 %f    0.0 -key CRPIX2 %f  3000.0"; }
+if ($id == 8) { $cfix = "-key CRPIX1 %f    0.0 -key CRPIX2 %f -3000.0"; }
+if ($id == 9) { $cfix = "-key CRPIX1 %f 4000.0 -key CRPIX2 %f -3000.0"; }
+
+$fix = "-key PC001001 %f 1.0 -key PC001002 %f 0.0 -key PC002001 %f 0.0 -key PC002002 %f 1.0";
+
+vsystem ("imclean @ARGV -p $photcode $fix $cfix");
+
+exit 0;
+

@@ -1,0 +1,99 @@
+mosaic astrometry keywords
+
+terms to model:
+
+boresite + projection
+Ro, Do, Theta, PS
+CTYPE, CRVAL, CRPIX, CD1_1
+
+distortion 
+A(i,j), D(i,j)
+WLi_j
+WMi_j
+
+chips
+WXi_j
+WYi_j
+
+-- these are not general since they don't allow for more than 2 dimensions
+-- these have the advantage of specifying which terms are available (WX0_2 is unambiguously X term for L^0M^2)
+
+- load the astrometry from a table (not very efficient unless all chip
+  terms are in the same table, which is an option)
+
+X = \Sum (WX_i_j) L^i M^j
+Y = \Sum (WY_i_j) L^i M^j
+
+L = \Sum (WL_i_j) P^i Q^j
+M = \Sum (WM_i_j) P^i Q^j
+
+P,Q = proj (R,D)[CTYPE, CRVAL, CRPIX, CDi_j]
+
+      
+Implementing the mosaic astrometry information in Elixir systems vs IPP.
+
+Elixir uses libohana/coordops to handle all coordinate
+transformations.  The coordinate structure (Coords) is part of the
+DVO/Images.h structure.  I cannot add an additional set of entries to
+that structure without breaking old DVO or other elixir code.  It is
+also not strictly relevant since the Coords structure is used to
+define the transformation of a single chip (and is sufficient to carry
+those terms up to 3rd order).  
+
+For elixir, we will need a two stage process, with one stage
+transforming the celestial coords to the focal plane, with PLY terms
+and a second to represent the chip to FP transform, with a varient on
+PLY terms.  (we can't use PLY since those use a projection, while we
+want a transform that only corrsponds to an Nth order polynomial onto
+a plane.  We should call this transform WRP, with ctype PLN-WRP and
+terms:
+
+crval1,2 = L,M coordinates for reference pixel
+crpix1,2 = X,Y coordinates for reference pixel
+cdelt1,2 = plate scale (should be  1,1 by default)
+etc.
+
+A third order warp couple to a third order distortion leads to 6th
+order terms in general.  
+
+--
+
+My plan is now to allow the dvo image table to represent chips in a mosaic
+with either the current (per-chip) entry or an entry per chip coupled
+to an entry per mosaic.  The chip image entries would have astrometric
+terms of up-to third order which transform from chip to focal plane,
+coupled in turn to a mosaic entry in the table giving astrometry from
+focal plane to the sky.  The chip-to-fp entries would be identified
+with astrometry CTYPE value of "-WRP" and the fp-to-sky would have
+entries with CTYPE value of "-MOS". 
+
+- does this information go in the header of each *.smp file?  
+- does this require us to package all chips in a single MEF smp
+- package?
+- mosastro would create the astrometry terms (per-chip and
+- per-mosaic), where does it store them?
+- minimal impact on addstar?
+
+- what are the implications for dvo?
+  - image I/O functions need to know about the mosaic
+
+- how do we match a chip to a mosaic?
+  chip is unique based on time and photcode.
+  - we could require the mosaic photcode entries to have values of
+  PRI/SEC
+
+: mosastro should construct a PHU element 654321oXX.smp which contains
+  the mosaic astrometry terms
+
+: alternatively: each .smp file could have a collection of header
+  keywords which specify the mosaic astrometry terms.
+
+: alternatively again, the 
+
+: photcode for the mosaic entry is CAMERA.FILTER.XX
+: addstar would have to have access to this file for each chip
+: addstar should not create a new mosaic entry
+
+: how do we handle GetCoords (which needs to construct TWO coords
+  structures for output in the case of a mosaic?)
+

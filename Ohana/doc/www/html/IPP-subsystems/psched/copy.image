@@ -1,0 +1,19 @@
+#!/usr/bin/env perl
+
+if (@ARGV != 2) { die "USAGE: copy.image (filename) (chip)\n"; }
+
+$filename = $ARGV[0];
+$chip     = $ARGV[1];
+
+@word = split ("/", $filename);
+$base = $word[-1];
+$output = "/data/alala/swtests/psched/$base";
+
+open (FILE, ">$output");
+$host = `hostname`;
+printf FILE "chip $chip $host\n";
+close (FILE);
+
+printf STDOUT "$filename $chip\n";
+
+exit 0;

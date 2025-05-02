@@ -1,0 +1,12 @@
+#
+# This file is used to generate ppImageErrorClasses.h
+
+BASE = 5000		First value we use; lower values belong to psLib
+# these errors correspond to standard exit conditions
+ARGUMENTS               Incorrect arguments
+SYS                     System error
+CONFIG                  Problem in configure files
+PROG                    Programming error
+DATA                    invalid data
+UNKNOWN			unspecified error, not defined
+NO_PIXELS  		No good pixels in image

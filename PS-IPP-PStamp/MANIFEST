@@ -1,0 +1,6 @@
+Build.PL
+LICENSE
+MANIFEST
+lib/PS/IPP/PStamp.pm
+lib/PS/IPP/PStamp/Job.pm
+lib/PS/IPP/PStamp/RequestFile.pm

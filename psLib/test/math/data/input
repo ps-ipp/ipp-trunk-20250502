@@ -1,0 +1,9 @@
+
+macro go
+  rd A Agj.fits 
+  rd Bv Bgj.fits 
+  mget Bv B -y 0
+  set Ai = A
+  set Bi = B
+  gaussj A B
+end

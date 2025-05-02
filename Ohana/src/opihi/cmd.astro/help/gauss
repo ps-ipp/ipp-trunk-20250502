@@ -1,0 +1,15 @@
+
+   gauss Npix [Nspots] [-border N] [-sat cnts]
+
+   calculate statistics on stars, assuming a Gaussian profile.  The
+   user types a key on a star in the Kii window, and the resulting
+   information is printed on the screen.  This is really aperture
+   photometry.  Npix defines the aperture width (square aperture), the
+   optional -border defines the number of pixels in an annulus used to
+   find the background, -sat defines the value of a saturated pixel.
+   If the Nspots option is given, exactly Nspots stars are chosen.
+   Otherwise, the user may type on stars until the 'q' is typed.  The
+   results of the last star are stored the a set of Mana variables.
+
+   See also: star, cursor
+

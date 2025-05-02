@@ -1,0 +1,34 @@
+
+- imregister-1-5 : 2006.08.23
+  * converted to gfits APIs (forces libfits 1.6)
+
+- imregister-1-4:
+  * dropped IMAGE_CATALOG from config
+  * fixed imageID if not in header
+  * changed mkdirhier to updated version (libohana 1.7)
+
+- imregister-1-3:
+  * modifications to use the new DVO load functions (libdvo-1-0)
+  * minor changes to use new libohana (v1.5) / libfits (v1.4)
+
+- imregister-1-2:
+  * substantial changes to use autocoded tables
+  * reorgainzation of db I/F code to use fits_db functions
+
+- imregister-1-1:
+  * I made a lot of very minor changes to cleanup the FITS database
+  * interactions.  These should not have any impact on behavior.
+
+- imregister-1-0:
+  * I've added the newest versions of imregister to the CVS tree with the
+  * base tag imregister-1-0 (should have used imregister-3-0? still
+  * learning about revision control).  
+
+comment from before importing to CVS:
+  imregister-3.0 represents a completely new organization of these
+  programs, with the twin goals of making the FITS table handling more
+  cleanly encapsulated and of easing the addition of a mysql database
+  engine in place of the FITS tables.  As programs from imregister-1.0
+  are adapted to match this structure, they will be moved into the
+  imregister-3.0 directory.  
+

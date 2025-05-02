@@ -1,0 +1,95 @@
+
+This document discusses the Elixir / Ohana development environment.
+The Elixir Ohana components are now maintained under CVS for software
+version control.  This document discusses the motivations for this
+migration and the interaction between the developers and the CVS
+system.  It also discusses the use of the Elixir Bugzilla for problem
+reporting and feature requests.
+
+Background
+
+Previously, the Ohana system used RCS as its version control
+method. RCS is simple and easy, but has some disadvantages that make
+it difficult to use as the Elixir development continues forward in a
+wider context.  First, RCS is not network friendly: it is difficult to
+use when developers are located at different sites working on
+different timescales.  Second, it while it does a good job of tracking
+changes to individual files (revisions), it does a poor job of
+connecting those changes together across a larger software
+collection.  In particular, it does not have the ability to define a
+single collection of revisions of a group of files as a single
+software release.  CVS has been widely used for large software
+development projects and solves both of these problems well.
+
+Ohana Organization & Version Control
+
+The Ohana software system consists of many different libraries,
+programs, and scripts in perl, csh, and tcl.  These are all located in
+the Ohana source tree, with different components placed in different
+directories in the src directory.  For example, the Ohana FITS library
+package is located in the directory src/libfits, while the imclean
+program is in the src/imclean directory.  Some additional groups of
+programs are packaged together: The raw image / detrend image database
+tools and related programs are located together in the src/imregister
+directory, while a collection of small programs (consisting of
+individual C files) are located together in the src/misc directory.
+The scripts are grouped together in the src/shell, src/tcl, src/perl
+directories.  Until the introduction of CVS, only the imregister and
+misc collection of programs and the scripts were rigorously tracked
+under RCS.  The other packages were only tracked informally.  CVS
+allows us to use the existing RCS versions of these files, and
+continue the numbering sequence from where they left off.  In
+addition, CVS allows us to tag a snapshot of the revisions for an
+entire software collections with labels which can be used as
+identifiers within the software.  To this end, the software modules
+will be tagged when new releases of those packages are made.
+
+CVS Interactions: Development vs Release
+
+Elixir and Ohana are at a stage of development that it is necessary to
+separate the development and production software.  This has been done
+in the past by designating a developement directory tree
+(/data/elixir2/srcdir) and a binary distribution tree (/apps/elixir).
+Development could proceed within the srcdir tree, with software builds
+going to the local binary directories (srcdir/ohana/bin, etc).  These
+would not impact the production version of the software until the
+developer was ready to push the new version to the development tree.
+This method is sufficient when one or two developers work on the
+software and coordinate the distribution of the new software.  It does
+not allow multiple developers to work on new versions of the software
+without releasing that software until it is ready.  For example,
+consider two developers, jcc & eugene.  jcc is working on improving
+the astrometry tool, gastro, and has made some progres, but does not
+have a tested, working version yet.  Meanwhile, eugene has found and
+repaired a critical bug in the program imsearch.  In order for eugene
+to push the fix to the production version of the software, he would
+need to coordinate carefully with jcc.  jcc would need to remove the
+new version of gastro and replace it with the known working version
+for the moment when eugene pushes the new version of imsearch to the
+production system, then revert back.  
+
+Under the CVS system, each developer maintains their own version of
+the software tree.  So, for example, jcc would have a local copy
+(perhaps in his home directory) of the tree (or even a portion), while
+eugene would have a different version in his own location.  They can
+work and develop the code independently, publishing changes when
+needed to the repository (the details of these commands will be
+discussed later).  When the developer is satisfied with the changes to
+a packages (say, imclean) and feels it is ready for release to the
+public, he then labels the new release with an appropriate tag.  He
+then goes to the production version of the source tree (ie,
+/data/elixir2/srcdir) and checks out the labeled version.  He then
+compiles it and then pushes the changes to the production binary
+tree.  Note that the same is true of the configuration data saved in
+/data/elixir2/srcdir/config as well as the programs.  
+
+User Commands
+
+cvs co ohana (checkout the complete development tree)
+cvs update
+cvs commit
+cvs add
+cvs remove
+
+Bugzilla
+

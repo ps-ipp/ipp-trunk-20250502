@@ -1,0 +1,385 @@
+
+This article describes <tt>psched</tt>, the Pan-STARRS IPP task
+scheduler.
+
+<h3>Overview</h3>
+
+<p>
+The purpose of <tt>psched</tt> is to manage the automatic construction
+and execution of inter-related (often repetative) operations.
+<tt>Psched</tt> uses a set of rules to define UNIX commands, and
+their corresponding command-line arguments, to be performed on some
+regular, repeated basis.  The utility of <tt>psched</tt> is that it
+can easily define an analysis system which is completely
+state-based, as opposed to an event-driven system.  
+
+<p>
+Consider, for example, a telescope which obtains a collection of
+images over the course of a night.  Every minute or two, it takes an
+image and writes the image to some disk.  An event-driven analysis
+system would involve having the telescope initiate a process at the
+end of the exposure.  This process would perform an analysis, write
+some output, then send trigger another process.  This type of
+operation works very well for a simple set up with reliable
+hardware.  Such a system becomes more difficult to maintain when
+hardware failures occur or when multiple systems need to interact
+with each other.  When failures occur, the triggering information
+(the events) is easily lost, thus some mechanisms are needed to
+detect these failures and either re-send the trigger or send an
+alternative failure-mode trigger.  Or, if two systems need to
+interact, one or the other system must block for results from the
+first.  Stopping and restarting such an analysis system is very
+delicate since the appropriate triggers must be set up some how, eg
+by noticing which images have not succeeded and restarting them at
+the appropriate stage.  All of these types of methods of handling
+complexity and failures are essentially state-based rules.
+<tt>Psched</tt> allows the easy definition of a totally state-based
+analysis system.
+
+<p>
+In a state-based system, some mechanism examines the state of the
+system and decides which actions to perform based on the current
+state.  In the illustration above, the mechanism could examine the
+images available (either by examining the disk or by examining the
+state of a data table) and decide to perform an operation based on
+what images are available.  This makes it very easy to handle
+complexity and errors.  If an analysis fails, the state either is
+not successfully updated or the error state is recorded, both
+situations being easy to detect and easy to handle.  Restarting the
+system simply involves starting the state-monitoring mechanism.
+Combining results from multiple input sources simply involves
+watching for the multiple inputs to be available.  <tt>Psched</tt>
+provides a mechanism to define state monitors, and to define the
+actions which are performed when those states occur.
+<tt>Psched</tt> action consist of initiating UNIX commands, where
+the arguments of those commands may depend on the results of the
+state tests.
+
+<h3> Tasks vs Jobs </h3>
+
+<p>
+The primary function of <tt>psched</tt> is to repeatedly perform
+<b>tasks</b>, and execute <b>jobs</b> on the basis of those tasks.
+A task consists of a set of rules which describe system state tests
+to perform on a regular time scale.  Based on the results of those
+state tests, the task will then choose whether or not to construct a
+job.  The task also defines actions to perform upon the completion
+of a job, based upon the output and exit status of the job.  A task
+thus defines the repeat period.  It may optionally define valid or
+invalid time ranges (eg, Mon-Fri or 10:00-17:00, etc).  The task may
+also specify that the job be run locally (ie, in the background on
+the same computer as psched) or remotely by the parallel process
+controller (<tt>pcontrol</tt>).  A job may even be restricted to a
+specific computer managed by <tt>pcontrol</tt>.
+
+An example of a simple tasks is given below.  
+
+<pre>
+  task datalist
+    command ls /data/foo
+    periods -exec 5.0
+    periods -timeout 50.0
+    periods -poll 1.0
+
+    task.exit 0
+      queueprint stdout
+      queuedelete stdout
+    end
+ 
+    task.exit 1
+      queuepush failure "task failed"
+    end
+  end
+</pre>
+
+<p>
+This task does not perform any system state tests; it is simply
+constructs a new job every 5.0 seconds.  The job in this case is
+always the same: <tt> ls /data/foo </tt>.  When the job finished,
+if the job exit status is 0 (normal UNIX success status), the
+resulting output is printed to the screen.  If the job returns an
+exit status of 1 (a failure), the failure queue receives a single
+entry.  Although they are not defined in this case, it is also
+possible to specify the action to be taken if the job crashes (does
+not exit normally) or if it times out (runs beyond the specified
+timeout period).
+
+A slightly more complex task which performs a state test and
+constructs a command based on that test is shown below
+
+<pre>
+  task datalist
+    periods -exec 5.0
+    periods -timeout 50.0
+    periods -poll 1.0
+
+    task.exec 
+      $file = `next.file`
+      if ($file == "none")
+        break
+      end
+      command cp /data/foo/$file /data/bar
+    end
+
+    task.exit 0
+      queueprint stdout
+      queuedelete stdout
+      queuepush copied $file
+    end
+ 
+    task.exit 1
+      queuepush failure $file
+    end
+  end
+</pre>
+
+The <tt>task.exec</tt> macro is executed by psched every 5.0
+seconds.  This macro executes a (hypothetical user-defined) UNIX
+command (<tt>next.file</tt>) which examines the system state, return
+either a filename or the word "none".  If the result of this test is
+"none", the task does nothing: no job is constructed.  Otherwise, a
+job is constructed using the name of the file returned by the state
+test.  Successful jobs have the filename added to the 'copied'
+queue, while failed jobs add the filename to the 'failure' queue.
+
+<h3> Parallel vs Local Job Processing </h3>
+
+Job which are generated by psched tasks may either be run locally
+(forked in the background on the same machine as psched) or run on
+the IPP parallel process controller, <tt>pcontrol</tt>.  The default
+is for the job to be run locally.  If a job should be run on the
+parallel controller, this can be specified by including the command
+<tt>host (hostname)</tt> in the definition of a task.  If the value
+of (hostname) is 'anyhost', then pcontrol may select any of its host
+computers to run the job according to its own rules.  If the value
+of (hostname) is one of the computers managed by pcontrol, then that
+machine will be selected for the job, if it is available.  This
+amounts to a preference to use that machine, but pcontrol is allowed
+to substitute a different machine if it chooses.  If the
+<tt>host</tt> command is given the option <tt>-required</tt>, then
+pcontrol is forced to use the named host, even if the machine is
+down, unknown, or otherwise unavailable.  If the machine is not
+available, pcontrol will simply hold onto the job until the machine
+is available or the job is deleted.  Note that psched may delete
+jobs from pcontrol if they remain pending for too long (see
+<tt>period -timeout</tt>).  
+
+<p>
+It is possible to interact directly with the parallel processor to
+examine the current status, halt the parallel processor, etc.
+Commands to the parallel processor are defined under the
+<tt>controller</tt> command.  The following controller commands are
+available:
+
+<ul>
+  <li> <tt>controller host (command) (hostname)</tt>: Manage the
+  parallel controller collection of hosts.  This command can be used
+  to <tt>add</tt> a new host, the <tt>delete</tt> one of the existing
+  hosts, to turn a host <tt>on</tt> or <tt>off</tt>, and to
+  <tt>check</tt> the status of a host
+    <ul>
+      <li> <tt>controller host add (hostname)</tt>: add a new host.
+      <li> <tt>controller host delete (hostname)</tt>: delete a host.
+      <li> <tt>controller host on (hostname)</tt>: tell pcontrol that the host is on.
+      <li> <tt>controller host off (hostname)</tt>: tell pcontrol that the host is off.
+      <li> <tt>controller host retry (hostname)</tt>: tell pcontrol to retry the host connection.
+      <li> <tt>controller host check (hostname)</tt>: check the current status of a host.
+    </ul>
+  <li><tt>controller exit</tt>: stop controller execution.
+  <li><tt>controller status</tt>: report controller current status.
+  <li><tt>controller check</tt>: check job or host status.
+  <li><tt>controller output</tt>: print accumulated messages from the controller.
+</ul>
+
+It is also possible to specify a host for a task which has not been
+identified to the controller.  If such a host is required, the
+controller will simply keep the associated jobs in the pending state
+until such a machine exists.  See the <a href=../pcontrol>pcontrol</a>
+documentation for further discussion of the controller manipuation of
+jobs and hosts.
+
+<h3> Task Restrictions </h3>
+
+Tasks may have restrictions on when they create jobs and how
+frequently they create jobs.  The task command <tt>trange</tt> is
+used to specify a valid or invalid time range for a task.  A valid
+time range limits the task evaluation to that time period.  An
+invalid time range excludes task evaluation from the time period.
+Any number of time range restrictions may be defined, and the union
+of all restrictions will define if a job may be created.  By
+default, the time range is an inclusive time range: the task is
+evaluated only if the current time falls within the specified time
+range.  Alternatively, if the <tt>-exclude</tt> flag is given, the
+time range is exclusive, in which case the task is <em>not</em>
+evaluated if the current time falls within this range.
+
+<p>
+The time range may be given as a range of absolute dates as follows:
+
+<pre>
+trange YYYY/MM/DD,HH:MM:SS YYYY/MM/DD,HH:MM:SS 
+</pre>
+
+where the two dates specify the start and end of the time range.  In
+either of these date representations, the least-significant elements
+of the date and time may be dropped, defaulting to 00 (in the case
+of hours, minutes, and seconds) or 01 (in the case of day and
+months).  Rather than specifying an end date, it is also valid to
+specify a time interval from the starting date.  The time interval
+is specified as a number followed by a unit indicated by a single
+letter: d (days), h (hours), m (minutes), s (seconds).  
+
+<p>
+The time range may also be specified as a repeated period of time,
+either as a time of day or a day and time of week.  In the first
+case, the time range is specified as follows:
+
+<pre> 
+trange HH:MM:SS HH:MM:SS
+</pre>
+
+where again the least-significant elements may be dropped and
+default to 00.  This type of restriction defines a time range which
+is valid every day.  The alternative is to specify a time range
+within the week, in the following form:
+
+<pre>
+trange DAY@HH:MM:SS DAY@HH:MM:SS
+</pre>
+
+where the value of DAY may take on any of the three letter
+day-of-week names (Sun, Mon, Tue, etc).  This restriction specifies
+a start and end time within a week which is evaluated for each
+week. 
+
+<p>
+Below are several examples of valid time range restrictions
+
+<pre>
+trange 2005/01/01 2005/12/31   (only run during 2005!)
+trange 18:00 00:00             (only run from 6pm until midnight)
+trange 00:00 06:00             (only run from midnight until 6am)
+trange Mon@08:00 Fri@17:00     (only run between Mon morning and Fri afternoon)
+trange -exclude 12:00 13:00    (skip 1 hour from noon)
+</pre>
+
+<em>Note that the current definition of trange does not include time
+zone information.  This means that <b>all</b> times are relative to
+UT.  This should be addressed by adding a timezone environment
+variable to psched and by allowing the trange to define a timezone
+offset.</em>
+
+<p>
+It is also possible to restrict the total number of jobs which are
+spawned for a given task.  This is done with the <tt>nmax</tt>
+command, which is given as part of the task definition.  Once a task
+has constructed nmax jobs, it stops task evaluation.  It is possible
+to redefine the value of nmax at any time by redefining the task.
+Any time the task is redefined, the new values for any task concept
+will override the existing values for the task concept.  
+
+<h3> Inter-Task and Inter-Job Communications </h3>
+
+There are several ways in which the results of jobs may be used to
+influence other jobs.  These include:
+<ul>
+<li> external communications
+<li> job exit status
+<li> job stdout parsing
+</ul>
+
+<p>
+It is always possible for the interprocess communication to be
+performed externally: all jobs may simply write results to an
+external data source which is queried as part of the task
+evaluation.  Psched may interact with UNIX programs using Opihi
+system interaction functions.  These interaction methods include:
+the backticks for setting Opihi variables:
+
+<pre>
+$variable = `UNIX Command`
+</pre>
+
+The exec command (which executes a UNIX command) and the backticks
+both receive the UNIX command exit status, setting the variable
+$STATUS.  It is also possible to set a variable list to the output
+of a UNIX command:
+
+<pre>
+list var -x "UNIX Command"
+</pre>
+
+In this last case, the values $var:0 - $var:N-1 are set to the value
+of the stdout lines from the UNIX command, and the value $var:n is
+set to the number of output lines.
+
+<p>
+Fine-grained control over the job exit status is available with the
+<tt>task.exit</tt> macro command.  This allows a task to define an
+exit macro which is performed for different exit status conditions.
+The argument to the <tt>task.exit</tt> command is the exit status
+value which triggers the macro.  This may consist of any valid
+numeric exit status value (0-255).  It may also have the value
+<tt>crash</tt>, in which case the macro is executed if the program
+exited as a result of a signal (ie, segmentation fault, etc).
+Finally, if may have the value <tt>default</tt>, in which case, the
+macro is run if no other macro describes the exit status.
+
+<p>
+Jobs may transmit their results back to psched for further
+evaluation through the standard output and standard error streams.
+Whenever a job exits, the complete stdout and stderr streams from
+the job are pushed onto the psched queues <tt>stdout</tt> and
+<tt>stderr</tt>.  The job exit macros may then parse these queues,
+moving the results into other psched / Opihi data containers
+(queues, variables, vectors, whatever is appropriate).  <em>Note
+that currently, the output data is simply pushed onto these output
+queues.  It is currently the responsibility of the psched programmer
+to use or dispose of the data in these queues.  This may change in
+the future: the queues may be flushed for each job completion.</em>
+
+<h3>Running the scheduler</h3>
+
+Once a set of tasks has been defined, the scheduler can be started.
+The scheduler will run in the background, at regular intervals
+examining the collection of tasks and jobs.  In these periods, the
+scheduler attempts to construct new jobs and checks on the status of
+jobs which may have finished, either locally or on the controller.
+To start the scheduler, give the command <tt>run</tt>.  To stop the
+scheduler, given the command <tt>stop</tt>.  The current status of
+the scheduler, controller, and any jobs which have been spawned are
+listed with the <tt>status</tt> command.
+
+<p>
+It is also possible to kill or delete individual jobs by hand with
+the commands <tt>kill (jobID)</tt> or <tt>delete (jobID)</tt>.
+
+<h3>Other features</h3>
+
+The command <tt>verbose (mode)</tt> turns the verbosity of the
+scheduler operations on or off.
+
+It is possible to change the rate at which the scheduler checks the
+task and job lists with the command <tt>pulse (usec)</tt), which
+takes as an argument, the number of microseconds between timeouts.
+
+<h3>Command Summary</h3>
+
+<pre>
+controller                  -- controller commands
+task                        -- define a schedulable task
+host                        -- define host machine for a task
+nmax                        -- define maximum number of jobs for a task
+trange                      -- define valid/invalid time periods for a task
+task.exit                   -- define exit macros for a task
+task.exec                   -- define pre-exec macro for a task
+command                     -- define executed command for a task
+periods                     -- define time scales for a task
+run                         -- run the scheduler
+stop                        -- stop the scheduler
+pulse                       -- set the scheduler update period
+status                      -- get system status
+kill                        -- kill job
+delete                      -- delete job
+verbose                     -- set/toggle verbose mode
+</pre>

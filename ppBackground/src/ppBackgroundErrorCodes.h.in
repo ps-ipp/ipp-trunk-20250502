@@ -1,0 +1,18 @@
+#if !defined(PPBACKGROUND_ERROR_CODES_H)
+#define PPBACKGROUND_ERROR_CODES_H
+/*
+ * The line
+ *  PPBACKGROUND_ERR_$X{ErrorCode},
+ * (without the X)
+ *
+ * will be replaced by values from errorCodes.dat
+ */
+typedef enum {
+    PPBACKGROUND_ERR_BASE = 17000,
+    PPBACKGROUND_ERR_${ErrorCode},
+    PPBACKGROUND_ERR_NERROR
+} ppBackgroundErrorCode;
+
+void ppBackgroundErrorRegister(void);
+
+#endif

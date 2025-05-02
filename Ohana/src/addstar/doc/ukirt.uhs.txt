@@ -1,0 +1,22 @@
+
+  N -- field (column) number in CSV file (1 counting)
+  | UKIRT field name          : DVO measure field
+  1 sourceID                  : extID
+  3 frameSetID		      : imageID (assumes we do not try to go backwards for these photcodes)
+  4 ra			      : R
+  5 dec			      : D
+ 14 priOrSec		      : primary bit in dbFlags
+ 16 mergedClass		      : photFlags2
+ 17 pStar		      : psfChisq
+ 18 pGalaxy		      : extNsigma
+
+ 23 jHallMag		      : M
+ 24 jHallMagErr		      : dM
+ 27 jAperMag3		      : Map
+ 28 jAperMag3Err	      : dMap
+ 29 jAperMag4		      : Mkron
+ 30 jAperMag4Err	      : dMron
+ 35 jPA			      : posangle
+ 38 jClass		      : psfQF
+ 40 jppErrBits		      : photFlags
+ 41 jSeqNum                   : detID

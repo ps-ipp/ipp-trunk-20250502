@@ -1,0 +1,32 @@
+#!/bin/csh -f
+
+awk '\
+{Rh=substr($0,76,2)}\
+{Rm=substr($0,78,2)}\
+{Rs=substr($0,80,4)}\
+{Dd=substr($0,84,3)}\
+{Dm=substr($0,87,2)}\
+{Ds=substr($0,89,2)}\
+{Vm=substr($0,103,5)}\
+{BVm=substr($0,110,5)}\
+{UBm=substr($0,116,5)}\
+{RIm=substr($0,122,5)}\
+{uR=substr($0,149,6)}\
+{uD=substr($0,155,6)}\
+{trigplx=substr($0,161,1)}\
+{plx=0.0}\
+(trigplx!="D"){plx=substr($0,162,5)}\
+((plx ~ /[0-9]/) == 0){plx = "NaN"}\
+((BVm ~ /[0-9]/) == 0){BVm = "NaN"}\
+((UBm ~ /[0-9]/) == 0){UBm = "NaN"}\
+((RIm ~ /[0-9]/) == 0){RIm = "NaN"}\
+(Rh != "  "){printf "%4d %2s %2s %4s %3s %2s %2s | %6s %6s %5s | %5s %5s %5s %5s\n", NR, Rh, Rm, Rs, Dd, Dm, Ds, uR, uD, plx, Vm, UBm, BVm, RIm}'\
+yale_BSC_vizier > yale_BSC.base.txt
+
+awk '{print $2, $3, $4, $5, $6, $7}' yale_BSC.base.txt | radec -hms > yale_BSC.radec.txt
+
+#    "  1.29125000  45.22916667    1 00 05 09.9 +45 13 45 | -0.012 -0.018   NaN |  6.70 +0.07 +0.08   NaN$"
+echo "# RA (J2000)  DEC          seq RA (J2000) DEC       |  uR     uD      plx |  V     U-B   B-V   R-I" > yale_BSC.summary.txt
+
+paste yale_BSC.radec.txt yale_BSC.base.txt | tr '\t' '   ' >> yale_BSC.summary.txt
+

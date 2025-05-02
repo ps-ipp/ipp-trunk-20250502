@@ -1,0 +1,92 @@
+<meta name=file  content=imreg>
+<meta name=title content=imreg.db tools>
+<meta name=page  content=imreg>
+
+<h3> add information about gconfig variables used </h3>
+
+<table>
+<tr><td><b><tt> imregister (filename) [-split] [-noreg] [-v] [-needtype] [elixir options] </tt></b></td></tr>
+
+<tr><td> 
+
+Register an image in the imreg database.  The -split option tells
+imregister that a single CCD frame is one of multiple frames in a
+split image.  The -noreg option shows the processing information
+without updating the database table.  The -v turns on verbosity.  The
+-needtype requires the image type to be one of the known types to be
+registered.
+
+</tr></td> 
+
+<tr><td><b><tt> imsort (filename) [-split] [-noreg] [-v] [-needtype] [elixir options] </tt></b></td></tr>
+
+<tr><td> identical to 'imregister', but also send entries as
+appropriate to the imstats and ptolemy elixir fifos.  If -noreg is
+selected, the fifo entries are created without the imreg.db
+update. </tr></td>
+
+<tr><td><b><tt> showiminfo (filename) [-split] [-noreg] [-v] [elixir options] </tt></b></td></tr>
+
+<tr><td> list image information extracted from the header, as used to
+update imreg.  </tr></td>
+
+<tr><td><b><tt> imstatreg (fits) (stats) (sdat) [-split] [-noreg] [-v] [-needtype] [elixir options] </tt></b></td></tr>
+
+<tr><td> add image statistics (seeing, bias, sky) to the image entry
+in the imreg table.  The (fits) file need only contain the relevant
+header of the image (used to find the appropriate image in the table).
+The (stats) file consists of the values sky and bias for MEF and SPLIT
+images, while for other modes, there must be an addtional entry
+starting each line: CCD.  The meaning is undefined for SINGLE, and
+usually set to 0.  For CUBE it is the number of slices in the cube,
+while for SLICE, it is the slice entry.  </tr></td>
+
+<tr><td><b><tt> imstatreg -daemon [-v] [-status] [-kill] [-delay Nsec] [elixir options] </tt></b></td></tr>
+
+<tr><td> Start / Stop / Query the imstatreg daemon.  To facility the
+database I/O, imstatreg updates are written to a buffer table
+(imreg.reg.bfr), which is occasionally merged with the master table
+with the imstatreg daemon.The -delay option defines the frequency at
+which imstatreg -daemon updates the database table.  </tr></td>
+
+<tr><td><b><tt> imregtable (filename) [elixir options] </tt></b></td></tr>
+
+<tr><td> 
+merge the given imreg.db table with the current master table.
+</tr></td> 
+
+<tr><td><b><tt> imsearch </tt></b></td></tr>
+
+<tr><td> 
+search the imreg.db table for images, filterd by the options given in the arguments.  
+The table below lists all options to imsearch.
+
+<table>
+<tr><th colspan=2> options which limit the image selection </th></tr>
+<tr><td> [-type type]                 </td><td> limit by image type (BIAS, DARK, OBJECT, etc)         </tr></td> 
+<tr><td> [-mode mode] 		      </td><td> limit by image mode (SINGLE, SPLIT, MEF, CUBE, SLICE)	 </tr></td> 
+<tr><td> [-trange start stop/range]   </td><td> limit by date range (second argument may be an end date or a time range) </tr></td> 
+<tr><td> [-ccd name]		      </td><td> limit by CCD; use CCD ids, not sequence numbers (ccd00 not 00) </tr></td> 
+<tr><td> [-etime exptime] 	      </td><td> limit by exposure time (seconds)	 </tr></td> 
+<tr><td> [-filter name] 	      </td><td> limit by filter name	 </tr></td> 
+<tr><td> [-name string] 	      </td><td> limit by image name (matches substring of full image name) </tr></td> 
+<tr><td> [-proc t/f]		      </td><td> include only processed / unprocessed images (bias != 0)	 </tr></td> 
+<tr><td> [-dist t/f]		      </td><td> include only distributed images (table send to CADC)	 </tr></td> 
+<tr><td> </tr></td>
+				      	 	 	 
+<tr><th colspan=2> options which modify the output format </th></tr>
+<tr><td> [-treg] 		      </td><td> list the registered times, not exposure times </tr></td> 
+<tr><td> [-seq] 		      </td><td> print CCD sequence numbers, not IDs </tr></td> 
+<tr><td> [-pt] 			      </td><td> print the list in ptolemy input format </tr></td> 
+<tr><td> [-table] 		      </td><td> generate a complete ascii FITS table output </tr></td> 
+<tr><td> [-cadctable] 		      </td><td> generate the CADC raw table (one row per mosaic, includes mosaic IQ stats) </tr></td> 
+<tr><td> [-bintable]		      </td><td> generate a complete binary FITS table (can be used as new database) </tr></td> 
+
+<tr><th colspan=2> options which modify the database table </th></tr>
+<tr><td> [-delete] 		      </td><td> delete the selected images </tr></td> 
+<tr><td> [-modify (options)]	      </td><td> modify certain fields of the selected images </tr></td> 
+</table>
+
+</tr></td> 
+</table>
+

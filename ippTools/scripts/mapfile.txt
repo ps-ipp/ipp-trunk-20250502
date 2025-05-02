@@ -1,0 +1,19 @@
+warpSkyCellMap MULTI
+
+warpSkyCellMap METADATA
+    warp_id         S64     1
+    cam_id          S64     1
+    skycell_id      STR     foo1
+    tess_id         STR     bar
+    class_id        STR     quix1
+    fault           S16     0
+END
+
+warpSkyCellMap METADATA
+    warp_id         S64     1
+    cam_id          S64     1
+    skycell_id      STR     foo2
+    tess_id         STR     bar
+    class_id        STR     quix2
+    fault           S16     0
+END

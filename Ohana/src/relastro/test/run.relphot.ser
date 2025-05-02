@@ -1,0 +1,37 @@
+#!/bin/csh -f
+
+set REALRUN = 1
+
+if ($REALRUN) then
+  alias GO 'echo === \!* ===; \!*; if ($status) exit 2'
+else
+  alias GO 'echo === \!* ==='
+endif
+
+set catdir = "catdir.ser.i0"
+set region = "-region 320 340 -10 10"
+
+set threads = "-threads 4"
+set threads = ""
+
+set options = ""
+set options = "$options -v"
+set options = "$options -update"
+set options = "$options -D CAMERA gpc1"
+set options = "$options  $threads"
+
+if (1) then
+  set mode = "-images g,r,i,z,y"
+  GO relphot -D CATDIR $catdir $region $options $mode
+endif
+
+if (1) then
+  set mode = "-averages"
+  GO relphot -D CATDIR $catdir $region $options $mode
+endif
+
+if (1) then
+  set mode = "-apply-offsets g,r,i,z,y"
+  GO relphot -D CATDIR $catdir $region $options $mode
+endif
+

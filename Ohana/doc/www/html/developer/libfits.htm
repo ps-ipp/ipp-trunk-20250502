@@ -1,0 +1,116 @@
+<meta name=file  content=libfits>
+<meta name=title content=libfits>
+<meta name=page  content=libfits>
+
+<h3> FITS-related constants </h3>
+
+<pre>
+# define FT_TEXT_LENGTH          18  /* max length text header field */
+# define FT_MAX_NAXES            10  /* max number of axes */
+# define FT_FIELD_LENGTH          8  /* max length header field */   
+# define FT_COMMENT_LENGTH       47  /* max length comment field */
+# define FT_HISTORY_LENGTH       72  /* max length history / comment */
+# define FT_LINE_LENGTH          80  /* FITS header line length */
+# define FT_RECORD_SIZE        2880  /* FITS block size */
+</pre>
+
+<h3> misc FITS library functions </h3>
+
+<pre>
+char *fits_version ();
+</pre>
+
+<h3> FITS Header Manipulation functions </h3>
+
+<pre>
+int    fits_init_header (Header *header);
+int    fits_create_header (Header *header); 
+int    fits_copy_header (Header *in, Header *out); 
+
+int    fits_read_header (char *filename, Header *header);
+int    fits_write_header (char *filename, Header *header); 
+int    fits_save_header (FILE *f, Header *header);
+int    fits_load_header (FILE *f, Header *header);
+int    fits_fread_header (FILE *f, Header *header);
+void   fits_free_header (Header *header); 
+int    fits_fwrite_header (FILE *f, Header *header); 
+int    fits_read_Xheader (char *filename, Header *header, int N);
+char  *fits_header_field (Header *header, char *field, int N); 
+
+int    fits_modify (Header *header, char *field, char *mode, int N,...); 
+int    fits_print (Header *header, char *field, char *mode, int N,...); 
+int    fits_scan (Header *header, char *field, char *mode, int N,...);
+int    fits_vscan (Header *header, char *field, char *mode, int N, va_list argp);
+int    fits_delete (Header *header, char *field, int N); 
+char  *fits_keyword_end (char *line);
+int    fits_stripwhite (char *string);
+</pre>
+
+<h3> FITS Matrix (Image) Manipulation functions </h3>
+
+<pre>
+int    fits_create_matrix (Header *header, Matrix *); 
+int    fits_copy_matrix (Matrix *in, Matrix *out); 
+
+int    fits_read_matrix (char *filename, Matrix *matrix);      
+int    fits_write_matrix (char *filename, Matrix *matrix); 
+int    fits_fread_matrix (FILE *f, Matrix *matrix, Header *header);
+void   fits_free_matrix (Matrix *matrix); 
+int    fits_fwrite_matrix (FILE *f, Matrix *matrix);      
+int    fits_read_portion (char *filename, Matrix *matrix, int Nskip, int Npix);
+int    fits_read_segment (char *filename, Matrix *matrix, char *region);
+int    fits_load_matrix (FILE *f, Matrix *matrix, Header *header);
+
+int    fits_matrix_size (Header *header);
+int    fits_convert_format (Header *header, Matrix *matrix, int outBitpix, double outScale, double outZero, int outUnsign);
+void   fits_insert_array (Matrix *matrix, Matrix *array, int x, int y); 
+
+void   fits_set_matrix_value (Matrix *matrix, int x, int y, double); 
+double fits_get_matrix_value (Matrix *, int x, int y); 
+void   fits_add_matrix_value (Matrix *matrix, int x, int y, double value); 
+
+int    fits_divide_matrix (Matrix *numerator, Matrix *denomenator, Matrix *result); 
+int    fits_multiply_matrix (Matrix *matrix1, Matrix *matrix2, Matrix *result); 
+</pre>
+
+<h3> FITS Table Manipulation functions </h3>
+
+<pre>
+int   fits_load_Theader (FILE *f, Header *Theader);
+int   fits_read_Theader (char *filename, Header *header);     
+int   fits_write_Theader (char *filename, Header *header);
+int   fits_read_table (char *filename, FTable *ftable); 
+int   fits_write_table (char *filename, FTable *ftable); 
+int   fits_fwrite_table (FILE *f, FTable *ftable);
+int   fits_fwrite_vtable (FILE *f, VTable *ftable);
+int   fits_fread_ftable (FILE *f, FTable *ftable, char *extname); 
+int   fits_fread_vtable (FILE *f, VTable *ftable, char *extname, int Nrow, int *row);
+int   fits_fread_ftable_data (FILE *f, FTable *ftable);
+int   fits_fwrite_table (FILE *f, FTable *ftable); 
+int   fits_fwrite_vtable (FILE *f, VTable *vtable); 
+int   fits_read_ftable (char *filename, FTable *ftable, char *extname);
+int   fits_create_table_header (Header *header, char *type, char *extname);
+int   fits_create_table (Header *header, FTable *ftable);
+int   fits_free_table (FTable *ftable);
+int   fits_free_vtable (VTable *ftable);
+
+int   fits_bintable_format (char *format, char *type, int *Nval, int *Nbytes);
+int   fits_table_format (char *format, char *type, int *Nval, int *Nbytes);
+int   fits_set_bintable_column (Header *header, FTable *ftable, char *label, void *data, int Nrow);
+int   fits_set_table_column (Header *header, FTable *ftable, char *label, void *data, int Nrow);
+int   fits_define_bintable_column (Header *header, char *format, char *label, char *comment, char *unit, double bscale, double bzero);
+int   fits_define_table_column (Header *header, char *format, char *label, char *comment, char *unit);
+
+int   fits_vtable_from_ftable (FTable *ftable, VTable *vtable, int *row, int Nrow);
+int   fits_table_to_vtable (FTable *ftable, VTable *vtable, int start, int Nkeep);
+int   fits_vadd_rows (VTable *vtable, char *data, int Nrow, int Nbytes);
+int   fits_add_rows (FTable *ftable, char *data, int Nrow, int Nbytes);
+char *fits_table_print (FTable *ftable,...);
+int   fits_create_Theader (Header *header, char *type);
+int   fits_table_column (FTable *ftable, char *field, char *mode,...); 
+int   fits_table_column (FTable *ftable, char *field, char *mode,...);
+int   fits_get_bintable_column_type (Header *header, char *label, char *type, int *Nval);
+int   fits_get_bintable_column (Header *header, FTable *ftable, char *label, void **data);
+int   fits_get_table_column_type (Header *header, char *label, char *type);
+int   fits_get_table_column (Header *header, FTable *ftable, char *label, void **data);
+</pre>

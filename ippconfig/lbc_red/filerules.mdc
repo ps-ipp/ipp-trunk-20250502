@@ -1,0 +1,170 @@
+### File rules for PHU=FPA, EXT=CHIP
+
+### Redirections
+PPIMAGE.OUTPUT        STR PPIMAGE.OUTPUT.MEF
+PPIMAGE.OUTPUT.MASK   STR PPIMAGE.OUT.MK.MEF
+PPIMAGE.OUTPUT.WEIGHT STR PPIMAGE.OUT.WT.MEF
+PPIMAGE.CHIP          STR PPIMAGE.CHIP.MEF
+PPIMAGE.CHIP.MASK     STR PPIMAGE.CHIP.MK.MEF
+PPIMAGE.CHIP.WEIGHT   STR PPIMAGE.CHIP.WT.MEF
+PPIMAGE.OUTPUT.FPA1   STR PPIMAGE.OUTPUT.FPA1.MEF
+PPIMAGE.OUTPUT.FPA2   STR PPIMAGE.OUTPUT.FPA2.MEF
+PPIMAGE.BIN1          STR PPIMAGE.BIN1.MEF
+PPIMAGE.BIN2          STR PPIMAGE.BIN2.MEF
+
+PPSTAMP.CHIP          STR PPSTAMP.CHIP.MEF
+
+PSASTRO.INPUT         STR PSASTRO.INPUT.CMF
+PSASTRO.OUTPUT        STR PSASTRO.OUT.CMF.MEF
+PSASTRO.OUTPUT.MEF    STR PSASTRO.OUT.CMF.MEF
+PSPHOT.OUTPUT         STR PSPHOT.OUT.CMF.MEF
+DVOCORR.OUTPUT        STR DVOCORR.MEF.OUTPUT
+DVOFLAT.OUTPUT        STR DVOFLAT.MEF.OUTPUT
+
+### input file definitions
+### use @DETDB entries to get the detrend images from the database
+### replace @DETDB with @FILES if you want to require it from the 
+### command line, or with an explicit name to require a specific file
+TYPE               INPUT FILENAME.RULE DATA.LEVEL FILE.TYPE
+
+## files used by ppImage
+PPIMAGE.INPUT      INPUT @FILES        CHIP       IMAGE
+PPIMAGE.MASK       INPUT @DETDB        CHIP       MASK
+PPIMAGE.BIAS       INPUT @DETDB        CHIP       IMAGE
+PPIMAGE.DARK       INPUT @DETDB        CHIP       IMAGE
+PPIMAGE.FLAT       INPUT @DETDB        CHIP       IMAGE
+PPIMAGE.FRINGE     INPUT @DETDB        CHIP       FRINGE
+PPIMAGE.SHUTTER    INPUT @DETDB        CHIP       IMAGE     
+
+## files used to build and apply the flat-field correction images
+DVOCORR.INPUT      INPUT @FILES        CHIP       IMAGE
+DVOCORR.REFHEAD    INPUT @FILES        CHIP       HEADER
+DVOFLAT.INPUT      INPUT @FILES        CHIP       IMAGE
+DVOFLAT.CORR       INPUT @DETDB        CHIP       IMAGE
+
+## files used by psphot 
+PSPHOT.LOAD        INPUT @FILES        CHIP       IMAGE
+PSPHOT.INPUT       INPUT @FILES        CHIP       IMAGE
+PSPHOT.MASK        INPUT @FILES        CHIP       MASK     
+PSPHOT.WEIGHT      INPUT @FILES        CHIP       WEIGHT     
+PSPHOT.PSF.LOAD    INPUT @FILES        CHIP       PSF       
+
+## files used by psastro 
+PSASTRO.INPUT.CMP  INPUT @FILES        CHIP       CMP
+PSASTRO.INPUT.CMF  INPUT @FILES        CHIP       CMF
+
+## files used by pswarp
+PSWARP.INPUT       INPUT @FILES        CHIP       IMAGE
+PSWARP.WEIGHT      INPUT @FILES        CHIP       WEIGHT
+PSWARP.MASK        INPUT @FILES        CHIP       MASK
+PSWARP.SKYCELL     INPUT @FILES        CHIP       IMAGE
+PSWARP.ASTROM      INPUT @FILES        CHIP       CMF
+
+PPSUB.INPUT        INPUT @FILES        FPA        IMAGE
+PPSUB.INPUT.MASK   INPUT @FILES        FPA        MASK
+PPSUB.INPUT.WEIGHT INPUT @FILES        FPA        WEIGHT
+PPSUB.REF          INPUT @FILES        FPA        IMAGE
+PPSUB.REF.MASK     INPUT @FILES        FPA        MASK
+PPSUB.REF.WEIGHT   INPUT @FILES        FPA        WEIGHT
+PPSUB.SOURCES      INPUT @FILES        FPA        CMF
+
+PPSTACK.INPUT      INPUT @FILES        FPA        IMAGE
+PPSTACK.INPUT.MASK INPUT @FILES        FPA        MASK
+PPSTACK.INPUT.WEIGHT INPUT @FILES      FPA        WEIGHT
+PPSTACK.SOURCES    INPUT @FILES        FPA        CMF
+
+PPSTAMP.INPUT      INPUT @FILES        CHIP       IMAGE
+
+PPARITH.INPUT.IMAGE INPUT @FILES        CHIP       IMAGE
+PPARITH.INPUT.MASK  INPUT @FILES        CHIP       MASK
+
+### output file definitions
+TYPE                  OUTPUT FILENAME.RULE                    FILE.TYPE FITS.TYPE DATA.LEVEL FILE.SAVE FILE.FORMAT
+PPIMAGE.OUTPUT.MEF    OUTPUT {OUTPUT}.b0.fits                 IMAGE     NONE      CHIP       TRUE      MEF
+PPIMAGE.OUT.MK.MEF    OUTPUT {OUTPUT}.mk.fits                 MASK      NONE      CHIP       TRUE      MEF
+PPIMAGE.OUT.WT.MEF    OUTPUT {OUTPUT}.wt.fits                 WEIGHT    NONE      CHIP       TRUE      MEF
+PPIMAGE.OUTPUT.SPL    OUTPUT {OUTPUT}.{CHIP.NAME}.b0.fits     IMAGE     NONE      CHIP       TRUE      SPLIT
+PPIMAGE.OUT.MK.SPL    OUTPUT {OUTPUT}.{CHIP.NAME}.mk.fits     MASK      NONE      CHIP       TRUE      SPLIT
+PPIMAGE.OUT.WT.SPL    OUTPUT {OUTPUT}.{CHIP.NAME}.wt.fits     WEIGHT    NONE      CHIP       TRUE      SPLIT
+PPIMAGE.CONFIG        OUTPUT {OUTPUT}.{CHIP.NAME}.ppImage.mdc TEXT      NONE      CHIP       TRUE      NONE
+
+PPIMAGE.CHIP.MEF      OUTPUT {OUTPUT}.ch.fits                 IMAGE     NONE      CHIP       TRUE      MEF
+PPIMAGE.CHIP.MK.MEF   OUTPUT {OUTPUT}.ch.mk.fits              MASK      NONE      CHIP       TRUE      MEF
+PPIMAGE.CHIP.WT.MEF   OUTPUT {OUTPUT}.ch.wt.fits              WEIGHT    NONE      CHIP       TRUE      MEF
+PPIMAGE.CHIP.SPL      OUTPUT {OUTPUT}.{CHIP.NAME}.ch.fits     IMAGE     NONE      CHIP       TRUE      SPLIT
+PPIMAGE.CHIP.MK.SPL   OUTPUT {OUTPUT}.{CHIP.NAME}.ch.mk.fits  MASK      NONE      CHIP       TRUE      SPLIT
+PPIMAGE.CHIP.WT.SPL   OUTPUT {OUTPUT}.{CHIP.NAME}.ch.wt.fits  WEIGHT    NONE      CHIP       TRUE      SPLIT
+
+PPIMAGE.OUTPUT.FPA1.MEF OUTPUT {OUTPUT}.b1.fits               IMAGE     NONE      FPA        TRUE      MEF
+PPIMAGE.OUTPUT.FPA2.MEF OUTPUT {OUTPUT}.b2.fits               IMAGE     NONE      FPA        TRUE      MEF
+PPIMAGE.OUTPUT.FPA1.SPL OUTPUT {OUTPUT}.{CHIP.NAME}.b1.fits   IMAGE     NONE      FPA        TRUE      SPLIT
+PPIMAGE.OUTPUT.FPA2.SPL OUTPUT {OUTPUT}.{CHIP.NAME}.b2.fits   IMAGE     NONE      FPA        TRUE      SPLIT
+
+PPIMAGE.STATS         OUTPUT {OUTPUT}.stats                   STATS     NONE      FPA        TRUE      MEF
+
+PPIMAGE.BIN1.MEF      OUTPUT {OUTPUT}.b1c.fits                IMAGE     NONE      CHIP       TRUE      MEF
+PPIMAGE.BIN2.MEF      OUTPUT {OUTPUT}.b2c.fits                IMAGE     NONE      CHIP       TRUE      MEF
+PPIMAGE.BIN1.SPL      OUTPUT {OUTPUT}.{CHIP.NAME}.b1.fits     IMAGE     NONE      CHIP       TRUE      SPLIT
+PPIMAGE.BIN2.SPL      OUTPUT {OUTPUT}.{CHIP.NAME}.b2.fits     IMAGE     NONE      CHIP       TRUE      SPLIT
+
+PPIMAGE.JPEG1         OUTPUT {OUTPUT}.b1.jpg                  JPEG      NONE      FPA        TRUE      NONE
+PPIMAGE.JPEG2         OUTPUT {OUTPUT}.b2.jpg                  JPEG      NONE      FPA        TRUE      NONE
+
+DVOCORR.MEF.OUTPUT    OUTPUT {OUTPUT}.fc.fits                 IMAGE     NONE      CHIP       TRUE      MEF
+DVOCORR.SPL.OUTPUT    OUTPUT {OUTPUT}.{CHIP.NAME}.fc.fits     IMAGE     NONE      CHIP       TRUE      SPLIT
+DVOFLAT.MEF.OUTPUT    OUTPUT {OUTPUT}.co.fits                 IMAGE     NONE      CHIP       TRUE      MEF
+DVOFLAT.SPL.OUTPUT    OUTPUT {OUTPUT}.{CHIP.NAME}.co.fits     IMAGE     NONE      CHIP       TRUE      SPLIT
+
+PSPHOT.RESID          OUTPUT {OUTPUT}.res.fits                IMAGE     NONE      CHIP       FALSE     NONE
+PSPHOT.BACKGND        OUTPUT {OUTPUT}.bck.fits                IMAGE     NONE      CHIP       FALSE     NONE
+PSPHOT.BACKSUB        OUTPUT {OUTPUT}.sub.fits                IMAGE     NONE      CHIP       FALSE     NONE
+PSPHOT.BACKMDL        OUTPUT {OUTPUT}.mdl.fits                IMAGE     NONE      CHIP       FALSE     NONE
+
+PSPHOT.OUTPUT.RAW     OUTPUT {OUTPUT}.{CHIP.NAME}             RAW       NONE      CHIP       TRUE      NONE
+PSPHOT.OUTPUT.SX      OUTPUT {OUTPUT}.sx                      SX        NONE      FPA        TRUE      NONE
+PSPHOT.OUTPUT.OBJ     OUTPUT {OUTPUT}.obj                     OBJ       NONE      FPA        TRUE      NONE
+PSPHOT.OUTPUT.CMP     OUTPUT {OUTPUT}.{CHIP.NAME}.cmp         CMP       NONE      CHIP       TRUE      NONE
+PSPHOT.OUT.CMF.SPL    OUTPUT {OUTPUT}.{CHIP.NAME}.cmf         CMF       NONE      CHIP       TRUE      SPLIT
+PSPHOT.OUT.CMF.MEF    OUTPUT {OUTPUT}.cmf                     CMF       NONE      CHIP       TRUE      NONE
+
+PSPHOT.PSF.SAVE       OUTPUT {OUTPUT}.psf                     PSF       NONE      CHIP       TRUE      NONE
+
+SOURCE.PLOT.MOMENTS   OUTPUT {OUTPUT}.mnt.png                 KAPA      NONE      FPA        TRUE      NONE
+SOURCE.PLOT.PSFMODEL  OUTPUT {OUTPUT}.psf.png                 KAPA      NONE      FPA        TRUE      NONE
+SOURCE.PLOT.APRESID   OUTPUT {OUTPUT}.dap.png                 KAPA      NONE      FPA        TRUE      NONE
+
+PSASTRO.OUTPUT.CMP    OUTPUT {OUTPUT}.{CHIP.NAME}.smp         CMP       NONE      CHIP       TRUE      NONE
+PSASTRO.OUT.CMF.SPL   OUTPUT {OUTPUT}.{CHIP.NAME}.smf         CMF       NONE      CHIP       TRUE      NONE
+PSASTRO.OUTPUT.CMF   OUTPUT {OUTPUT}.{CHIP.NAME}.smf         CMF       NONE      CHIP       TRUE      NONE
+PSASTRO.OUT.CMF.MEF   OUTPUT {OUTPUT}.smf                     CMF       NONE      FPA        TRUE      NONE
+PSASTRO.OUT.ASTROM    OUTPUT {OUTPUT}.ast                     ASTROM    NONE      FPA        TRUE      NONE
+
+PSWARP.OUTPUT         OUTPUT {OUTPUT}.fits                    IMAGE     NONE      FPA        TRUE      NONE
+PSWARP.OUTPUT.MASK    OUTPUT {OUTPUT}.mk.fits                 MASK      NONE      FPA        TRUE      NONE
+PSWARP.OUTPUT.WEIGHT  OUTPUT {OUTPUT}.wt.fits                 WEIGHT    NONE      FPA        TRUE      NONE
+PSWARP.OUTPUT.SOURCES OUTPUT {OUTPUT}.cmf                     CMF       NONE      FPA        TRUE      NONE
+PSWARP.BIN1           OUTPUT {OUTPUT}.b1.fits                 IMAGE     NONE      FPA        TRUE      NONE
+PSWARP.BIN2           OUTPUT {OUTPUT}.b2.fits                 IMAGE     NONE      FPA        TRUE      NONE
+PSWARP.CONFIG         OUTPUT {OUTPUT}.pswarp.mdc              TEXT      NONE      FPA        TRUE      NONE
+
+PPSUB.OUTPUT          OUTPUT {OUTPUT}.fits                    IMAGE     NONE      FPA        TRUE      NONE
+PPSUB.OUTPUT.MASK     OUTPUT {OUTPUT}.mk.fits                 MASK      NONE      FPA        TRUE      NONE
+PPSUB.OUTPUT.WEIGHT   OUTPUT {OUTPUT}.wt.fits                 WEIGHT    NONE      FPA        TRUE      NONE
+PPSUB.CONFIG          OUTPUT {OUTPUT}.ppSub.mdc               TEXT      NONE      FPA        TRUE      NONE
+
+PPSTACK.OUTPUT        OUTPUT {OUTPUT}.fits                    IMAGE     NONE      FPA        TRUE      NONE
+PPSTACK.OUTPUT.MASK   OUTPUT {OUTPUT}.mk.fits                 MASK      NONE      FPA        TRUE      NONE
+PPSTACK.OUTPUT.WEIGHT OUTPUT {OUTPUT}.wt.fits                 WEIGHT    NONE      FPA        TRUE      NONE
+PPSTACK.CONFIG        OUTPUT {OUTPUT}.ppStack.mdc             TEXT      NONE      FPA        TRUE      NONE
+
+PPSTAMP.OUTPUT        OUTPUT {OUTPUT}.fits                    IMAGE     NONE      FPA        TRUE      NONE
+PPSTAMP.CHIP.MEF      OUTPUT {OUTPUT}.ch.fits                 IMAGE     NONE      CHIP       FALSE     MEF
+
+PPSIM.OUTPUT          OUTPUT {OUTPUT}.{CHIP.NAME}.fits        IMAGE     NONE      CHIP       TRUE      SPLIT
+
+PPARITH.OUTPUT.IMAGE  OUTPUT {OUTPUT}.fits                    IMAGE     NONE      CHIP       TRUE      NONE
+PPARITH.OUTPUT.MASK   OUTPUT {OUTPUT}.fits                    MASK      NONE      CHIP       TRUE      NONE
+
+LOG.IMFILE            OUTPUT {OUTPUT}.{CHIP.NAME}.log         TEXT      NONE      CHIP       TRUE      NONE
+LOG.EXP               OUTPUT {OUTPUT}.log                     TEXT      NONE      FPA        TRUE      NONE
+

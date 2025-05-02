@@ -1,0 +1,135 @@
+
+mana functions which existed in DVO from status:
+
+applyfit2d.c         : OK - vector changes only
+applyfit.c	     : OK - vector changes only
+box.c		     : OK - no diff
+center.c	     : OK - no diff
+clear.c		     : OK - no diff
+concat.c	     : OK - vector changes only
+contour.c	     : mana version writes to Ximage, dvo version writes to vectors.  mana/contour -> tvcontour.c
+create.c	     : OK - buffer changes only
+cursor.c	     : OK - buffer & minor changes only
+delete.c	     : OK - buffer & minor changes only
+device.c	     : OK - no diff
+extract.c	     : mana extract operates on buffers / status extract is db operation
+file.c		     : OK - no diff
+fit2d.c		     : OK - vector changes only
+fit.c		     : OK - added weights and parameter errors from mana version
+gaussj.c	     : OK - buffer changes only
+grid.c		     : mana version write to Ximage, dvo version writes to Xgraph. mana/grid -> tvgrid
+histogram.c	     : OK - vector changes only
+interpolate.c	     : OK - vector changes only
+jpeg.c		     : OK - no diff
+labels.c	     : OK - no diff
+limits.c	     : OK - vector & minor changes only
+list_buffers.c	     : OK - buffer changes only
+list_vectors.c	     : OK - vector & minor changes only
+mcreate.c	     : OK - buffer changes only
+mget.c		     : OK - buffer changes only
+mset.c		     : OK - buffer changes only
+ps.c		     : OK - no diff
+rd.c		     : OK - buffer changes only
+read_vectors.c	     : OK - included reading vectors from fits tables
+region.c	     : OK - no diff
+resize.c	     : OK - no diff
+section.c	     : OK - no diff
+set.c		     : OK - mana version out of date
+sprintf.c	     : OK - no diff
+stats.c		     : OK - included threshold comparison for IgnoreValue and min == max test
+style.c		     : OK - mana version out of date
+subset.c	     : OK - mana version out of date
+textline.c	     : OK - no diff
+tv.c		     : OK - buffer changes only
+uniq.c		     : OK - vector changes only
+vcontour.c	     : mana/vcontour equiv to dvo/contour
+vstat.c		     : OK - vector changes only
+wd.c		     : OK - buffer changes only
+write_vectors.c	     : OK - vector changes only
+zap.c		     : OK - buffer changes only
+zplot.c		     : OK - vector changes only
+
+mana functions not previously in DVO from status:
+
+accum.c			: fix vectors
+adc.c			: keep - specialized
+biassub.c		: fix buffers and vectors
+clip.c			: fix buffers and vectors
+cmpload.c		: keep
+coords.c		: fix buffers and vectors
+cut.c			: fix buffers and vectors
+cval.c			: ? superceeded by 'star'?
+demux.c			: keep - specialized
+dimendown.c		: fix buffers and vectors
+dimenup.c		: fix buffers and vectors
+drawline.c		: keep - unused
+drizzle.c		: fix buffers and vectors
+erase.c			: keep
+fft1d.c			: fix buffers and vectors
+fft2d.c			: fix buffers and vectors
+flux.c			: fix buffers and vectors
+gauss.c			: fix buffers and vectors
+gaussfit.c		: ? to correct?
+getchr.c		: keep
+getvel.c		: 
+imfit.c			: 
+imhist.c		: 
+integrate.c		: 
+kern.c			: 
+keyword.c		: 
+line.c			: 
+list_header.c		: 
+load.c			: 
+medacc.c		: 
+medianmap.c		: 
+memory.c		: 
+minterpolate.c		: 
+mkgauss.c		: 
+multifit.c		: 
+nextract.c		: 
+objload.c		: 
+outline2.c		: ??
+outline.c		: ??
+pause.c			: 
+peak.c			: 
+point.c			: 
+polar.c			: 
+profile.c		: 
+rdseg.c			: 
+rebin.c			: 
+roll.c			: 
+rotate.c		: 
+rotcurve.c		: 
+save.c			: 
+scale.c			: 
+select.c		: 
+sexigesimal.c		: 
+shape.c			: 
+shift.c			: 
+simsignal.c		: 
+sort_vectors.c		: 
+spec.c			: 
+spline_apply.c		: 
+spline_construct.c	: 
+star.c			: 
+strchr.c		: 
+strlen.c		: 
+substr.c		: 
+svd.c			: 
+swapbytes.c		: 
+testfit.c		: 
+transform.c		: 
+unsign.c		: 
+usleep.c		: 
+vbin.c			: 
+vclip.c			: 
+
+outdated or unneeded functions:
+
+dummy.c
+downdimen.c
+buftovec.c
+kernel.c
+updimen.c		: 
+stupidtest.c		: 
+plot2.c			: fixed GetColor in dvo/plot.c

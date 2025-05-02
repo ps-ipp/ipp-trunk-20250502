@@ -1,0 +1,6 @@
+
+   periodogram (time) (flux) (minP) (maxP) (period) (power)
+
+   creates a periodogram from the vectors (time) and (flux)
+    between (minP) and (maxP) and outputs the results to
+    (period) and (power)

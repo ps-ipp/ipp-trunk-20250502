@@ -1,0 +1,224 @@
+#!/usr/bin/env perl
+
+# Copyright (C) 2005-2008  Joshua Hoblitt
+#
+# $Id: neb-fsck,v 1.2 2008-03-20 21:12:06 jhoblitt Exp $
+
+use strict;
+use warnings FATAL => qw( all );
+
+use vars qw( $VERSION );
+$VERSION = '0.01';
+
+use DBI;
+use Nebulous::Server::SQL;
+use Nebulous::Client;
+use URI;
+
+use Getopt::Long qw( GetOptions :config auto_help auto_version );
+use Pod::Usage qw( pod2usage );
+
+my ($db, $dbuser, $dbpass, $server);
+
+$db     = $ENV{'NEB_DB'} unless $db;
+$dbuser = $ENV{'NEB_USER'} unless $dbuser;
+$dbpass = $ENV{'NEB_PASS'} unless $dbpass;
+$server = $ENV{'NEB_SERVER'} unless $server;
+
+GetOptions(
+    'db=s'          => \$db,
+    'user=s'        => \$dbuser,
+    'pass=s'        => \$dbpass,
+    'server|s=s'    => \$server,
+) || pod2usage( 2 );
+
+pod2usage( -msg => "Unknown option: @ARGV", -exitval => 2 ) if @ARGV;
+pod2usage( -msg => "Required options: --server", -exitval => 2 )
+    unless $server;
+pod2usage( -msg => "Required options: --db --user --pass", -exitval => 2 )
+    unless $db && $dbuser && $dbpass;
+
+my $neb = Nebulous::Client->new(
+    proxy => "$server",
+);
+
+die "can't connected to Nebulous Server: $server"
+    unless defined $neb;
+
+my $dbh = DBI->connect(
+    "DBI:mysql:database=$db:host=localhost",
+    $dbuser,
+    $dbpass,
+    {
+        RaiseError => 1,
+        PrintError => 0,
+        AutoCommit => 1,
+    },
+);
+
+my $sql = Nebulous::Server::SQL->new();
+
+print "Pass 1: Look for objects with inaccessable instances\n";
+
+# so_id, ext_id, instances, available_instances, need_recovery, recoverable
+my $query = $dbh->prepare( $sql->find_objects_with_unavailable_instances );
+$query->execute;
+
+my @rows;
+while (my $row = $query->fetchrow_hashref) {
+    push @rows, $row;        
+}
+$query->finish;
+
+foreach my $obj (@rows) {
+#    use Data::Dumper;
+#    print Dumper($obj);
+    my $so_id = $obj->{so_id};
+    my $key = $obj->{ext_id};
+    my $has = $obj->{instances};
+    my $available = $obj->{available_instances} || 0;
+    my $need_recovery = $obj->{need_recovery};
+    my $recoverable = $obj->{recoverable};
+    # if the copies xattr is unset and the object has 2 or more instances, we
+    # will assume a target of 2 copies
+    my $copies = $obj->{copies} || 2;
+
+    # objects with only a single instance that are offline are unrecoverable so
+    # we don't need to handle that special case
+    next unless $need_recovery;
+    unless ($recoverable) {
+        warn "so_id: $so_id key: \'$key\' ",
+            "can not be recovered - no available instances\n";
+        next;
+    }
+
+    my $need = $copies - $available;
+    $need = 0 if $need < 0;
+
+    next unless $need;
+
+    for (; $need > 0; $need--) {
+        warn "so_id: $so_id key: \'$key\' ",
+            "has $available available instances, target $copies -- replicating";
+        $neb->replicate($obj->{ext_id})
+            or warn "so_id: $so_id key: \'$key\' replication failed";
+
+        $available++;
+    }
+}
+
+print "Pass 2: Check volumes for files without an instance\n";
+
+# get a list of volumes and their paths
+# get a list of all instances on a volume
+# get a list of all files under the volumes path
+# compare the two lists
+
+__END__
+
+=pod
+
+=head1 NAME
+
+neb-fsck - check and repair Nebulous volumes
+
+=head1 SYNOPSIS
+
+    neb-fsck [--db <database>] [--user <username>] [--pass <password>]
+        [--server <server>]
+
+=head1 DESCRIPTION
+
+=head1 OPTIONS
+
+=over 4
+
+=item * --server|-s <URL>
+
+URL of the Nebulous server to connect to.
+
+Optional if the appropriate environment variable is set.
+
+=item * --db|-d <database>
+
+Name of database (C<namespace>) to create tables in.
+
+Optional if the appropriate environment variable is set.
+
+=item * --user|-u <username>
+
+Username to authenticate with.
+
+Optional if the appropriate environment variable is set.
+
+=item * --pass|-p <password>
+
+Password to authenticate with.
+
+Optional if the appropriate environment variable is set.
+
+=back
+
+=head1 ENVIRONMENT
+
+These environment variables may be used in place of the specified command line
+options.  All command line option will override the corresponding environment
+value.
+
+=over 4
+
+=item * C<NEB_SERVER>
+
+Equivalent to --server|-s
+
+=item * C<NEB_DB>
+
+Equivalent to --db|-d
+
+=item * C<NEB_USER>
+
+Equivalent to --user|-u
+
+=item * C<NEB_PASS>
+
+Equivalent to --pass|-p 
+
+=back
+
+=head1 CREDITS
+
+Just me, myself, and I.
+
+=head1 SUPPORT
+
+Please contact the author directly via e-mail.
+
+=head1 AUTHOR
+
+Joshua Hoblitt <jhoblitt@cpan.org>
+
+=head1 COPYRIGHT
+
+Copyright (C) 2005-2008  Joshua Hoblitt.  All rights reserved.
+
+This program is free software; you can redistribute it and/or modify it under
+the terms of the GNU General Public License as published by the Free Software
+Foundation; either version 2 of the License, or (at your option) any later
+version.
+
+This program is distributed in the hope that it will be useful, but WITHOUT ANY
+WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A
+PARTICULAR PURPOSE.  See the GNU General Public License for more details.
+
+You should have received a copy of the GNU General Public License along with
+this program; if not, write to the Free Software Foundation, Inc., 59 Temple
+Place - Suite 330, Boston, MA  02111-1307, USA.
+
+The full text of the license can be found in the L<perlgpl> Pod as supplied
+with Perl 5.8.1 and later.
+
+=head1 SEE ALSO
+
+L<Nebulous::Server>, L<neb-initdb>, L<neb-df>, L<nebdiskd>
+
+=cut

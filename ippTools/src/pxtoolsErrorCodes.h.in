@@ -1,0 +1,18 @@
+#if !defined(PXTOOLS_ERROR_CODES_H)
+#define PXTOOLS_ERROR_CODES_H
+/*
+ * The line
+ *  PXTOOLS_ERR_$X{ErrorCode},
+ * (without the X)
+ *
+ * will be replaced by values from errorCodes.dat
+ */
+typedef enum {
+    PXTOOLS_ERR_BASE = 9000,
+    PXTOOLS_ERR_${ErrorCode},
+    PXTOOLS_ERR_NERROR
+} pxtoolsErrorCode;
+
+void pxtoolsErrorRegister(void);
+
+#endif

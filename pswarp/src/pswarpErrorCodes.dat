@@ -1,0 +1,11 @@
+#
+# This file is used to generate pswarpErrorClasses.h
+#
+BASE = 8000		First value we use; lower values belong to psLib
+UNKNOWN			Unknown PSWARP error code
+NOT_IMPLEMENTED		Desired feature is not yet implemented
+ARGUMENTS		Incorrect arguments
+CONFIG			Problem in configure files
+IO			Problem in FITS I/O
+DATA                    Problem in data values
+NO_OVERLAP		No overlap between input and skycell

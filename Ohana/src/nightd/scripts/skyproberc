@@ -1,0 +1,20 @@
+
+HOME      /h/skyprobe
+
+DATA_PATH $HOME/data
+PID_FILE  $HOME/.skyprobe.pid
+LOG_FILE  $HOME/sp_daemon.log
+
+CCD_TEMP -20
+EXPTIME   30
+
+INIT_COMMAND sp_command cool $CCD_TEMP
+INIT_COMMAND sp_command init $DATA_PATH/&DATE
+MAIN_COMMAND sp_command expose $EXPTIME $DATA_PATH/&DATE/sp_&DATE_&TIME.fits
+DONE_COMMAND sp_command warm
+
+NIGHT_START 18:00
+NIGHT_STOP  06:00
+
+PERIOD 60
+TIMEOUT 300

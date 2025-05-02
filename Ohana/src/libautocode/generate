@@ -1,0 +1,441 @@
+#!/usr/bin/env perl
+
+$VERBOSE = 0;
+if ($ARGV[0] eq "-v") { $VERBOSE = 1; shift @ARGV; }
+if (@ARGV != 3) { die "generate (schema) (template) (output)\n"; }
+
+$schema   = $ARGV[0];
+$template = $ARGV[1];
+$output   = $ARGV[2];
+
+&parse_schema;
+&parse_template;
+exit 0;
+
+sub parse_schema {
+    open (FILE, "$schema");
+    @list = <FILE>;
+    close (FILE);
+
+    $NAME    = "";
+    $FILE    = "";
+    $Nfield  = 0;
+    $TIMEOUT = 0;
+
+    &init_key ("DESCRIPTION");
+    &init_key ("TIMEOUT");
+    &init_key ("EXTNAME");
+    &init_key ("STRUCT");
+    &init_key ("NAME");
+    &init_key ("FILE");
+    &init_key ("SIZE");
+    &init_key ("TYPE");
+
+    foreach $line (@list) {
+	chop $line;
+	($key, $value) = split (" ", $line, 2);
+	
+	# strip white space from the following
+	if ($key eq "TYPE")    { ($value) = $value =~ m|\s*(\S+)\s*|; }
+	if ($key eq "SIZE")    { ($value) = $value =~ m|\s*(\S+)\s*|; }
+	if ($key eq "STRUCT")  { ($value) = $value =~ m|\s*(\S+)\s*|; }
+	if ($key eq "EXTNAME") { ($value) = $value =~ m|\s*(\S+)\s*|; }
+
+	&set_keypair ($key, $value);
+
+	# these are used internally (not just a replacement)
+	if ($key eq "TYPE")    { $TYPE = $value;   }
+	if ($key eq "SIZE")    { $SIZE = $value;   }
+	if ($key eq "STRUCT")  { $STRUCT = $value; }
+
+	# not a simple key/value entry
+ 	if (($key eq "FIELD") || ($key eq "SUBSTRUCT") || ($key eq "SUBFIELD")) {
+	    ($element, $field, $format, $comment, $unit) = split (/,\s+/, $value, 5);
+	    if ($VERBOSE) { printf "%-20s %-20s %-15s %-35s %-10s\n", $element, $field, $format, $comment, $unit; }
+	    push @element, $element;
+	    push @field,   $field;
+	    push @format,  $format;
+	    push @comment, $comment;
+	    push @unit,    $unit;
+	    push @mode,    $key;
+	}
+    }
+    $Nexpect = 0;
+    if ($TYPE eq "BINTABLE") { $Nexpect = &count_bintablesize; }
+    if ($TYPE eq "TABLE")    { $Nexpect = &count_tablesize;    }
+    if (! $Nexpect) { die "missing valid TYPE\n"; }
+    if ($Nexpect != $SIZE) { die "size mismatch: $Nexpect vs $SIZE\n"; }
+}
+
+sub parse_template {
+    open (FILE, $template);
+    @list = <FILE>;
+    close (FILE);
+
+    open (FILE, ">$output");
+
+    foreach $line (@list) {
+	
+	&check_keypairs;
+
+	print FILE $line;
+
+	# fill in structure
+	if ($line =~ m|/\*\* STRUCT DEFINITION \*\*/|) {
+	    &write_structure;
+	}
+
+	# fill in latex table description
+	if ($line =~ m|%%% LATEX TABLE DEFINITION|) {
+	    &write_latex;
+	}
+
+	# fill in structure
+	if ($line =~ m|/\*\* TABLE DEFINITION \*\*/|) {
+	    if ($TYPE eq "BINTABLE") { &write_bintabledefs; }
+	    if ($TYPE eq "TABLE")    { &write_tabledefs; }
+	}
+
+	# fill in swaps
+	if ($line =~ m|/\*\* BYTE SWAP \*\*/|) {
+	    &write_byteswaps;
+	}
+    }
+    close (FILE);
+}
+
+sub write_bintabledefs {
+
+    for ($i = 0; $i < @field; $i++) {
+	# skip SUBSTRUCT type of entries:
+	if ($mode[$i] eq "SUBSTRUCT") { next; }
+
+	($type, $Np) = &get_type_array ($format[$i]);
+	
+	# rawshort is a short without byteswapping
+	# rawshort is a patch for old photreg tables
+
+	$pt1 = 0;
+	if ($type eq "char")          { $pt1 = "A"; }
+	if ($type eq "gfbyte")	      { $pt1 = "B"; }
+	if ($type eq "unsigned char") { $pt1 = "B"; }
+	if ($type eq "rawshort")      { $pt1 = "I"; }
+	if ($type eq "short")  	      { $pt1 = "I"; }
+	if ($type eq "unsigned short"){ $pt1 = "I"; }
+	if ($type eq "int")    	      { $pt1 = "J"; }
+	if ($type eq "unsigned int")  { $pt1 = "J"; }
+
+	if ($type eq "int8_t") 	      { $pt1 = "B"; }
+	if ($type eq "uint8_t")       { $pt1 = "B"; }
+	if ($type eq "int16_t")       { $pt1 = "I"; }
+	if ($type eq "uint16_t")      { $pt1 = "I"; }
+	if ($type eq "int32_t")       { $pt1 = "J"; }
+	if ($type eq "uint32_t")      { $pt1 = "J"; }
+
+	# FITS tables do not allow for 64bit integers.  we need to
+	# write these by splitting the value into high and low 32 bit values
+	if ($type eq "int64_t")       { $pt1 = "K";}
+	if ($type eq "uint64_t")      { $pt1 = "K";}
+
+	if ($type eq "float")  	      { $pt1 = "E"; }
+	if ($type eq "double") 	      { $pt1 = "D"; }
+
+	# special 'elixir' types:
+	if ($type eq "e_time") 	      { $pt1 = "J"; }
+	if ($type eq "e_void") 	      { $pt1 = "B"; $Np = 8*$Np; }
+	# if ($type eq "Image") 	      { $pt1 = "B"; $Np = 8*$Np; }
+	# e_void is a 64 bit pointer, cast to size_t.  its value is not loaded
+	# from the table.
+
+	if (!$pt1) { die "unknown type $type"; }
+
+	if ($Np == 1) {
+	    $pt2 = $pt1;
+	} else {
+	    $pt2 = sprintf "%d%s", $Np, $pt1;
+	}
+
+	printf FILE "  gfits_define_bintable_column (header, ";
+	printf FILE "%-8s",               "\"$pt2\", ";
+	printf FILE "%-20s",              "\"$field[$i]\", ";
+	printf FILE "%-35s",              "\"$comment[$i]\", ";
+	printf FILE "%-20s 1.0, 0.0);\n", "\"$unit[$i]\", ";
+    }
+}
+
+sub write_latex {
+
+    for ($i = 0; $i < @field; $i++) {
+	# skip SUBSTRUCT type of entries:
+	if ($mode[$i] eq "SUBSTRUCT") { next; }
+
+	($type, $Np) = &get_type_array ($format[$i]);
+
+	if ($type eq "e_time") 	      { $type = "unsigned int"; }
+
+	# print STDOUT "$field[$i] .. $type[$i] .. $comment[$i] .. $unit[$i]\n";
+
+        printf FILE "%-20s & ",       "\\code{$field[$i]} ";
+	printf FILE "%-20s & ",       "$type";
+	printf FILE "%-35s & ",       "$comment[$i]";
+	printf FILE "%-20s \\\\ \n",  "$unit[$i]";
+    }
+}
+
+sub get_type_array {
+    
+    my ($format) = $_[0];
+    my ($type);
+    my ($Np, $N1, $N2, $N3);
+
+    $type = $N1 = $N2 = $N3 = $Np = 0;
+    if (!$type) {
+	($type, $N1, $N2, $N3) = $format =~ m|^(.w+)\[(\d+)\]\[(\d+)\]\[(\d+)\]|;
+	$Np = $N1*$N2*$N3;
+    }
+    if (!$type) {
+	($type, $N1, $N2)      = $format =~ m|^(.+)\[(\d+)\]\[(\d+)\]|;
+	$Np = $N1*$N2;
+    } 
+    if (!$type) {
+	($type, $N1)           = $format =~ m|^(.+)\[(\d+)\]|;
+	$Np = $N1;
+    }
+    if (!$type) { 
+	$type                  = $format; 
+	$Np = 1;
+    }
+    # print "type: $type, Np: $Np\n";
+    if ($Np == 0) { die "syntax error in format/array\n"; }
+    return ($type, $Np);
+}
+
+sub write_tabledefs {
+
+    for ($i = 0; $i < @field; $i++) {
+	# skip SUBSTRUCT type of entries:
+	if ($mode[$i] eq "SUBSTRUCT") { next; }
+
+	($type, $N1, $N2)      = $format[$i] =~ m|^(\w+)\[(\d+)\]\[(\d+)\]|;
+	if ($N2) { die "ASCII table cannot have multi-valued column"; }
+
+	($type, $length) = $format[$i] =~ m|^(\w+)\[([\d\.]+)\]|;
+	if (!$type && !$length) { die "format must be specified for ASCII table"; }
+
+	$pt1 = 0;
+	if ($type eq "char")   	      { $pt1 = sprintf "A%s", $length; }
+	if ($type eq "gfbyte") 	      { $pt1 = sprintf "I%s", $length; }
+	if ($type eq "unsigned char") { $pt1 = sprintf "I%s", $length; }
+	if ($type eq "rawshort")      { $pt1 = sprintf "I%s", $length; }
+	if ($type eq "short")  	      { $pt1 = sprintf "I%s", $length; }
+	if ($type eq "unsigned short"){ $pt1 = sprintf "I%s", $length; }
+	if ($type eq "int")    	      { $pt1 = sprintf "I%s", $length; }
+	if ($type eq "unsigned int")  { $pt1 = sprintf "I%s", $length; }
+
+	if ($type eq "int8_t") 	      { $pt1 = sprintf "I%s", $length; }
+	if ($type eq "uint8_t")       { $pt1 = sprintf "I%s", $length; }
+	if ($type eq "int16_t")       { $pt1 = sprintf "I%s", $length; }
+	if ($type eq "uint16_t")      { $pt1 = sprintf "I%s", $length; }
+	if ($type eq "int32_t")       { $pt1 = sprintf "I%s", $length; }
+	if ($type eq "uint32_t")      { $pt1 = sprintf "I%s", $length; }
+
+	if ($type eq "int64_t")       { $pt1 = sprintf "K%s", $length; }
+	if ($type eq "uint64_t")      { $pt1 = sprintf "K%s", $length; }
+
+	if ($type eq "float")  	      { $pt1 = sprintf "F%s", $length; }
+	if ($type eq "double") 	      { $pt1 = sprintf "F%s", $length; }
+
+	# special 'elixir' types:
+	if ($type eq "e_time") 	      { $pt1 = sprintf "I%s", $length; }
+	if ($type eq "e_void") 	      { $pt1 = sprintf "I%s", $length; }
+	# if ($type eq "Image") 	      { $pt1 = sprintf "I%s", $length; }
+
+	if (!$pt1) { die "unknown type $type"; }
+
+	printf FILE "  gfits_define_table_column (header, ";
+	printf FILE "%-8s",      "\"$pt1\", ";
+	printf FILE "%-20s",     "\"$field[$i]\", ";
+	printf FILE "%-35s",     "\"$comment[$i]\", ";
+	printf FILE "%-20s);\n", "\"$unit[$i]\"";
+    }
+
+}
+
+sub write_structure {
+    print FILE "typedef struct {\n";
+    for ($i = 0; $i < @element; $i++) {
+	# skip SUBFIELD entries
+	if ($mode[$i] eq "SUBFIELD") { next; }
+
+	# here we only want to match the pattern [1][2][3]..[N]
+	($type, $array) = $format[$i] =~ m|^(\w+)(\[.*\])|;
+	# print "type: $type, array: $array\n";
+	if (!$type && !$array) { $type = $format[$i]; }
+
+	if ($array && (($TYPE eq "BINTABLE") || ($type eq "char"))) {
+	    $pt2 = sprintf "%s%s;", $element[$i], $array;
+	} else {
+	    $pt2 = sprintf "%s;", $element[$i];
+	}
+
+	if ($unit[$i] eq "") {
+	    $pt3 = sprintf "// %s", $comment[$i];
+	} else {
+	    $pt3 = sprintf "// %s (%s)", $comment[$i], $unit[$i];
+	}
+	printf FILE "  %-16s %-21s %s\n", $type, $pt2, $pt3;
+    }    
+    print FILE "} $STRUCT;\n";
+}
+
+# this does not work with ASCII tables, 
+# but should not be needed for ASCII tables!
+sub write_byteswaps {
+    if ($TYPE eq "TABLE") {
+	printf FILE "/*** no byteswaps for ASCII tables ***/\n";
+	return;
+    }
+    $N = 0;
+    for ($i = 0; $i < @field; $i++) {
+	# skip SUBSTRUCT type of entries:
+	if ($mode[$i] eq "SUBSTRUCT") { next; }
+
+	($type, $Np) = &get_type_array ($format[$i]);
+
+	# rawshort is a patch for old photreg tables: provide a fix for the tables
+	# some photreg tables were not byteswapped for certain columns
+
+	$n = 0;
+	if ($type eq "char") 	      { $N +=   $Np; next; }
+	if ($type eq "gfbyte") 	      { $N +=   $Np; next; }
+	if ($type eq "unsigned char") { $N +=   $Np; next; }
+	if ($type eq "rawshort")      { $N += 2*$Np; next; }
+
+	if ($type eq "short")  	      { $T = "BYTE"; $n = 2; }
+	if ($type eq "unsigned short"){ $T = "BYTE"; $n = 2; }
+	if ($type eq "int")    	      { $T = "WORD"; $n = 4; }
+	if ($type eq "unsigned int")  { $T = "WORD"; $n = 4; }
+
+	if ($type eq "int8_t") 	      { $N +=   $Np; next; }
+	if ($type eq "uint8_t")       { $N +=   $Np; next; }
+	if ($type eq "int16_t")       { $T = "BYTE"; $n = 2; }
+	if ($type eq "uint16_t")      { $T = "BYTE"; $n = 2; }
+	if ($type eq "int32_t")       { $T = "WORD"; $n = 4; }
+	if ($type eq "uint32_t")      { $T = "WORD"; $n = 4; }
+
+	if ($type eq "int64_t")       { $T = "DBLE"; $n = 8; }
+	if ($type eq "uint64_t")      { $T = "DBLE"; $n = 8; }
+
+	if ($type eq "float")  	      { $T = "WORD"; $n = 4; }
+	if ($type eq "double") 	      { $T = "DBLE"; $n = 8; }
+
+	# special 'elixir' types:
+	if ($type eq "e_time") 	      { $T = "WORD"; $n = 4; }
+	if ($type eq "e_void") 	      { $T = "DBLE"; $n = 8; }
+	# if ($type eq "Image") 	      { $T = "DBLE"; $n = 8; }
+
+	if (!$n) { die "unknown type $type"; }
+	for ($j = 0; $j < $Np; $j++) {
+	    printf FILE "    SWAP_%s (%d); // %s\n", $T, $N, $field[$i];
+	    $N += $n;
+	}
+    }
+}
+
+sub count_bintablesize {
+
+    $Nbytes = 0;
+    for ($i = 0; $i < @field; $i++) {
+	# skip SUBSTRUCT type of entries:
+	if ($mode[$i] eq "SUBSTRUCT") { next; }
+
+	# add [\d\.] to match ascii-type formats
+	($type, $Np) = &get_type_array ($format[$i]);
+
+	$valid = 0;
+	if ($type eq "char")   	       { $Nbytes += 1*$Np; $valid = 1; }
+	if ($type eq "gfbyte") 	       { $Nbytes += 1*$Np; $valid = 1; }
+	if ($type eq "unsigned char")  { $Nbytes += 1*$Np; $valid = 1; }
+	if ($type eq "rawshort")       { $Nbytes += 2*$Np; $valid = 1; }
+	if ($type eq "short")  	       { $Nbytes += 2*$Np; $valid = 1; }
+	if ($type eq "unsigned short") { $Nbytes += 2*$Np; $valid = 1; }
+	if ($type eq "int")    	       { $Nbytes += 4*$Np; $valid = 1; }
+	if ($type eq "unsigned int")   { $Nbytes += 4*$Np; $valid = 1; }
+
+	if ($type eq "int8_t") 	       { $Nbytes += 1*$Np; $valid = 1; }
+	if ($type eq "uint8_t")        { $Nbytes += 1*$Np; $valid = 1; }
+	if ($type eq "int16_t")        { $Nbytes += 2*$Np; $valid = 1; }
+	if ($type eq "uint16_t")       { $Nbytes += 2*$Np; $valid = 1; }
+	if ($type eq "int32_t")        { $Nbytes += 4*$Np; $valid = 1; }
+	if ($type eq "uint32_t")       { $Nbytes += 4*$Np; $valid = 1; }
+	if ($type eq "int64_t")        { $Nbytes += 8*$Np; $valid = 1; }
+	if ($type eq "uint64_t")       { $Nbytes += 8*$Np; $valid = 1; }
+
+	if ($type eq "float")  	       { $Nbytes += 4*$Np; $valid = 1; }
+	if ($type eq "double") 	       { $Nbytes += 8*$Np; $valid = 1; }
+
+	# special 'elixir' types:
+	if ($type eq "e_time") 	       { $Nbytes += 4*$Np; $valid = 1; }
+	if ($type eq "e_void") 	       { $Nbytes += 8*$Np; $valid = 1; }
+	# if ($type eq "Image") 	       { $Nbytes += 8*$Np; $valid = 1; }
+	if (!$valid) { die "unknown type $type"; }
+    }
+    return ($Nbytes);
+}
+
+sub count_tablesize {
+
+    $Nbytes = 0;
+    for ($i = 0; $i < @field; $i++) {
+	# skip SUBSTRUCT type of entries:
+	if ($mode[$i] eq "SUBSTRUCT") { next; }
+
+	($fpt) = $format[$i] =~ m|^\w+\[([\d\.]+)\]|;
+	$length = int($fpt);
+	# print "$format[$i], $length, $fpt\n";
+	if ($length == 0) { die "ASCII table format requires field size"; }
+	$Nbytes += $length;
+    }
+    return ($Nbytes);
+}
+
+sub init_key {
+    my ($key)   = $_[0];
+
+    push @key, $key;
+    push @value, "";
+}
+
+sub set_keypair {
+    my ($i);
+    my ($key)   = $_[0];
+    my ($value) = $_[1];
+
+    for ($i = 0; $i < @key; $i++) {
+	if ($key eq $key[$i]) {
+	    if ($value[$i] ne "") { die "key is multiply defined\n"; }
+	    $value[$i] = $value;
+	    return;
+	}
+    }
+}
+
+sub check_keypairs {
+    my ($i);
+    for ($i = 0; $i < @key; $i++) {
+	# if ($VERBOSE) { print "$key[$i]  -- $value[$i]\n"; }
+	if ($line =~ m|\$$key[$i]|) {
+	    if ($value[$i] eq "") { die "missing value for required key $key[$i]\n"; }
+	    $line =~ s|\$$key[$i]|$value[$i]|g;
+	}
+    }
+}
+
+# we need to find the structure size, including padding 
+# i'm not sure I know the answer to this: it is probably 
+# the total number of bytes rounded up to the largest 
+# data item in the structure (ie, 8 for a double, etc)
+# if we have the size, then we can double check the structure
+# against the expectation at runtime.  for the moment,
+# calculate by hand and add to def.d file 
+

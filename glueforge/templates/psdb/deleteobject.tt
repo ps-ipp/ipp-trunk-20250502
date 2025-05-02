@@ -1,0 +1,18 @@
+bool [% table.namespace %]DeleteObject(psDB *dbh, const [% table.object_name %] *object)
+{
+    psMetadata *where = [% table.namespace %]MetadataFromObject(object);
+    long long count = psDBDeleteRows(dbh, [% table.namespace FILTER upper %]_TABLE_NAME, where, 0);
+    psFree(where);
+    if (count < 0) {
+        psError(PS_ERR_UNKNOWN, true, "failed to delete row from [% table.namespace %]");
+        return false;
+    }
+    if (count > 1) {
+        // XXX should this be a psAbort() instead?  It is possible that
+        // having an object match multiple rows was by design.
+        psError(PS_ERR_UNKNOWN, true, "[% table.object_name%] object matched more then one row.  Check your database schema");
+        return false;
+    }
+
+    return true;
+}

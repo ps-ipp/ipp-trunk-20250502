@@ -1,0 +1,13 @@
+/** Formats and prints an [% table.object_name %] object
+ *
+ * When mdcf is set the formated output is in psMetadataConfig
+ * format, otherwise it is in a simple tabular format.
+ *
+ * @return true on success
+ */
+
+bool [% table.namespace %]PrintObject(
+    FILE            *stream,            ///< a stream
+    [% table.object_name %] *object,    ///< an [% table.object_name %] object
+    bool            mdcf                ///< format as mdconfig or simple
+);

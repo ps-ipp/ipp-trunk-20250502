@@ -1,0 +1,208 @@
+<meta name=file  content=addstar>
+<meta name=title content=addstar>
+<meta name=page  content=addstar>
+
+<p>
+This program takes a photometry file, with astrometry, provided by
+earlier routines and incorporates the stellar measurements into the
+photometry database.  This routine does NOT try to calibrate or check
+the photometry, nor does it try to improve the coordinate
+determinations or calculate chisquares for position or photometry -
+those tasks are performed by other routines.
+
+<p>
+Addstar starts by loading in the photometry file and converting the
+pixel coordinates to sky coordinates using the astrometry information
+in the header of the file.  It also gets the detection limits and
+stores the image astrometry information.
+
+<p>
+Next, addstar determines which of all the previous images overlaps
+with this image and also which of the catalog regions overlaps with
+this image.
+
+<p>
+Addstar considers each catalog region in turn, and compares the
+positions of stars in the catalog with stars in the image.  If a
+catalog star is detected, a new measurement is added to the catalog.
+If a catalog star is not detected, but is in the field of view of this
+image, the detection limit for this image is added to the list of
+measurements as an upper limit.  If the image contains a star which is
+not already included in the catalog, the star is added to the catalog,
+and all previous images are checked to see if they included this
+location.  If so, upper limits are added to the list of measurements.
+
+<p>
+To deal with blended images, we have taken the philosophy that all
+measurements compatible with the coordinates of a given star should be
+included in the list of measurements.  This assumes that programs or people
+downstream will figure out which is the "correct" measurement.  To
+this end, if a catalog star is consistent with multiple measurements,
+they are all added to the catalog measurement and the measurements are
+given a flag to say that there was blending in the catalog (ie, it is
+probably the catalog star which is a blend).  If multiple catalog
+stars are consistent with the same image star, that measurement is
+added to each catalog star, and given a flag to say that there was
+blending on the image.
+
+<p>
+After all catalogs have been checked, updated, and written to disk,
+the image is added to the database of images.
+
+<p>
+see <a href=database.html> DVO database </a> for discussion of the
+database storage format.   
+
+<hr>
+
+<h2> Usage </h2>
+
+<pre>
+ addstar (filename)
+ addstar -cat (catalog)
+ addstar -ref (filename)
+</pre>
+
+<p>
+In the first form, addstar loads the photometry information for a
+single image into the database.  The file must be in one of the Elixir
+cmp/smp/smf formats, and must have been astrometrized (eg, with
+gastro, gastro2, and/or mosastro).  The file must also be provided
+with a valid photcode in the header (keyword PHOTCODE) or the photcode
+must be supplied as an option to addstar (see below).  The photcode
+must be listed in the photcode table (see config variable
+PHOTCODE_FILE).  In the case that the image has been astrometrized
+with mosastro (two-level mosaic astrometry), the corresponding mosaic
+header unit must be supplied as an option (see below).  
+
+<p>
+In the second form, addstar will load photometry from the specified
+reference catalog, located in a known location, and will load it into
+the database.  Allowed catalog names are: <tt> USNO, GSC, 2MASS,
+2MASS-ALLSKY, 2MASS-DR </tt>.  Note that USNO corresponds to the
+USNO-A catalog, 2MASS corresponds to the 2MASS-ALLSKY catalog.  It is
+necessary to have defined an appropriate photcode for the given
+catalog.  The following photcodes are expected to exist:
+
+<table>
+<tr><th> catalog </th><th> allowed photcodes   	     </th></tr>
+<tr><td> GSC     </td><td> GSC_M               	     </th></tr>
+<tr><td> USNO    </td><td> USNO_RED, USNO_BLUE 	     </th></tr>
+<tr><td> 2MASS*  </td><td> 2MASS_J, 2MASS_H, 2MASS_K </th></tr>
+</table>
+
+When more than one photcode is allowed, one must be selected; there
+are no defaults in that case. <em>It is advised that addstar -cat be
+used with a restricted region of the sky; the default behavior will
+load the reference catalog for the entire sky into the DB!</em>
+
+<p>
+In the third form, addstar will load data from the specified ASCII
+text file with a fixed format.  The file must contain lines with one
+line per star.  The first four columns must contain the values RA,
+DEC, Magnitude, Magnitude error.  The RA and DEC must be in J2000
+decimal degrees.  Blank lines are allowed, and lines may be commented
+with the hash sign (#).  The provided photometry must all be for a
+single photcode, which must be provided as a command-line option.
+
+<h2> Additional Options </h2>
+
+<pre>
+  -region ra ra dec dec           : only add data in specified region (-ref mode only)
+  -p (photcode)                   : specify photcode (override header)
+  -time (YYYY/MM/DD,HH:MM:SS)     : specify date/time (override header)
+  -mosaic (filename)              : identify associated mosaic frame for chip image
+  -fits                           : input file is FITS table, not TEXT table
+  -existing-regions               : only add measurements to existing catalog files
+  -only-match                     : only add measurements to existing objects
+  -missed                         : skipped 'missed' entries
+  -replace                        : replace time/photcode measurements (no duplication)
+  -image                          : only insert image data
+  -cal                            : perform zero-point calibration
+  -skyprobe                       : specify skyprobe mode
+  -2massquality                   : define 2MASS quality flags to keep
+  -accept                         : accept bad astrometry from header
+  -force                          : force read of database with inconsistent info
+  -v                              : verbose mode
+  -dump (mode)                    : output test data
+  -help                           : print this list
+  -h                              : print this list
+</pre>
+
+
+<h2> Elixir Configuration Data </h2>
+
+addstar uses the following Elixir configuration variables:
+
+<ul>
+<li> EXPTIME-KEYWORD  : header keyword defining exposure time
+<li> DATE-KEYWORD  : header keyword defining the date 
+<li> DATE-MODE  : mode for header date information: use a combination
+of Ys, Ms, Ds to specify order.  If only 2 digits are specified for
+the year, numbers greater than 50 are assumed in the 1900s, less than
+in the 2000s.  eg YYYY/MM/DD
+<li> UT-KEYWORD  : header keyword defining UT
+<li> MJD-KEYWORD  : header keyword defining MJD
+<li> JD-KEYWORD  : header keyword defining JD
+<li> AIRMASS-KEYWORD
+<li> CCDNUM-KEYWORD
+<li> ST-KEYWORD
+
+<li> RADIUS : radius for matches; may have the value "header", in which
+case the astrometric error listed in the header, along with
+<tt>NSIGMA</tt> is used to define a match.  Otherwise, defines a
+radius in arcseconds.
+
+<li> NSIGMA : number of astrometric error sigma to use for match
+radius (see <tt>RADIUS</tt>).
+
+<li> XOVERSCAN : used to define valid pixels in the image. subtracted
+from image NAXIS1 value to define image box. 
+
+<li> YOVERSCAN : used to define valid pixels in the image. subtracted
+from image NAXIS2 value to define image box. 
+
+<li> ADDSTAR_XMIN : this value, and the following three, are used to
+define a region on the image where the photometry is considered
+reliable.  Stars outside this region are marked as having poor
+measurements.
+
+<li> ADDSTAR_XMAX : see <tt>ADDSTAR_XMIN</tt>
+<li> ADDSTAR_YMIN : see <tt>ADDSTAR_XMIN</tt>
+<li> ADDSTAR_YMAX : see <tt>ADDSTAR_XMIN</tt>
+
+<li> MIN_SN_FSTAT : only include objects in the DB with S/N greater
+than this value.
+
+<li> GSCDIR        : location of the HST Guide Star Catalog
+<li> USNO_CDROM    : location of the USNO-A data
+<li> 2MASS_DIR_AS  : location of the 2MASS allsky data 
+<li> 2MASS_DIR_DR2 : location of the 2MASS DR2 data 
+
+2MASS, USNO, and GSC are all loaded from their idiosyncratic formats.
+
+<li> GSCFILE  : location of the GSC layout file (for GSC and ptolemy)
+<li> CATDIR  : location of the ptolemy data
+<li> IMAGE_CATALOG : location of the image database table
+
+<li> CATMODE : storage mode for the database.  may be one of RAW,
+MEF, SPLIT, MYSQL.  SPLIT and MYSQL are currently unsupported.  This
+defines the output format for new tables; the input format is auto-detected.
+
+<li> CATFORMAT : data format for the database.  may be one of LONEOS,
+ELIXIR, PANSTARRS.
+
+<li> PHOTCODE_FILE : location of the photcode file describing the
+photometry system of interest.
+
+<li> OBSERVATORY-LATITUDE : hard-wired observatory latitude.  used for
+precision airmass for skyprobe.  <em> should be replaced with a more
+sophisticated approach</em>
+
+<li> SUBPIX_DATAFILE : table for subpixel structure corrections (skyprobe)
+
+<li> IMAGE_CATALOG_TEMPLATE : deprecated, was used to supply a FITS
+header template
+<li> CATALOG_TEMPLATE : deprecated, was used to supply a FITS
+header template
+</ul>

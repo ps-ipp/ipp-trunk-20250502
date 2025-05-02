@@ -1,0 +1,86 @@
+#!/usr/bin/env perl
+
+# This script is a temporary "solution" to allow a client to determine whether
+# what volumes contain instances of a nebulous storage object regardless 
+# of whether or not the volume is currently available.
+# Used by cleanup and update processing
+
+
+use strict;
+use warnings;
+use DBI;
+use PS::IPP::Config 1.01 qw( :standard );
+
+use Getopt::Long qw( GetOptions :config auto_help auto_version gnu_getopt );
+use Pod::Usage qw( pod2usage );
+
+use Nebulous::Key qw(parse_neb_key);
+
+my $dbname = "nebulous";
+my $dbserver = "nebulous.ipp.ifa.hawaii.edu";
+my $verbose;
+
+GetOptions(
+    'verbose'        => \$verbose,  # Print to stdout
+) or pod2usage( 2 );
+
+pod2usage( -msg => "filename required", -exitval => 2 ) if ! @ARGV;
+
+
+my $ipprc =  PS::IPP::Config->new();
+my $dbh = getDBHandle();
+
+my $query = "SELECT  volume.name AS volname, uri, mountedvol.*, volume.xattr AS volxattr"
+    . " FROM storage_object JOIN instance USING(so_id)"
+    . " JOIN volume using(vol_id)"
+    . " LEFT JOIN mountedvol USING(vol_id)  WHERE ext_id = ?";
+my $stmt = $dbh->prepare($query);
+
+my $errors = 0;
+foreach my $in_key (@ARGV) {
+    my $key_object = parse_neb_key($in_key);
+
+    die "$in_key is not a valid nebulous path\n" if !$key_object;
+
+    my $key = $key_object->path;
+
+    print STDERR "$key\n" if $verbose;
+
+    $stmt->execute($key);
+    my $num_instances = 0;
+    my $num_available = 0;
+    while ( my $instance= $stmt->fetchrow_hashref() ) {
+        my $volname = $instance->{volname};
+        my $uri = $instance->{uri};
+	my $volxattr = $instance->{volxattr};
+	
+        $num_instances++;
+        if ($instance->{available}) {
+            $num_available++;
+            print "$volname available\n";
+	} elsif ($volxattr == 5) {
+	    print "$volname permanently offline\n";
+        } else {
+            print "$volname not available\n";
+            $errors++;
+        }
+    }
+}
+
+exit 0;
+
+sub getDBHandle {
+    my $dbuser = metadataLookupStr($ipprc->{_siteConfig}, "DBUSER");
+    my $dbpassword = metadataLookupStr($ipprc->{_siteConfig}, "DBPASSWORD");
+
+    die "database configuration set up" unless defined($dbserver) and defined($dbuser)
+        and defined($dbpassword) and defined($dbname);
+
+    my $dsn = "DBI:mysql:host=$dbserver;database=$dbname";
+
+    my $dbh = DBI->connect($dsn, $dbuser, $dbpassword) 
+        or die "Cannot connect to database.\n";
+
+    return $dbh;
+}
+

@@ -1,0 +1,9 @@
+AT_SETUP([[% table.namespace %]CreateTable()])
+AT_KEYWORDS([[% table.namespace %]CreateTable])
+
+# make sure the table is not there.
+AT_CHECK([dbcleanup])
+AT_CHECK([createtable])
+AT_CHECK([dbcleanup])
+
+AT_CLEANUP

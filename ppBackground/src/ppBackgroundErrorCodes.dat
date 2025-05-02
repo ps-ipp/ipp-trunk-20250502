@@ -1,0 +1,11 @@
+#
+# This file is used to generate ppBackgroundErrorClasses.h
+#
+BASE = 17000		First value we use
+UNKNOWN			Unknown ppBackground error code
+NOT_IMPLEMENTED		Desired feature is not yet implemented
+ARGUMENTS		Incorrect arguments
+CONFIG			Problem in configure files
+IO			Problem in I/O
+DATA                    Problem in data values
+PROG			Programming error

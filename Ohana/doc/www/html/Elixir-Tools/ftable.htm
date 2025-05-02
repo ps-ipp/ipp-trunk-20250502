@@ -1,0 +1,24 @@
+<pre>
+  ftable (filename) [options]
+
+  options:
+  -x N:       operate on extension N (0 is default)
+  -n EXTNAME: operate on named extension (incompatible with -x)
+  -row N:     print row number N
+  -column n:  print column named n
+  -ncolumn N: print column number N
+  -list:      print extension names
+  -layout     print the table layout (fields)
+
+  Print out FITS table data, or FITS table header data.  By default,
+  the entire FITS table is printed.  Command-line options may be used
+  to restrict the output to a single column or single row.  Additional
+  options may be used to list all extension names or to print out the
+  complete table fields for the selected extension.  By default, the
+  key/values are taken from the first extension.  If the -x is
+  provided the Nth extension's header unit is used instead, with 0
+  being the first extension after the PHU.  If the -n option is
+  provided, the named extension (matching keyword EXTNAME) is used.  
+
+
+</pre>

@@ -1,0 +1,65 @@
+#!/usr/bin/env perl
+
+if (@ARGV != 2) { &usage; }
+
+# command line arguments
+$inlist  = $ARGV[0];
+$outlist = $ARGV[1];
+
+# setup elixir references
+$coordpath = `gconfig FRINGE_COORD_PATH`;  chop $coordpath;
+$confdir   = `gconfig CONFDIR`;            chop $confdir;
+$script    = "$confdir/mana/fringe.pro";   
+
+$filtkwd   = `gconfig FILTER-KEYWORD`;     chop $filtkwd;
+$camerakwd = `gconfig CAMERA-KEYWORD`;     chop $camerakwd;
+$ccdkwd    = `gconfig CCDNUM-KEYWORD`;     chop $ccdkwd;
+
+$Nccd      = `cameraconfig -Nccd`;         chop $Nccd;
+$answer    = `cameraconfig -ccds`;
+@ccds      = split (" ", $answer);
+
+# temporary files needed:
+set imstats=`mktemp /tmp/defringe.XXXXXX`;
+set frstats=`mktemp /tmp/defringe.XXXXXX`;
+
+# calculate imstats for the input image, get stats from fringe image header
+set filtvalue = `head -1 $imlist | fields $filtkwd | awk '{print $2}'`;
+set filter = `filtnames $filtvalue`;
+
+set camera = `head -1 $imlist | fields $camerakwd | awk '{print $2}'`;
+if ("$camera" == "") set camera = "WFI";
+
+# load input / output lists:
+open (FILE, "$inlist");
+@inlist = <FILE>;
+close (FILE);
+
+open (FILE, "$outlist");
+@outlist = <FILE>;
+close (FILE);
+
+if (@inlist != @outlist) { die "ERROR: mismatched lists\n"; }
+ 
+# measure fringe amplitude
+
+
+
+sub vsystem {
+    print STDERR "@_\n";
+    $status = system ("@_");
+    $status;
+}
+
+sub goodbye {
+    die "@_\n";
+}
+
+sub usage {
+    print STDERR "USAGE: defringe (inlist) (outlist)\n";
+    exit 2;
+}
+
+sub uppercase {
+    return "\U$_[0]\E";
+}

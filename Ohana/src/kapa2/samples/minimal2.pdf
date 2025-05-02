@@ -1,0 +1,125 @@
+%PDF-1.4
+
+1 0 obj <<
+ /Type /Catalog
+ /Pages 2 0 R
+>> endobj
+
+2 0 obj <<
+ /Type /Pages
+ /Kids [3 0 R]
+ /Count 1
+>> endobj
+
+3 0 obj <<
+ /Type /Page
+ /Parent 2 0 R
+ /MediaBox [0 0 520 520]
+ /Resources <<
+   /Font <<
+     /F1 4 0 R
+     /F2 5 0 R
+     /F3 6 0 R
+     /F4 7 0 R
+   >>
+   /XObject << /Image1 8 0 R >>
+ >>
+ /Contents 9 0 R
+>> endobj
+
+4 0 obj <<
+ /Type     /Font
+ /Subtype  /Type1
+ /Name     /F1
+ /BaseFont /Helvetica
+>>
+
+5 0 obj <<
+ /Type     /Font
+ /Subtype  /Type1
+ /Name     /F2
+ /BaseFont /Times-Roman
+>>
+
+6 0 obj <<
+ /Type     /Font
+ /Subtype  /Type1
+ /Name     /F3
+ /BaseFont /Courier
+>>
+
+7 0 obj <<
+ /Type     /Font
+ /Subtype  /Type1
+ /Name     /F4
+ /BaseFont /Symbol
+>>
+
+8 0 obj <<
+ /Type             /XObject
+ /Subtype          /Image
+ /Width            10
+ /Height           5
+ /ColorSpace       /DeviceRGB
+ /BitsPerComponent 8
+ /Length	   150
+>>
+stream
+0zz1zz2zz3zz4zz5zz6zz7zz8zz9zzAzzBzzCzzDzzEzzFzzGzzHzzIzzJzzKzzLzzMzzNzzOzzPzzQzzRzzSzzTzzUzzVzzWzzXzzYzzZzzazzbzzczzdzzezzfzzgzzhzzizzjzzkzzlzzmzznzz
+endstream
+endobj
+
+9 0 obj <<
+/Length 171 >>
+stream
+q
+BT
+  0  0   m
+ 50 50   Td
+/F1 24 Tf
+(Helvetica) Tj
+ET
+BT
+  0  0   m
+ 70  70  Td
+/F2 24 Tf
+(Times) Tj
+ET
+BT
+/F3 24 Tf
+  0   0  m
+ 90  90  Td
+(Courier) Tj
+ET
+BT
+/F4 24 Tf
+  0   0  m
+110 110  Td
+(Symbol) Tj
+ET
+Q
+q
+50 0 0 50 200 200 cm
+/Image1 Do
+Q
+endstream
+endobj
+
+xref 0 9
+0000000000 65535 f 
+0000000010 00000 n 
+0000000062 00000 n 
+0000000123 00000 n 
+0000000344 00000 n 
+0000000431 00000 n 
+0000000520 00000 n 
+0000000605 00000 n 
+0000000689 00000 n 
+0000001043 00000 n 
+trailer
+<<
+ /Size 9
+ /Root 1 0 R
+>>
+startxref 1342
+%%EOF

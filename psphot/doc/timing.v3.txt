@@ -1,0 +1,39 @@
+0.000408 sec    found 0 satstar blend peaks, leaving 551 sources: 
+0.002058 sec    measure source sizes for 551 sources: 
+0.003553 sec    measure source sizes for 1302 sources: 
+0.009676 sec    identified 36 blended objects: 
+0.026266 sec    replaced models for 551 objects: 
+0.026892 sec    sub noise for 551 objects: 
+0.026924 sec    add noise for 551 objects: 
+0.029050 sec    replaced models for 551 objects: 
+0.032975 sec    set footprint array IDs: 
+0.047061 sec    set footprint array IDs: 
+0.080533 sec    rough classification: 
+0.107024 sec    replace background flux : 
+0.111200 sec    found 631 footprints: 
+0.132417 sec    rough classification: 
+0.182467 sec    subtracted background model: 
+0.2      sec    cull peaks
+0.297289 sec    2676 peaks: 
+0.3      sec    rest of foot
+0.300492 sec    849 peaks: 
+0.364908 sec    found 7613 footprints: 
+0.393265 sec    measure ensemble of PSFs: 
+0.405241 sec    build median image: 
+0.454711 sec    measure ensemble of PSFs: 
+0.680027 sec    measure ensemble of PSFs: 
+0.900696 sec    751 sources, 290 moments, 9 failed: 
+1.1 sec    rest of footpr
+1.147541 sec    built models for 551 objects: 
+1.289976 sec    generate residuals for 35 objects: 
+1.456877 sec    built models for 751 objects: 
+1.5      sec    select psf model (ex resid)
+1.661166 sec    551 sources, 551 moments, 8 failed: 
+2.988601 sec    built smoothed signficance image: 
+3.677652 sec    built smoothed signficance image: 
+4.354904 sec    measure magnitudes :  for 1302 objects (634 with apertures)
+5.8 sec    cull peaks
+6.594287 sec    convolved with grow disc: 
+7.413455 sec    convolved with grow disc: 
+7.616990 sec    fit models:  for 417 objects (354 psf, 31 ext, 32 failed, 134 skipped)
+55.393567 sec    complete psphot run: 

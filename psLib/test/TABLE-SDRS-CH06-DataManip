@@ -1,0 +1,441 @@
+-------------------------------------------------------------------------------
+			Unallowed	Types	Sizes	Level	Algorithm
+			Params				of
+							Testing
+-------------------------------------------------------------------------------
+psVectorSort()
+			10		10	10	10
+    in mathtypes/tap_psVectorSort.c
+    Many more types are tested successfully than required in the SDRS.
+psVectorSortIndex()
+			10		10	10	10
+    in mathtypes/tap_psVectorSortIndex.c
+    Many more typres are tested successfully than required in the SDRS.
+psVectorStats()		5		10	5	5
+    files: math/tap_psStats00.c - math/tap_psStats09.c
+    Must review these files more.
+    More extensie robust stats?
+    They use preset answers
+    Types should be supported (from SDRS):
+	psS8, psU16, psF32, psF64
+psStatsAlloc()
+			na		na	na	10
+psStatsOptionFromString()
+			10		na	na	10	na
+psStatsOptionToString()
+			10		na	na	10	na
+psStatsFromString()
+			NONE		NONE	NONE	NONE
+psStatsToString()
+			NONE		NONE	NONE	NONE
+psStatsSingleOption()
+			NONE		NONE	NONE	NONE
+psStatsGetValue()
+			NONE		NONE	NONE	NONE
+psVectorCountPixelMask()10		10	10	10	na
+    mathtypes/tst_psVector.c
+psHistogramAlloc()
+			10		na	10	10
+psHistogramAllocGeneric()
+			10		na	10	10
+psVectorHistogram()
+			8		na	10	8
+psPolynomial1DAlloc()
+			10		10	10	10	na
+    math/tap_psPolynomial.c
+psPolynomial2DAlloc()
+			10		10	10	10	na
+    math/tap_psPolynomial.c
+psPolynomial3DAlloc()
+			10		10	10	10	na
+    math/tap_psPolynomial.c
+psPolynomial4DAlloc()
+			10		10	10	10	na
+    math/tap_psPolynomial.c
+psPolynomial1DEval()
+			10		10	1	8
+    We only allocate polynomials with 4 terms
+    We should ensure that asking for negative number of terms fails nicely.
+    The test uses precomputed results.
+psPolynomial2DEval()
+			10		10	1	5
+    We only allocate polynomials with 4 terms
+	Must vary x,y number of terms.
+    The test uses precomputed results.
+psPolynomial3DEval()
+			10		10	1	5
+    We only allocate polynomials with 4 terms
+	Must vary x,y,z number of terms.
+    The test uses precomputed results.
+psPolynomial4DEval()
+			10		10	1	5
+    We only allocate polynomials with 4 terms
+	Must vary w,x,y,z number of terms.
+    The test uses precomputed results.
+psPolynomial1DEvalVector()
+			10		10	5	9
+psPolynomial2DEvalVector()
+			10		10	5	9
+psPolynomial3DEvalVector()
+			10		10	5	9
+psPolynomial4DEvalVector()
+			10		10	5	9
+psPolynomial1DfromMetadata()10		10	10	10	na
+    types/tap_psMetadata_polynomials.c
+psPolynomial2DfromMetadata()10		10	10	10	na
+    types/tap_psMetadata_polynomials.c
+psPolynomial3DfromMetadata()10		10	10	10	na
+    types/tap_psMetadata_polynomials.c
+psPolynomial4DfromMetadata()10		10	10	10	na
+    types/tap_psMetadata_polynomials.c
+psPolynomial1DtoMetadata()10		10	10	10	na
+    types/tap_psMetadata_polynomials.c
+psPolynomial2DtoMetadata()10		10	10	10	na
+    types/tap_psMetadata_polynomials.c
+psPolynomial3DtoMetadata()10		10	10	10	na
+    types/tap_psMetadata_polynomials.c
+psPolynomial4DtoMetadata()10		10	10	10	na
+    types/tap_psMetadata_polynomials.c
+psSpline1DAlloc()
+			na		na	na	10
+psSpline1DEval()
+			8		na	5	8
+    There should be a PS_ASSERT_PTR_NON_NULL(spline->knots) before we
+    assert type:
+        PS_ASSERT_PTR_NON_NULL(spline, NULL);
+        PS_ASSERT_VECTOR_TYPE(spline->knots, PS_TYPE_F32, NULL);
+psSpline1DEvalVector()
+			8		na	5	8
+psGaussian()		na		na	na	5	na
+    math/tap_psFunc01.c
+    This test merely compares psGaussian results agaisnt preset vectors.
+    Add tests to generate a vector of data, then run psVectorStats() on it.
+psMinimizationAlloc()
+			10		10	10	10
+    Completely tested.
+psMinConstrainAlloc()
+			10		10	10	10
+    Completely tested, however the SDRS completely disagrees with the code.
+    What happened to the following members?
+        psVector *paramMax;
+        psVector *paramMin;
+        psVector *paramDelta;
+    And a new member:
+	psMinimizeLMLimitFunc checkLimits;
+psMinimizeLMChi2()
+			5		3	1	1
+    XXX: Add tests for
+        covar arg set to non-NULL
+        constraint set to non-NULL
+	Set x->vectors to NULL, or use wrong types
+	yWt (errors) vector set to incorrect size, type.
+psMinimizeGaussNewtonDelta()0		0	0	0	0
+    NONE
+psMinimizePowell()	0		0	0	0	na
+    The bad param tests are all commented out due to seg faults
+    Basically, everthing is commented out due to seg faults
+psMinimizeChi2Powell()	0		0	0	0	0
+    NONE
+psVectorFitPolynomial1D()
+			10		10	7	9
+    Maybe vary the poly orders.
+    4D has some tests that are failing, but should not be.
+psVectorFitPolynomial2D()
+			10		10	7	9
+    DITTO
+psVectorFitPolynomial3D()
+			10		10	7	9
+    DITTO
+psVectorFitPolynomial4D()
+			10		10	7	9
+    DITTO
+psVectorClipFitPolynomial1D()
+			10		10	7	9
+    DITTO
+psVectorClipFitPolynomial2D()
+			10		10	7	9
+    DITTO
+psVectorClipFitPolynomial3D()
+			10		10	7	9
+    DITTO
+psVectorClipFitPolynomial4D()
+			10		10	7	9
+    DITTO
+psVectorFitSpline1D()	0		2	10	5	5
+psImageSubset()		10		2	1	10	na
+    in imageops/tap_psImageStructManip.c
+    A single 128x256 image of type U32 is tested.
+psImageCopy()		10		10	8	10	na
+    in imageops/tap_psImageStructManip.c
+    A single input 128x256 image of type F32 is tested, however it's
+	converted to all other allowed types.
+psImageTrim()		10		2	4	10	na
+    in imageops/tap_psImageStructManip.c
+    A single 200x300 image of type F32 is tested.
+psImageFlip()		0		0	0	0	0
+    NONE
+psImageRow()		10		10	2	10	na
+    in imageops/tap_psImageStructManip.c
+psImageCol()		10		10	2	10	na
+    in imageops/tap_psImagePixelExtract.c
+    A single 3x3 image is used
+psImageSlice()		10		10	10	10	na
+    in imageops/tap_psImagePixelExtract.c
+    Spend more time determining if all input params are tested, and all combos
+	as well.
+    SDRS seems to be out of date.
+psImageCut()		5		2	2	10	na
+    in imageops/tap_psImagePixelExtract.c
+    SDRS seems to be incomplete and lots of unallowed input param combos are
+	probably not tested.
+    A single 200x300 input image of type F32 is tested.
+psImageRadialCut()	10		2	2	10	na
+    in imageops/tap_psImagePixelExtract.c
+    A single 200x300 input image of type F32 is tested.
+psImageRebin()		10		10	2	10	na
+    In imageops/tap_psImageGeomManip.c
+    Only 16x16 images are rebinned into 4x4 images.  Try NxM.
+psImageResample()	10		2	2	10	na
+    In imageops/tap_psImageGeomManip.c
+    A single 80x60 input image of type F32 is used.
+psImageRotate()		8		5	2	10	na
+    In imageops/tap_psImageGeomManip.c
+    A single 64x64 input image is used
+    Only types F32 and S16 are tested
+    Image values are compared against a stored FITS file.  Where did the file
+	come from?
+    There is a potential autoconf directory problem with reading the FITS file.
+psImageShift()		10		5	5	10	na
+    In imageops/tap_psImageGeomManip.c
+    Only 64x128 images are used.
+    Only types F32 and S16 are tested
+psImageRoll()		10		10	2	10	na
+    In imageops/tap_psImageGeomManip.c
+    Only NxN square images are tested.
+psImageTransform()	0		2	2	5	na
+    In imageops/tap_psImageGeomManip.c
+    A single 16x32 input image of type F32 is used
+    No attempt at unallowed input params, types, or sizes.
+psImageUnbin()		0		0	0	0	0
+    NONE
+psImageStats()		10		2	2	10	na
+    In imageops/tap_psImageStats.c
+    A single 10x10 input image of type F32 is used
+    subRegion tests are skipped because of a seg-fault
+psImageHistogram()	10		2	4	10	na
+    In imageops/tap_psImageStats.c
+    A single 16x15 input image of type F32 is used
+    numBins should be varied
+psImageCountPixelMask()	10		10	2	10	na
+    In imageops/tap_psImageStats.c
+    A single 10x10 input mask images used
+psImageFitPolynomial()	10		2	4	10	5
+    In imageops/tap_psImageStats.c
+    Only 10x10 images are used.
+    Only F32 and F64 are tested.
+psImageEvalPolynomial()	10		2	4	10	5
+    In imageops/tap_psImageStats.c
+    Only 10x10 images are used.
+    Only F32 and F64 are tested.
+psImagePixelInterpolate()
+			2		2	2	8	8
+    There's old code in imageops/tap_psImageInterpolate.c
+    Extensive code in mathtypes/tap_psImageInterpolate.c
+    A single 32x32 input image of type F32 is used
+    Merge param tests from imageops/tap_psImageInterpolate.c
+psImageBackground()	0		0	0	0	0
+    NONE
+psImageClip()		8		10	2	10	na
+    imageops/tap_psImagePixelManip.c
+    Only 256-128 images are tested
+    All types are tested
+    Should block off some individual tests
+psImageClipComplexRegion()0		0	0	0	0
+    NONE in tap files, there is an old imageops/tst_psImagePixelManip.c
+    Is this still in the new SDRS?
+psImageClipNaN()	8		5	2	10	na
+    imageops/tap_psImagePixelManip.c
+    Only 256-128 images are tested
+    Only F32 and F64 are tested
+    Should block off some individual tests
+psImageOverlaySection()	10		10	2	10	na
+    imageops/tap_psImagePixelManip.c
+    Only 128-by-256 images are tested
+    All types are tested
+    Should block off some individual tests
+psImageBicubeFit()	0		0	0	0	0
+    NONE
+psImageBicubeMin()	0		0	0	0	0
+    NONE
+psImageJpegColormapAlloc()
+			0		0	0	0	0
+    NONE
+psImageJpegColormapSet()0		0	0	0	0
+    NONE
+psImageJpeg()		0		0	0	0	0
+    NONE
+psImageGrowMask()	10		10	2	10	na
+    In imageops/tap_psImageMaskOps.c
+    psImageGrowMask() is currently growing a circular mask when the SDRS specs
+	a square mask.
+    All mask images are NxN
+psPixelsToMask()	10		10	10	2	na
+    In types/tap_psPixels_all.c
+    We never test pixels in the output image mask
+psPixelsFromMask()	10		10	2	2	na
+    In types/tap_psPixels_all.c
+    We never test pixels in the output psPixels
+    Should better separate individual tests
+psPixelsConcatenate()	?		?	?	?	na
+    This is not in the SDRS
+    We never test pixels in the output psPixels
+psImageMaskRegion()	5		10	10	10	na
+    In imageops/tap_psImageMaskOps.c
+    Generate tests with NULL input, bad input type, bad psRegion
+psImageKeepRegion()
+    In imageops/tap_psImageMaskOps.c
+    Generate tests with NULL input, bad input type, bad psRegion
+psImageMaskCircle()	5		10	2	5	na
+    In imageops/tap_psImageMaskOps.c
+    Generate tests with NULL input, bad input type, bad radius, etc
+    Seg faults are skipped for Nx1 and 1xN images
+psImageKeepCircle()	5		10	2	5	na
+    In imageops/tap_psImageMaskOps.c
+    Generate tests with NULL input, bad input type, bad radius, etc
+    Seg faults are skipped for Nx1 and 1xN images
+psBinaryOp()		?		?	?	?	?
+    Extensive tests in tap_psMatrixVectorArithmetic:01-04.c
+    Must review further.
+    Some are seg-faulting and failing to compile, so I removed from Makefile.am
+psUnaryOp()		?		?	?	?	?
+    Extensive tests in tap_psMatrixVectorArithmetic:01-04.c
+    Must review further.
+    Some are seg-faulting and failing to compile, so I removed from Makefile.am
+psMatrixLUD()		0		5	2	5	3
+    math/tap_psMatrix03.c
+    The NULL image argument seg-faults
+    Only 3x3 matrices, F32 and F64, are used.
+    Fairly low-level of testing
+psMatrixLUSolve()	0		5	2	5	3
+    math/tap_psMatrix03.c
+    The NULL image argument seg-faults
+    The NULL vector argument seg-faults
+    Only 3x3 matrices, F32 and F64, are used.
+    Fairly low-level of testing
+psMatrixGJSolve()	0		0	0	0	0
+    NONE
+psMatrixInvert()	0		5	2	5	3
+    math/tap_psMatrix04.c
+    Only 3x3 matrices, F32 and F64, are used.
+    The NULL image argument seg-faults
+    The NULL vector argument seg-faults
+    Fairly low-level of testing
+psMatrixDeterminant()	10		10	2	5	na
+    math/tap_psMatrix04.c
+    Only 3x3 matrices, F32 and F64, are used.
+    Fairly low-level of testing
+psMatrixMultiply()	0		5	2	5	na
+    math/tap_psMatrix05.c
+    Only 3x3 matrices, F32 and F64, are used.
+    No tests when args have different types.
+    No tests for bad input params.
+psMatrixTranspose()	10		10	4	8	na
+    math/tap_psMatrix01.c
+    Probably should N-by-M sizes
+    in file tap_psMatrix01.c
+    in file tap_psMatrix02.c
+	A few other tests with bad input parameters
+psMatrixEigenvectors()	0		5	2	5	na
+    math/tap_psMatrix06.c
+    Only 4x4 matrices, F32 and F64, are used.
+    No tests when args have different types.
+    No tests for bad input params.
+psMatrixToVector()	0		5	2	5	na
+    math/tap_psMatrix07.c
+    Only 1x3 and 3x1 matrices are used.
+    Only F32 and F64 types are used.
+    Lots of bad param tests are commented out due to seg faults
+psVectorToMatrix()	0		5	2	5	na
+    math/tap_psMatrix07.c
+    no bad param tests
+    Only 3x1 matrices are used.
+    Only F32 and F64 types are used.
+psSparseAlloc()
+			na		na	10	10	na
+psSparseMatrixElement()	0		na	na	na	na
+    math/tap_psSparse.c
+    This is not tested individually, however it is tested implictly.
+    Must write individual tests for it.
+psSparseVectorElement()	1		1	1	1	na
+    math/tap_psSparse.c
+    This is not tested individually, however it is tested implictly.
+    Must write individual tests for it.
+psSparseVectorElement()	1		1	1	1	na
+    math/tap_psSparse.c
+    This is not in the SDRS
+    This is not tested individually, however it is tested implictly.
+    Must write individual tests for it.
+psSparseMatrixTimesVector()1		1	1	1	na
+    math/tap_psSparse.c
+    This is not tested individually, however it is tested implictly.
+    Must write individual tests for it.
+psSparseResort()	1		1	1	1	na
+    math/tap_psSparse.c
+    This is not tested individually, however it is tested implictly.
+    Must write individual tests for it.
+psSparseSolve()		0		2	2	4	na
+    math/tap_psSparse.c
+    Must add param, types, and size tests.
+psVectorForwardFFT()	10		5	10	10	na
+    fft/tap_psVectorFFT.c
+    Add F64 tests
+psVectorBackwardFFT()	0		2	2	2	na
+    fft/tap_psVectorFFT.c
+    This is only tested implictly, once, along with the forward FFT test.
+psVectorPowerSpectrum()	0		0	0	0	0
+    fft/tst_psVectorFFT.c
+        There do not appear to be any tap tests.  Must look thru old files.
+psVectorComplexMultiply()0		0	0	0	0
+    NONE
+psImageForwardFFT()	10		5	10	10	na
+    fft/tap_psImageFFT.c
+    Need both F32 and F64 tests?
+psImageBackwardFFT()	0		2	2	2	na
+    fft/tap_psImageFFT.c
+    Need both F32 and F64 tests?
+    This is only tested implictly, once, along with the forward FFT test.
+psImagePowerSpectrum()	0		0	0	0	0
+    fft/tst_psImageFFT.c
+        There do not appear to be any tap tests.  Must look thru old files.
+psImageComplexMultiply()0		0	0	0	0
+    NONE
+psImageSmooth()		0		10	10	10	na
+    No bad param tests.
+    Don't you had bad param test lying around somewhere?
+psKernelAlloc()		8		na	na	8	na
+    imageops/tap_psImageConvolve.c
+    Consolidate with tap_psImageConvolve2.c
+psKernelGenerate()	8		5	5	4	na
+    imageops/tap_psImageConvolve.c
+    Some tests are skipped because of seg faults
+psImageConvolveDirect()	0		2	2	2	na
+    imageops/tap_psImageConvolve.c
+    These are completely commented away in tap_psImageConvolve.c and only
+	lightly tested in tap_psImageConvolve2.c
+psImageConvolveFFT()	0		0	0	2
+    imageops/tap_psImageConvolve2.c
+    Only lightly tested in tap_psImageConvolve2.c
+psRandomAlloc()		10		na	na	10	na
+    math/tap_psRandom.c
+psRandomReset()		5		na	na	8	na
+    math/tap_psRandom.c
+    The bad param test is commented out
+psRandomUniform()	8		na	na	10	na
+psRandomGaussian()	8		na	na	10	na
+psRandomPoisson()	8		na	na	10	na
+psEllipseMomentsToAxes()	0	0	0	0	0
+    NONE
+psEllipseAxesToShape()	0	0	0	0	0
+    NONE
+psEllipseShapeToAxes()	0	0	0	0	0
+    NONE

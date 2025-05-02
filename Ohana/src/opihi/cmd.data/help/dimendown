@@ -1,0 +1,7 @@
+
+
+   dimendown (buffer) (vector) [-x/-y]
+
+   Compresses an image into a vector
+
+   The vector can be given either the x or y coordinates of the image

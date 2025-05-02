@@ -1,0 +1,10 @@
+
+photdbc-1-1 : 
+  * converted to gfits APIs (forces libfits 1.6)
+  * updated to use sky regions
+  * general overhaul:
+    * performs a basic copy
+    * operations restricted by region
+    * output catalog may be filtered by
+      -maxminmag MAG
+      -instmag Mmin Mmax

@@ -1,0 +1,8 @@
+
+   scan (filename) (variable) [Nline]
+
+   Place the Nth line of the file into the named variable
+
+   Default N value: 1 (the 1st line)
+
+   The variable recieves the line + 1 white space

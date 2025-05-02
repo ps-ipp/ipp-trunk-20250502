@@ -1,0 +1,9 @@
+
+  rebin <from> <to> scale
+
+  "rebin" rebins the specified buffer by the given scale factor and
+  places the result in the <to> buffer.  Negative integer values imply
+  expansion, positive numbers imply compression.
+
+  See also: extract
+

@@ -1,0 +1,11 @@
+
+sprintf_double using frexp & pow:
+  convert 300000 doubles with sprintf_double: 0.111671
+  convert 300000 doubles with sprintf: 0.450840
+  but I get many failures at the last digit (nearly all fail for doubles)
+
+sprintf_double using log10 & pow:
+  convert 300000 doubles with sprintf_double: 0.133986
+  convert 300000 doubles with sprintf: 0.459899
+  I get only 35 / 1000 failures
+

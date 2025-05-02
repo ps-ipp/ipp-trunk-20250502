@@ -1,0 +1,5 @@
+
+   queuesize (name) [-var variable]
+
+   Returns the size of the queue (name), either to variable
+    or to the window (default)

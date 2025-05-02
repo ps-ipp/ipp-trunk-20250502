@@ -1,0 +1,14 @@
+/** Insert data from a binary FITS table [% table.object_name %] into the database
+ *
+ * This function expects a psFits object with a FITS table as the first
+ * extension.  The table must have at least one row of data in it, that is of
+ * the appropriate format (number of columns and their type).  All other
+ * extensions are ignored.
+ *
+ * @return true on success
+ */
+
+bool [% table.namespace %]InsertFits(
+    psDB            *dbh,               ///< Database handle
+    const psFits    *fits               ///< psFits object
+);

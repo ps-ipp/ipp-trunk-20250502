@@ -1,0 +1,204 @@
+#!/usr/bin/env perl
+
+# Copyright (C) 2005-2008  Joshua Hoblitt
+#
+# $Id: neb-cabadd,v 1.2 2008-10-01 21:05:57 jhoblitt Exp $
+
+use strict;
+use warnings FATAL => qw( all );
+
+use vars qw( $VERSION );
+$VERSION = '0.02';
+
+use DBI;
+use Nebulous::Server::SQL;
+use URI::file;
+use URI;
+
+use Getopt::Long qw( GetOptions :config auto_help auto_version );
+use Pod::Usage qw( pod2usage );
+
+my ($db, $dbhost, $dbuser, $dbpass, $cname, $location, $site_id, $update, $cab_id);
+
+$db     = $ENV{'NEB_DB'} unless $db;
+$dbhost = $ENV{'NEB_DBHOST'} || 'localhost';
+$dbuser = $ENV{'NEB_USER'} unless $dbuser;
+$dbpass = $ENV{'NEB_PASS'} unless $dbpass;
+
+GetOptions(
+    'db|d=s'            => \$db,
+    'host=s'            => \$dbhost,
+    'pass|p=s'          => \$dbpass,
+    'user|u=s'          => \$dbuser,
+    'cname|n=s'         => \$cname,
+    'location|l=s'      => \$location,
+    'site_id|s=s'       => \$site_id,
+    'cab_id=s'          => \$cab_id,
+    'update|u'          => \$update,
+) || pod2usage( 2 );
+
+pod2usage( -msg => "Unknown option: @ARGV", -exitval => 2 ) if @ARGV;
+pod2usage( -msg => "Required options: --db --user --pass --cname --site_id", -exitval => 2 )
+    unless defined $db && defined $dbuser && defined $dbpass && defined $cname && defined $site_id;
+
+my $dbh = DBI->connect(
+    "DBI:mysql:database=$db:host=$dbhost",
+    $dbuser,
+    $dbpass,
+    {
+        RaiseError => 1,
+        PrintError => 0,
+        AutoCommit => 1,
+    },
+);
+
+my $sql = Nebulous::Server::SQL->new();
+
+if (defined($update)) {
+    unless (defined $cname && defined $location && defined $site_id && defined $cab_id) {
+	pod2usage( -msg => "Required options for update: --db --user --pass --cname --site_id --location --cab_id", -exitval => 2 );
+    }
+    print "Updating cabinet...";
+    my $query = $dbh->prepare( $sql->update_cabinet );
+    # Check query: 
+#        UPDATE cabinet SET
+#           location = ?,
+#           name     = ?,
+#           site_id  = ? 
+#        WHERE cab_id = ?
+
+    $query->execute( $location, $cname, $site_id, $cab_id );
+    
+    print "OK\n";
+
+}
+else {
+    print "Adding cabinet...";
+    
+    my $query = $dbh->prepare( $sql->new_cabinet );
+    $query->execute( $cname, $location, $site_id);
+    
+    print " OK\n";
+}
+__END__
+
+=pod
+
+=head1 NAME
+
+neb-cabadd - add a cabinet to a Nebulous server
+
+=head1 SYNOPSIS
+
+    neb-cabadd --cname <cabinet name> --location <cabinet location> --site_id <site_id>
+    [--db <database>] [--user <username>] [--pass <password>] [--host <hostname]
+
+=head1 DESCRIPTION
+
+This program initialize a database for use by L<Nebulous::Server> by creating
+the appropriate set of tables.  Any pre-existing tables with conflicting names
+are first removed.
+
+=head1 OPTIONS
+
+=over 4
+
+=item * --cname <cabinet name>
+
+Symbolic name of cabinet being added.
+
+=item * --location <cabinet location>
+
+Description of the location of the cabinet.
+
+=item * --site_id <site_id>
+
+Numerical value of the location's site.  Default = 0.
+
+=item * --db|-d <database>
+
+Name of database (C<namespace>) to create tables in.
+
+Optional if the appropriate environment variable is set.
+
+=item * --user|-u <username>
+
+Username to authenticate with.
+
+Optional if the appropriate environment variable is set.
+
+=item * --pass|-p <password>
+
+Password to authenticate with.
+
+Optional if the appropriate environment variable is set.
+
+=item * --host <database host>
+
+Name of host on which the database resides.
+
+Optional.  Defaults to C<localhost>.
+
+=head1 ENVIRONMENT
+
+These environment variables may be used in place of the specified command line
+options.  All command line option will override the corresponding environment
+value.
+
+=over 4
+
+=item * C<NEB_DB>
+
+Equivalent to --db|-d
+
+=item * C<NEB_HOST>
+
+Equivalent to --host
+
+=item * C<NEB_USER>
+
+Equivalent to --user|-u
+
+=item * C<NEB_PASS>
+
+Equivalent to --pass|-p 
+
+=back
+
+=head1 CREDITS
+
+Josh Hoblitt and Chris Waters 
+
+=head1 SUPPORT
+
+Please contact the author directly via e-mail.
+
+=head1 AUTHOR
+
+Joshua Hoblitt <jhoblitt@cpan.org>
+
+=head1 COPYRIGHT
+
+Copyright (C) 2005-2008  Joshua Hoblitt.  All rights reserved.
+
+This program is free software; you can redistribute it and/or modify it under
+the terms of the GNU General Public License as published by the Free Software
+Foundation; either version 2 of the License, or (at your option) any later
+version.
+
+This program is distributed in the hope that it will be useful, but WITHOUT ANY
+WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A
+PARTICULAR PURPOSE.  See the GNU General Public License for more details.
+
+You should have received a copy of the GNU General Public License along with
+this program; if not, write to the Free Software Foundation, Inc., 59 Temple
+Place - Suite 330, Boston, MA  02111-1307, USA.
+
+The full text of the license can be found in the L<perlgpl> Pod as supplied
+with Perl 5.8.1 and later.
+
+=head1 SEE ALSO
+
+L<Nebulous::Server>, L<neb-initdb>, L<neb-df>, L<nebdiskd>
+
+=cut

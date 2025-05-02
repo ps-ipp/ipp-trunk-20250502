@@ -1,0 +1,206 @@
+
+2005.07.15
+
+The controller sends messages to both stdout and stderr.  I can easily
+require the messages which are immediate responses to external
+commands (status, check, etc) go back on stdout.  other messages
+should go to stderr, or be suppressed.  I suppose i can regularly
+harvest the stderr messages?
+
+2005.07.14
+
+I am still exploring the scheduler / controller interactions.  the
+automatic interactions seem to work pretty well now.  The area of
+confusion is in the user interface, both in terms of checking on the
+status of things (both controller and scheduler) and in terms of
+having user control over aspects of the controller.
+
+I have defined user functions which execute the controller commands
+'status' and 'check'.  These are straightforeward since they simply
+send a command to the controller and echo the output (or give an error
+condition message).
+
+Should the user have the ability to define a job, independent of a
+task?  This could be implemented purely as a controller action: the
+controller commands 'job', 'kill', 'delete', 'stderr', 'stdout' would
+be available from the scheduler, and the commands simply passed
+along.  This adds a bit to the complexity: if the 'delete' command is
+passed along, nothing prevents the user from deleting a job scheduled
+by the scheduler from a task.  the scheduler may then get confused
+when it tries to interact with that job in the future from the
+automatic loop.
+
+Another option is to simply have these commands interact with the
+scheduler's job stack.  this has the advantage of limiting the
+scheduler / controller responsibility errors (scheduler, not user, is
+always responsible to sending/harvesting jobs to/from the
+controller, though we still need to handle the cases if a job is lost
+or dropped by the controller).  the diffficulty here is deciding how
+to handle the job completion.  we would need a way to define a set of
+exit macros, which could then do something useful with the output.  
+
+Another possibility is to define limits on how many times a task may
+spawn a job.  There would then be no 'job' function.  If we define
+this limitation, we will still need a way of killing and deleting a
+specific job.  Thus a 'kill' and 'delete' function would examine and
+modify the scheduler's job stack.  The stderr and stdout functions are
+then already part of the task commands.  
+
+Other task options might include: 
+
+- a list of allow / exclude time periods (which should be time-of-day
+  ranges and day-of-week ranges).
+
+- a function to delete an existing task (which would have to stop the
+  spawning of new jobs, at least until no more jobs for that task
+  remain).
+
+- allow the 'periods' command to define defaults when outside of a
+  task
+
+2005.07.05
+
+At this point, scheduler / pcontrol / pclient all work in a basic way.
+pclient is the most robust of the three, having the simplest
+responsibility.  pcontrol is generally pretty good, though I need to
+flesh out the user interface a bit and clean up the output warning / info
+messages.  scheduler will need the most attention, though it is
+already fairly reasonable.  I need to flesh out the user commands to
+check on the controller status (basically, these need to replicate the
+status commands available to the controller).  
+
+I also need to handle the case of timeout on the controller,
+independently of timeout for a local job on the scheduler.  currently,
+if a local job exceeds the timeout value, scheduler flags it.  but, it
+does not make sense to use the same timeout value for a controller
+job. I could pass the timeout to the controller when the job executes,
+in which case it has the same meaning, essentially, for the controller
+jobs as it does for the local jobs: once you start the function, it
+needs to complete within NN seconds.  However, I think I still need to
+have a scheduler concept of a job which the controller is unable to
+complete.  It should be possible to prevent a job from sitting pending
+on the controller forever.  What exactly you do if the controller is
+unwilling to execute a job is another story (possible reasons:
+controller overload, missing required host, missing any hosts,
+something hung somewhere?).  
+
+The scheduler does not do a good job of shutting down the controller
+when it (the scheduler) exits.  This works well for the
+pcontrol/pclient interface, so the solution lies there.  
+
+I need to decide how to behave if the scheduler asks for a job with a
+required host which the controller knows is currently down or
+non-existent.  Several options could be used.  The controller could
+simply hold the task until the scheduler notices it is not being
+executed (after all, the controller does not know if the machine is
+being serviced for a short time or a long time, but the scheduler
+could know).  The controller could immediately return a failure noting
+the current state of the machine (this would put the burden of
+deciding that the machine should be available on the scheduler).  The
+controller could try to execute the job a certain number of times, and
+then it could report the failure to the scheduler.  This is not so
+different from having a pending-timeout which the scheduler tracks
+(moves the timeout check to the controller, essentially).  
+
+There was some odd behavior with 'exec echo $stdout >> foo'.  This
+resulted in empty files 'foo'.  The following work fine, so something
+is just weird:
+exec echo foobar >> foo
+output foo
+echo $stdout
+output stdout
+
+Various error conditions should be checked
+
+What do we do if a task requests a host which is not available to the
+controller (ie, not defined)?  this is similar to the problem of
+requesting a host which is down.  I think the controller should either
+immediately refuse or accept in anticipation that such a host may
+eventually be defined.
+
+I need to be careful about jobs sent to the controller and not
+harvested before stopping the scheduler execution.
+
+---
+
+sched / pcontrol todo:
+
+- sched: validate task hosts with controller
+
+---
+
+scheduler commands:
+
+task (taskname)
+ - define a new task
+ - loads task-related commands from list / readline
+ - commands are parsed on load
+ - end with end (like if / for)
+
+task.exit (value)
+ - define a new task macro for this exit condition
+   (value) may be an exit status (number)
+   (value) may be 'timeout'
+   (value) may be 'crash' ?
+ - commands are parsed on execution (not on definition)
+
+task.exec
+ - define a task macro for exec condition
+ - commands are parsed on execution (not on definition)
+
+command (args) (args)
+ - defines command associated with task
+ - may be in task or in task.macro (exit/exec)
+   (in task, command line is static; in task.macro, command line is expanded for each instance)
+
+host (machine) [-required]
+ - defines preferred host
+ - may be in task or in task.macro (exit/exec)
+   (in task, value is static; in task.macro, value is defined for each instance)
+ - value of LOCAL runs job as local job (not on controller)
+ - value of NONE runs job on controller without specifying host
+
+stderr (file / variable)
+ - defines destination for stderr capture from task
+ - written to destination at end of execution?
+
+stdout (file / variable)
+ - defines destination for stdout capture from task
+ - written to destination at end of execution?
+
+periods -poll 1
+periods -exec 30
+periods -timeout 2
+ - defines relevant time-scale for the task
+
+run
+stop
+ - start or stop the scheduler loop, executing the various tasks
+
+---
+
+local jobs vs controller jobs
+
+a local job is run as background fork (ie, not on controller)
+a controller job is sent to the controller to run when it can
+
+---
+
+possible errors which the scheduler may encounter when executing a
+job:
+
+  - controller is not responding
+  - controller says machine is DOWN
+  - controller says command not found
+  - controller has too many processes
+  - controller takes to long to start job (pending timeout)
+  - controller says job timed out
+  - controller says job crashed
+  - controller says job exited with status
+
+---
+
+notes:
+
+ - watch for NFS lags / blocking.  if NFS has file visibility lags, we
+   may need to add blocking as an option to the job (-block filename)

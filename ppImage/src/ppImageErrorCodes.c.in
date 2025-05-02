@@ -1,0 +1,26 @@
+/*
+ * The line
+    { PPIMAGE_ERR_$X{ErrorCode}, "$X{ErrorDescription}"},
+ * (without the Xs)
+ * will be replaced by values from errorCodes.dat
+ */
+#include "pslib.h"
+#include "ppImageErrorCodes.h"
+
+void ppImageErrorRegister(void)
+{
+    static psErrorDescription errors[] = {
+       { PPIMAGE_ERR_BASE, "First value we use; lower values belong to psLib" },
+       { PPIMAGE_ERR_${ErrorCode}, "${ErrorDescription}"},
+    };
+    static int nerror = PPIMAGE_ERR_NERROR - PPIMAGE_ERR_BASE; // number of values in enum
+
+    for (int i = 0; i < nerror; i++) {
+       psErrorDescription *tmp = psAlloc(sizeof(psErrorDescription));
+       psMemSetPersistent(tmp, true);
+       *tmp = errors[i];
+       psErrorRegister(tmp, 1);
+       psFree(tmp);			/* it's on the internal list */
+    }
+    nerror = 0;			                // don't register more than once
+}

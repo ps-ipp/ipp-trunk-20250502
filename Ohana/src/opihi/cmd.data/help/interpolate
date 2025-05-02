@@ -1,0 +1,5 @@
+
+   interpolate (xin) (yin) (xout) (yout)
+
+   Performs an interpolation of (xin) and (yin) onto the new grid (xout),
+    producing the corresponding y values in (yout)

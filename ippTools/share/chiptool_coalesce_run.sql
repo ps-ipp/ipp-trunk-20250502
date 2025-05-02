@@ -1,0 +1,1 @@
+select software_ver,maskfrac_npix,maskfrac_static,maskfrac_dynamic,maskfrac_magic,maskfrac_advisory from chipProcessedImfile where data_state = 'full' AND fault = 0 AND chip_id = %lld

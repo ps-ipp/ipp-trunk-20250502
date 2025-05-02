@@ -1,0 +1,66 @@
+
+2010.03.24
+
+ I have finished another iteration on source size analysis.  I feel
+ fairly confident of the extended source and CR identifications.  They
+ are not perfect, but they are in pretty good shape.  The CR IDs use
+ the moments to find things smaller in one dimension than a PSF, while
+ the EXT is set for things larger than a PSF in one dimention. 
+
+ There still seems to be some trouble with SATSTARS : these are being
+ set for sources which are fainter than the SAT limit -- I'm not sure
+ if this is due to the quality of the PSF fit or if they really are
+ SAT, but have integrated fluxes lower than expected (underfitted in
+ PSF).
+
+ Additional Parameters needed from psphot for distinguishing dipoles:
+
+ -- note regarding CfA parameters -- 
+
+  Here are our settings.
+  
+  Note that Fpos is the flux which is 3-sigma above background, and
+  Fneg is the flux which is 3-sigma below background.
+  
+  Npos is the # of pixels with flux which is 3-sigma above background.
+  
+  etc.
+  
+  # for positive objects:
+  # Ngood = Npos, Nbad = Nneg, Fgood = Fpos, Fbad = Fneg
+
+  # for negative objects:
+  # Ngood = Nneg, Nbad = Npos, Fgood = Fneg, Fbad = Fpos
+  # FRATIO=Fgood/(Fgood+Fbad)
+  # NRATIO_BAD=Ngood/(Ngood+Nbad)
+  # NRATIO_MASK=Ngood/(Ngood+Nmask)
+  # NRATIO_ALL=Ngood/(Ngood+Nbad+Nmask)
+  DC_FRATIO_MIN         0.75   
+  DC_NRATIO_BAD_MIN     0.70   
+  DC_NRATIO_MASK_MIN    0.60
+  DC_NRATIO_ALL_MIN     0.50
+  DC_NGOOD_MIN          3
+
+  *** double-check on the use of fluxScale in pmSourcePhotometry.c:106
+
+20100131
+
+  We have several stand-alone psphot versions, and a few different
+  psphotReadout versions called by other programs.  Here is a complete
+  list:
+
+  Stand-alone psphot versions | associated psphotReadout version
+
+  o psphot | psphotReadout
+  o psphotForced | psphotForcedReadout
+  o psphotMakePSF | psphotMakePSFReadout 
+  x psphotDetect | psphotDetectReadout
+  x psphotStack | psphotStackReadout
+
+  External programs | associated psphotReadout version
+
+  o ppImage | psphotReadout
+  o pswarp | psphotReadoutFindPSF
+  o ppSub  | psphotReadoutFindPSF, psphotReadoutMinimal
+  o ppStack | psphotReadoutKnownSources
+

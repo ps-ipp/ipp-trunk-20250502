@@ -1,0 +1,129 @@
+
+psphot -g
+psModule -g
+psLib -O2
+on alala:
+
+alala: psphot -vv starfield.fits starfield starfield.cnf -resid starfield.resid.3.fits
+    load data: 0.983568 sec
+    System random seed value used  seed = 25904F7C7454AE25 hex
+    background: 1229.280029 +/- 27.700180
+    image stats: 0.063085 sec
+    System random seed value used  seed = 411E5A0600A49AF3 hex
+    fit background model: 0.580152 sec
+    smooth: 1.842415 sec
+    threshold: 83.100540 DN
+    4356 peaks: 0.571587 sec
+    4230 moments: 3.965099 sec
+    SN range: 3.355829 - 1043.401001
+    identified 107 blended objects (0.121737 sec)
+    selected candidate 300 PSF objects
+    fit flt:   3.682850 sec for 300 sources
+    fit psf:   1.704141 sec for 300 sources
+    fit stats: 0.000884 +/- 0.004499
+    try model PS_MODEL_QGAUSS, ap-fit: -0.007532 +/- 0.004499 : sky bias: -0.717999
+    select psf model: 5.402742 sec
+    selected psf model PS_MODEL_QGAUSS, ApResid: -0.007532 +/- 0.004499
+    fitting pixels with at least 27.700180 object counts
+    built models: 0.991345 (4230 objects)
+    built matrix: 1.472869 (27998 elements)
+    measure ensemble of PSFs: 4.334556
+    fit PSF models: 12.205738 sec for 4230 objects
+    replace unfitted models: 0.021473 sec (4230 objects)
+    measure aperture residuals : 0.451886 sec
+    measure full-frame aperture residual: 0.454032 sec
+    aperture residual: -0.002842 +/- 0.002729 : 0.166072 bias
+    wrote output: 4.648821 sec
+    complete psphot run: 35.334080 sec
+
+
+psphot -g
+psModule -O2
+psLib -O2
+on alala:
+
+alala: psphot -vv starfield.fits starfield starfield.cnf -resid starfield.resid.3.fits
+    load data: 1.001502 sec
+    System random seed value used  seed = 5F43A63F532D4B3F hex
+    background: 1229.280029 +/- 27.700180
+    image stats: 0.063169 sec
+    System random seed value used  seed = F5F5FF99A6578F61 hex
+    fit background model: 0.530384 sec
+    smooth: 1.856414 sec
+    threshold: 83.100540 DN
+    4365 peaks: 0.237292 sec
+    4239 moments: 4.087611 sec
+    SN range: 3.356469 - 1043.400879
+    identified 107 blended objects (0.123372 sec)
+    selected candidate 300 PSF objects
+    fit flt:   3.741444 sec for 300 sources
+    fit psf:   1.676478 sec for 300 sources
+    fit stats: 0.000883 +/- 0.004499
+    try model PS_MODEL_QGAUSS, ap-fit: -0.007532 +/- 0.004499 : sky bias: -0.717985
+    select psf model: 5.458156 sec
+    selected psf model PS_MODEL_QGAUSS, ApResid: -0.007532 +/- 0.004499
+    fitting pixels with at least 27.700180 object counts
+    built models: 0.791613 (4239 objects)
+    built matrix: 1.267909 (28101 elements)
+    measure ensemble of PSFs: 3.551364
+    fit PSF models: 11.240197 sec for 4239 objects
+    replace unfitted models: 0.018051 sec (4239 objects)
+    measure aperture residuals : 0.411856 sec
+    measure full-frame aperture residual: 0.413843 sec
+    aperture residual: -0.002831 +/- 0.002717 : 0.164772 bias
+    wrote output: 4.355429 sec
+    complete psphot run: 33.126283 sec
+
+after reducing indirection in pmSourceMoments:
+    4268 moments: 3.762452 sec
+
+psphot -O2
+psModule -O2
+psLib -O2
+
+alala: psphot -vv starfield.fits starfield starfield.cnf -resid starfield.resid.3.fits
+    load data: 0.484324 sec
+    System random seed value used  seed = 980050732A392EC7 hex
+    background: 1229.280029 +/- 27.700180
+    image stats: 0.058759 sec
+    System random seed value used  seed = 44E1A6EE77B0E9CE hex
+    fit background model: 0.395125 sec
+    smooth: 1.861776 sec
+    threshold: 83.100540 DN
+    4351 peaks: 0.234874 sec
+    4264 moments: 3.719435 sec
+    SN range: 2.023345 - 1043.401123
+    identified 124 blended objects (0.115230 sec)
+    selected candidate 300 PSF objects
+    fit flt:   3.525501 sec for 300 sources
+    fit psf:   1.595031 sec for 300 sources
+    fit stats: 0.000884 +/- 0.004499
+    try model PS_MODEL_QGAUSS, ap-fit: -0.007532 +/- 0.004499 : sky bias: -0.717976
+    select psf model: 5.160442 sec
+    selected psf model PS_MODEL_QGAUSS, ApResid: -0.007532 +/- 0.004499
+    fitting pixels with at least 27.700180 object counts
+    built models: 0.760805 (4264 objects)
+    built matrix: 0.908674 (23703 elements)
+    measure ensemble of PSFs: 3.115425
+    fit PSF models: 10.162397 sec for 4264 objects
+    replace unfitted models: 0.017491 sec (4264 objects)
+    measure aperture residuals : 0.408242 sec
+    measure full-frame aperture residual: 0.410207 sec
+    aperture residual: -0.002908 +/- 0.002734 : 0.170692 bias
+    wrote output: 4.225560 sec
+    complete psphot run: 30.149281 sec
+
+
+    fit PSF models: 10.162397 sec for 4264 objects
+    select psf model: 5.160442 sec
+    wrote output: 4.225560 sec
+    4264 moments: 3.719435 sec
+    measure ensemble of PSFs: 3.115425 sec
+
+    other : 3.5 sec
+
+    fixed per objects : 4 msec / object (17 of 30 sec)
+
+
+** still can re-compile with -DPS_NO_TRACE
+** ASSERTS cannot be compiled out at the moment!

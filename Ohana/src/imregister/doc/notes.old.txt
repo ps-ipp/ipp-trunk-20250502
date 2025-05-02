@@ -1,0 +1,12 @@
+
+there are some issues with the imregister database that should get
+addressed eventually.  currently, I am loading and saving the entire
+file each time I make a change.  this seems like a bad plan.  when we
+get a few hundred nights of images in there, we will have several
+megabytes to load, change, and save each time.  two things could
+change.  first, imregister (imsort) could only add a record at the end
+of the file.  second, the imstatreg function could find the right
+image and write over the few needed bytes.
+
+should I uses mmap to do the I/O?
+

@@ -1,0 +1,32 @@
+### Example .ipprc file
+
+### Database configuration
+DBSERVER	STR	ippdb.ifa.hawaii.edu	# Database host name (for psDBInit)
+DBUSER		STR	ipp			# Database user name (for psDBInit)
+DBPASSWORD	STR	password		# Database password (for psDBInit)
+
+### Setups for each camera system
+CAMERAS		METADATA
+	MEGACAM_RAW	STR	megacam_raw.config
+	MEGACAM_SPLICE	STR	megacam_splice.config
+	GPC1_RAW	STR	gpc1_raw.config
+	LRIS_BLUE	STR	lris_blue.config
+	LRIS_RED	STR	lris_red.config
+END
+
+### psLib setup
+#TIME		STR	/home/mithrandir/price/pan-starrs/jhroot/i686-pc-linux-gnu/etc/pslib/psTime.config	# Time configuration file
+LOGLEVEL	S32	3			# Logging level; 3=INFO
+LOGFORMAT	STR	HLNM			# Log format
+LOGDEST	STR	STDOUT				# Log destination
+TRACE		METADATA			# Trace levels
+	dummyTraceFunc01	S32	1
+	dummyTraceFunc02	S32	2
+END
+ARBITRARY_STRING_S32	S32	20
+ARBITRARY_STRING_F32	F32	21.0
+ARBITRARY_STRING_F64	F64	22.0
+ARBITRARY_STRING_STR	STR	19.0
+ARBITRARY_STRING_BOOL_T	BOOL	true
+ARBITRARY_STRING_BOOL_F	BOOL	false
+

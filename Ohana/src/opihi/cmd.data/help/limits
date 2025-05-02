@@ -1,0 +1,12 @@
+
+   limits min max min max
+   limits x y
+   limits x min max
+   limits min max y
+   
+   set Kapa plot limits.  The x and y axis limits may be explicitly
+   set (first example), or they may be assigned based on the range of
+   values in a pair of vectors (second examples), or one range may be
+   explicit and the other range assigned from a vector.
+
+

@@ -1,0 +1,57 @@
+#!/usr/bin/env perl
+#
+# dsrootindex:  Extract the root data store index from the database.
+# The output is in DataStore index.txt format
+#
+
+use strict;
+use warnings;
+
+use dsdbh;
+
+use DBI;
+
+my $PS_EXIT_CONFIG_ERROR = 3;
+
+# set this variable to redirect listings of the root datastore directory
+# to the password protected php page on the postage stamp server web site.
+# Since the data store is restricted by IP address now this is no longer necessary
+my $redirect_root_to_pstamp = 0;
+if ($redirect_root_to_pstamp) {
+
+        print '
+        <html>
+        <head>
+        <meta HTTP-EQUIV="REFRESH" content="0; url=http://pstamp.ipp.ifa.hawaii.edu/dsroot.php">
+        </head>
+        </html>
+        ';
+
+        exit 0;
+}
+
+my $dbh = getDBHandle();
+
+my $stmt = $dbh->prepare("SELECT * FROM dsProduct ORDER BY type");
+$stmt->execute();
+
+print "# productID  |Most recent |Time registered     |type     |Description                     |\n";
+
+while( my $row = $stmt->fetchrow_hashref()) {
+    my $prod_id = $row->{prod_id};
+
+    my ($date, $time) = split / /, $row->{last_update};
+    my $datetime = $date . "T" . $time . "Z";
+
+    my $last_fs =  $row->{last_fs};
+    if (!$last_fs) {
+        # dsrootls is fussy when this field is blank
+        $last_fs = "none";
+    }
+
+    my $line = sprintf "%-13s|%-12s|%-20s|%-9s|%-32s|\n",  $row->{prod_name}, $last_fs, $datetime,
+        $row->{type}, $row->{description};
+
+    # XXX EAM : security by obfuscation
+    print $line;
+}

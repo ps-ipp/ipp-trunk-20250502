@@ -1,0 +1,39 @@
+
+2006.12.26
+
+ work still to be done for psastro:
+
+ - test suite
+   - create a DVO database from a fake population
+   - create fake images with range of errors drawn from DVO
+
+ - 
+
+
+we have a few different astrometry circumstances for our complete
+image/chip hierarchy structure:
+
+- ChipAstrom with one readout, one cell per chip:
+
+  whether or not there is more than one chip, we need to have two
+  stages
+  
+    - in the first stage, the per-chip results are applied to the
+      chip.toFPA parameter set.  
+
+    - in the second stage, the chip results are collectively used to
+      modify the fpa.toSky terms.
+
+      - the average offsets of the chip positions relative to starting
+	coordinates are used to calculate a single average offset to
+	the boresite. 
+
+      - the average rotations of the chips relative to their starting
+        rotations are used to calculate a single average rotation of
+        the boresite
+
+
+- ChipAstrom with more than one readout and/or cell:
+
+  - match all stars up relative to first readout?
+   

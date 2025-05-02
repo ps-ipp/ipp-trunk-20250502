@@ -1,0 +1,24 @@
+
+There are a few steps needed to compile spicam.  First, untar the
+ohana.tgz file.  Edit the file Configure in the top-level directory.
+ROOT should be the path of the top-level directory.  There are some
+destination directories, places where compiled things will go.  there
+are also two lines for the X library and include directories, though
+spicam does not require this information.  
+
+There are a couple of libraries that need to be compiled to make
+spicam.  first,  type "make install.ohana".  this will compile a set
+of miscellaneous libraries and install the file libohana.a in your
+LDIR (defined in Configure).  Next, type "make install.fits".  this
+will compile the FITS library and install libFITS.a in LDIR (note that
+this is not the Goddard fitsio package...).  Next, you need readline,
+so if you don't have it already, type "make install.readline".  same
+thing.  
+
+finally, you are ready to compile spicam.  type "make install.spicam"
+and it should compile OK.  
+
+good luck!
+
+gene
+ 

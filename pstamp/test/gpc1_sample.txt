@@ -1,0 +1,45 @@
+# Sample Postage stamp request description file
+# This can be parsed by the program pstamp_req_create to build a 
+# PS1_PSTAMP_REQUEST binary table
+
+# First line of data is for the extension header
+# The order of keywords follows TABLE 6 of ICD
+#
+# Note that value for REQ_NAME may be overriden by a command line
+# argument to pstamp_req_create.
+# Blank and comment lines are ignored
+
+# REQ_NAME EXTVER
+CHANGEME     1
+
+# subsequent lines define the rows in the table
+
+## ID    |     ROI Specification                   |  JOB Specification | Images of interest specification 
+# ROWNUM CENTER_X       CENTER_Y WIDTH HEIGHT COORD_MASK JOB_TYPE OPTION_MASK PROJECT REQ_TYPE IMG_TYPE    ID   TESS_ID COMPONENT  DATA_GROUP REQFILT MJD_MIN MJD_MAX | COMMENT
+# warps from various epochs for one of the SN candidates. Specifiying the skycell speeds up processing
+1        242.400666     55.273513 200   200     2          stamp    1          gpc1   byid      warp     6245   null    skycell.077   null     null     0        0     |
+2        242.400666     55.273513 200   200     2          stamp    1          gpc1   byid      warp     6254   null    skycell.077   null     null     0        0     |
+3        242.400666     55.273513 200   200     2          stamp    1          gpc1   byid      warp     6264   null    skycell.077   null     null     0        0     |
+4        242.400666     55.273513 200   200     2          stamp    1          gpc1   byid      warp     6317   null    skycell.077   null     null     0        0     |
+5        242.400666     55.273513 200   200     2          stamp    1          gpc1   byid      warp     6324   null    skycell.077   null     null     0        0     |
+6        242.400666     55.273513 200   200     2          stamp    1          gpc1   byid      warp     6465   null    skycell.077   null     null     0        0     |
+7        242.400666     55.273513 200   200     2          stamp    1          gpc1   byid      warp     6466   null    skycell.077   null     null     0        0     |
+
+# get a specific warp
+10        242.400666     55.273513 200   200     2          stamp    1         gpc1   byid      warp     6316   null     skycell.077   null     null     0        0     |
+
+# get stamps from all warps for exposure (only destreaked ones will succeed)
+11        242.400666     55.273513 200   200     2          stamp    1         gpc1   byexp     warp  o4973g0123o   null skycell.077   null     null     0        0     |
+
+# get stamps from all chipRuns for exposure (only destreaked ones will succeed)
+# add the mask and weight images as well
+12        242.400666     55.273513 200   200     2          stamp    7         gpc1   byexp  chip  o4973g0123o   null    skycell.077   null     null     0        0     |
+
+# get the corresponding diff
+13        242.400666     55.273513 200   200     2          stamp    1        gpc1   byexp   diff  o4973g0123o   null    null         null     null     0        0     |
+
+# get the stack that was the template for that stack
+14        242.400666     55.273513 200   200     2          stamp    1         gpc1   byid    stack      14031   null     null        null      null     0        0     |
+
+# get the same stamp by go through the diff
+15        242.400666     55.273513 200   200     2          stamp    1         gpc1   bydiff   stack    193939   null     null        null      null     0        0     |

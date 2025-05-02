@@ -1,0 +1,21 @@
+
+Please read installation section of the IPP User's Guide for more details.
+
+To build and install the IPP configuration scripts, run the following:
+
+configure
+make
+make install
+
+After installation:
+
+Copy dvo.site to ~/.ptolemyrc
+
+Copy ipprc.config to ~/.ipprc
+
+Edit this file:
+  - Set the DBUSER and DBPASSWORD to your mysql username and password
+
+Copy recipes/nightly_science.config.template to recipes/nightly_science.config in ipprc
+PATH.  
+

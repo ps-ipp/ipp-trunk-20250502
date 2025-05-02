@@ -1,0 +1,60 @@
+<meta name=file  content=home>
+<meta name=title content=Ohana User's Guide>
+<meta name=page  content=Ohana>
+
+<p>
+Ohana is the collection of programs written by Eugene Magnier which
+form a major portion of the Elixir software.  These pages document the
+user interface to the various Ohana programs.
+
+<p>
+Within the Ohana software system, there are several types of programs
+and program groups.  There are basic, independent C programs, groups
+of related C programs which address a common Elixir system, C programs
+which run as daemons, and C programs which provide an interactive
+command language environment.  There are also a number of perl, csh,
+and tcl scripts.  
+
+<h4> Software Organization</h4>
+
+The top-level of the Ohana software tree includes the Makefile, a
+system-dependent configuration file, and the directories src, bin,
+lib, and include.  Within the bin, lib, and include directories, there
+are subdirectories by computer architecture.  These allow a
+segregation of the architecture dependent binary files, and provide
+some flexibility for working will various types of hardware.  The
+Makefiles require the environment variable ARCH to be set to make
+complilation choices and to place the binaries in their appropriate
+locations.  The ohana user may choose to include this directory in
+their path, in which case they should define the variable in their
+resource files (.cshrc / .bashrc / etc) using the sample given in
+getarch, and set the pathname to the value ohana/bin/$ARCH, which will
+then correctly expand depending on what machine the user is one. An
+alternative is to treat the ohana tree as the program development
+tree, and to export the binaries to an architecture-dependent external
+location. 
+
+<p>
+The src directory contains all of the program and library source-code
+subdirectories.  Many of the programs are contained within their own
+unique src subdirectory, but there are a few execeptions.  First, the
+perl, csh, and tcl scripts are collected together in perl, csh, and
+tcl subdirectories.  Second, there are a variety of simple, small
+C-programs in the directory misc.  Third, there is a collection of
+related C programs which provide user interfaces to the Elixir
+databases.  These are collected together in the imregister-3.0
+subdirectory.
+
+<p>
+Each of the program and library subdirectories contain their own src,
+bin, and include directories.  When the programs are compiled, the C
+files in src are compiled to .o files with names which include the
+$ARCH value: src/foo.c -> src/foo.linux.o.  The output executable is
+written to the bin directory with a name which also includes the
+binary: bin/foo.linux.  These are then installed in the appropriate
+ohana/bin/ARCH directories with 'make install'.  In the case of the
+program directories which include multiple C programs, the make file
+takes commands of the form 'make program', 'make program.install',
+'make program.clean', etc, which perform the requested operation on
+the specific program.  The generic commands 'make' and 'make install'
+will operate on the complete collection of programs.

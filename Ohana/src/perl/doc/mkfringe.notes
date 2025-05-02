@@ -1,0 +1,109 @@
+
+mkfringe file name examples
+
+CONFIG      = 01Ak01.fringe.I.0
+CONF-CCD    = 01Ak01.fringe.I.00.0
+RAWPATH     = /data/koa/cfh12k/01Ak04
+TMPPATH     = /data/elixir2/cfh12k/detrend/01Ak04/proc
+TMPDET-CCD  = /data/elixir2/cfh12k/detrend/01Ak04/proc/543210o/543210o00.fits
+TMPDEF-CCD  = /data/elixir2/cfh12k/detrend/01Ak04/proc/543210o.def/543210o00.fits
+
+ROOT = 543210o
+MODE = SPLIT / MEF
+status = 2 = new image, detrend it please, 1 = use to create master, 0 = don't use
+
+CONFIG.mef, CONFIG.split   [Nimage]
+ RAWPATH ROOT MODE
+ /data/koa/cfh12k/01Ak04 581688o SPLIT
+ /data/koa/cfh12k/01Ak04 581689o MEF
+
+CONFIG.master              [Nimage]
+ RAWPATH ROOT MODE status
+ /data/koa/cfh12k/01Ak04 581688o SPLIT 1
+ /data/koa/cfh12k/01Ak04 581689o MEF   1
+ 
+CONFIG.detrend             [Nimage] 
+ RAWPATH ROOT MODE
+ /data/koa/cfh12k/01Ak04 581688o SPLIT
+ /data/koa/cfh12k/01Ak04 581689o MEF
+
+CONFIG.defringe		   [Nimage]
+ TMPPATH/ROOT CONFIG
+ proc/581688o 01Ak01.fringe.I.0
+
+TMPPATH/ROOT.detlist       [Nccd]
+ TMPDET-CCD
+ proc/581688o/581688o00.fits
+
+TMPPATH/ROOT.deflist       [Nccd]
+ TMPDEF-CCD
+ proc/581688o.def/581688o00.fits
+
+CONF-CCD.ccdstats          [Nimage]
+ TMPDET-CCD (sky) (fringe) 0.0 0.0
+ proc/581688o/581688o00.fits (sky) (fringe) 0.0 0.0
+
+CONFIG.statlist: 
+ CONF-CCD.ccdstats 
+ fringe/01Ak01.fringe.I.00.0.ccdstats
+
+CONFIG.frlist               [Nccd]
+ CONF-CCD.fr.fits 
+ fringe/01Ak01.fringe.I.00.0.fr.fits
+
+CONFIG.smlist               [Nccd]
+ CONF-CCD.sm.fits 
+ fringe/01Ak01.fringe.I.00.0.sm.fits
+
+CONFIG.medbin:
+ HTML/CONFIG.medbin.NNN.jpg
+
+CONFIG.tenbin:
+ HTML/CONFIG.tenbin.NNN.jpg
+
+CONFIG.stats
+ (stats per mosaic)
+
+###### init: (takes CONFIG as input list) (mode.fringe1)
+fr.select I 2001/1/20 2001/2/5 split fringe/01Ak01.fringe.I.0.split
+fr.select I 2001/1/20 2001/2/5 mef   fringe/01Ak01.fringe.I.0.mef
+
+fr.mklists -initial  fringe/01Ak01.fringe.I.0.split fringe/01Ak01.fringe.I.0.mef fringe/01Ak01.fringe.I.0.master
+
+fr.mklists -imlist fringe/01Ak01.fringe.I.CCDNUM.0.ccdstats fringe/01Ak01.fringe.I.0.statlist
+fr.mklists -imlist fringe/01Ak01.fringe.I.CCDNUM.0.fr.fits  fringe/01Ak01.fringe.I.0.frlist
+fr.mklists -imlist fringe/01Ak01.fringe.I.CCDNUM.0.sm.fits  fringe/01Ak01.fringe.I.0.smlist
+
+fr.mklists -mosaic fringe/01Ak01.fringe.I.0.master proc det  (produces proc/ROOT.det/*NN.fits & proc/ROOT.detlist)
+fr.mklists -mosaic fringe/01Ak01.fringe.I.0.master proc def  (produces proc/ROOT.def/*NN.fits & proc/ROOT.deflist)
+fr.mklists -mosaic fringe/01Ak01.fringe.I.0.master proc med  (produces proc/ROOT.med/*NN.fits & proc/ROOT.medlist)
+
+fr.mklists -detrend  fringe/01Ak01.fringe.I.0.master fringe/01Ak01.fringe.I.0.detrend
+fr.mklists -defringe fringe/01Ak01.fringe.I.0.master fringe/01Ak01.fringe.I.0 proc fringe/01Ak01.fringe.I.0.defringe
+
+##### detrend: (takes CONFIG.detrend as input list)  (mode.fringe2)
+fr.detrend /data/koa/cfh12k/01Ak04 581688o SPLIT proc/581688o.det
+fr.medbin  proc/581688o.det 581688o 4 proc/581688o.med
+fr.gtstats proc/581688o.med 581688o 4 proc/581688o.imstats
+
+##### mkstats  (takes CONF-CCD as input list)  (mode.fringe4)
+fr.mklists -inlist  fringe/01Ak01.fringe.I.0.master 00 proc fringe/01Ak01.fringe.I.00.0.inlist
+fr.mklists -imstats fringe/01Ak01.fringe.I.0.master 00 proc fringe/01Ak01.fringe.I.0.imstats
+
+fr.mkstats fringe/01Ak01.fringe.I.00.0.inlist fringe/01Ak01.fringe.I.0.imstats 00 fringe/01Ak01.fringe.I.00.0.ccdstats fringe/01Ak01.fringe.I.0.frstats
+fr.mkrough fringe/01Ak01.fringe.I.00.0.ccdstats fringe/01Ak01.fringe.I.00.0.fr.fits comment
+
+[ fr.smooth fringe/01Ak01.fringe.I.00.0.fr.fits fringe/01Ak01.fringe.I.00.0.sm.fits ]
+
+##### defringe (takes CONFIG.defringe as input)  (mode.fringe3)
+fr.defringe proc/581688o.medlist proc/581688o.imstats fringe/01Ak01.fringe.I.00.0.frlist fringe/01Ak01.fringe.I.00.0.frstats proc/581688o.deflist 
+fr.stats proc/581688o.deflist proc/581688o.tenbin proc/581688o.medbin proc/581688o.stats
+
+# merge (not parallel)
+
+status: 2 = new image, detrend it please, 1 = use to create master, 0 = don't use
+
+fr.mklists -master fringe/01Ak01.fringe.I.0.master fringe/01Ak01.fringe.I.0.detrend
+
+[merge ccdstats > statlist]
+

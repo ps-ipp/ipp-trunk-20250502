@@ -1,0 +1,5 @@
+
+
+   dimenup (vector) (buffer) (Nx) (Ny)
+
+   Expands a vector into an image with dimensions Nx,Ny

@@ -1,0 +1,57 @@
+#!/bin/csh -f
+
+if (($#argv != 1) && ($#argv != 2)) goto usage
+
+setenv PATH /bin:/usr/bin:/usr/bin/X11:/apps/elixir/bin:/usr/local/bin
+
+# find the appropriate script file
+set confdir=`gconfig CONFDIR`
+set datdir=`gconfig DATDIR`
+set script="$confdir/mana/skyprobe"
+set xhost=`gconfig XHOST.SUMMIT`
+set xdisp=`gconfig XDISP.SUMMIT`
+setenv DISPLAY $xdisp
+
+if ("$1" == "init")   goto init;
+if ("$1" == "plot")   goto plot;
+if ("$1" == "mkplot") goto mkplot;
+if ("$1" == "done")   goto done;
+goto usage;
+
+init:
+ # test named Xserver, or start vnc on specified machine
+ xdpyinfo -display $xdisp >& /dev/null
+ if ($status) then
+   # X server is not running. start it now
+   echo "X server is not running. start it now"
+   exit 1;
+ endif
+ echo "X server $xdisp is running"
+ exit 0;
+
+plot: 
+ echo "init; doplots; exit 0" | dvo -C skyprobe --norc $script
+ exit 0;
+
+
+mkplot: 
+ if ($#argv != 2) goto usage
+ echo "init; ntplot $2; exit 0" | status -C skyprobe --norc $script
+ exit 0;
+
+
+done:
+ if ("$2" == "") then
+  echo "USAGE: sp_plots done (date)"
+  exit 2;
+ endif 
+
+ cp $datdir/plots/skyprobe_night.png /apps/www/www.cfht.hawaii.edu/Instruments/Skyprobe/archive/mcal_$2.png
+ exit 0;
+
+usage:
+ echo "USAGE: sp_plots init"
+ echo "USAGE: sp_plots plot"
+ echo "USAGE: sp_plots mkplot (yyyy/mm/dd)"
+ echo "USAGE: sp_plots done (yyyymmdd))"
+ exit 2;

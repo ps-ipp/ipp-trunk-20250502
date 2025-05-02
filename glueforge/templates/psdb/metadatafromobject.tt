@@ -1,0 +1,6 @@
+psMetadata *[% table.namespace %]MetadataFromObject(const [% table.object_name %] *object)
+{
+[% INCLUDE metadata_from_struct %]
+
+    return md;
+}

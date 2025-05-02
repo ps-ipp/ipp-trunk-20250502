@@ -1,0 +1,49 @@
+#!/bin/csh -f
+# load the file, determine bias and sky, then extract a subraster
+# write out the subraster 
+
+if (($#argv != 2) && ($#argv != 3)) then
+ echo "USAGE: gosexphot file.fits file.sx [-shallow]"
+ exit;
+endif
+
+set infile = $1
+set outfile = $2
+
+# find the appropriate script file
+set confdir=`gconfig CONFDIR`
+
+set name = "gosexphot.sex"
+set param = "gosexphot.param"
+
+if ($#argv == 3) then
+    if ("$3" == "-shallow") then
+        set name  = "gosexshallow.sex"
+    endif
+    if ("$3" == "-stds") then
+        set name  = "gosexstds.sex"
+	set param = "gosexstds.param"
+    endif
+    if ("$3" == "-deep") then
+        set name  = "gosexdeep.sex"
+    endif
+endif
+
+# sextractor needs full paths to:
+set sexconf = "$confdir/sextract/$name"
+set sexpars = "$confdir/sextract/gosexphot.param"
+set sexfilt = "$confdir/sextract/default.conv"
+set sexnnw  = "$confdir/sextract/default.nnw"
+
+sex $infile \
+    -c $sexconf \
+    -PARAMETERS_NAME $sexpars \
+    -FILTER_NAME     $sexfilt \
+    -STARNNW_NAME    $sexnnw \
+    -CATALOG_NAME    $outfile
+
+if ($status) then 
+  echo "ERROR: problem with sextractor"
+else
+  echo "SUCCESS"
+endif

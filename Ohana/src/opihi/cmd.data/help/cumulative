@@ -1,0 +1,8 @@
+
+
+   cumulative (invec) (outvec)
+
+   Creates a vector (outvec) where the element N is the sum of the elements
+    0-N of (invec)
+
+   Note: The final element of (outvec) is always 0

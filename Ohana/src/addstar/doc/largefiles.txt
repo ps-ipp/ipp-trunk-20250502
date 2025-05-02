@@ -1,0 +1,5 @@
+
+addstar currently cannot handle input smf files with > 2^32 stars.
+this is because the image.d table has Nstars limited to an unsigned
+int.
+

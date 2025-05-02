@@ -1,0 +1,12 @@
+/** Deletes a row from the database coresponding to an [% table.namespace %]
+ *
+ *  Note that a 'where' search psMetadata is constructed from each object and
+ *  used to find rows to delete.
+ *
+ * @return A The number of rows removed or a negative value on error
+ */
+
+bool [% table.namespace %]DeleteObject(
+    psDB            *dbh,               ///< Database handle
+    const [% table.object_name %] *object    ///< Object to delete
+);

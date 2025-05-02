@@ -1,0 +1,79 @@
+#!/usr/bin/env perl
+
+$config = "";
+@tARGV = ();
+for (; @ARGV > 0; ) {
+    if ($ARGV[0] eq "-C") {
+        $config = "-C $ARGV[1]";
+        shift; shift; next;
+    }
+    if ($ARGV[0] eq "-c") {
+        $config = "-c $ARGV[1]";
+        shift; shift; next;
+    }
+    if ($ARGV[0] eq "-D") {
+        $config = "-D $ARGV[1] $ARGV[2]";
+        shift; shift; shift; next;
+    }
+    @tARGV = (@tARGV, $ARGV[0]);
+    shift;
+}
+@ARGV = @tARGV;
+
+if (@ARGV != 1) { die "USAGE: gastro.raw (filename)\n"; }
+
+if (! -e $ARGV[0]) { die "ERROR: file $ARGV[0] missing\n"; }
+
+($tmp, $RA, $DEC, $EXT) = split (" ", `echo $ARGV[0] | fields RA DEC EXTNAME`);
+
+if ($RA  eq "") { die "ERROR: missing RA in header\n"; }
+if ($DEC eq "") { die "ERROR: missing DEC in header\n"; }
+if ($EXT eq "") { die "ERROR: missing EXTNAME in header\n"; }
+
+while ($RA  =~ s|\:| |) { }
+while ($DEC =~ s|\:| |) { }
+
+($ra, $dec) = split (" ", `echo $RA $DEC | radec -hms`);
+
+@ccdx = split (" ", `cameraconfig $config -xoff`);
+@ccdy = split (" ", `cameraconfig $config -yoff`);
+@dx   = split (" ", `cameraconfig $config -xflip`);
+@dy   = split (" ", `cameraconfig $config -yflip`);
+
+$DX = `cameraconfig $config -axis0`; chop $DX;
+$DY = `cameraconfig $config -axis1`; chop $DY;
+$NX = `cameraconfig $config -mosaicx`; chop $NX;
+$NY = `cameraconfig $config -mosaicy`; chop $NY;
+
+$N = `cameraconfig $config -N $EXT`; chop $N;
+
+$Ro = $ra  - ($ccdx[$N] - $NX/2)*$DX*0.187/3600;
+$Do = $dec + ($ccdy[$N] - $NY/2)*$DY*0.187/3600;
+$Theta = 4;
+$P1 = -1;
+$P2 =  1;
+if ($dx[$N] == 1) {
+    $P1 =  1;
+    $Theta = $Theta * -1;
+}
+if ($dy[$N] == 1) {
+    $P2 =  -1;
+    $Theta = $Theta * -1;
+}
+
+vsystem ("gastro -v $config $ARGV[0] -coords $Ro $Do -D CCD_PC1_1 $P1 -D CCD_PC2_2 $P2 -D ROT_ZERO $Theta");
+exit 0;
+
+############
+
+sub vsystem {
+    print STDERR "@_\n";
+    $status = system ("@_");
+    $status;
+}
+
+sub goodbye {
+    print STDERR "ending execution\n";
+    die "@_";
+}
+

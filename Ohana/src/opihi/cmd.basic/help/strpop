@@ -1,0 +1,12 @@
+
+   strpop (string) [var]
+
+   Pops part of a string or a list element that can be placed
+    into [var]
+
+   Default: print to window
+
+   The output is the first set of characters bordered by white space
+
+   ***Note: Both (string) and [var] must be entered without the "$"
+    variable identifier for the program to work properly.

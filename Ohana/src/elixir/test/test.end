@@ -1,0 +1,21 @@
+               .   test1            test2            test3         
+       localhost   1.565 2          5.180 2          1.030 2        
+       localhost   1.575 2          5.180 2          1.030 2        
+processes status:
+            name   pending  success  failure  total
+----------------------------------------------------------------
+          global         0        4        0      4
+           test1         0
+           test2         0
+           test3         0
+
+machine status:
+          name  process  status
+----------------------------------------------------------------
+     localhost   (none)       0
+     localhost   (none)       0
+
+objects loaded so far: 4
+
+NOT accepting input from FIFO
+DONE

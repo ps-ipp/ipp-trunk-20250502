@@ -1,0 +1,175 @@
+#!/usr/bin/env wish
+
+# define three components to the window:
+
+# text line with data value
+# image region with image
+# quit button
+
+set picpath "/data/milo/elixir/plots"
+set imname "(empty)"
+set name "(empty)"
+set pid [pid]
+
+proc mk_layout { } {
+
+    global file lasttime picpath
+
+    set lasttime 0
+    set file "$picpath/empty.gif"
+    wm withdraw .
+
+    set w [toplevel .t]
+    wm title .t "user display"
+    
+    # top level containers
+    frame $w.menubar -relief raised -borderwidth 2
+    frame $w.picture -relief raised -borderwidth 2
+    frame $w.dataline -relief raised -borderwidth 2
+
+    pack $w.menubar -fill x
+    pack $w.picture -fill x
+    pack $w.dataline -fill x
+
+    mk_menubar $w.menubar
+    mk_picture $w.picture
+    mk_dataline $w.dataline
+
+    update
+}
+
+proc do_quit {} {
+    
+    exit 
+
+}
+
+proc mk_picture {w} {
+
+    global file
+
+    image create photo picture -file $file
+
+    label $w.name -image picture
+    pack  $w.name -side top -fill both
+}
+
+proc mk_menubar {w} {
+
+    global file picpath
+
+    menubutton $w.file -text "File" -menu $w.file.menu
+    pack $w.file -side left
+
+    menu $w.file.menu -tearoff 0
+    $w.file.menu add command -label "Quit" -command { do_quit }
+    bind all <Alt-q> { do_quit }
+    bind all <Control-q> { do_quit }
+    
+    menubutton $w.plot -text "Plots" -menu $w.plot.menu
+    pack $w.plot -side left
+
+    menu $w.plot.menu -tearoff 0
+    $w.plot.menu add command -label "biases"          -command { set file "$picpath/biases.gif"; refresh_now;  }
+    $w.plot.menu add command -label "skyprobe recent" -command { set file "$picpath/skyprobe_recent.gif"; refresh_now;  }
+    $w.plot.menu add command -label "skyprobe night"  -command { set file "$picpath/skyprobe_night.gif"; refresh_now;  }
+    $w.plot.menu add command -label "sky vs time"     -command { set file "$picpath/sky.time.gif"; refresh_now;  }
+    $w.plot.menu add command -label "sky vs airmass"  -command { set file "$picpath/sky.airmass.gif"; refresh_now;  }
+    $w.plot.menu add command -label "FWHM vs time"    -command { set file "$picpath/fwhm.time.gif"; refresh_now;  }
+    $w.plot.menu add command -label "FWHM vs airmass" -command { set file "$picpath/fwhm.airmass.gif"; refresh_now;  }
+    $w.plot.menu add command -label "field (small)"   -command { set file "$picpath/field.small.gif"; refresh_now;  }
+    $w.plot.menu add command -label "field (large)"   -command { set file "$picpath/field.large.gif"; refresh_now;  }
+    $w.plot.menu add command -label "temperatures"    -command { set file "$picpath/temps.time.gif"; refresh_now;  }
+    $w.plot.menu add command -label "last image (10x10)"   -command { set file "$picpath/current.b10.gif"; refresh_now;  }
+    $w.plot.menu add command -label "last image (zoom)"     -command { set file "$picpath/current.zoom.gif"; refresh_now;  }
+    $w.plot.menu add command -label "last short image" -command { set file "$picpath/lastshort.zoom.gif"; refresh_now;  }
+    $w.plot.menu add command -label "focus (unit)"     -command { set file "$picpath/focus.unit.gif"; refresh_now;  }
+
+}
+
+proc mk_dataline {w} {
+
+    global fwhm imname name
+    set time [clock format [clock seconds] -format "%H:%M:%S"]
+
+    label $w.label -text "name: $name  |  FHWM: 0.0  |  FILTER: X  |  time: $time            | image: $imname"
+    pack $w.label -side left
+    
+}
+
+proc do_refresh { } {
+
+    global picpath imname name
+
+    after 1000 {
+	
+	set time [clock format [clock seconds] -format "%H:%M:%S"]
+	set name "(empty)"
+	set fwhm 0.0
+	set filter "X"
+
+	if {! [catch {open $picpath/seeing.dat r} data] } {
+	    gets $data line
+	    close $data
+	    set list [split $line]
+	    if {[llength $list] == 4} {
+		set name [lindex $list 0]
+		catch { set fwhm [format "%5.2f" [lindex $list 1]] } status
+		set filter [lindex $list 3]
+            }
+	}
+	
+	.t.dataline.label configure -text "name: $name  |  FHWM: $fwhm  |  FILTER: $filter  |  time: $time           | image: $imname"
+	update
+	do_refresh 
+    }
+}
+
+proc do_refresh_pic { } {
+
+    global file lasttime imname name pid
+
+    after 2000 {
+	
+	# get file status & time
+	if {! [catch {file stat $file stats}] } {
+	    set newtime $stats(mtime)
+	    if {$newtime > $lasttime} {
+		set tmpfile "$file.$pid"
+		catch { exec ln -f $file $tmpfile }
+		catch { picture read $tmpfile -shrink } 
+		catch { exec rm -f $tmpfile }
+		set imname $name
+		set lasttime $newtime
+		update
+	    }
+	}
+	do_refresh_pic
+    }
+}
+
+proc bgerror {result} {
+	puts "edisp error: $result"
+}
+
+proc refresh_now { } {
+
+    global file lasttime imname name pid
+
+    if {[file exists $file]} {
+	set tmpfile "$file.$pid"
+	catch { exec ln -f $file $tmpfile }
+	catch { picture read $tmpfile -shrink }
+	catch { exec rm -f $tmpfile }
+
+	file stat $file stats
+	set imname $name
+	set lasttime $stats(mtime)
+	update
+	
+    }
+}
+
+mk_layout
+do_refresh
+do_refresh_pic

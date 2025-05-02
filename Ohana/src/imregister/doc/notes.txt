@@ -1,0 +1,101 @@
+
+imsearch & CADC distribution:
+
+i need to create raw image tables for the CADC for only those images
+which have been processed (-proc t) and for which a distribution table
+has not been created.
+
+imsearch -modify help
+imsearch -modify path /oldpath /newpath
+imsearch -modify mode [mef/split] 
+imsearch -modify dist [t/f]
+
+history:
+
+v1 : < 2002.09 
+
+ - FITS table interface had errors, incorrect TFORM values
+ - imreg db used pseudo FITS table
+
+v2 : 2002.09 
+
+ - FITS table interface repaired
+ - imreg db uses pseudo FITS table
+ - unwieldy files which contain many functions (esp detsearch /
+   imsearch)
+
+v3 : 2002.11
+
+ - FITS table interface repaired
+ - imreg db converted to read FITS tables
+ - use of vtable interface introduced
+ - db interactions abstracted to allow for SQL
+ - reorganization of files
+
+v3: functions & dependancies
+
+function             : external : globals               : structs
+
+WriteFIFO            : ohana    :		        :
+LoadCameraConfig     : ohana    : ccd data, keywords	:
+MatchCCDName         : ohana    : ccd data, keywords	:
+ConfigCamera         : ohana    : ccd data, keywords	:
+LoadFilterList       : ohana    : filt data, keywords	:
+MatchFilterList      : ohana    : filt data             :
+ConfigInit           : ohana    : keywords  
+get_fwhm	     : ohana
+load_probes	     : ohana
+parse_time	     : ohana    : keywords
+get_trange_arguments : ohana
+make_backup	     : ohana
+uppercase	     : 
+check_unixtime	     : UNUSED
+sort (various)	     : 
+
+(why aren't these in libohana?)
+dms_to_ddd
+str_to_radec
+chk_time
+str_to_time
+str_to_dtime
+sec_to_jd
+jd_to_sec
+date_to_sec
+Fseek - allow for timeout...
+
+problems:
+
+ imregister2.c: args
+ imsort2.c: args, SubmitImages
+ imstatreg2.c: args
+ photcode.c: ConfigSystem (ConfigCamera ConfigFilters)
+ photreg2.c: make_backup
+ photsearch2.c: DumpFitsTable
+ showiminfo.c: args
+ transearch2: LoadFilters, DumpFitsTable
+ transreg2: make_backup
+
+main programs:
+
+cameraconfig
+convertimreg
+filtnames
+imphotsearch
+imregister2
+imsearch2
+imsort2
+imstatreg2
+photcode
+photreg2
+photsearch2
+showiminfo
+transearch
+transreg
+
+
+dependency types:
+
+external libraries
+local library
+group 
+program-specific functions

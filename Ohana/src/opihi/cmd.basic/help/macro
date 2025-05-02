@@ -1,0 +1,11 @@
+
+   macro (name)
+
+   create a macro.  the commands are entered until the word 'end' is
+   reached.  nested if, for, and macro definitions use the
+   appropriately matched occurances of the 'end'.
+
+   Within a macro, the command-line arguments are refered to as $1,
+   $2, etc.  The number of command-line arguments is given by $0.
+
+   

@@ -1,0 +1,7 @@
+
+   zplot x y z min max
+
+   plot the vector pair x and y as a series of points with size scaled
+   by the values in the vector z, with the smallest point having
+   values <= min and the largest having values >= max.
+

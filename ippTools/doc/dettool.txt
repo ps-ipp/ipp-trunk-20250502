@@ -1,0 +1,181 @@
+# returns a list of unassociated rawDetrendExp (rawDetrendExps that don't
+# correspond to a exp_id in detInputExp)
+dettool -pending -exp_type -inst ..
+
+# define a new detRun semi-automatically by selecting the component exps with
+# the specified search criteria
+dettool -definebyquery -det_type ...
+
+# create a detRun with the specified input exp_ids
+dettool -definebyexp -det_type -exp_id 1 -exp_id 2 ...
+
+--
+# returns a list of rawImfiles that are associated with an detInputExp that do
+# not appear in detProcessedImfiles
+dettool -raw
+
+# add an imfile to detProcessedImfiles
+dettool -addprocessed
+
+--
+# the list of class_ids that are ready to be stacked
+# returns a list of det_id/iter/class_id/det_typs  where class_id is unique per
+# det_id (not a list of all exp_ids/class_ids) that do not have an entry in
+# detStackedImfile
+# results are masked by entries in detResidExpAnalysis
+# may need to check detResidExp's even on iter 0 - ???
+dettool -tostack
+
+# list all of imfiles from different exps with the same class_id that have
+# been processed
+dettool -processed -wholestack -det_id ...
+
+# adds a stacked class_id and and optionally marks it for normalization
+detool -addstacked [-pleasenormalize] -det_id -iter -class_id ...
+
+--
+# returns a list of det_ids/iters where the entire set of class_ids has been
+# processed
+dettool -tonormalize
+
+# returns the complete list of processed imfiles for the specified det_id
+dettool -processed -unmask -det_id -iter
+
+# add per stacked imfile normalization statistics
+# O: this could accept a MDC doc as input from stdin
+dettool -addnormstat -det_id -iter -class_idi -norm F32
+
+--
+# returns a list of det_ids/iter/class_id/uri from detNormStats.  Stops
+# returning entries after the class_is is inserted into detNormalizedImfile
+dettool -normstat -det_id 
+
+# inserts an entry into detNormalizedImfile
+dettool -addnormalized -det_id -ter -class_id -uri
+
+--
+# returns a list of processed imfiles that have also been normalized with
+# processed imfiles being masked out per detResidImfileAnalysis
+# also returns stackedimfiles that have -pleasenormalize set to false
+dettool -toresid -det_id -iter
+
+# inserts a per det_id/iter/exp_id/class_id residual
+dettool -addresidimfile -det_id -exp_id -class_id -iter -stat F32 -stat_stdev F32 -uri -b1 -b2
+
+# returns a list of det_id/iter/exp_ids but only for exp_ids that have resids
+# for all of their imfiles
+dettool -toresidexp
+
+# returns a list of residual imfile data
+dettool -residimfile -det_id -iter -exp_id
+
+# inserts into detResidExpAnalysis 
+# sets the accept accept bool unless -reject is specified
+dettool -addresidexp -det_id -iter -exp_id -jpeg1 -jpeg2 -stat F32 -stat_stdev
+F32 [-reject]
+
+--
+# lists det_id/iter for detruns that have completed all residexps for their
+# current iteration 
+dettool -residdetrun
+
+# lists all residexps for the given det_id/iter
+dettool -residexp -det_id -iter
+
+# updates the given residexp to be accept/reject
+dettool -updateresid -det_id -iter [-reject]
+
+# changes the state of the detrun.  -rerun cause a new iteration to be started
+# with the accepted with just the exp_ids
+dettool -updatedetrun -det_id -iter -stat F32 -stat_stdev [-rerun|-ok|-stop]
+
+# manual starts a new detrun iteration starting from the specified -iter
+dettool -rerun -det_id -iter -accept expid -accept expid -reject expid -reject expid
+dettool -rerun -det_id -iter
+
+# detInputExp needs to track...
+det_id iter exp_id use bool accept bool
+
+
+
+dettool
+
+    -define | creates a a new detrend Run
+        input:
+            exp IDs?
+            type of det run?
+        creates a new detRun ID automatically
+    
+        output: the new det_id
+
+    -raw    | lists raw imfiles needing to be processed
+        input: 
+            det ID
+            exp ID
+            class ID
+            iteration number?
+        output: list of unprocessed imfiles
+    
+    -addprocessed? | marks a raw imfile as processed
+        input:
+            det ID
+            exp ID
+            class ID
+            iteration number?
+            uri
+            stat
+            recipe
+        output: outout on error only
+    -processed | lists processed imfiles
+        input:
+            det ID
+            exp ID
+            class ID
+            iteration number?
+        output: list of processed imfiles
+    -addstacked | adds a stacked imfiles
+        input:
+            det ID
+            class ID
+            iteration number?
+            URI
+            recipe
+            stats
+        output: output on error only
+    -stacked     | lists stacked imfiles
+        input:
+            det ID
+            class ID
+            iteration number?
+        output: list of stacked imfiles
+    -stacked     | lists stacked imfiles
+        input:
+            det ID
+            class ID
+            iteration number?
+        output: list of stacked imfiles 
+    -stackedframe     | lists stacked imfiles for COMPLETE frames
+        input:
+            det ID  // required for simplicity
+            iteration number?
+        output: list of stacked imfiles
+    -addmaster | adds a master imfiles
+        input:
+            det ID
+            class ID
+            iteration number?
+            URI
+            recipe
+            stats
+        output: output on error only
+    -master     | lists master imfiles
+        input:
+            det ID  // required for simplicity
+            class ID
+            iteration number?
+        output: a list of master imfiles
+    -masterframe     | lists master imfiles for COMPLETE frames
+        input:
+            det ID  // required for simplicity
+            iteration number?
+        output: a list of master imfiles

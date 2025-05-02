@@ -1,0 +1,8 @@
+
+   queuepush (queue) (value) [-key N] [-uniq] [-replace]
+
+   Pushes (value) onto the back of (queue)
+
+   -key N:
+   -uniq:
+   -replace:

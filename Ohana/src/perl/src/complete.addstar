@@ -1,0 +1,31 @@
+#!/usr/bin/env perl
+
+# get list of *o/*.smp
+@smplist = <*o/*.smp>;
+
+$i = 0;
+foreach $file (@smplist) {
+
+    # is NASTRO > 0?
+    ($tmp, $nastro) = split (" ", `echo $file | fields NASTRO`);
+    if ($nastro == 0) { next; }
+
+    # is file already in db?
+    ($path, $root) = split ("/", $file);
+    $answer = `imphotsearch -D CATDIR $catdir -name $root`;
+    if ($answer == "") { next; }
+
+    # addstar file
+    vsystem ("addstar -D CATDIR $catdir $file");
+
+    $i ++;
+    if ($i > 30) {exit;}
+}
+
+sub vsystem {
+    print STDERR "@_\n";
+#    my($status) = system ("@_");
+#    $status;
+}
+
+

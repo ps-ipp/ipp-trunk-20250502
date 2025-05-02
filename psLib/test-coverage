@@ -1,0 +1,93 @@
+set PWD='pwd'
+./autogen.sh CFLAGS="-lgcov -fprofile-arcs -ftest-coverage" --prefix=$PWD
+make clean
+make
+mkdir Test_Coverage
+cd test
+./FullUnitTest
+cd ../src/astro
+gcov -f --object-file ./.libs/libpslibastro_la-psCoord.o psCoord.c > coverage-astro.coord
+gcov -f --object-file ./.libs/libpslibastro_la-psEarthOrientation.o psEarthOrientation.c > coverage-astro.eoc
+gcov -f --object-file ./.libs/libpslibastro_la-psSphereOps.o psSphereOps.c > coverage-astro.sphereOps
+gcov -f --object-file ./.libs/libpslibastro_la-psTime.o psTime.c > coverage-astro.time
+mv coverage-*.* ../../Test_Coverage/
+cd ../db
+gcov -f --object-file ./.libs/libpslibdb_la-psDB.o psDB.c > coverage-db.db
+mv coverage-*.* ../../Test_Coverage/
+cd ../fft
+gcov -f --object-file ./.libs/libpslibfft_la-psImageFFT.o psImageFFT.c > coverage-fft.imageFFT
+gcov -f --object-file ./.libs/libpslibfft_la-psVectorFFT.o psVectorFFT.c > coverage-fft.vectorFFT
+mv coverage-*.* ../../Test_Coverage/
+cd ../fits
+gcov -f --object-file ./.libs/libpslibfits_la-psFits.o psFits.c > coverage-fits.fits
+gcov -f --object-file ./.libs/libpslibfits_la-psFitsHeader.o psFitsHeader.c > coverage-fits.fitsHeader
+gcov -f --object-file ./.libs/libpslibfits_la-psFitsImage.o psFitsImage.c > coverage-fits.fitsImage
+gcov -f --object-file ./.libs/libpslibfits_la-psFitsTable.o psFitsTable.c > coverage-fits.fitsTable
+mv coverage-*.* ../../Test_Coverage/
+cd ../imageops
+gcov -f --object-file ./.libs/libpslibimageops_la-psImageBackground.o psImageBackground.c > coverage-imageops.imageBackground
+gcov -f --object-file ./.libs/libpslibimageops_la-psImageConvolve.o psImageConvolve.c > coverage-imageops.imageConvolve
+gcov -f --object-file ./.libs/libpslibimageops_la-psImageGeomManip.o psImageGeomManip.c > coverage-imageops.imageGeomManip
+gcov -f --object-file ./.libs/libpslibimageops_la-psImageMaskOps.o psImageMaskOps.c > coverage-imageops.imageMaskOps
+gcov -f --object-file ./.libs/libpslibimageops_la-psImagePixelExtract.o psImagePixelExtract.c > coverage-imageops.imagePixelExtract
+gcov -f --object-file ./.libs/libpslibimageops_la-psImagePixelManip.o psImagePixelManip.c > coverage-imageops.imagePixelManip
+gcov -f --object-file ./.libs/libpslibimageops_la-psImageStats.o psImageStats.c > coverage-imageops.imageStats
+gcov -f --object-file ./.libs/libpslibimageops_la-psImageStructManip.o psImageStructManip.c > coverage-imageops.imageStructManip
+gcov -f --object-file ./.libs/libpslibimageops_la-psImageUnbin.o psImageUnbin.c > coverage-imageops.imageUnbin
+mv coverage-*.* ../../Test_Coverage/
+cd ../jpeg
+gcov -f --object-file ./.libs/libpslibjpeg_la-psImageJpeg.o psImageJpeg.c > coverage-jpeg.imageJpeg
+mv coverage-*.* ../../Test_Coverage/
+cd ../math
+gcov -f --object-file ./.libs/libpslibmath_la-psBinaryOp.o psBinaryOp.c > coverage-math.binaryOp
+gcov -f --object-file ./.libs/libpslibmath_la-psCompare.o psCompare.c > coverage-math.compare
+gcov -f --object-file ./.libs/libpslibmath_la-psEllipse.o psEllipse.c > coverage-math.ellipse
+gcov -f --object-file ./.libs/libpslibmath_la-psMathUtils.o psMathUtils.c > coverage-math.mathUtils
+gcov -f --object-file ./.libs/libpslibmath_la-psMatrix.o psMatrix.c > coverage-math.matrix
+gcov -f --object-file ./.libs/libpslibmath_la-psMinimizeLMM.o psMinimizeLMM.c > coverage-math.minimizeLMM
+gcov -f --object-file ./.libs/libpslibmath_la-psMinimizePolyFit.o psMinimizePolyFit.c > coverage-math.minimizePolyFit
+gcov -f --object-file ./.libs/libpslibmath_la-psMinimizePowell.o psMinimizePowell.c > coverage-math.minimizePowell
+gcov -f --object-file ./.libs/libpslibmath_la-psPolynomial.o psPolynomial.c > coverage-math.polynomial
+gcov -f --object-file ./.libs/libpslibmath_la-psPolynomialUtils.o psPolynomialUtils.c > coverage-math.polynomialUtils
+gcov -f --object-file ./.libs/libpslibmath_la-psRandom.o psRandom.c > coverage-math.random
+gcov -f --object-file ./.libs/libpslibmath_la-psRegion.o psRegion.c > coverage-math.region
+gcov -f --object-file ./.libs/libpslibmath_la-psRegionForImage.o psRegionForImage.c > coverage-math.regionForImage
+gcov -f --object-file ./.libs/libpslibmath_la-psSparse.o psSparse.c > coverage-math.sparse
+gcov -f --object-file ./.libs/libpslibmath_la-psSpline.o psSpline.c > coverage-math.spline
+gcov -f --object-file ./.libs/libpslibmath_la-psStats.o psStats.c > coverage-math.stats
+gcov -f --object-file ./.libs/libpslibmath_la-psUnaryOp.o psUnaryOp.c > coverage-math.unaryOp
+gcov -f --object-file ./.libs/libpslibmath_la-psVectorSmooth.o psVectorSmooth.c > coverage-math.vectorSmooth
+mv coverage-*.* ../../Test_Coverage/
+cd ../mathtypes
+gcov -f --object-file ./.libs/libpslibmathtypes_la-psImage.o psImage.c > coverage-mathtypes.image
+gcov -f --object-file ./.libs/libpslibmathtypes_la-psScalar.o psScalar.c > coverage-mathtypes.scalar
+gcov -f --object-file ./.libs/libpslibmathtypes_la-psVector.o psVector.c > coverage-mathtypes.vector
+mv coverage-*.* ../../Test_Coverage/
+cd ../sys
+gcov -f --object-file ./.libs/libpslibsys_la-psAbort.o psAbort.c > coverage-sys.abort
+gcov -f --object-file ./.libs/libpslibsys_la-psConfigure.o psConfigure.c > coverage-sys.configure
+gcov -f --object-file ./.libs/libpslibsys_la-psError.o psError.c > coverage-sys.error
+gcov -f --object-file ./.libs/libpslibsys_la-psErrorCodes.o psErrorCodes.c > coverage-sys.errorCodes
+gcov -f --object-file ./.libs/libpslibsys_la-psLine.o psLine.c > coverage-sys.line
+gcov -f --object-file ./.libs/libpslibsys_la-psLogMsg.o psLogMsg.c > coverage-sys.logMsg
+gcov -f --object-file ./.libs/libpslibsys_la-psMemory.o psMemory.c > coverage-sys.memory
+gcov -f --object-file ./.libs/libpslibsys_la-psString.o psString.c > coverage-sys.string
+gcov -f --object-file ./.libs/libpslibsys_la-psTrace.o psTrace.c > coverage-sys.trace
+mv coverage-*.* ../../Test_Coverage/
+cd ../types
+gcov -f --object-file ./.libs/libpslibtypes_la-psArguments.o psArguments.c > coverage-types.arguments
+gcov -f --object-file ./.libs/libpslibtypes_la-psArray.o psArray.c > coverage-types.array
+gcov -f --object-file ./.libs/libpslibtypes_la-psBitSet.o psBitSet.c > coverage-types.bitSet
+gcov -f --object-file ./.libs/libpslibtypes_la-psHash.o psHash.c > coverage-types.hash
+gcov -f --object-file ./.libs/libpslibtypes_la-psList.o psList.c > coverage-types.list
+gcov -f --object-file ./.libs/libpslibtypes_la-psLookupTable.o psLookupTable.c > coverage-types.lookupTable
+gcov -f --object-file ./.libs/libpslibtypes_la-psMetadata.o psMetadata.c > coverage-types.metadata
+gcov -f --object-file ./.libs/libpslibtypes_la-psMetadataConfig.o psMetadataConfig.c > coverage-types.metadataConfig
+gcov -f --object-file ./.libs/libpslibtypes_la-psMetadataItemCompare.o psMetadataItemCompare.c > coverage-types.metadataItemCompare
+gcov -f --object-file ./.libs/libpslibtypes_la-psMetadataItemParse.o psMetadataItemParse.c > coverage-types.metadataItemParse
+gcov -f --object-file ./.libs/libpslibtypes_la-psPixels.o psPixels.c > coverage-types.pixels
+mv coverage-*.* ../../Test_Coverage/
+cd ../xml
+gcov -f --object-file ./.libs/libpslibxml_la-psXML.o psXML.c > coverage-xml.xml
+mv coverage-*.* ../../Test_Coverage/
+cd ../../

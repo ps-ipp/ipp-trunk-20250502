@@ -1,0 +1,8 @@
+#ifndef PPSUB_VERSION_DEFINITIONS_H
+#define PPSUB_VERSION_DEFINITIONS_H
+
+#define PPSUB_VERSION @PPSUB_VERSION@ // SVN version
+#define PPSUB_BRANCH  @PPSUB_BRANCH@  // SVN branch
+#define PPSUB_SOURCE  @PPSUB_SOURCE@  // SVN source
+
+#endif

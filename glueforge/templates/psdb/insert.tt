@@ -1,0 +1,19 @@
+bool [% table.namespace %]Insert(psDB * dbh,
+[%- SET i = 0 -%]
+[% FOREACH item = table.columns -%]
+[% IF i == 0 %][% i = 1 %] [% ELSE %], [% END -%]
+[% IF item.type == "STR" -%]
+const char *[% item.name %]
+[%- ELSE -%]
+[% item.ctype %] [% item.name %]
+[%- END -%]
+[% END -%]
+)
+{
+[% INCLUDE metadata_from_params -%]
+
+    bool status = psDBInsertOneRow(dbh, [% table.namespace FILTER upper %]_TABLE_NAME, md);
+    psFree(md);
+
+    return status;
+}

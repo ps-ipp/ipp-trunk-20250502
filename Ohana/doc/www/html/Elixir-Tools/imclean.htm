@@ -1,0 +1,24 @@
+<meta name=file  content=imclean>
+<meta name=title content=imclean>
+<meta name=page  content=imclean>
+
+<p>
+The imclean program converts the basic photometry output list from
+dophot, sextractor, or gophot, into a standard format for other Elixir
+subsystems, with both the table of object data and the complete image
+FITS header. 
+
+<pre>
+imclean filename.fits filename.obj filtname.cmp
+imclean -sex filename.fits filename.sx filename.smp
+options:
+  -h
+  -help
+  -v
+  -coords (ra) (dec)
+  -p (photcode)
+  -astrom (file)
+  -sex
+  -chad
+  -key KEYWORD VALUE
+</pre>

@@ -1,0 +1,20 @@
+
+The recipes may be defined by files at two levels: system and camera.
+
+A single recipe (eg, PPIMAGE) must have a system-level file which
+defines all of the recipe variables.  The camera-level recipe may
+superceed values define in the system-level file.  
+
+Any recipe file may also define alternative symbolic names for
+recipes by including metadata folders named by the symbolic name.  
+
+The order of precedence is: 
+
+* primary system-level values
+* symbolic system-level values
+* primary camera-level values
+* symbolic camera-level values
+
+XXX the MULTI RESET thing is broken: the flag is not being carried
+through to the psMetadataItemAdd function...
+

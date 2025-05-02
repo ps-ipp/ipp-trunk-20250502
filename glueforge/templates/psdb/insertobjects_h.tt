@@ -1,0 +1,11 @@
+/** Insert an array of [% table.object_name %] object into a table
+ *
+ * This function constructs and inserts multiple rows based on it's parameters.
+ *
+ * @return true on success
+ */
+
+bool [% table.namespace %]InsertObjects(
+    psDB            *dbh,               ///< Database handle
+    psArray         *objects            ///< array of [% table.object_name %] objects
+);

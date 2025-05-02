@@ -1,0 +1,34 @@
+# this file contains the list of valid photometry codes.  there should
+# be one code for each combination of CCD, filter, and telescope (and
+# possibly additional ones if filter transmission reduces with time).
+# The code on each line is a unique number, while the name is a
+# representative name.  The type defines how the photometry is
+# treated.  There can only be one primary photcode.  There should only
+# be a few secondary photcodes: these are the calibrated values for
+# stars.  The dependent photcodes are those which are equivalent to a
+# primary or secondary photcode, and are equated after photometric
+# solutions.  Reference photcodes are for anything without a dynamic
+# solution: the reference values are provided externally.
+
+# NOTE: the photcodes defined below supplement CFHT Elixir values.
+# Do not use this photcode file with old CFHT DVO databases.
+
+# camera ranges used in this file:
+# megacam:  u: 100-139, g: 200-239, r: 300-339, i: 400-439, z: 500-539
+# cfh12k:   B: 140-152, V: 240-252, R: 340-352, I: 440-452, Z: 540-552, NB: 600-693
+# mosaic2:  B: 160-167, V: 260-267, VR: 360-367, R: 460-467, I: 560-567
+# PS1 ISP:  g: 3200,      r: 3300,      i: 3400,      z: 3500,      y: 3600
+# PS1 TC3:  g: 3280-3296, r: 3380-3396, i: 3480-3496, z: 3580-3596, y: 3680-3696, 
+# PS1 GPC1: g: 3201-3264, r: 3301-3364, i: 3401-3464, z: 3501-3564, y: 3601-3664, w: 3201-3464
+
+# NOTE 2012.03.30 EAM : I have added 'poor' and 'bad' bitsets for GPC1 data using psphot
+# I have also set the current best guess values for the GPC1 zero points
+
+# external references: 1000 - 2999
+
+#                                           airmass      color                         astrometry  mag    photom  astrom mask    photom mask
+# code  name                type    zero  slope offset c1    c2   slope   zero  equiv  sys scale   scale  sys     poor   bad     poor   bad
+  3     i                    sec   0.000  0.000 0.000     2     3 0.0000     0  1053   0.000 0.000 0.000  0.000   0x0000 0x0000  0x0000 0x0000
+
+  10233 GPC1.i.XY33          dep  24.611 -0.044 0.000     -     - 0.0000     0     3   0.000 1.000 0.000  0.000   0x0000 0x0000  0xe0440130 0x1003bc88
+  11200 GPC1.i.SkyChip       dep  25.000  0.000 0.000     -     - 0.0000     0     3   0.000 1.000 0.000  0.000   0x0000 0x0000  0x0000 0x0000

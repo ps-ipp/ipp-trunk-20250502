@@ -1,0 +1,34 @@
+# include "dvomerge.h"
+
+// Compute IDs for PSPS based on recipe they defined
+
+uint64_t
+CreatePSPSDetectionID(double tobs, int ccdid, int detID)
+{
+    // t0 for detection id is 2007-01-01 00:00:00 utc
+    double  t0 = 54101.0;
+    double diff = floor( 100000. * (tobs - t0) );
+    int itmp = diff;
+
+    // ccdid must be < 100
+    uint64_t detectid = 1000000000*((uint64_t) itmp) + 10000000 * ((uint64_t) ccdid) +
+             ((uint64_t) detID);
+
+    return detectid;
+}
+    
+uint64_t
+CreatePSPSObjectID(double ra, double dec)
+{
+    double zh = 0.0083333;
+    double zid = (dec + 90.) / zh;             // 0 - 180*60*2 = 21600 < 15 bits
+    int izone = (int) floor(zid);
+    double zresid = zid -  ((float) izone);    // 0.0 - 1.0
+
+    uint64_t part1, part2, part3;
+    part1 = (uint64_t)( izone  * 10000000000000LL) ; 
+    part2 = ((uint64_t)(ra * 1000000.)) * 10000 ; // 0 - 360*1e6 = 3.6e8 (< 29 bits)
+    part3 = (int) (zresid * 10000.0) ; // 0 - 10000 (1 bit == 30/10000 arcsec) (< 14 bits)
+
+    return part1 + part2 + part3;
+}

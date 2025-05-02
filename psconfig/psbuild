@@ -1,0 +1,538 @@
+#!/usr/bin/env perl
+
+$tagsets = "tagsets";
+if (!-d $tagsets || !-r $tagsets || !-x $tagsets) { die "missing the directory of distribution tables: $tagsets\n"; }
+
+print STDER "----- starting psbuild ----- : ";
+system ("date");
+
+$version = "";
+$clean = 0;
+$rebuild = 0;
+$optimize = 0;
+$profile = 0;
+$no_as_needed = 0;
+$debug_build = 0;
+$developer = 0;
+$magic = 0;
+$operations = 0;
+$start = "";
+$start_after = "";
+$stop = "";
+$verbose = 0;
+$svn_trunk = "";
+$offline = 0;
+
+$extlibs = "none";
+$extperl = "none";
+
+@tARGV = ();
+for (; @ARGV > 0; ) {
+    if ($ARGV[0] eq "-version") {
+        $version = $ARGV[1];
+        shift; shift; next;
+    }
+    if ($ARGV[0] eq "-verbose") {
+        $verbose = 1;
+        shift; next;
+    }
+    if ($ARGV[0] eq "-extlibs") {
+        $extlibs = $ARGV[1];
+        shift; shift; next;
+    }
+    if ($ARGV[0] eq "-extperl") {
+        $extperl = $ARGV[1];
+        shift; shift; next;
+    }
+    if ($ARGV[0] eq "-trunk") {
+        $svn_trunk = $ARGV[1];
+        shift; shift; next;
+    }
+    if ($ARGV[0] eq "-clean") {
+        $clean = 1;
+        shift; next;
+    }
+    if ($ARGV[0] eq "-extcheck") {
+        $extlibs = "check";
+        $extperl = "check";
+        shift; next;
+    }
+    if ($ARGV[0] eq "-extbuild") {
+        $extlibs = "build";
+        $extperl = "build";
+        shift; next;
+    }
+    if ($ARGV[0] eq "-rebuild") {
+        $rebuild = 1;
+        shift; next;
+    }
+    if ($ARGV[0] eq "-magic") {
+        $magic = 1;
+        shift; next;
+    }
+    if ($ARGV[0] eq "-optimize") {
+        $optimize = 1;
+        shift; next;
+    }
+    if ($ARGV[0] eq "-profile") {
+        $profile = 1;
+        shift; next;
+    }
+    if ($ARGV[0] eq "-no-as-needed") {
+        $no_as_needed = 1;
+        shift; next;
+    }
+    if ($ARGV[0] eq "-debug-build") {
+        $debug_build = 1;
+        shift; next;
+    }
+    if ($ARGV[0] eq "-dev") {
+        $developer = 1;
+        shift; next;
+    }
+    # basic settings for the operations installation
+    if ($ARGV[0] eq "-ops") {
+        $developer = 1;
+        $optimize = 1;
+        $magic = 1;
+        shift; next;
+    }
+    if ($ARGV[0] eq "-only") {
+	if ($start || $stop || $start_after) { die "do not mix -only (-start, -stop) or (-after, -stop)\n"; }
+        $start = $ARGV[1];
+        $stop = $ARGV[1];
+        shift; shift; next;
+    }
+    if ($ARGV[0] eq "-start") {
+	if ($start || $start_after) { die "do not mix -only (-start, -stop) or (-after, -stop)\n"; }
+        $start = $ARGV[1];
+        shift; shift; next;
+    }
+    if ($ARGV[0] eq "-after") {
+	if ($start || $start_after) { die "do not mix -only (-start, -stop) or (-after, -stop)\n"; }
+        $start_after = $ARGV[1];
+        $start = "INVALID_VALUE"; # need to have a value to skip earlier entries
+        shift; shift; next;
+    }
+    if ($ARGV[0] eq "-stop") {
+	if ($stop) { die "do not mix -only (-start, -stop) or (-after, -stop)\n"; }
+        $stop = $ARGV[1];
+        shift; shift; next;
+    }
+    if ($ARGV[0] eq "-list") {
+        &list_distributions ();
+    }
+    if ($ARGV[0] eq "-bootstrap") {
+        &bootstrap ();
+    }
+    if ($ARGV[0] eq "-offline") {
+        $offline = 1;
+        shift; next;
+    }
+    if ($ARGV[0] eq "-env") {
+        &show_environment ();
+    }
+    if ($ARGV[0] eq "-h")     { &usage (); }
+    if ($ARGV[0] eq "-help")  { &usage (); }
+    if ($ARGV[0] eq "--help") { &usage (); }
+    @tARGV = (@tARGV, $ARGV[0]);
+    shift;
+}
+@ARGV = @tARGV;
+
+if ( @ARGV == 0) {
+    die "a distribution name is now required by psbuild (e.g., ipp-ubuntu)\n";
+} else {
+    $distribution = "$tagsets/$ARGV[0].dist";
+    $distname = $ARGV[0];
+}
+
+# generate new psconfig.csh if needed
+if (! -e "psconfig.csh" || ! -e "psconfig.bash") {
+    $psconfdir = $ENV{'PSCONFDIR'};
+    if ($psconfdir eq "") { die "PSCONFDIR not found, run psbuild -bootstrap and follow instructions\n"; }
+    vsystem ("cat psconfig.csh.in | sed 's|\@PSCONFDIR@|$psconfdir|' > psconfig.csh");
+    vsystem ("cat psconfig.bash.in | sed 's|\@PSCONFDIR@|$psconfdir|' > psconfig.bash");
+}
+
+&load_distfile ();
+
+&build_distribution ();
+exit 0;
+
+sub show_environment {
+
+    # use psconfig.csh to set needed build aliases
+
+    # set the psconfig version:
+    if ("$version" eq "") {
+        $version = $ENV{'PSVERSION'};
+    }
+    if ("$version" eq "") {
+        $version = "default";
+    }
+
+    if (! -e psconfig.csh) {
+        $psconfdir = $ENV{'PSCONFDIR'};
+        if ($psconfdir eq "") { die "PSCONFDIR not found, run psbuild -bootstrap and follow instructions\n"; }
+        vsystem ("cat psconfig.csh.in | sed 's|\@PSCONFDIR@|$psconfdir|' > psconfig.csh");
+        vsystem ("cat psconfig.bash.in | sed 's|\@PSCONFDIR@|$psconfdir|' > psconfig.bash");
+    }
+
+    $psconfigure = `csh psconfig.csh --psconfigure $version`; chomp $psconfigure;
+    $psautogen   = `csh psconfig.csh --psautogen $version`;   chomp $psautogen;
+    $psperlbuild = `csh psconfig.csh --psperlbuild $version`; chomp $psperlbuild;
+
+    # print "psconfigure: $psconfigure\n";
+    # print "psautogen:   $psautogen\n";
+    print "psperlbuild: $psperlbuild\n";
+
+    # set build environment variables
+    ps_setenv (1, "PATH",            "--path");
+    ps_setenv (1, "CPATH",           "--cpath");
+    ps_setenv (1, "ARCH",            "--arch");
+    ps_setenv (1, "LIBRARY_PATH",    "--library_path");
+    ps_setenv (1, "LD_LIBRARY_PATH", "--ld_library_path");
+    ps_setenv (1, "PKG_CONFIG_PATH", "--pkg_config_path");
+    ps_setenv (1, "ACLOCAL_FLAGS",   "--aclocal_flags");
+    ps_setenv (1, "PERL5LIB",        "--perl5lib");
+    ps_setenv (1, "CFITSIO",         "--prefix");
+
+    exit 0;
+}
+
+sub build_distribution {
+
+    vsystem ("date");
+
+    # the operations system needs to first update the magic software
+    if ($magic) {
+        $homedir = `pwd`; chomp $homedir;
+        chdir "../magic";
+
+        if (! -d "magic" || ! -d "ssa-core-cpp") {
+            $status = vsystem ("make update");
+            if ($status) { die "failed to untar magic directories"; }
+        } else {
+            print "magic directories exist; run make update manually if needed\n";
+        }
+        chdir $homedir;
+    }
+
+    # use psconfig.csh to set needed build aliases
+    if ($extlibs eq "check") {
+        $status = vsystem ("pschecklibs $distname");
+        if ($status) { die "failed to find external libraries\n"; }
+    }
+    if ($extlibs eq "build") {
+        $status = vsystem ("pschecklibs -build $distname");
+        if ($status) { die "failed to build external libraries\n"; }
+    }
+
+    if ($extperl eq "check") {
+        $status = vsystem ("pschecklperl $distname");
+        if ($status) { die "failed to find external perl modules\n"; }
+    }
+    if ($extperl eq "build") {
+        $status = vsystem ("pscheckperl -build $distname");
+        if ($status) { die "failed to build external perl modules\n"; }
+    }
+
+    # set the psconfig version:
+    if ("$version" eq "") {
+        $version = $ENV{'PSVERSION'};
+    }
+    if ("$version" eq "") {
+        $version = "default";
+    }
+
+    $psconfigure = `csh psconfig.csh --psconfigure $version`; chomp $psconfigure;
+    $psautogen   = `csh psconfig.csh --psautogen $version`;   chomp $psautogen;
+    $psperlbuild = `csh psconfig.csh --psperlbuild $version`; chomp $psperlbuild;
+
+    # print "psconfigure: $psconfigure\n";
+    # print "psautogen:   $psautogen\n";
+    print "psperlbuild: $psperlbuild\n";
+
+    # set build environment variables
+    ps_setenv (0, "PATH",                 "--path");
+    ps_setenv (0, "CPATH",                "--cpath");
+    ps_setenv (0, "ARCH",                 "--arch");
+    ps_setenv (0, "LIBRARY_PATH",    "--library_path");
+    ps_setenv (0, "LD_LIBRARY_PATH", "--ld_library_path");
+    ps_setenv (0, "PKG_CONFIG_PATH", "--pkg_config_path");
+    ps_setenv (0, "ACLOCAL_FLAGS",   "--aclocal_flags");
+    ps_setenv (0, "PERL5LIB",        "--perl5lib");
+    ps_setenv (0, "CFITSIO",         "--prefix");
+
+    # some versions of libtool use this value:
+    $ENV{'D'} = "";
+
+    # make sure the aclocal path exists
+    @word = split (" ", $ENV{'ACLOCAL_FLAGS'});
+    if (@word != 2) { &failure("setup", "ACLOCAL_FLAGS is not set"); }
+    if (! -e $word[1]) { vsystem ("mkdir -p $word[1]"); }
+
+    $psopts = "";
+    if ($optimize) { $psopts = "$psopts --enable-optimize"; }
+    if ($profile)  { $psopts = "$psopts --enable-profile --disable-shared --enable-static"; }
+    if ($debug_build)  { $psopts = "$psopts --enable-debug-build"; }
+    if ($no_as_needed)  { $psopts = "$psopts --enable-no-as-needed"; }
+    $psopts .= " --disable-version" if $offline;
+
+    $homedir = `pwd`; chomp $homedir;
+
+    $stop_now = 0;
+    for ($i = 0; !$stop_now && ($i < @module); $i++) {
+        if ($stop && ($stop eq $module[$i])) { $stop_now = 1; }
+	if ($start_after && ($start_after eq $module[$i])) { $start = $module[$i+1]; next; }
+        if ($start && ($start ne $module[$i])) { next; }
+        $start = "";
+
+        ($do_tag, $do_build, $do_package, $do_update, $dev_build) = $mode[$i] =~ m|(\S)(\S)(\S)(\S)(\S)|;
+        if ($developer) { $do_build = $dev_build; }
+        if ($do_build eq "N") { next; }
+
+        $workdir = "../$module[$i]";
+
+        # XXX need to grab current value for cleanup
+        print "\n ** psbuild: $module[$i] ** \n";
+        print "\033]0; ** psbuild: $module[$i] ** \007";
+
+        if ($svn_trunk && (!-d $workdir || !-r $workdir || !-x $workdir)) {
+            # try trunk instead
+            print STDERR "$module[$i] missing from local path, trying trunk path\n";
+            $workdir = "$svn_trunk/$module[$i]";
+        }
+
+        if (!-d $workdir || !-r $workdir || !-x $workdir) {
+            print STDERR "WARNING: no directory for component $module[$i], skipping\n";
+            next;
+        }
+
+        chdir $workdir;
+
+        # how do we build this component?
+        # - autogen.sh : configure : make : make install
+        # - configure : make : make install
+        # - make : make install
+        # - perl Build.PL : ./Build : ./Build install
+
+        if (-e "Build.PL") {
+            $status = vsystem ("$psperlbuild");
+            if ($status) { &failure($module[$i], "failure in perl Build.PL"); }
+
+            $status = vsystem ("./Build");
+            if ($status) { &failure($module[$i], "failure in Build"); }
+
+            $status = vsystem ("./Build install");
+            if ($status) { &failure($module[$i], "failure in Build install"); }
+
+            next;
+        }
+
+        if ($rebuild && $clean) {
+            if (-e "configure") { unlink "Makefile"; }
+            if ($developer && -e "configure.ac" && -e "autogen.sh") { unlink "configure"; }
+        }
+        $rebuild_this = $rebuild;
+
+        # set a local variable for this loop on rebuild;
+        if (! -e "Makefile") { $rebuild_this = 1; }
+
+        #  run autogen
+        $skip_configure = 0;
+        if ($developer && $rebuild_this && ! -e "configure" && -e "autogen.sh") {
+            $skip_configure = 1;
+            $status = vsystem ("$psautogen $psopts");
+            if ($status) { &failure($module[$i], "failure in psautogen"); }
+        }
+
+        if ($rebuild_this && -e "configure" && !$skip_configure) {
+            $status = vsystem ("$psconfigure $psopts");
+            if ($status) { &failure($module[$i], "failure in psconfigure"); }
+        }
+
+        if (! -e "Makefile") { &failure($module[$i], "missing makefile: do you need to run the -dev developer build?"); }
+
+        my $makeopts = $ENV{'PSCONFIG_MAKEOPTS'}; # Options for make
+        my $make = "make";      # Command for "make"
+        $make .= " $makeopts" if defined $makeopts;
+
+        if ($clean) {
+            $status = vsystem ("$make clean");
+            if ($status) { &failure($module[$i], "failure in make clean"); }
+        }
+
+        $status = vsystem ("$make");
+        if ($status) { &failure($module[$i], "failure in make"); }
+
+        $status = vsystem ("$make install");
+        if ($status) { &failure($module[$i], "failure in make install"); }
+
+        print "*** done with $module[$i] ***\n";
+
+      success:
+        chdir $homedir;
+    }
+    if ($start) { if ($start_after) { $start = $start_after; } &failure($start, "unknown -start or -after module $start\n"); } 
+    if ($stop && !$stop_now) { &failure($start, "unknown -stop module $stop\n"); } 
+
+    print STDER "----- finished psbuild ----- : ";
+    system ("date");
+
+    print "\033]0; ** psbuild: finished ** \007";
+
+    exit 0;
+}
+
+sub vsystem {
+    print STDERR "@_\n";
+    $status = system ("@_");
+    $status;
+}
+
+sub list_distributions {
+    @list = <$tagsets/*.dist>;
+    foreach $line (@list) {
+        chomp $line;
+        ($dist) = $line =~ m|$tagsets/(\S*).dist|;
+        print STDERR "$dist\n";
+    }
+    exit 2;
+}
+
+sub bootstrap {
+    if (@ARGV != 2) { die "USAGE: psbuild -bootstrap (install_dir | current)\n"; }
+    $psconfdir = $ARGV[1];
+
+    if ($psconfdir eq "current") {
+	$psconfdir = $ENV{'PSCONFDIR'};
+	if (! $psconfdir) { die "no env variable PSCONFDIR found for psbuild -bootstrap current\n"; }
+    }
+    die "Target directory must be absolute, not relative: $psconfdir\n" unless $psconfdir =~ m|^/|;
+
+    # copy psconfig.csh and psconfig.bash to psconfdir
+    vsystem ("cat psconfig.csh.in | sed 's|\@PSCONFDIR@|$psconfdir|' > psconfig.csh");
+    vsystem ("cat psconfig.bash.in | sed 's|\@PSCONFDIR@|$psconfdir|' > psconfig.bash");
+
+    vsystem ("mkdir -p $psconfdir");
+
+    vsystem ("cp psconfig.csh $psconfdir/psconfig.csh");
+    vsystem ("cp psconfig.bash $psconfdir/psconfig.bash");
+    vsystem ("chmod u+x $psconfdir/psconfig.bash");
+
+    print STDOUT "\n";
+
+    print STDOUT "** if you use csh, tcsh or equivalent as your shell, add the following to your .cshrc\n";
+    print STDOUT "    if (-e $psconfdir/psconfig.csh) then\n";
+    print STDOUT "      alias  psconfig        \"source $psconfdir/psconfig.csh\"\n";
+    print STDOUT "    else\n";
+    print STDOUT "      alias  psconfig        \"echo psconfig not available\"\n";
+    print STDOUT "    endif\n";
+    print STDOUT "    psconfig default\n";
+    print STDOUT "\n";
+
+    print STDOUT "** if you use sh, bash or equivalent as your shell, add the following to your .bashrc\n";
+    print STDOUT "    if [ -e $psconfdir/psconfig.bash ] ; then\n";
+    print STDOUT "        psconfig () {\n";
+    print STDOUT "            source $psconfdir/psconfig.bash\n";
+    print STDOUT "        }\n";
+    print STDOUT "    else\n";
+    print STDOUT "        psconfig () {\n";
+    print STDOUT "            echo psconfig not available\n";
+    print STDOUT "        }\n";
+    print STDOUT "    fi\n";
+    print STDOUT "    psconfig default\n";
+    print STDOUT "\n";
+
+    exit 0;
+}
+
+sub load_distfile {
+    # open and read the distribution file
+    # results go into @module, @branchtag, @branchver, @mode
+    open (FILE, $distribution) || die "ERROR: can't open distribution file $distribution\n";
+    @list = <FILE>;
+    close (FILE);
+
+    @mode = ();
+    @module = ();
+    @branchtag = ();
+    @branchver = ();
+
+    foreach $line (@list) {
+        chop $line;
+        if ($line =~ m|^\s*$|) { next; }
+        if ($line =~ m|^\s*\#|) { next; }
+
+        ($mode, $module, $branchtag, $branchver) = split (" ", $line);
+
+        if ($module eq "") { die "missing module name\n"; }
+
+        ($do_tag, $do_build, $do_package, $do_update) = $mode =~ m|(\S)(\S)(\S)(\S)|;
+        if (($do_tag ne "Y") && ($do_tag ne "N")) { die "invalid tag option $do_tag\n"; }
+        if (($do_build ne "Y") && ($do_build ne "N")) { die "invalid tag option $do_build\n"; }
+        if (($do_package ne "Y") && ($do_package ne "N")) { die "invalid tag option $do_package\n"; }
+        if (($do_update ne "Y") && ($do_update ne "N")) { die "invalid tag option $do_update\n"; }
+
+        if ($verbose) { print "tag: $do_tag, build: $do_build, package: $do_package, update: $do_update "; }
+        if ($verbose) { print "module: $module, branchtag: $branchtag, branchver: $branchver \n"; }
+
+        push @mode, $mode;
+        push @module, $module;
+        push @branchtag, $branchtag;
+        push @branchver, $branchver;
+    }
+}
+
+sub failure {
+    print "\033]0; ** psbuild: failure  ** \007";
+    die "problem building $_[0] : $_[1]\n";
+}
+
+sub usage {
+    print STDERR "USAGE: psbuild [options] (distribution)\n";
+    print STDERR " (distribution) : name of tagset group, e.g., ipp-3.3\n";
+    print STDERR "     : -version (version) : specify alternate psconfig installation version\n";
+    print STDERR "     : -verbose           : give additional information\n";
+    print STDERR "     : -extlibs (tarball) : specify the location of the extlibs tarball\n";
+    print STDERR "     : -extperl (tarball) : specify the location of the extlibs tarball\n";
+    print STDERR "     : -extcheck          : check (but do not build) the external dependencies\n";
+    print STDERR "     : -extbuild          : check and build (if needed) the external dependencies\n";
+    print STDERR "     : -clean             : clean the source directories before building\n";
+    print STDERR "     : -rebuild           : run 'configure (and autogen for developer)' (C code)\n";
+    print STDERR "     : -optimize          : set flags for optimized code\n";
+    print STDERR "     : -profile           : set flags for profiling\n";
+    print STDERR "     : -debug-build       : set flags for debug build (Wall, but not Werror; use to find and fix warnings from Wall)\n";
+    print STDERR "     : -no-as-needed      : add --no-as-needed flag to gcc (to disable default --as-needed flags from Ubuntu, etc)\n";
+    print STDERR "     : -only (module)     : only build the specified module\n";
+    print STDERR "     : -start (module)    : begin build at specified module\n";
+    print STDERR "     : -after (module)    : begin build after specified module\n";
+    print STDERR "     : -stop (module)     : stop build after specified module\n\n";
+    print STDERR "     : -dev               : build modules not distributed in tarball\n";
+    print STDERR "     : -magic             : also build magic code\n";
+    print STDERR "     : -ops               : option for operational build (-optimize -dev -magic)\n\n";
+    print STDERR "     : psbuild -bootstrap : generate the psconfig scripts\n";
+    print STDERR "     : psbuild -list      : list the available distributions\n";
+    print STDERR "     : psbuild -h         : this help listing\n";
+    print STDERR "     : psbuild -help      : this help listing\n";
+    print STDERR "     : psbuild --help     : this help listing\n";
+    exit 2;
+}
+
+sub ps_setenv {
+
+    my $verbose = $_[0];
+    my $var = $_[1];
+    my $flag = $_[2];
+
+    my $answer = `csh psconfig.csh $flag $version`;
+    chomp $answer;
+
+    $ENV{$var} = $answer;
+    if ($verbose) {
+        print STDERR "$var = $answer\n";
+    }
+}
+

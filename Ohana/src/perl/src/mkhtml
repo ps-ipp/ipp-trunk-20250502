@@ -1,0 +1,183 @@
+#!/usr/bin/env perl
+
+$template = "template.htm";
+if ($ARGV[0] eq "-template") { 
+    shift @ARGV;
+    $template = $ARGV[0]; 
+    shift @ARGV; 
+}
+
+if (@ARGV != 3) { die "USAGE: mkhtml [-template template] (root) (src) (html)\n"; }
+
+$root     = $ARGV[0];
+$root     =~ s|/*$||; # strip trailing /'s to clean path
+
+$input    = $ARGV[1];
+$output   = $ARGV[2];
+$config   = "Configure";
+
+# print STDERR "template: $template\n";
+
+# load variables from Configure (eg, ROOT, etc)
+# these are interpolated except in the content section
+open (FILE, $config);
+@input = <FILE>;
+close (FILE);
+foreach $line (@input) {
+    ($var, $eq, $value) = split (" ", $line);
+    $$var = $value;
+}
+
+# load data from template
+open (FILE, $template);
+@template = <FILE>;
+close (FILE);
+
+# load data from input file
+open (FILE, $input);
+@input = <FILE>;
+close (FILE);
+
+# default metadata values:
+$title = &rootname ($input);
+if ($title eq "index") { $title = &basename (&dirname ($input)); }
+
+$page  = &rootname ($input);
+if ($page  eq "index") { $page  = &basename (&dirname ($input)); }
+
+$path  = &dirname ($input);
+
+$ext   = &extname ($input);
+
+# file is the entry in the index listing
+$file  = $output;
+if ($file =~ m|index.html|) { $file = &dirname ($output); }
+$file  =~ s|^$root|ROOT|;
+
+# apply ROOT variable to content (this comes from Configure)
+# foreach $line (@input) { while ($line =~ m|\$ROOT|) { $line =~ s|\$ROOT|$ROOT|; } }
+
+# search for the metadata lines in input file
+while (@input) {
+    $line = shift @input;
+    if ($line =~ /^\s*$/) { next; }
+    if ($line =~ /<meta\s+name=title\s+content=/) {
+	($title) = $line =~ /<meta\s+name=title\s+content=(.*)>/;
+	next;
+    }
+    if ($line =~ /<meta\s+name=page\s+content=/) {
+	($page) = $line =~ /<meta\s+name=page\s+content=(.*)>/;
+	next;
+    }
+    unshift @input, $line;
+    last;
+}
+
+# create the output file
+open (OUT, ">$output");
+
+$found = $menu = 0;
+foreach $line (@template) {
+    
+    chop $line;
+    while ($line =~ m|ROOT|) { $line =~ s|ROOT|$ROOT|; }
+    
+    # interpolate over basic metadata entries
+    if ($line =~ m|<meta\s+name=page>|) {
+	print OUT "$page\n";
+	next;
+    }
+    if ($line =~ m|<meta\s+name=title>|) {
+	print OUT "$title\n";
+	next;
+    }
+    if ($line =~ m|<meta\s+name=body>|) {
+	# add in parsing of <p> tags, etc in here
+	&dumpinput;
+	next;
+    }
+
+    # parse the index file
+    if ($line =~ m|<meta\s+name=index\s+file=|) {
+	($index) = $line =~ m|<meta\s+name=index\s+file=(.*)>|;
+	$index = "$path/$index";
+	open (INDEX, $index);
+	@index = <INDEX>;
+	# need to find and tag this file 
+	foreach $index (@index) {
+	    if ($index =~ m|href=$file>|) {
+		$index =~ s|class=doc|class=sel|;
+		$index =~ s|class=dir|class=dsl|;
+		$index =~ s|class=dl|class=sl|;
+		$index =~ s|$file>\s+-\s+|$file> + |;
+	    }
+	    # interpolate ROOT
+	    while ($index =~ m|ROOT|) { $index =~ s|ROOT|$ROOT|; }
+	}
+
+	close (INDEX);
+	print OUT @index;
+	next;
+    }
+    print OUT "$line\n";
+}
+    
+close (OUT);
+exit 0;
+
+sub dumpinput {
+
+    if ($ext eq "txt") {
+	print OUT "<pre>\n";
+    }
+    print OUT "@input";
+    if ($ext eq "txt") {
+	print OUT "</pre>\n";
+    }
+}
+
+# behaves just like system basename function (returns last portion of path)
+sub basename {
+
+    my ($file) = $_[0];
+    my ($base, @words);
+
+    @words = split ("/", $file);
+    $base = $words[-1];
+    return $base;
+}
+
+
+# behaves just like system dirname function (strips last portion of path)
+sub dirname {
+
+    my ($file) = $_[0];
+    my ($base, @words);
+
+    @words = split ("/", $file);
+    if (@words == 1) { return "."; }
+
+    pop @words;
+    $file = join ('/', @words);
+    return $file;
+}
+
+# behaves just like system basename function (returns last portion of path)
+sub extname {
+    my ($file) = &basename ($_[0]);
+    my($ext) = $file =~ m|\S*\.(\S*)$|;
+    return $ext;
+}
+
+# behaves just like system basename function (returns last portion of path)
+sub rootname {
+    my ($file) = &basename ($_[0]);
+    my($ext) = $file =~ m|(\S*)\.\S*$|;
+    return $ext;
+}
+
+# input metadata lines:
+# <meta name="file"  content="test">
+# <meta name="title" content="a test title">
+# <meta name="page"  content="test">
+

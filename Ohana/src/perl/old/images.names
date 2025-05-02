@@ -1,0 +1,170 @@
+#!/usr/local/bin/perl
+
+$WANT = 0;
+
+# possible things to return:
+$FILE    = 1;
+$PATH    = 2;
+$ROOT    = 3;
+$EXT     = 4;
+$NCCD    = 5;
+$CCD     = 6;
+$BASEEXT = 7;
+$CCDLIST = 8;
+
+while (@ARGV) {
+    
+    $name = shift (@ARGV);
+
+    # provided component(s)
+    if ($name eq "-file") {
+	$file = shift (@ARGV);
+    }
+    if ($name eq "-path") {
+	$path = shift (@ARGV);
+    }
+    if ($name eq "-root") {
+	$root = shift (@ARGV);
+    }
+    if ($name eq "-base") {
+	$base = shift (@ARGV);
+    }
+    if ($name eq "-ext") {
+	$ext = shift (@ARGV);
+    }
+    if ($name eq "-baseext") {
+	$baseext = shift (@ARGV);
+    }
+    if ($name eq "-Nccd") {
+	$Nccd = shift (@ARGV);
+    }
+    if ($name eq "-ccd") {
+	$ccd = shift (@ARGV);
+    }
+    if ($name eq "-mode") {
+	$mode = "\U$ARGV[0]\E";
+	shift (@ARGV);
+    }
+
+    # desired component
+    if ($name eq "+file") {
+	if ($WANT) { &badchoice; }
+	$WANT = $FILE;
+    }
+    if ($name eq "+path") {
+	if ($WANT) { &badchoice; }
+	$WANT = $PATH;
+    }
+    if ($name eq "+root") {
+	if ($WANT) { &badchoice; }
+	$WANT = $ROOT;
+    }
+    if ($name eq "+ext") {
+	if ($WANT) { &badchoice; }
+	$WANT = $EXT;
+    }
+    if ($name eq "+baseext") {
+	if ($WANT) { &badchoice; }
+	$WANT = $BASEEXT;
+    }
+    if ($name eq "+Nccd") {
+	if ($WANT) { &badchoice; }
+	$WANT = $NCCD;
+    }
+    if ($name eq "+ccd") {
+	if ($WANT) { &badchoice; }
+	$WANT = $CCD;
+    }
+    if ($name eq "+mode") {
+	if ($WANT) { &badchoice; }
+	$WANT = $MODE;
+    }
+}
+
+if ($base eq "") { $base = $root; }
+if ($root eq "") { $root = $base; }
+if ($ext eq "") { $ext = "fits"; }
+if ($path eq "") { $path = "."; }
+if ($mode eq "") { $mode = "MEF"; }
+
+if (@ARGV != 0) { &usage; }
+if (!$WANT) { &usage; }
+
+if (0) {
+    print STDERR "want: $WANT\n";
+    print STDERR "file: $file\n";
+    print STDERR "path: $path\n";
+    print STDERR "root: $root\n";
+    print STDERR "base: $base\n";
+    print STDERR "ext: $ext\n";
+    print STDERR "baseext: $baseext\n";
+    print STDERR "Nccd: $Nccd\n";
+    print STDERR "ccd: $ccd\n";
+    print STDERR "mode: $mode\n";
+}
+
+if ($WANT == $FILE) {
+    if ($mode eq "SPLIT") {
+	$output = sprintf "%s/%s%s/%s%02d.%s", $path, $base, $baseext, $root, $ccd, $ext;
+    }
+    if ($mode eq "MEF") {
+	$output = sprintf "%s/%s%s.%s", $path, $base, $baseext, $ext;
+    }
+}
+
+if ($WANT == $PATH) {
+    # split path and filename:
+    @words = split ("/", $file);
+    $N = @words;
+
+    for ($i = 0; $i < $N - 1; $i++) {
+	$output = $output . $words[$i] . "/";
+    }
+    chop ($output);   # strip off last /
+}
+
+if ($WANT == $CCD) {
+    # split path and filename:
+    @words = split ("/", $file);
+    $N = @words;
+
+    for ($i = 0; $i < $N - 1; $i++) {
+	$output = $output . $words[$i] . "/";
+    }
+    chop ($output);   # strip off last /
+}
+
+print STDOUT "$output\n";
+exit 0;
+
+# definition of the path components:
+
+# MEF:
+# /path/root/base.ext
+
+# SPLIT:
+# /path/root/base.ext
+
+# file = 
+# 1: /data/koa/cfh12k/01Ak01/543210f.fits
+# 2: /data/koa/cfh12k/01Ak01/543210f/543210f00.fits
+# 3: /data/koa/cfh12k/01Ak01/543210f.alt/543210f00.fits
+
+# base = 543210f
+# path = /data/koa/cfh12k/01Ak01 
+# root = 543210f (1,2), 543210f.alt (3)
+# ext  = fits
+# ext = "" (1,2), ".alt" (3)
+# Nccd = 12 [for CFH12K]
+# ccd  = NN (1), 00 (2,3)
+
+sub badchoice {
+    print STDERR "only one choice allowed\n"; 
+    exit 1; 
+}
+
+sub usage {
+    print STDERR "USAGE: image.names [options]\n";
+    exit 2;
+}
+

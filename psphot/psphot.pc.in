@@ -1,0 +1,12 @@
+prefix=@prefix@
+exec_prefix=@exec_prefix@
+libdir=@libdir@
+includedir=@includedir@
+
+Name: libpsphot
+Description: Pan-STARRS Photometry Library
+Version: @VERSION@
+Requires: pslib psmodules
+Libs: -L${libdir} -lpsphot
+Libs.private: @PSPHOT_LIBS@
+Cflags: -I${includedir}

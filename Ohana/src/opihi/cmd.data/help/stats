@@ -1,0 +1,10 @@
+
+  stats (buffer) (x) (y) (nx) (ny)
+
+  report the statistics on a portion of an image.  (x) and (y) specify
+the starting corner of the region, (nx) and (ny) specify the width and
+height of the region.  stats reports the mean, sigma, and number of
+pixels in the region.
+
+  See Also: ??
+

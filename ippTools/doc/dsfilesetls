@@ -1,0 +1,6 @@
+#!/usr/bin/env perl
+
+print "# uri fileid bytes md5sum type \n";
+print "http://example.org/1 foo1.0 123 asadfasdfasdfasfdasdf CELL\n";
+print "http://example.org/2 foo1.1 123 asadfasdfasdfasdfasdf CELL\n";
+print "http://example.org/3 foo1.2 123 asadfasdfasdfasdfasdf CELL\n";

@@ -1,0 +1,36 @@
+#include "ppStack.h"
+
+/** @file ppStackErrorCodes.c.in
+ *
+ *  @brief
+ *
+ *  @ingroup ppStack
+ *
+ *  @author IfA
+ *  @version $Revision: 1.3 $ $Name: not supported by cvs2svn $
+ *  @date $Date: 2009-02-05 20:44:04 $
+ *  Copyright 2009 Institute for Astronomy, University of Hawaii
+ */
+
+/*
+ * The line
+    { PPSTACK_ERR_$X{ErrorCode}, "$X{ErrorDescription}"},
+ * (without the Xs)
+ * will be replaced by values from errorCodes.dat
+ */
+void ppStackErrorRegister(void)
+{
+    static psErrorDescription errors[] = {
+       { PPSTACK_ERR_BASE, "First value we use; lower values belong to psLib" },
+       { PPSTACK_ERR_${ErrorCode}, "${ErrorDescription}"},
+    };
+    static int nerror = PPSTACK_ERR_NERROR - PPSTACK_ERR_BASE; ///< number of values in enum
+
+    for (int i = 0; i < nerror; i++) {
+       psErrorDescription *tmp = psAlloc(sizeof(psErrorDescription));
+       *tmp = errors[i];
+       psErrorRegister(tmp, 1);
+       psFree(tmp);                     /* it's on the internal list */
+    }
+    nerror = 0;                                 // don't register more than once
+}

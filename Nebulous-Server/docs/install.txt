@@ -1,0 +1,384 @@
+=pod
+
+=head1 Installing a Nebulous Server
+
+=head2 Create a UNIX group for Nebulous
+
+All Nebulous user's need to be in the same UNIX group as the Nebulous server.
+
+    groupadd -g 877 nebulous
+
+This is a silly hack to generate a gid.
+
+    perl -le 'map { $gid += ord } split //, shift; print $gid' nebulous
+
+=head2 Add the users that you want to be able to access Nebulous to that group
+
+    usermod -G nebulous foouser
+
+=head2 Setup directory permissions for the nebulous group
+
+As root:
+
+    mkdir /data/ipp000.0/nebulous
+    mkdir /data/ipp000.1/nebulous
+    mkdir /data/ipp002.0/nebulous
+    mkdir /data/ipp003.0/nebulous
+
+    # note that this is just an example, this won't work over NFS with
+    # root_squash enablded
+    chown nobody:nebulous /data/ipp00?.?/nebulous
+
+    chmod 0770 /data/ipp00?.?/nebulous
+    ls -lad /data/ipp00?.?/nebulous
+
+    mkdir /data/`hostname`.0/nebulous
+    chown nobody:nebulous /data/`hostname`.0/nebulous
+    chmod 0770 /data/`hostname`.0/nebulous
+
+=head2 Build and install the Nebulous Perl modules (see: README)
+
+=head2 Create and initialize the database
+
+    mysql -u root mysql -p
+    (enter your MySQL root password)
+
+    DROP DATABASE IF EXISTS nebulous;
+    CREATE DATABASE nebulous;
+    GRANT ALL PRIVILEGES ON nebulous.* TO 'nebulous'@'localhost'
+        IDENTIFIED BY '@neb@';
+    FLUSH PRIVILEGES;
+    exit
+
+    export NEB_DB=nebulous
+    export NEB_USER=nebulous
+    export NEB_PASS=@neb@
+
+    *** this is very dangerous and should only be run in test examples:
+    neb-initdb
+
+    neb-voladd --vhost ipp000 --vname ipp000.0 --uri file:///data/ipp000.0/nebulous --mountpoint /data/ipp000.0/nebulous
+    neb-voladd --vhost ipp001 --vname ipp000.1 --uri file:///data/ipp000.1/nebulous --mountpoint /data/ipp000.1/nebulous
+    neb-voladd --vhost ipp002 --vname ipp002.0 --uri file:///data/ipp002.0/nebulous --mountpoint /data/ipp002.0/nebulous
+    neb-voladd --vhost ipp003 --vname ipp003.0 --uri file:///data/ipp003.0/nebulous --mountpoint /data/ipp003.0/nebulous
+    neb-voladd --vhost ipp022 --vname ipp022.0 --uri file:///data/ipp022.0/nebulous --mountpoint /data/ipp022.0/nebulous
+
+    # or in bulk:
+    
+    for i in ipp005 ipp006 ipp007 ipp009 ipp010 ipp011 ipp012 ipp013 ipp014 ipp015 ipp016 ipp017 ipp018 ipp020 ipp021 ipp022 ipp023 ipp024 ipp025 ipp026 ipp027 ipp028 ipp029 ipp030 ipp031 ipp032 ipp033 ipp034 ipp035 
+    do 
+        /usr/bin/neb-voladd --vname ${i}.0 --vhost $i --uri file:///data/${i}.0/nebulous_beta
+    done
+
+#    perl -e 'for (1..24) { $i = sprintf "po%02d", $_ ; system "neb-voladd
+#    --vname $i --vhost $i --uri file:/$i/nebulous" }'
+    .
+    .
+
+If you get an error similar to this while initializing the database it means
+that the creation of the Nebulous's stored procedures failed:
+
+    ERROR 1146 (42S02): Table 'mysql.proc' doesn't exist
+
+It probably means that your instance of MySQL has been upgraded for an older
+version that did not support stored precedures.  You can fix this by running
+the C<mysql_fix_privilege_tables> script that you should have received with
+MySQL.
+
+In order for the test suite to pass the "test" account needs have the
+appropriate permissions to create and modify stored procedures.
+
+    update user set Create_routine_priv = 'Y', Alter_routine_priv = 'Y', Execute_priv = 'Y' where user = 'test';
+    update db set Create_routine_priv = 'Y', Alter_routine_priv = 'Y', Execute_priv = 'Y' where db = 'test';
+
+    flush privileges;
+
+Please see this webpage for further details:
+
+http://dev.mysql.com/doc/refman/5.0/en/stored-procedure-privileges.html
+
+
+=head2 Setup nebdiskd daemon
+
+Create the .netdiskrc file in the home directory of the user that nebdiskd
+will run as.  This does not need to be/should not be the root user.  Merely a
+user with permissions to see all of the approparite volumes.
+
+Example F<.netdiskrc>:
+
+    db: nebulous
+    dbpass: '@neb@'
+    dbuser: nebulous
+    mounts:
+      - /data/ipp000.0
+      - /data/ipp000.1
+      - /data/ipp002.0
+      - /data/ipp003.0
+    pidfile: /var/tmp/nebdiskd
+    poll_interval: 5
+
+Start the daemon by running the command C<nebdiskd>.  Use this command to
+verify that the daemon is working correclty.
+
+    neb-volstat
+
+nebdiskd should always been running when nebulous is use.  This command is an
+example of how to startup the daemon running as another user.  This could be
+use to start the daemon from the root account while the system init scripts
+are running.
+
+    sudo -H -u jhoblitt nebdiskd
+
+See the nebdiskd POD/man page for further details
+
+=head2 Install Apache2 with mod_perl
+
+=head3 Minimum software requirements:
+
+Nebulous will work with both Apache 1.3 & 2.x.  However, this guide will only
+cover configuraton with Apache 2.x and mod_perl 2.x.
+
+=over 4
+
+=item * Apache2 >= 2.0.54
+
+=item * mod_perl >= 2.0.0
+
+=item * Apache::DBI >= '0.97' [*]
+
+=back
+
+[*] required for connect_on_init() to work under mod_perl >= 2.0.1
+
+=head3 Apache 1.x 
+
+=item * building mod_perl-1.29 from source:
+
+    perl Makefile.PL USE_APXS=1 INSTALLDIRS=vendor WITH_APXS=/usr/sbin/apxs EVERYTHING=1 PERL_DEBUG=1
+
+    #MP_TRACE = 1 MP_DEBUG = 1 MP_USE_DSO = 1 MP_INST_APACHE2 = 1 MP_APXS = /usr/sbin/apxs2
+
+=head3 Apache 2.x 
+
+=head4 removing Apache on RHEl3
+
+On RHEL3 I had to remove these packages in order to fully remove MySQL.
+
+As C<root>:
+
+    rpm -e \
+    httpd-2.0.46-46.2.ent \
+    httpd-devel-2.0.46-46.2.ent \
+    redhat-config-httpd-1.1.0-4.30.2 \
+    mod_perl-1.99_09-10.ent \
+    mod_authz_ldap-0.22-5 \
+    mod_auth_pgsql-2.0.1-4.ent \
+    mod_python-3.0.3-5.ent \
+    mod_auth_mysql-20030510-2.ent \
+    mod_ssl-2.0.46-46.2.ent \
+    webalizer-2.01_10-15.ent \
+    mod_perl-1.99_09-10.ent \
+    mod_auth_pgsql-2.0.1-4.ent \
+    mod_python-3.0.3-5.ent \
+    mod_auth_mysql-20030510-2.ent \
+    mod_ssl-2.0.46-46.2.ent \
+    squirrelmail-1.4.3a-11.EL3 \
+    php-4.3.2-25.ent \
+    php-imap-4.3.2-25.ent \
+    php-ldap-4.3.2-25.ent \
+    php-mysql-4.3.2-25.ent \
+    php-odbc-4.3.2-25.ent \
+    php-pgsql-4.3.2-25.ent 
+
+    rm -rf /etc/httpd
+
+=head4 installing Apache2 from source
+
+    tar -jxvf httpd-2.0.54.tar.bz2
+    cd httpd-2.0.54
+    ./configure \
+    --disable-suexec \
+    --with-perl=/usr/bin/perl \
+    --with-port=80 \
+    --with-program-name=apache2 \
+    --with-devrandom=/dev/urandom \
+    --prefix           /usr \
+    --exec_prefix      /usr \
+    --bindir           /usr/bin \
+    --sbindir          /usr/sbin \
+    --libdir           /usr/lib \
+    --libexecdir       /usr/lib/apache2/modules \
+    --mandir           /usr/share/man \
+    --infodir          /usr/share/info \
+    --includedir       /usr/include/apache2 \
+    --datadir          /var/www/localhost \
+    --sysconfdir       /etc/apache2/conf \
+    --localstatedir    /var
+    make
+    su
+    make install
+    exit
+    cd ..
+
+=head4 installing mod_perl 2.x
+
+    tar -zxvf mod_perl-2.0.1.tar.gz
+    cd mod_perl-2.0.1
+    perl Makefile.PL
+    (apxs = /usr/sbin/apxs)
+    make
+    su
+    make install
+    echo "LoadModule perl_module /usr/lib/apache2/modules/mod_perl.so" >> /etc/apache2/conf/apache2.conf
+    exit
+
+    apachectl configtest
+    Syntax OK
+
+=head4 installing and configuring Nebulous
+
+    tar -zvxf Nebulous-0.01.tar.gz
+    cd Nebulous-0.01
+    perl Build.PL -axps /usr/sbin/apxs
+    ./Build
+    ./Build test
+    su
+    ./Build install
+
+
+    vi /etc/apache2/conf/startup.pl
+    (change Group to "Group nebulous")
+
+    cp fooconf /etc/apache2/conf/startup.pl
+    echo "PerlPostConfigRequire /etc/apache2/conf/startup.pl" >> /etc/apache2/conf/apache2.conf
+
+
+=head3 configurating Apache to act as a Nebulous/SOAP server
+
+=item * add the "nebulous" group to /etc/group
+=item * configure Apache to run as the nebulous group. 
+
+    Group nebulous
+
+Note that in theory the C<perchild> MPM can run vhosts as differenet
+users/groups but this module is currently non-funcitonal.
+
+L<http://httpd.apache.org/docs/trunk/mod/perchild.html>
+
+=item * configure a path for Neublous
+
+Make sure mod_perl is being loaded into Apache.  In order to do this on
+gentoo, you must edit /etc/config.d/apache2 and add C<-DPERL> to
+C<APACHE2_OTPS>.
+
+    cat <<END >> /etc/apache2/conf/apache2.conf
+    <Location /nebulous>
+        SetHandler perl-script
+        PerlResponseHandler Apache2::SOAP
+        PerlSetVar dispatch_to "PerlHandler Nebulous::Server::SOAP"
+        PerlSetVar options "compress_threshold => 10000"
+    </Location>
+    END
+
+    apachectl configtest
+    Syntax OK
+
+=item * initialize Nebulous database connections from C<startup.pl>
+
+    my $dsn         = 'DBI:mysql:database=nebulous:host=localhost';
+    my $dbuser      = 'nebulous';
+    my $dbpasswd    = '@neb@';
+
+    Apache::DBI->connect_on_init( $dsn, $dbuser, $dbpasswd );
+    Nebulous::Server::SOAP->new_on_init(
+        dsn         => $dsn,
+        dbuser      => $dbuser,
+        dbpasswd    => $dbpasswd,
+        log_level   => 'all',
+    );
+
+# out of date from here down...
+
+#
+# CGI interface
+#
+
+ScriptAlias /nebulous /usr/local/apache/perl/imageserver.pl
+
+<Directory "/usr/local/apache/perl">
+        AllowOverride None
+        Options None
+        Order allow,deny
+        Allow from all
+</Directory>
+
+PerlModule Apache::PerlRun
+<Location /perl>
+        SetHandler perl-script
+        PerlHandler Apache::PerlRun
+        Options ExecCGI
+        allow from all
+        PerlSendHeader On
+</Location>
+
+#
+# Nebulous::Apache interface
+#
+
+PerlModule Apache::DBI
+PerlModule Nebulous::Apache
+
+<Location /nebulous>
+        SetHandler perl-script
+        PerlHandler Nebulous::Apache
+</Location>
+
+- setup the server
+
+As a CGI, will with either Apache 1.3.x or 2.0.x
+
+cp scripts/imagesever.pl /var/www/localhost/cgi-bin
+chmod 755 /var/www/localhost/cgi-bin/imageserver.pl
+touch /tmp/imageserver.log
+chmod 1777 /tmp/imageserver.log
+
+=head2 Testing the Nebulous Server
+
+You can test your configuration with the C<telnet> utility.
+
+    $ telnet localhost 80
+    Trying 127.0.0.1...
+    Connected to localhost.localdomain (127.0.0.1).
+    Escape character is '^]'.
+    GET /nebulous HTTP/1.0
+
+    HTTP/1.1 500 Internal Server Error
+    Date: Wed, 31 Aug 2005 01:10:47 GMT
+    Server: Apache/2.0.54 (Unix) mod_perl/2.0.1 Perl/v5.8.6
+    Content-Length: 645
+    Connection: close
+    Content-Type: text/html; charset=iso-8859-1
+    .
+    .
+
+    Connection closed by foreign host.
+
+If you get an HTTP 5xx code check your apache error_log
+
+
+=head2 MySQL Configuration/tuning
+
+in /etc/mysql/my.cnf
+under [mysqld]
+increase the number of alloweed connections, e.g.
+max_connections = 200
+
+Nebulous makes heavy use of MySQL's C<innodb> table type.  Try configuring
+MySQL with these parameters:
+
+    innodb_log_files_in_group = 2
+    innodb_buffer_pool_size = as big as possible (512M+)
+    innodb_log_buffer_size= 16M
+    innodb_log_file_size=10M
+
+=cut

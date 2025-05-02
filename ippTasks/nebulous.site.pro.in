@@ -1,0 +1,7 @@
+# customize these variables for your site
+# and copy the file to share/pantasks/modules directory in your installation
+
+$NEB_DB    = your_nebulous_database_name
+$NEB_HOST  = host_for_nebulous_mysql_database
+$NEB_USER  = XXX
+$NEB_PASS  = XXX

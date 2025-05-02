@@ -1,0 +1,70 @@
+
+// APIs related to the DVO catalogs:
+
+load_catalog (Catalog *catalog, int VERBOSE);
+
+dvo_catalog_lock (Catalog *catalog, int lockmode);
+// lockmode: SOFT, XCLD, HARD
+
+dvo_catalog_unlock (Catalog *catalog);
+
+dvo_catalog_load (Catalog *catalog, int VERBOSE, int mode);
+// format: INTERNAL, LONEOS, ELIXIR, PANSTARRS, PMTEST, etc.
+// layout: RAW, MEF, SPLIT
+// mode:   READ, WRITE
+
+// returns
+//   DVO_CAT_OPEN_FAIL:  failure to lock catalog
+//   DVO_CAT_OPEN_OK:    success: file is locked and opened
+//   DVO_CAT_OPEN_EMPTY: success: file is locked but empty
+
+ the catalog is opened and the data for each of the elements (average,
+ measure, etc) is loaded if requested.  Whether or not the data is
+ loaded, the values of catalog.Naves_disk,Naves_off,Naverage are set
+ to match the segment of data loaded.  this API always loads either
+ the entire data set, or none.  If none, the offset value is set to
+ point at the end of the table.
+
+dvo_catalog_save (Catalog *catalog, int VERBOSE);
+// format: INTERNAL, LONEOS, ELIXIR, PANSTARRS, PMTEST, etc.
+// layout: RAW, MEF, SPLIT
+// mode:   READ, WRITE
+
+dvo_catalog_init (Catalog *catalog);
+
+dvo_catalog_create (Catalog *catalog);
+
+dvo_catalog_check (Catalog *catalog, int Nsecfilt, int extend);
+// check an existing catalog against the identified Nsecfilt value
+// if (Nsecfilt == catalog[0].Nsecfilt) OK
+// if (Nsecfilt <  catalog[0].Nsecfilt) ERROR
+// if (Nsecfilt >  catalog[0].Nsecfilt) && extend) extend
+// if (Nsecfilt >  catalog[0].Nsecfilt) && !extend) ERROR
+
+
+several possible cases:
+
+- open and read an existing catalog / create if missing
+- open and read an existing catalog / error if missing (can be ignored)
+
+dvo_catalog_open (Catalog *catalog, int mode); 
+
+dvo_catalog_load_segment_average (Catalog *catalog, int start, int Nrows)
+
+ this function reads in the requested number of rows from the catalog
+ for the Average and SecFilt tables only.  It is possible within the
+ DVO framework to examine the average values in slices.  
+
+dvo_catalog_load_segment_measure (Catalog *catalog, int start, int Nrows)
+
+ this function reads in the requested number of rows from the catalog
+ for the Measure table only.  It is not guaranteed to be possible to
+ examine the measure values in slices if reference is needed to their
+ average values.
+
+dvo_catalog_load_segment_missing (Catalog *catalog, int start, int Nrows)
+
+ this function reads in the requested number of rows from the catalog
+ for the Missing table only.  It is not guaranteed to be possible to
+ examine the missing values in slices if reference is needed to their
+ average values.

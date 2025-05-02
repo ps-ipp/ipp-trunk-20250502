@@ -1,0 +1,217 @@
+#!/usr/bin/env perl
+
+$tagsets = "tagsets";
+if (!-d $tagsets || !-r $tagsets || !-x $tagsets) { die "missing the directory of distribution tables: $tagsets\n"; }
+
+$version = "";
+$build = 0;
+$clean = 0;
+my %force;   # Names of module to force build
+@tARGV = ();
+for (; @ARGV > 0; ) {
+    if ($ARGV[0] eq "-version") {
+        $version = $ARGV[1];
+        shift; shift; next;
+    }
+    if ($ARGV[0] eq "-build") {
+        $build = 1;
+        shift; next;
+    }
+    if ($ARGV[0] eq "-clean") {
+        $clean = 1;
+        shift; next;
+    }
+    if ($ARGV[0] eq "-force") {
+        $force{$ARGV[1]} = 1;
+        shift; shift; next;
+    }
+    if ($ARGV[0] eq "-path")  { &list_include_path (); }
+    if ($ARGV[0] eq "-h")     { &usage (); }
+    if ($ARGV[0] eq "help")   { &usage (); }
+    if ($ARGV[0] eq "-help")  { &usage (); }
+    if ($ARGV[0] eq "--help") { &usage (); }
+    if ($ARGV[0] eq "-list")  { &list_distributions(); }
+    @tARGV = (@tARGV, $ARGV[0]);
+    shift;
+}
+@ARGV = @tARGV;
+if ( @ARGV > 1) { &usage(); }
+
+if ($build && $clean) {die "-build and -clean are incompatible\n";}
+
+if ( @ARGV == 0) {
+    die "a distribution name is now required by pscheckperl (e.g., ipp-ubuntu)\n";
+} else {
+    $file = "$tagsets/$ARGV[0].perl";
+}
+print "examining perl modules based on $file\n";
+
+# load the perl module list
+open (FILE, $file) || die "ERROR: can't open perl module list: $file\n";
+@list = <FILE>;
+close (FILE);
+
+# set the psconfig version:
+if ("$version" eq "") {
+    $version = $ENV{'PSVERSION'};
+}
+if ("$version" eq "") {
+    $version = "default";
+}
+
+# generate new psconfig.csh if needed
+if (! -e "psconfig.csh" || ! -e "psconfig.bash") {
+    $psconfdir = $ENV{'PSCONFDIR'};
+    if ($psconfdir eq "") { die "PSCONFDIR not found, run psbuild -bootstrap and follow instructions\n"; }
+    vsystem ("cat psconfig.csh.in | sed 's|\@PSCONFDIR@|$psconfdir|' > psconfig.csh");
+    vsystem ("cat psconfig.bash.in | sed 's|\@PSCONFDIR@|$psconfdir|' > psconfig.bash");
+}
+
+$prefix  = `csh -f psconfig.csh --prefix $version`; chomp $prefix;
+$perldir = `csh -f psconfig.csh --perldir $version`; chomp $perldir;
+$homedir = `pwd`; chomp $homedir;
+
+# Astro::FITS::CFITSIO requires this to be set correctly...
+$ENV{'CFITSIO'} = $prefix;
+
+print "psconfig version: $version\n";
+print "prefix: $prefix\n";
+print "perldir: $perldir\n";
+print "PERL5LIB: $ENV{'PERL5LIB'}\n";
+$psconfdir = $ENV{'PSCONFDIR'};
+
+if ($build && ! -d $psconfdir) {
+    mkdir $psconfdir || die "unable to create psconfig dir $psconfdir";
+}
+
+$Nmissing = 0;
+@missing = ();
+foreach $line (@list) {
+    chop $line;
+    if ($line =~ m|^\s*$|) { next; }
+    if ($line =~ m|^\s*\#|) { next; }
+
+    $Nvalue = ($N, $module, $tarball, $modver, $buildopts, $prompts) = split (" ", $line);
+    if ($Nvalue < 6) {
+        print "Error in perl module config line $line\n";
+        exit 1;
+    }
+    # print "N: $N, module: $module, tarball: $tarball, modver: $modver, buildopts: $buildopts, prompts: $prompts\n";
+
+    # we require the number of fields to be fixed, so this test is now invalid:
+    # if ($modver eq "") { $modver = 0; }
+
+    if ($clean) {
+	($tardir) = $tarball =~ m|(\S*).tar.gz|;
+	$tardir = "../extperl/$tardir";
+	if (-d $tardir) {
+	    print "remove tardir: $tardir\n";
+	    vsystem ("rm -rf $tardir");
+	}
+	next;
+    }
+    
+    system ("pscheckmods $module $modver");
+    if (($? == 0) and not defined $force{$module} and not defined $force{'all'}) {
+        print "$module: found\n";
+        next;
+    }
+
+    if (defined $force{$module}) {
+        print "$module: force\n";
+    } else {
+        print "$module: missing\n";
+    }
+    unless ($build or defined $force{$module} or defined $force{'all'}) {
+        $Nmissing ++;
+        push @missing, $module;
+        next;
+    }
+
+    # try to build the module from ../extperl/Module.*.tar.gz
+    chdir "../extperl" or die "Unable to find ../extperl directory.";
+
+    print "--- extract $module from $tarball ---\n";
+    vsystem ("tar xvzf $tarball");
+
+    ($tardir) = $tarball =~ m|(\S*).tar.gz|;
+    print "tardir: $tardir\n";
+
+    chdir $tardir;
+
+    # we use NONE as the empty word
+    if ($buildopts eq "NONE") { $buildopts = ""; }
+    if ($prompts eq "NONE") { $prompts = ""; }
+
+    if (-e "Build.PL" and $module ne "DateTime::TimeZone") {
+        # vsystem("perl Build.PL --install_path lib=$perldir ");
+        vsystem("perl Build.PL --install_base $prefix $buildopts");
+        vsystem("Build");
+        vsystem("Build install");
+    } else {
+        # build the MakeMaker makefile, setting the output directories
+	# do this manually with:
+	# perl Makefile.PL PREFIX=`psconfig --prefix VERSION` LIB=`psconfig --perldir VERSION`
+	# where VERSION is e.g., ipp-1804 (install version, not build version like ipp-3.3)
+        if ($prompts) {
+            @answers = split (",", $prompts);
+            open (PIPE, "|perl Makefile.PL PREFIX=$prefix LIB=$perldir $buildopts");
+            foreach $answer (@answers) {
+                print PIPE "$answer\n";
+            }
+            close (PIPE);
+        } else {
+            vsystem ("perl Makefile.PL PREFIX=$prefix LIB=$perldir $buildopts");
+        }
+        vsystem ("make < /dev/null");
+        vsystem ("make install");
+    }
+    chdir $homedir;
+
+    # we claim to have built the module; double-check that it can be found
+    system ("pscheckmods $module $modver");
+    if ($?) {
+        die "failed to find the module we just built: $module\n";
+    }
+    print "built $module\n\n";
+}
+if (!$build) {
+    if ($Nmissing > 0) {
+        print "The following $Nmissing perl modules are missing from your system\n";
+        foreach $name (@missing) {
+            print "  $name\n";
+        }
+        print "you may install them in your local path by re-running pscheckperl with -build\n";
+    } else {
+        print "no perl modules are missing from your system\n";
+    }
+}
+exit 0;
+
+sub usage {
+    print STDERR "USAGE: pscheckperl [-version] [-build] [-path]\n";
+    exit 2;
+}
+
+sub vsystem {
+    print STDERR "@_\n";
+    $status = system ("@_");
+    $status;
+}
+
+sub list_distributions {
+    @list = <$tagsets/*.perl>;
+    foreach $line (@list) {
+        chomp $line;
+        ($dist) = $line =~ m|$tagsets/(\S*).perl|;
+        print STDERR "$dist\n";
+    }
+    exit 2;
+}
+
+sub list_include_path {
+    foreach $path (@INC) {
+        print STDERR "$path\n";
+    }
+    exit 2;
+}

@@ -1,0 +1,4 @@
+
+   usleep (N)
+
+   Wait for (N) microseconds before continuing

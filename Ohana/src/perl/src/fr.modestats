@@ -1,0 +1,98 @@
+#!/usr/bin/env perl
+
+# check the usage
+if ($ARGV[0] eq "-h") { &usage (); }
+if ($ARGV[0] eq "-help") { &usage (); }
+if (@ARGV != 6) { &usage (); }
+
+# assign the command line arguments
+$imlist    = $ARGV[0];
+$modefits  = $ARGV[1];
+$modelist  = $ARGV[2];
+$modejpg   = $ARGV[3]; # root of jpg images
+$residjpg  = $ARGV[4]; # root of jpg images
+$inmapjpg  = $ARGV[5]; # root of jpg images
+
+# find the appropriate script file
+$confdir = `gconfig -q CONFDIR`; chop ($confdir);
+$script  = "$confdir/mana/modes.pro";
+
+# test named Xserver, or start vnc on specified machine
+$xhost=`gconfig -q XHOST`; chop ($xhost);
+$xdisp=`gconfig -q XDISP`; chop ($xdisp);
+if (vsystem ("xdpyinfo -display $xdisp >& /dev/null")) {
+    print STDERR "X server is not running. start it now on $xhost\n";
+    exit 1;
+}
+$ENV{'DISPLAY'} = $xdisp;
+
+# load in list of input image lists
+open (LIST, $imlist);
+@imlist = <LIST>;
+close (LIST);
+
+# load in list of input image lists
+open (LIST, $modelist);
+@modelist = <LIST>;
+close (LIST);
+$Nmode = 0;
+foreach $line (@modelist) {
+    ($mode, $status) = split (" ", $line);
+    if ($status) { $Nmode ++; }
+}
+
+# run mana script:
+open (MANA, "|mana --norc");
+print MANA "input $script\n";
+print MANA "macro go\n";
+
+# we'll use the default 8 to generate the jpgs of the modes
+print MANA "jpgmodes $modefits $modejpg\n";
+
+system ("rm -f $residjpg");
+system ("rm -f $inmapjpg");
+
+# reset $Nmode for the actual number desired
+print MANA "\$Nmode = $Nmode\n";
+print MANA "getmodes\n";
+for ($i = 0; $i < @imlist; $i++) {
+    ($name, $status) = split (" ", $imlist[$i]);
+    $jpgname = sprintf "%s.%03d.jpg", $residjpg, $i;
+    system ("basename $jpgname >> $residjpg");
+    $srcname = sprintf "%s.%03d.jpg", $inmapjpg, $i;
+    system ("basename $srcname >> $inmapjpg");
+    print MANA "jpgresid $name $jpgname $srcname\n";
+}
+print MANA "exit 0\n";
+
+print MANA "end\n";
+print MANA "go\n";
+print MANA "exit 1\n";
+close (MANA);
+if ($?) {
+    print STDERR "ERROR problem with fr.modestats\n";
+    exit 1;
+}
+
+print STDOUT "SUCCESS: finished with fr.modestats\n";
+exit 0;
+
+sub vsystem {
+    print STDERR "@_\n";
+    $status = system ("@_");
+    $status;
+}
+
+sub goodbye {
+    die "@_\n";
+}
+
+sub usage {
+    print "USAGE: fr.modestats (map.list) (mode.fits) (mode.list) (modes[.NNN.jpg]) (resid[.NNN.jpg]) (source[.NNN.jpg])\n";
+    exit 1;
+}
+
+# mana within perl:  we embed the mana functions within a macro to trap the 
+# exit status.  If mana has an error with one of the steps, it will exit the macros and 
+# the second exit will be called. Otherwise, the "go" macro will perform the exit 0
+# and mana will exit with status 0

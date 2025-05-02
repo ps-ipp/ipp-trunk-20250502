@@ -1,0 +1,55 @@
+#!/usr/bin/env perl
+
+# check the usage
+if ($ARGV[0] eq "-h") { &usage (); }
+if ($ARGV[0] eq "-help") { &usage (); }
+if (@ARGV != 2) { &usage (); }
+
+# assign the command line arguments
+$list   = $ARGV[0];
+$imdata = $ARGV[1];
+
+# load input list:
+open (FILE, "$list");
+@list = <FILE>;
+close (FILE);
+foreach $line (@list) {chop $line;}
+
+# check for file
+if (! -e $list[0]) { die "ERROR: image file $list[0] is missing\n"; }
+
+print STDOUT "$list[0]\n";
+
+# abstract header keywords
+($datekwd, $timekwd, $obsidkwd, $exptimekwd) = 
+    split (" ", `gconfig DATE-KEYWORD UT-KEYWORD ID-KEYWORD EXPTIME-KEYWORD`);
+if ($?) { die "ERROR problem with keywords\n"; }
+
+($file, $date, $utc, $obsid, $exptime) = 
+    split (" ", `echo $list[0] | fields $datekwd $timekwd $obsidkwd $exptimekwd`);
+if ($?) { die "ERROR missing header information\n"; }
+ 
+open (FILE, ">$imdata");
+print FILE "$obsid $date $utc $exptime\n";
+close (FILE);
+
+print STDOUT "SUCCESS: finished with fr.stats\n";
+exit 0;
+
+## utilities
+
+sub vsystem {
+    print STDERR "@_\n";
+    $status = system ("@_");
+    $status;
+}
+
+sub goodbye {
+    die "@_\n";
+}
+
+sub usage {
+    print "USAGE: fr.imdata (list) (imdata)\n";
+    print "  extract basic image data from header for later reference\n";
+    exit 1;
+}

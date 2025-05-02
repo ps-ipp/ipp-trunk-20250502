@@ -1,0 +1,29 @@
+#!/usr/bin/env dvo
+
+if ($argv:n != 2) 
+  echo "USAGE: validate (catdir) (mode)"
+  echo $argv:n
+  exit 2
+end
+
+catdir $argv:0
+$KAPA = kapa -nomap
+
+if ("$argv:1" == "megacam") 
+  region 300.0 10.18 0.3
+end
+
+if ("$argv:1" == "asca")
+  resize -g 800 420
+  usleep 200000
+  region 60 0 90 ait
+end
+
+mextract ra
+if (ra[] == 0)
+  echo "no stars found for $1"
+  exit 1
+end
+
+echo "found ra[] stars"
+exit 0

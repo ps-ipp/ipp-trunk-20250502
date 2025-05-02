@@ -1,0 +1,14 @@
+bool status = false;
+[% FOREACH item = table.columns -%]
+[% IF item.type == "STR" OR item.mtype == "PS_DATA_TIME" -%]
+    [% item.ctype %] [% item.name %] = psMetadataLookupPtr(&status, md, "[% item.name %]");
+[% ELSIF item.type == "BOOL" -%]
+    [% item.ctype %] [% item.name %] = psMetadataLookupBool(&status, md, "[% item.name %]");
+[% ELSE -%]
+    [% item.ctype %] [% item.name %] = psMetadataLookup[% item.type %](&status, md, "[% item.name %]");
+[% END -%]
+    if (!status) {
+        psError(PS_ERR_UNKNOWN, true, "failed to lookup value for item [% item.name %]");
+        return false;
+    }
+[% END -%]

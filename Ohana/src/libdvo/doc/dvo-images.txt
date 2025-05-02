@@ -1,0 +1,90 @@
+
+20110203 
+
+  The Image table (PS1_V2) has a bunch of fields that are not really
+  used by anything / much.  I would like to re-use those bytes to
+  store information about the quality of the astrometric and
+  photometric calibrations.  
+
+  The under-used fields are the 'photometric zero point variation'
+  polynomial terms (Mx, My, ... Mxxxx, Myyyy). 
+
+  (I list the sourceID, which does not change, because the word-boundaries matter)
+FIELD 	  sourceID,         SOURCE_ID,            unsigned short, analysis source ID
+FIELD 	  order,            ORDER,                short,      	  Mrel 2D polynomical order 
+FIELD 	  Mx,               MX,                   short,      	  Mrel polyterm
+FIELD 	  My,               MY,                   short,      	  Mrel polyterm
+
+FIELD 	  Mxx,              MXX,                  short,      	  Mrel polyterm
+FIELD 	  Mxy,              MXY,                  short,      	  Mrel polyterm
+FIELD 	  Myy,              MYY,                  short,      	  Mrel polyterm
+FIELD 	  Mxxx,             MXXX,                 short,      	  Mrel polyterm
+
+FIELD 	  Mxxy,             MXXY,                 short,      	  Mrel polyterm
+FIELD 	  Mxyy,             MXYY,                 short,      	  Mrel polyterm
+FIELD 	  Myyy,             MYYY,                 short,      	  Mrel polyterm
+FIELD 	  Mxxxx,            MXXXX,                short,      	  Mrel polyterm
+
+FIELD 	  Mxxxy,            MXXXY,                short,      	  Mrel polyterm
+FIELD 	  Mxxyy,            MXXYY,                short,      	  Mrel polyterm
+FIELD 	  Mxyyy,            MXYYY,                short,      	  Mrel polyterm
+FIELD 	  Myyyy,            MYYYY,                short,      	  Mrel polyterm
+(30 bytes)
+
+  I am going to replace these with:
+
+  photom_map_id (int) 	: index to a 2D map of the zp variations (table and format not yet defined)
+  astrom_map_id (int) 	: index to a 2D map of the zp variations (table and format not yet defined)
+  dMagSys       (float) : systematic photometric error (mag) 
+  dXpixSys	(float) : systematic astrometric error (pix)
+  dYpixSys	(float) : systematic astrometric error (pix)
+  nFitAstrom 	(short) : number of stars used for astrometric calibration (saturate at 0x7fff)
+  nFitPhotom 	(short) : number of stars used for astrometric calibration (saturate at 0x7fff)
+(24 bytes)
+
+  As for the existing uses of these fields: 
+
+  The official use can just be dropped (replaced by the maps and
+  recalculated if needed -- no db actually uses them).  There are a
+  few places in the code where these fields were overloaded:
+
+  Triangular Images : in the skycell creation code, there is an option
+  to create images which are the triangular projection centers for a
+  given subdivided geometric solid.  This code was overloading the Mx,
+  My, and Mxxx through Myyy fields.  I can invalidate any existing db
+  with triangles (probably none are needed) and repurpose some of the
+  fields above for these values.  (addstar/src/sky_tesslation.c, opihi/dvo/images.c)
+
+  Mxxxx : some code was using Mxxxx to store nFitPhotom.  Again, any
+  existing databases are unlikely to use that info (CFHT skyprobe
+  only).  If I am clever, I can align the existing bytes so that the
+  old Mxxxx hits the new nFitPhotom. (addstar/src/calibrate.c,
+  dbExtractImages.c)
+
+  Myyyy : dbExtractImages.c expects this value to have (sky - 0x8000),
+  but that value is not actually set by any code.  Ignore (replace?)
+  
+FIELD 	  sourceID,         SOURCE_ID,            unsigned short, analysis source ID
+FIELD 	  dummy1,           DUMMY1,               short,      	  place holder for byte boundaries
+FIELD 	  dummy2,           DUMMY2,               short,      	  place holder for byte boundaries
+FIELD 	  dummy3,           DUMMY3,               short,      	  place holder for byte boundaries
+
+FIELD 	  dXpixSys,         XPIX_SYS_ERR,         float,      	  systematic astrometry error in X
+FIELD 	  dYpixSys,         YPIX_SYS_ERR,         float,      	  systematic astrometry error in Y
+
+FIELD 	  dMagSys,          MAG_SYS_ERR,          float,      	  systematic photometry error
+FIELD 	  nFitAstrom,       N_FIT_ASTROM,         short,      	  number of stars used for astrometry cal
+FIELD 	  nFitPhotom,       N_FIT_PHOTOM,         short,      	  number of stars used for photometry cal
+
+FIELD 	  photom_map_id,    PHOTOM_MAP_ID,        unsigned int,   reference to 2D zero point map
+FIELD 	  astrom_map_id,    ASTROM_MAP_ID,        unsigned int,   reference to 2D astrometry map
+
+older:
+  
+  the dvo image table is not extremely efficient.  it is unsorted, and
+  spatial searches consist of complete scans of the table.
+  
+  a spatial index could consist of five cardinal points for each
+  square image (4 corners and the center) or a central point and max
+  radius. 
+

@@ -1,0 +1,174 @@
+#!/usr/bin/env perl
+
+# Copyright (C) 2007-2008  Joshua Hoblitt
+#
+# $Id: neb-replicate,v 1.2 2008-07-01 00:35:11 jhoblitt Exp $
+
+use strict;
+use warnings FATAL => qw( all );
+
+use vars qw( $VERSION );
+$VERSION = '0.02';
+
+use Nebulous::Client;
+
+use Getopt::Long qw( GetOptions :config auto_help auto_version );
+use Pod::Usage qw( pod2usage );
+
+my ($server, $volume, $copies, $set_copies);
+$copies = 1;  # default to making just one copy
+
+$server = $ENV{'NEB_SERVER'} unless $server;
+
+GetOptions(
+    'server|s=s'    => \$server,
+    'volume|v=s'    => \$volume,
+    'copies|c=i'    => \$copies,
+    'set_copies=i'  => \$set_copies,
+) || pod2usage( 2 );
+
+my $key = shift;
+
+pod2usage( -msg => "Unknown option: @ARGV", -exitval => 2 ) if @ARGV;
+pod2usage( -msg => "Required options: --server", -exitval => 2 )
+    unless $server;
+pod2usage( -msg => "missing key", exitval => 2 )
+    unless defined $key;
+pod2usage( -msg => "--copies must be > 0", exitval => 2 )
+    unless $copies > 0;
+
+my $neb = Nebulous::Client->new(
+    proxy => "$server",
+);
+
+# Nebulous::Client programs can use this to set the log level: 
+# $neb->set_log_level ('DEBUG');
+
+die "can't connected to Nebulous Server: $server"
+    unless defined $neb;
+
+# if replicate fails, we should still set user.copies (if requested)
+my $replication_problem;
+eval {
+    for (my $i = 0; $i < $copies; $i++) {
+        if (defined $volume) {
+	    # this is coded so that all copies end up on the specified volume which seems wrong
+            $neb->replicate($key, $volume)
+                or die "failed to replicate Nebulous key: $key";
+        } else {
+            $neb->replicate($key)
+                or die "failed to replicate Nebulous key: $key";
+        }
+    }
+};
+if ($@) {
+    warn $@;
+    $replication_problem = 1;
+}
+
+if ($set_copies) {
+    $neb->setxattr($key, "user.copies", $set_copies, "replace")
+        or die $neb->err;
+}
+
+exit(32) if defined $replication_problem;
+
+__END__
+
+=pod
+
+=head1 NAME
+
+neb-replicate - create another instance of an object
+
+=head1 SYNOPSIS
+
+    neb-replicate [--server <URL>] [--volume <volume name>]
+                  [--copies <n>] [--set_copies <n>] <key>
+
+=head1 DESCRIPTION
+
+This program adds an additonal instance to the Nebulous object with a key of
+C<<key>>.
+
+=head1 OPTIONS
+
+=over 4
+
+=item * --server|-s <URL>
+
+URL of the Nebulous server to connect to.
+
+Optional if the appropriate environment variable is set.
+
+=item * --volume <volume name>
+
+Symbolic name of the volume to create the new instance on.
+
+Optional.
+
+=item * --copies|c <n>
+
+The number of new replications to create.
+
+Optional.  Defaults to 1.
+
+=item * --set_copies|c <n>
+
+Set the C<user.copies> xattr for this storage object to C<<n>>.
+
+Optional.
+
+=back
+
+=head1 ENVIRONMENT
+
+These environment variables may be used in place of the specified command line
+options.  All command line option will override the corresponding environment
+value.
+
+=over 4
+
+=item * C<NEB_SERVER>
+
+Equivalent to --server|-s
+
+=back
+
+=head1 CREDITS
+
+Just me, myself, and I.
+
+=head1 SUPPORT
+
+Please contact the author directly via e-mail.
+
+=head1 AUTHOR
+
+Joshua Hoblitt <jhoblitt@cpan.org>
+
+=head1 COPYRIGHT
+
+Copyright (C) 2007-2008  Joshua Hoblitt.  All rights reserved.
+
+This program is free software; you can redistribute it and/or modify it under
+the terms of the GNU General Public License as published by the Free Software
+Foundation; either version 2 of the License, or (at your option) any later
+version.
+
+This program is distributed in the hope that it will be useful, but WITHOUT ANY
+WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A
+PARTICULAR PURPOSE.  See the GNU General Public License for more details.
+
+You should have received a copy of the GNU General Public License along with
+this program; if not, write to the Free Software Foundation, Inc., 59 Temple
+Place - Suite 330, Boston, MA  02111-1307, USA.
+
+The full text of the license can be found in the L<perlgpl> Pod as supplied
+with Perl 5.8.1 and later.
+
+=head1 SEE ALSO
+
+L<Nebulous::Server>, L<neb-initdb>, L<neb-addvol>, L<nebdiskd>, L<neb-df>
+
+=cut

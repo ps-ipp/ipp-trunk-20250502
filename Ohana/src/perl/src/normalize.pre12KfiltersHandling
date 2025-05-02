@@ -1,0 +1,271 @@
+#!/usr/bin/env perl
+
+$revline = "\$Revision: 1.1 $?";
+($version) = $revline =~ m|\$Revision:\s*(\S*)|;
+
+# default variable values
+$start     = 0;
+$stop      = 0;
+$oldflips  = 0;
+$addtime   = 0;
+$addconfig = 0;
+
+# grab the command line options
+@tARGV = ();
+for (; @ARGV > 0; ) {
+    if ($ARGV[0] eq "-oldflips") {
+        $oldflips = 1;
+        shift; next;
+    }
+    if ($ARGV[0] eq "-time") {
+	$addtime = 1;
+	$start = $ARGV[1];
+	$stop = $ARGV[2];
+	shift; shift; shift; next;
+    }
+    if ($ARGV[0] eq "-config") {
+	$addconfig = 1;
+	$elconf = $ARGV[1];
+	shift; shift; next;
+    }
+    if ($ARGV[0] eq "-h") { &usage; }
+    if ($ARGV[0] eq "--help") { &usage; }
+    @tARGV = (@tARGV, $ARGV[0]);
+    shift;
+}
+@ARGV = @tARGV;
+
+if (@ARGV != 4) { &usage; }
+if ($addtime && ("$start" == "")) { &usage; }
+if ($addtime && ("$stop" == ""))  { &usage; }
+
+# command line arguments
+$input  = $ARGV[0];
+$output = $ARGV[1];
+$ref    = $ARGV[2];
+$type   = uppercase ($ARGV[3]);
+
+$ccdword = `gconfig -q CCDNUM-KEYWORD`; chop ($ccdword);
+$typeword = `gconfig -q IMAGETYPE-KEYWORD`; chop ($typeword);
+$dbmode = `gconfig -q DETREND-DB-MODE`; chop ($dbmode);
+
+# choose appropriate type
+if ($type eq "FLAT") { &mk_flat; }
+if ($type eq "DARK") { &mk_dark; }
+if ($type eq "BIAS") { &mk_dark; }
+print STDERR "unknown type $type";
+exit 1;
+
+sub mk_dark { 
+# create mana macro, run (allows exit status to be checked)
+    open (MANA, "|mana --norc");
+    print MANA "macro go\n";
+    print MANA "echo 'starting normalize'\n";
+    print MANA "rd a $input\n";
+    print MANA "keyword a $typeword -w $type\n";
+    
+    if ($addtime == 1) {
+	print MANA "keyword a TVSTART -w $start\n";
+	print MANA "keyword a TVSTART -wc \"data validity start time\"\n";
+	print MANA "keyword a TVSTOP  -w $stop\n";
+	print MANA "keyword a TVSTOP -wc \"data validity start time\"\n";
+    }
+    if ($addconfig == 1) {
+	print MANA "keyword a ELCONF -w $elconf\n";
+	print MANA "keyword a ELCONF -wc \"Original Elixir config\"\n";
+    }	
+    
+    $elsys = `gconfig ELIXIR_VERSION`; chop ($elsys);
+    @time = localtime;
+    $now = sprintf "%04d-%02d-%02dT%02d:%02d:%02d", $time[5]+1900, $time[4]+1, $time[3], $time[2], $time[1], $time[0];
+    $elsys = `gconfig ELIXIR_VERSION`; chop ($elsys);
+    print MANA "keyword a EL_SYS -w    \"$elsys\"\n";
+    print MANA "keyword a EL_SYS -wc   \"Elixir System Version\"\n";
+    print MANA "keyword a EL_NRM -w    \"$version\"\n";
+    print MANA "keyword a EL_NRM -wc   \"Elixir Normalize Version\"\n";
+    print MANA "keyword a REL_DATE -w  \"$now\"\n";
+    print MANA "keyword a REL_DATE -wc \"UTC Release Date\"\n";
+
+    print MANA "keyword a COMMENT -ws \"Elixir:normalize $version\"\n";
+    print MANA "keyword a COMMENT -ws \"no renormalization needed for $type\"\n";
+    print MANA "wd a $output -bitpix 16 -bzero 32668.0 -bscale 1.0\n";
+    print MANA "echo normlized done ($input to $output)\n";
+    print MANA "exit 0\n";
+    print MANA "end\n";  # end of macro 'go'
+
+    print MANA "go\n";
+    print MANA "exit 1\n";
+    close (MANA);
+    if ($?) {
+	print STDERR "ERROR problem running mana in normalize (bias, dark)\n";
+	exit 1;
+    }
+    print STDOUT "SUCCESS: finished with normalize\n";
+    exit 0;
+}
+   
+sub mk_flat {
+    # check on reference existence (not needed for BIAS, DARK)
+    if (! -f $ref) {
+	print STDERR "ERROR: ref file $args[3] is missing\n";
+	exit 1;
+    }
+    
+    # we need keywords defined by the process (flips) which creates the master frame
+    if ($oldflips) {
+        # these lines were used before flips was upgraded to add the DATAMODE keywords
+	$answer = `fhead $ref | grep "Output file mode"`;
+	@words = split (" ", $answer);
+	$refmode = $words[-1];
+
+	$answer = `fhead $input | grep "Output file mode"`;
+	@words = split (" ", $answer);
+	$mode = $words[-1];
+    } else {
+	# various options for datamode, refmode:
+	
+	# check for readout mode
+	($junk, $amplist)    = split (" ", `echo $input | fields AMPLIST`, 2);
+	if ($? == 0) {
+	    # multiamp mode, expect IMMODE$amp, create FLATSCL$amp
+	    @amps = split (" ", $amplist);
+	    foreach $amp (@amps) {
+		($junk, $mode)    = split (" ", `echo $input | fields IMMODE$amp`);
+		if ($?) { die "ERROR: missing IMMODE$amp\n"; }
+		@ampmode = (@ampmode, $mode);
+	    }
+	}
+	# try new IMMODE keyword:
+	$modeword = "IMMODE";
+	($junk, $mode)    = split (" ", `echo $input | fields $modeword`);
+	if ($?) {
+	    if (@amps) { die "ERROR: multiamp mode missing IMMODE\n"; }
+	    $modeword = "DATAMODE";
+	    ($junk, $mode)    = split (" ", `echo $input | fields $modeword`);
+	    if ($?) { die "ERROR: missing DATAMODE & IMMODE\n"; }
+	}
+	($junk, $refmode) = split (" ", `echo $ref   | fields $modeword`);
+	if ($?) { die "ERROR: ref file missing $modeword\n"; }
+    }
+    ($junk, $refccd) = split (" ", `echo $ref | fields $ccdword`);
+    if ($?) { die "ERROR: ref file missing $ccdword in ref\n"; }
+    
+    # grab mask file
+    $mask = `detsearch -quiet -image $input 0 split -type mask`; chop ($mask);
+    if ($? || ($mask eq "")) { 
+	print STDERR "can't find mask for this image, no mask applied\n";
+	$mask = "none"; 
+    }
+
+    # run MANA
+    open (MANA, "|mana --norc");
+    print MANA "macro go\n";
+    print MANA "echo 'starting normalize'\n";
+    print MANA "rd a $input\n";
+    print MANA "\$CCDKEYWORD = $ccdword\n";
+    print MANA "keyword a $ccdword ccd\n";
+    if ($mask eq "none") {
+	print MANA "set b = a / $refmode\n";
+    } else {
+	if ($dbmode eq "MEF") {
+	    print MANA "rd c $mask -n \$ccd\n";
+	} else {
+	    print MANA "rd c $mask\n";
+	}
+	print MANA "set b = (a / $refmode) * c\n";
+    }
+
+    $scale = $refmode / $mode;
+    $newmode = $mode / $refmode;
+    print MANA "keyword b $modeword -wf $newmode\n";
+    print MANA "keyword b FLATSCAL -wf $scale\n";
+
+    if (@amps) {
+	for ($i = 0; $i < @amps; $i++) {
+	    $amp = $amps[$i];
+	    $scale   = $refmode / $ampmode[$i];
+	    $newmode = $ampmode[$i] / $refmode;
+	    print MANA "keyword b IMMODE$amp -wf $newmode\n";
+	    print MANA "keyword b FLATSCL$amp -wf $scale\n";
+	}
+    }
+    print MANA "keyword b $typeword -w $type\n";
+    if ($addtime == 1) {
+	print MANA " keyword b TVSTART -w $start\n";
+	print MANA " keyword b TVSTART -wc \"data validity start time\"\n";
+	print MANA " keyword b TVSTOP  -w $stop\n";
+	print MANA " keyword b TVSTOP -wc \"data validity start time\"\n";
+    }
+    if ($addconfig == 1) {
+	print MANA "keyword b ELCONF -w $elconf\n";
+	print MANA "keyword b ELCONF -wc \"Original Elixir config\"\n";
+    }	
+
+    @time = localtime;
+    $now = sprintf "%04d-%02d-%02dT%02d:%02d:%02d", $time[5]+1900, $time[4]+1, $time[3], $time[2], $time[1], $time[0];
+    $elsys = `gconfig ELIXIR_VERSION`; chop ($elsys);
+    print MANA "keyword b EL_SYS   -w  \"$elsys\"\n";
+    print MANA "keyword b EL_SYS   -wc \"Elixir System Version\"\n";
+    print MANA "keyword b EL_NRM   -w  \"$version\"\n";
+    print MANA "keyword b EL_NRM   -wc \"Elixir Normalize Version\"\n";
+    print MANA "keyword b REL_DATE -w \"$now\"\n";
+    print MANA "keyword b REL_DATE -wc \"UTC Release Date\"\n";
+
+    print MANA "keyword b COMMENT  -ws \"Elixir:normalize version $version\"\n";
+    print MANA "keyword b COMMENT  -ws \"FLAT image normalized wrt CCD $refccd\"\n";
+    print MANA "clip b 0.0 0.0 6.4 0.0\n";
+    print MANA "wd b $output -bitpix 16 -bzero 3.2 -bscale 0.0001\n";
+    print MANA "echo normlized done ($input to $output)\n";
+    print MANA "exit 0\n";
+    print MANA "end\n";  # end of macro 'go'
+
+    print MANA "go\n";
+    print MANA "exit 1\n";
+    close (MANA);
+    if ($?) {
+	print STDERR "ERROR problem running mana in normalize (flat)\n";
+	exit 1;
+    }
+    print STDOUT "SUCCESS: finished with normalize\n";
+    exit 0;
+}
+
+sub vsystem {
+    print STDERR "@_\n";
+    $status = system ("@_");
+    $status;
+}
+
+sub goodbye {
+    die "@_\n";
+}
+
+sub uppercase {
+    return "\U$_[0]\E";
+}
+
+# given a filename, check that its path exists, create it if not
+sub ckpathname {
+    my ($file) = $_[0];
+    my (@words, $dir);
+
+    @words = split ("/", $file);
+    pop (@words);
+    $dir = join ("/", @words);
+
+    if ($dir eq "") { $dir = "."; }
+
+    if (! -d $dir) {
+	system ("mkdir -p $dir");
+	if ($?) {
+	    print STDERR "ERROR: can't make directory component for $file\n";
+	    exit 1;
+	}
+    }
+}
+
+sub usage {
+    print STDERR "normalize (input) (output) (ref) (type) [-time start stop] [-oldflips]\n";
+    exit 2;
+}
+

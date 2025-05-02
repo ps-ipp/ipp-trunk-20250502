@@ -1,0 +1,41 @@
+
+macro cvplot 
+  if ($0 != 6)
+    echo "USAGE: cvplot r d ur ud scale"
+    break
+  end
+ 
+  local i
+  delete -q _tmpr _tmpd
+
+  for i 0 $1[]
+   concat $1[$i] _tmpr
+   concat $2[$i] _tmpd
+   concat {$1[$i]+$3[$i]*$5} _tmpr
+   concat {$2[$i]+$4[$i]*$5} _tmpd
+  end
+  style -pt 100
+  cplot _tmpr _tmpd
+  style -pt 7
+end
+
+macro vplot 
+  if ($0 != 6)
+    echo "USAGE: cvplot r d ur ud scale"
+    break
+  end
+ 
+  local i
+  delete -q _tmpr _tmpd
+
+  for i 0 $1[]
+   concat $1[$i] _tmpr
+   concat $2[$i] _tmpd
+   concat {$1[$i]+$3[$i]*$5} _tmpr
+   concat {$2[$i]+$4[$i]*$5} _tmpd
+  end
+  style -pt 100
+  plot _tmpr _tmpd
+  style -pt 7
+end
+

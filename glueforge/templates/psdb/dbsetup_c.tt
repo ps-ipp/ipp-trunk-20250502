@@ -1,0 +1,23 @@
+#include <pslib.h>
+#include <[% pkg_name %].h>
+#include <stdlib.h>
+
+int main ()
+{
+    psDB            *dbh;
+
+    dbh = psDBInit("localhost", "test", NULL, "test", 0);
+    if (!dbh) {
+        exit(EXIT_FAILURE);
+    }
+
+    // remove the table if it already exists
+[% FOREACH table = tables -%]
+    p_psDBRunQuery(dbh, "DROP TABLE IF EXISTS [% table.name %]");
+    [% table.namespace %]CreateTable(dbh);
+
+[% END -%]
+    psDBCleanup(dbh);
+
+    exit(EXIT_SUCCESS);
+}

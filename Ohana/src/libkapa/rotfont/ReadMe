@@ -1,0 +1,10 @@
+start font server (as root): 
+ xfs &
+
+dump font to bdf file:
+
+fstobdf -s localhost:7100 -fn "-adobe-times-medium-r-*-*-12-*-*-*-*-*-*-*" > times12.bdf
+
+convert to .h file:
+ fixfont times12.bdf times12 > times12.h
+

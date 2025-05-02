@@ -1,0 +1,10 @@
+
+  rd (buffer) (filename)
+
+  "rd" reads a file into the specified buffer, creating the buffer if
+  none exists.  A buffer name may consist of any letters, numbers, and
+  some limited other characters.  However, the name may not start with
+  a digit.
+
+  See also: wd, tv
+

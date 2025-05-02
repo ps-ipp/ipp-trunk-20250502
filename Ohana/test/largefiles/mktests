@@ -1,0 +1,47 @@
+#!/usr/bin/env mana 
+# -- sh-mode --
+
+# mana script to create test files for fhead, ftable, fields, fits_insert
+
+macro mksimple
+  mcreate a 100 100
+  keyword a STRVAL -w "STRING VALUE"
+  keyword a FLTVAL -wf 3.1415
+  keyword a INTVAL -wd 2
+  keyword a BOOLVAL -wb true
+  keyword a STRVAL -wc "STRING VALUE COMMENT"
+  keyword a INTVAL -wc "INTEGER VALUE COMMENT"
+  keyword a FLTVAL -wc "FLOAT VALUE COMMENT"
+  keyword a BOOLVAL -wc "BOOL VALUE COMMENT"
+  keyword a COMMENT -ws "STRING COMMENT"
+
+  wd a simple.fits -bzero 0 -bscale 1.0 -bitpix -32
+end
+
+macro mkmef
+  mcreate a 100 100
+  keyword a STRVAL -w "STRING VALUE"
+  keyword a FLTVAL -wf 3.1415
+  keyword a INTVAL -wd 2
+  keyword a BOOLVAL -wb true
+  keyword a STRVAL -wc "STRING VALUE COMMENT"
+  keyword a INTVAL -wc "INTEGER VALUE COMMENT"
+  keyword a FLTVAL -wc "FLOAT VALUE COMMENT"
+  keyword a BOOLVAL -wc "BOOL VALUE COMMENT"
+  keyword a COMMENT -ws "STRING COMMENT"
+
+  mcreate b 100 100
+  keyword b STRVAL -w "STRING VALUE 2"
+  keyword b FLTVAL -wf 5.1415
+  keyword b INTVAL -wd 4
+  keyword b BOOLVAL -wb false
+  keyword b STRVAL -wc "STRING VALUE COMMENT 2"
+  keyword b INTVAL -wc "INTEGER VALUE COMMENT 2"
+  keyword b FLTVAL -wc "FLOAT VALUE COMMENT 2"
+  keyword b BOOLVAL -wc "BOOL VALUE COMMENT 2"
+  keyword b COMMENT -ws "STRING COMMENT 2"
+  keyword b EXTNAME -w "EXTENSION"
+
+  wd a mef.fits -bzero 0 -bscale 1.0 -bitpix -32
+  wd b mef.fits -bzero 0 -bscale 1.0 -bitpix -32 -extend
+end

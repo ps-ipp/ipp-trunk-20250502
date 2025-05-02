@@ -1,0 +1,155 @@
+                                
+                          ----  Start of the PSF segment
+                      IPP_IDET  IPP detection identifier index
+                         X_PSF  PSF x coordinate
+                         Y_PSF  PSF y coordinate
+                     X_PSF_SIG  Sigma in PSF x coordinate
+                     Y_PSF_SIG  Sigma in PSF y coordinate
+                        RA_PSF  PSF RA coordinate (degrees)
+                       DEC_PSF  PSF DEC coordinate (degrees)
+                      POSANGLE  position angle at source (degrees)
+                      PLTSCALE  plate scale at source (arcsec/pixel)
+                  PSF_INST_MAG  PSF fit instrumental magnitude
+              PSF_INST_MAG_SIG  Sigma of PSF instrumental magnitude
+                 PSF_INST_FLUX  PSF fit instrumental flux (counts)
+             PSF_INST_FLUX_SIG  Sigma of PSF instrumental flux
+                        AP_MAG  magnitude in standard aperture
+                    AP_MAG_RAW  magnitude in reported aperture
+                 AP_MAG_RADIUS  radius used for aperture mags
+                       AP_FLUX  instrumental flux in standard aperture
+                   AP_FLUX_SIG  aperture flux error
+              PEAK_FLUX_AS_MAG  Peak flux expressed as magnitude
+                   CAL_PSF_MAG  PSF Magnitude using supplied calibration
+               CAL_PSF_MAG_SIG  measured scatter of zero point calibration
+                        RA_PSF  PSF RA coordinate (degrees)
+                       DEC_PSF  PSF DEC coordinate (degrees)
+              PEAK_FLUX_AS_MAG  Peak flux expressed as magnitude
+                           SKY  Sky level
+                     SKY_SIGMA  Sigma of sky level
+                     PSF_CHISQ  Chisq of PSF-fit
+                     CR_NSIGMA  Nsigma deviations from PSF to CF
+                    EXT_NSIGMA  Nsigma deviations from PSF to EXT
+                     PSF_MAJOR  PSF width (major axis)
+                     PSF_MINOR  PSF width (minor axis)
+                     PSF_THETA  PSF orientation angle
+                        PSF_QF  PSF coverage/quality factor (bad)
+                PSF_QF_PERFECT  PSF coverage/quality factor (poor)
+                      PSF_NDOF  degrees of freedom
+                      PSF_NPIX  number of pixels in fit
+                    MOMENTS_XX  second moments (X^2)
+                    MOMENTS_XY  second moments (X*Y)
+                    MOMENTS_YY  second moments (Y*Y)
+                   MOMENTS_M3C  third momemt cos theta
+                   MOMENTS_M3S  third momemt sin theta
+                   MOMENTS_M4C  fourth momemt cos theta
+                   MOMENTS_M4S  fourth momemt sin theta
+                    MOMENTS_R1  first radial moment
+                    MOMENTS_RH  half radial moment
+                     KRON_FLUX  Kron Flux (in 2.5 R1)
+                 KRON_FLUX_ERR  Kron Flux Error
+               KRON_FLUX_INNER  Kron Flux (in 1.0 R1)
+               KRON_FLUX_OUTER  Kron Flux (in 4.0 R1)
+                 SKY_LIMIT_RAD  Radius where object hits sky
+                SKY_LIMIT_FLUX  Flux / pix where object hits sky
+               SKY_LIMIT_SLOPE  d(Flux/pix)/dRadius where object hits sky
+                     DIFF_NPOS  nPos (n pix > 3 sigma)
+                   DIFF_FRATIO  fPos / (fPos + fNeg)
+               DIFF_NRATIO_BAD  nPos / (nPos + nNeg)
+              DIFF_NRATIO_MASK  nPos / (nPos + nMask)
+               DIFF_NRATIO_ALL  nPos / (nGood + nMask + nBad)
+                      DIFF_R_P  distance to positive match source
+                     DIFF_SN_P  signal-to-noise of pos match src
+                      DIFF_R_M  distance to negative match source
+                     DIFF_SN_M  signal-to-noise of neg match src
+                         FLAGS  psphot analysis flags
+                        FLAGS2  psphot analysis flags
+                      PADDING2  more padding
+                      N_FRAMES  Number of frames overlapping source center
+                       PADDING  padding
+                                
+                          ----  Start of the XSRC segment
+                      IPP_IDET  IPP detection identifier index
+                         X_EXT  EXT model x coordinate
+                         Y_EXT  EXT model y coordinate
+                     X_EXT_SIG  Sigma in EXT x coordinate
+                     Y_EXT_SIG  Sigma in EXT y coordinate
+                    F25_ARATIO  Axial Ratio of radial profile
+                     F25_THETA  Angle of radial profile ellipse
+                     PETRO_MAG  Petrosian Magnitude
+                 PETRO_MAG_ERR  Petrosian Magnitude Error
+                  PETRO_RADIUS  Petrosian Radius (pix)
+              PETRO_RADIUS_ERR  Petrosian Radius Error (pix)
+               PETRO_RADIUS_50  Petrosian R50 (pix)
+           PETRO_RADIUS_50_ERR  Petrosian R50 Error (pix)
+               PETRO_RADIUS_90  Petrosian R90 (pix)
+           PETRO_RADIUS_90_ERR  Petrosian R90 Error (pix)
+                    PETRO_FILL  Petrosian Fill Factor
+                     PETRO_MAG  Petrosian Magnitude
+                 PETRO_MAG_ERR  Petrosian Magnitude Error
+                  PETRO_RADIUS  Petrosian Radius
+              PETRO_RADIUS_ERR  Petrosian Radius Error
+               PETRO_RADIUS_50  Petrosian R50 (pix)
+           PETRO_RADIUS_50_ERR  Petrosian R50 Error (pix)
+               PETRO_RADIUS_90  Petrosian R90 (pix)
+           PETRO_RADIUS_90_ERR  Petrosian R90 Error (pix)
+                    PETRO_FILL  Petrosian Fill Factor
+                       PROF_SB  mean surface brightness annuli
+                     PROF_FLUX  flux within annuli
+                     PROF_FILL  fill factor of annuli
+                                
+                          ----  Start of the XFIT segment
+                      IPP_IDET  IPP detection identifier index
+                         X_EXT  EXT model x coordinate
+                         Y_EXT  EXT model y coordinate
+                     X_EXT_SIG  Sigma in EXT x coordinate
+                     Y_EXT_SIG  Sigma in EXT y coordinate
+                        RA_EXT  EXT model ra coordinate
+                       DEC_EXT  EXT model dec coordinate
+                  EXT_INST_MAG  EXT fit instrumental magnitude
+              EXT_INST_MAG_SIG  Sigma of PSF instrumental magnitude
+                      POSANGLE  position angle at source (degrees)
+                      PLTSCALE  plate scale at source (arcsec/pixel)
+                    MOMENTS_XX  second moment in x
+                    MOMENTS_XY  second moment in x,y
+                    MOMENTS_YY  second moment in y
+                    MOMENTS_R1  first radial moment
+                    MOMENTS_RH  half radial moment
+                  PSF_INST_MAG  PSF fit instrumental magnitude
+                        AP_MAG  PSF-sized aperture magnitude
+                      KRON_MAG  Kron Mag
+                       NPARAMS  number of model parameters
+                       NPARAMS  number of model parameters
+                    MODEL_TYPE  name of model
+                 EXT_WIDTH_MAJ  EXT width (major axis), length for trail
+                 EXT_WIDTH_MIN  EXT width (minor axis), sigma for trail
+                     EXT_THETA  EXT orientation angle
+             EXT_WIDTH_MAJ_ERR  EXT width error (major axis)
+             EXT_WIDTH_MIN_ERR  EXT width error (minor axis)
+                 EXT_THETA_ERR  EXT orientation angle (error)
+                 EXT_WIDTH_MAJ  EXT width (SXX, isnan)
+                 EXT_WIDTH_MIN  EXT width (SYY, isnan)
+                     EXT_THETA  EXT angle (SXY, isnan)
+             EXT_WIDTH_MAJ_ERR  EXT width err (SXX, isnan)
+             EXT_WIDTH_MIN_ERR  EXT width err (SYY, isnan)
+                 EXT_THETA_ERR  EXT angle err (SXY, isnan)
+                 EXT_WIDTH_MAJ  EXT width (major axis), length for trail
+                 EXT_WIDTH_MIN  EXT width (minor axis), sigma for trail
+                     EXT_THETA  EXT orientation angle
+             EXT_WIDTH_MAJ_ERR  EXT width error (major axis)
+             EXT_WIDTH_MIN_ERR  EXT width error (minor axis)
+                 EXT_THETA_ERR  EXT orientation angle (error)
+                                
+                                
+                                
+                                
+                          ----  Start of the XRAD segment
+                      IPP_IDET  IPP detection identifier index
+                        X_APER  Center of aperture measurements
+                        Y_APER  Center of aperture measurements
+                      PSF_FWHM  FWHM of matched PSF
+                      PSF_FWHM  image is not FWHM-matched
+                     APER_FLUX  flux within annuli
+                 APER_FLUX_ERR  flux error in annuli
+               APER_FLUX_STDEV  flux standard deviation
+                     APER_FILL  fill factor of annuli
+         STACK.PSF.FWHM.VALUES  PSF sizes

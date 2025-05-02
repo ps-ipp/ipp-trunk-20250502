@@ -1,0 +1,55 @@
+#!/bin/csh -f
+# measure stars (fluxes, fwhm, etc) 
+
+if ($#argv != 2) then
+ echo "USAGE: sexstats infile file.sdat"
+ exit;
+endif
+
+set infile = $1
+set outfile = $2
+
+if (! -e $infile) then
+ echo "ERROR: file $infile is missing"
+ exit 1
+endif
+
+# determine image type
+set imageword = `gconfig IMAGETYPE-KEYWORD`
+set type = `echo $1 | fields $imageword | awk '{print $2}'`
+
+# find the sextractor param files (can tune for cfhtir if needed)
+set confdir = `gconfig CONFDIR`
+set sexconf = "$confdir/sextract/shallow.sex"
+set sexpars = "$confdir/sextract/shallow.param"
+set sexfilt = "$confdir/sextract/default.conv"
+set sexnnw  = "$confdir/sextract/default.nnw"
+
+switch ($type)
+  case object:
+  case Object:
+  case OBJECT:
+     sex $infile \
+	-c $sexconf \
+	-PARAMETERS_NAME $sexpars \
+	-FILTER_NAME     $sexfilt \
+	-STARNNW_NAME    $sexnnw \
+	-CATALOG_NAME    $outfile
+     set stat=$status
+     breaksw;
+
+   default:
+      echo '0' > $2;
+      echo "image type $type, skipping FWHM";
+      set stat = 0
+      breaksw;
+endsw
+
+if ($stat) then
+  echo "ERROR ($stat): problem with sextractor"
+else
+  echo SUCCESS;
+endif
+
+exit $stat
+

@@ -1,0 +1,313 @@
+#!/usr/bin/env perl
+
+$tagsets = "tagsets";
+
+$cvs  = 0;
+$diff = 0;
+$settag = 0;
+$update = 0;
+$mkdist = 0;
+$module = "";
+$settag_mode = "";
+$update_mode = "";
+$mkdist_mode = "";
+$mkdist_head = 0;
+@tARGV = ();
+for (; @ARGV > 0; ) {
+    if ($ARGV[0] eq "-diff") {
+        $diff = 1;
+        shift; next;
+    }
+    if ($ARGV[0] eq "-update") {
+        $update = 1; shift;
+        if ($ARGV[0] eq "tags") {
+            $update_mode = "tags";
+            shift; next
+        }
+        if ($ARGV[0] eq "head") {
+            $update_mode = "head";
+            shift; next
+        }
+        &usage();
+    }
+    if ($ARGV[0] eq "-tag") {
+        $settag = 1; shift;
+        if ($ARGV[0] eq "dev") {
+            $settag_mode = "dev";
+            shift; next
+        }
+        if ($ARGV[0] eq "rev") {
+            $settag_mode = "rev";
+            shift; next
+        }
+        if ($ARGV[0] eq "branch") {
+            $settag_mode = "branch";
+            shift; next
+        }
+        &usage();
+    }
+    if ($ARGV[0] eq "-dist") {
+        $mkdist = 1; shift;
+        if ($ARGV[0] eq "cvs") {
+            $mkdist_mode = "cvs";
+            shift; next
+        }
+        if ($ARGV[0] eq "tree") {
+            $mkdist_mode = "tree";
+            shift; next
+        }
+        if ($ARGV[0] eq "autogen") {
+            $mkdist_mode = "autogen";
+            shift; next
+        }
+        if ($ARGV[0] eq "tarball") {
+            $mkdist_mode = "tarball";
+            shift; next
+        }
+        &usage();
+    }
+    if ($ARGV[0] eq "-module") {
+        $module = $ARGV[1];
+        shift; shift; next;
+    }
+    if ($ARGV[0] eq "-head")  { $mkdist_head = 1; shift; next; }
+    if ($ARGV[0] eq "-list")  { &list_distributions(); }
+    if ($ARGV[0] eq "-h")     { &usage(); }
+    if ($ARGV[0] eq "-help")  { &usage(); }
+    if ($ARGV[0] eq "--help") { &usage(); }
+    @tARGV = (@tARGV, $ARGV[0]);
+    shift;
+}
+@ARGV = @tARGV;
+
+if ( @ARGV != 1) { &usage (); }
+
+$distribution = $ARGV[0];
+&load_distfile ();
+
+if ($diff)   { &difflist (); }
+if ($settag) { &settags (); }
+if ($update) { &update_tree (); }
+if ($mkdist) { &make_distribution (); }
+&usage();
+
+sub vsystem {
+    print STDERR "@_\n";
+    $status = system ("@_");
+    $status;
+}
+
+sub difflist {
+
+    for ($i = 0; $i < @module; $i++) {
+        # the base component cannot be rdiffed
+        print STDERR "--- $module[$i] ---\n";
+        if ($module[$i] eq "base") { next; }
+        if ($tag[$i] eq "") { next; }
+        &vsystem ("cvs -q rdiff -s -r $tag[$i] $module[$i]");
+        print STDERR "\n\n";
+    }
+    exit 0;
+}
+
+sub settags {
+    print STDERR "setting tags\n";
+    if ($settag_mode eq "") { die "-tag mode is not set\n"; }
+    for ($i = 0; $i < @module; $i++) {
+        if (($module ne "") && ($module ne $module[$i])) { next; }
+        ## XXX make this backwards compatible with pre-ipp-2.4 releases (with four, not five, entries)?
+        ($do_tag, $do_build, $do_dist, $do_update, $dev_build) = $mode[$i] =~ m|(\S)(\S)(\S)(\S)(\S)|;
+        if ($do_tag eq "N") {
+            push @remind, $module[$i];
+            next;
+        }
+        if ($branchtag[$i] eq "") { die "branch tag missing for $module[$i]\n"; }
+        if ($branchver[$i] eq "") { die "branch tag version missing\n"; }
+        $tag = "$branchtag[$i]$branchver[$i]";
+        if ($settag_mode eq "branch") {
+            &vsystem ("cvs -q rtag -b $branchtag[$i] $module[$i]");
+            next;
+        }
+        if ($settag_mode eq "dev") {
+            &vsystem ("cvs -q rtag $tag $module[$i]");
+            next;
+        }
+        if ($settag_mode eq "rev") {
+            &vsystem ("cvs -q rtag -r $branchtag[$i] $tag $module[$i]");
+            next;
+        }
+        die "programming error";
+    }
+    for ($i = 0; $i < @remind; $i++) {
+        print STDERR "remember to set tag for $remind[$i] if needed\n";
+    }
+    exit 0;
+}
+
+sub update_tree {
+    print STDERR "updating tree\n";
+    if ($update_mode eq "") { die "-update mode is not set\n"; }
+
+    $homedir = `pwd`; chomp $homedir;
+    chdir "..";
+
+    for ($i = 0; $i < @module; $i++) {
+        if (($module ne "") && ($module ne $module[$i])) { next; }
+        ($do_tag, $do_build, $do_dist, $do_update) = $mode[$i] =~ m|(\S)(\S)(\S)(\S)|;
+        if ($do_update eq "N") {
+            push @remind, $module[$i];
+            next;
+        }
+        # only update modules with tags
+        if ($branchtag[$i] eq "") { die "branch tag missing for $module[$i]\n"; }
+        if ($branchver[$i] eq "") { die "branch tag version missing\n"; }
+        $tag = "$branchtag[$i]$branchver[$i]";
+        if ($update_mode eq "tags") {
+            &vsystem ("cvs -q co -r $tag $module[$i]");
+            next;
+        }
+        if ($update_mode eq "head") {
+            &vsystem ("cvs -q co -A $module[$i]");
+            next;
+        }
+        die "programming error";
+    }
+    for ($i = 0; $i < @remind; $i++) {
+        print STDERR "remember to update $remind[$i] if needed\n";
+    }
+    chdir $homedir;
+    exit 0;
+}
+
+# XXX probably need to force CVSROOT here
+sub make_distribution {
+    # extract source tree and optionally package the distribution into a tarball
+    print STDERR "making distribution\n";
+    if ($mkdist_mode eq "") { die "-dist mode is not set\n"; }
+    mkdir $distribution;
+    chdir $distribution;
+    for ($i = 0; $i < @module; $i++) {
+        if (($module ne "") && ($module ne $module[$i])) { next; }
+        ($do_tag, $do_build, $do_dist, $do_update) = $mode[$i] =~ m|(\S)(\S)(\S)(\S)|;
+        if ($do_dist eq "N") { next; }
+
+        if ($branchtag[$i] eq "") { die "branch tag missing for $module[$i]\n"; }
+        if ($branchver[$i] eq "") { die "branch tag version missing\n"; }
+        $tag = "$branchtag[$i]$branchver[$i]";
+
+        if ($mkdist_head) {
+            &vsystem ("cvs co $module[$i]");
+            if ($status) { die "error running cvs"; }
+        } else {
+            &vsystem ("cvs co -r $tag $module[$i]");
+            if ($status) { die "error running cvs"; }
+        }
+    }
+    chdir "..";
+    if ($mkdist_mode eq "cvs") { exit 0; }
+
+    # remove the CVS directories
+    &vsystem ("rm -r `find $distribution -name CVS`");
+    if ($mkdist_mode eq "tree") { exit 0; }
+
+    # make sure the aclocal path exists
+    @word = split (" ", $ENV{'ACLOCAL_FLAGS'});
+    if (@word != 2) { &failure("setup", "ACLOCAL_FLAGS is not set"); }
+    if (! -e $word[1]) { vsystem ("mkdir -p $word[1]"); }
+
+    # run autogen.sh, if present, to build a configure script
+    chdir $distribution;
+    for ($i = 0; $i < @module; $i++) {
+        if (($module ne "") && ($module ne $module[$i])) { next; }
+        ($do_tag, $do_build, $do_dist, $do_update) = $mode[$i] =~ m|(\S)(\S)(\S)(\S)|;
+        if ($do_dist eq "N") { next; }
+
+        if (! -e "$module[$i]/autogen.sh" || -e "$module[$i]/Build.PL" ) { next; }
+        chdir $module[$i];
+
+        vsystem ("./autogen.sh --no-configure");
+        if ($status) { die "error running autogen.sh"; }
+
+#       vsystem ("make distclean");
+#       if ($status) { die "error running make distclean"; }
+        chdir "..";
+    }
+    chdir "..";
+    if ($mkdist_mode eq "autogen") { exit 0; }
+
+    # build a tarball from the full tree
+    if (! -e tarballs) { mkdir "tarballs"; }
+    &vsystem ("tar cvzf tarballs/$distribution.tgz  $distribution");
+    if ($status) { die "error creating tarball\n"; }
+    exit 0;
+}
+
+sub list_distributions {
+    @list = <$tagsets/*.dist>;
+    foreach $line (@list) {
+        chomp $line;
+        ($dist) = $line =~ m|$tagsets/(\S*).dist|;
+        print STDERR "$dist\n";
+    }
+    exit 2;
+}
+
+sub load_distfile {
+    # open and read the distribution file
+    # results go into @module, @branchtag, @branchver, @mode
+    $file = "$tagsets/$ARGV[0].dist";
+    open (FILE, $file) || die "ERROR: can't open distribution file $file\n";
+    @list = <FILE>;
+    close (FILE);
+
+    @mode = ();
+    @module = ();
+    @branchtag = ();
+    @branchver = ();
+
+    foreach $line (@list) {
+        chop $line;
+        if ($line =~ m|^\s*$|) { next; }
+        if ($line =~ m|^\s*\#|) { next; }
+
+        ($mode, $my_module, $branchtag, $branchver) = split (" ", $line);
+
+        if ($my_module eq "") { die "missing module name\n"; }
+
+        ($do_tag, $do_build, $do_dist, $do_update) = $mode =~ m|(\S)(\S)(\S)(\S)|;
+        if (($do_tag ne "Y") && ($do_tag ne "N")) { die "invalid tag option $do_tag\n"; }
+        if (($do_build ne "Y") && ($do_build ne "N")) { die "invalid tag option $do_build\n"; }
+        if (($do_dist ne "Y") && ($do_dist ne "N")) { die "invalid tag option $do_dist\n"; }
+        if (($do_update ne "Y") && ($do_update ne "N")) { die "invalid tag option $do_update\n"; }
+
+        # print "module: $my_module, branchtag: $branchtag, branchver: $branchver ";
+        # print "tag: $do_tag, build: $do_build, dist: $do_dist, update: $do_update\n";
+
+        push @mode, $mode;
+        push @module, $my_module;
+        push @branchtag, $branchtag;
+        push @branchver, $branchver;
+    }
+}
+
+sub usage {
+    print STDERR "USAGE: psdist [options] (distribution]\n";
+    print STDERR "     : -tag (dev)      : set tags on cvs HEAD based on distribution table (requires -tag)\n";
+    print STDERR "     : -tag (rev)      : set tags on branch based on distribution table\n";
+    print STDERR "     : -tag (branch)   : create branch tags based on distribution table (requires -tag)\n\n";
+
+    print STDERR "     : -update (tags)  : update this tree from cvs to match distribution tags\n";
+    print STDERR "     : -update (head)  : update this tree from cvs to match distribution tags\n\n";
+
+    print STDERR "     : -dist (cvs)     : check out a distribution and leave CVS directories in place\n";
+    print STDERR "     : -dist (tree)    : check out a distribution and leave a clean tree\n";
+    print STDERR "     : -dist (autogen) : check out a distribution and run autogen\n";
+    print STDERR "     : -dist (tarball) : check out a distribution and make a tarball\n";
+    print STDERR "     : -head           : use the cvs HEAD for distribution checkout (requires -dist)\n\n";
+
+    print STDERR "     : -module         : perform action only on the specified module\n";
+    print STDERR "     : -list           : list valid distributions \n";
+    print STDERR "     : -diff           : show the difference between the distribution and current cvs HEAD\n\n";
+    exit 2;
+}
+

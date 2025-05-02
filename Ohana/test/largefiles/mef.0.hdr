@@ -1,0 +1,16 @@
+XTENSION= 'IMAGE  '            / Image extension                               
+BITPIX  =                  -32 /                                               
+NAXIS   =                    2 /                                               
+NAXIS1  =                  100 /                                               
+NAXIS2  =                  100 /                                               
+PCOUNT  =                    0 /                                               
+GCOUNT  =                    1 /                                               
+BSCALE  =         1.0000000000 /                                               
+BZERO   =         0.0000000000 /                                               
+EXTEND  =                    F /                                               
+STRVAL  = 'STRING VALUE 2    ' / STRING VALUE COMMENT 2                        
+FLTVAL  = 5.1415000000 / FLOAT VALUE COMMENT 2                                 
+INTVAL  = 4 / INTEGER VALUE COMMENT 2                                          
+BOOLVAL = F / BOOL VALUE COMMENT 2                                             
+COMMENT  STRING COMMENT 2                                                      
+EXTNAME = 'EXTENSION         ' /                                               

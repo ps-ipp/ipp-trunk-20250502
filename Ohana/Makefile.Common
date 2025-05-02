@@ -1,0 +1,144 @@
+# this file must be added to the makefile *after* LIB,BIN, etc are defined
+
+# (INC)     & (LIB)     are the program's local include & lib directories
+# (DESTINC) & (DESTLIB) are the target installation include & lib directories
+# (INCDIRS) & (LIBDIRS) are all of the probed include & lib directories
+# (LIBFLAGS) is the list of -lXXX directives from configure for external libs
+
+BASE_CFLAGS   =	$(CFLAGS)
+BASE_CPPFLAGS =	$(CPPFLAGS) -I$(INC) -I$(DESTINC) $(INCDIRS) -D$(ARCH)
+BASE_LDFLAGS  = $(LDFLAGS) -L$(LIB) -L$(DESTLIB) $(LIBDIRS) $(LIBFLAGS)
+
+FULL_CFLAGS   =	$(BASE_CFLAGS)
+FULL_CPPFLAGS =	$(BASE_CPPFLAGS)
+FULL_LDFLAGS  = $(BASE_LDFLAGS)
+
+TEST_CFLAGS   =	$(BASE_CFLAGS)
+TEST_CPPFLAGS =	$(BASE_CPPFLAGS)
+TEST_LDFLAGS  = $(BASE_LDFLAGS)
+
+TESTHARNESS   = $(ROOT)/src/libtap/tapcheck.pl
+
+DVO_LIBS  = $(DESTLIB)/libdvo.a $(DESTLIB)/libFITS.a $(DESTLIB)/libohana.a
+KAPA_LIBS = $(DVO_LIBS) $(DESTLIB)/libkapa.a 
+
+DVO_INCS  = $(DESTINC)/dvo.h $(DESTINC)/gfitsio.h $(DESTINC)/ohana.h $(DESTINC)/autocode.h 
+KAPA_INCS = $(DVO_INCS) $(DESTINC)/kapa.h 
+
+.PRECIOUS: %.$(ARCH).o
+.PRECIOUS: $(BIN)/%.$(ARCH)
+
+# is this line needed?
+.SUFFIXES: .$(ARCH).o
+
+$(DESTINC)/%: $(INC)/%
+	@if [ ! -d $(DESTINC) ]; then mkdir -p $(DESTINC); fi
+	rm -f $@
+	cp $< $@
+
+%.$(ARCH).o : %.c
+	$(CC) $(FULL_CFLAGS) $(FULL_CPPFLAGS) -c $< -o $@
+
+$(BIN)/%.$(ARCH):
+	@if [ ! -d $(BIN) ]; then mkdir -p $(BIN); fi
+	$(CC) $(FULL_CFLAGS) -o $@ $^ $(FULL_LDFLAGS)
+	@echo "compiled $*"
+	@echo ""
+
+$(TESTDIR)/%.$(ARCH): $(TESTDIR)/%.$(ARCH).o
+	@if [ ! -d $(TESTDIR) ]; then mkdir -p $(TESTDIR); fi
+	$(CC) $(TEST_CFLAGS) -o $@ $^ $(TEST_LDFLAGS)
+	@echo "compiled $*"
+	@echo ""
+
+$(TESTBIN)/%: $(TESTDIR)/%.$(ARCH)
+	@if [ ! -d $(TESTBIN) ]; then mkdir -p $(TESTBIN); fi
+	rm -f $(TESTBIN)/$*
+	cp $(TESTDIR)/$*.$(ARCH) $(TESTBIN)/$*
+	@echo "installed $*"
+	@echo ""
+
+$(DESTBIN)/%: $(BIN)/%.$(ARCH) 
+	@if [ ! -d $(DESTBIN) ]; then mkdir -p $(DESTBIN); fi
+	rm -f $(DESTBIN)/$*
+	cp $(BIN)/$*.$(ARCH) $(DESTBIN)/$*
+	@echo "installed $*"
+	@echo ""
+
+$(LIB):
+	@if [ ! -d $(LIB) ]; then mkdir -p $(LIB); fi
+
+$(LIB)/%.$(ARCH).a:
+	@if [ ! -d $(LIB) ]; then mkdir -p $(LIB); fi
+	rm -f $@
+	ar rcv $@ $^
+	$(RANLIB) $@
+	@echo "compiled static library $*"
+	@echo ""
+
+$(DESTLIB)/%.a: $(LIB)/%.$(ARCH).a
+	@if [ ! -d $(DESTLIB) ]; then mkdir -p $(DESTLIB); fi
+	rm -f $@
+	cp $< $@
+	@echo "installed static library $*"
+	@echo ""
+
+# USE THIS? -Wl,--allow-multiple-definition
+
+$(LIB)/%.$(ARCH).so:
+	@if [ ! -d $(LIB) ]; then mkdir -p $(LIB); fi
+	rm -f $@
+#	gcc -shared -Wl,-soname,$*.so -o $@ $^ -lc
+	gcc -shared -Wl,-soname,$*.so -o $@ $^ -lc -Wl,--allow-multiple-definition
+	@echo "compiled shared library $*"
+	@echo ""
+
+$(LIB)/%.$(ARCH).dylib:
+	@if [ ! -d $(LIB) ]; then mkdir -p $(LIB); fi
+	rm -f $@
+	gcc -dynamiclib -o $@ $^ -lc $(FULL_LDFLAGS)
+	@echo "compiled shared library $*"
+	@echo ""
+
+# shared objects have a different compilation on solaris:
+# gcc -shared -o $@ $^ -lc
+
+$(DESTLIB)/%.so: $(LIB)/%.$(ARCH).so
+	@if [ ! -d $(DESTLIB) ]; then mkdir -p $(DESTLIB); fi
+	rm -f $@
+	cp $< $@
+	@echo "installed shared library $*"
+	@echo ""
+
+$(DESTLIB)/%.dylib: $(LIB)/%.$(ARCH).dylib
+	@if [ ! -d $(DESTLIB) ]; then mkdir -p $(DESTLIB); fi
+	rm -f $@
+	cp $< $@
+	@echo "installed shared library $*"
+	@echo ""
+
+$(DESTMAN)/%: $(MAN)/%
+	@if [ ! -d $(DESTMAN) ]; then mkdir -p $(DESTMAN); fi
+	rm -f $@
+	cp $< $@
+
+clean:
+	rm -f `find . -name "*.o"`
+	rm -f `find . -name "*.o"`
+	rm -f `find . -name "*~"`
+	rm -f `find . -name "#*"`
+
+test.clean:
+	for i in $(TESTPROG); do rm -f $(TESTBIN)/$$i; done
+	for i in $(TESTPROG); do rm -f $(TESTDIR)/$$i.$(ARCH); done
+	for i in $(TESTPROG); do rm -f $(TESTDIR)/$$i.$(ARCH).o; done
+
+dist: clean
+	rm -rf $(BIN)
+	rm -rf $(LIB)
+
+# $@ : target filename
+# $* : matched word (%)
+# $< : first prereq
+# $^ : all prereqs
+

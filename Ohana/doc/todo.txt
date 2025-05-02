@@ -1,0 +1,32 @@
+
+- KAPA & KII
+  - library functions to access KAPA / KII interfaces
+    - mana uses a text command interface, do the same?
+    - make a text I/F function, and supply a set of basic wrapped functions
+    - see plotstuff.c in various locations
+
+- DVO Images
+  - define a standard I/F to get at the images (dvo-images.c)
+  - include an iterator which loops over blocks?
+  - include the opihi/dvo/LoadImages functions which loads the 
+    images into a static global?
+  - allow for the intenal/external conversions:
+    we need to have internal floats for Mags (just like RA,DEC)
+  - should we keep the 2D Mcal fit structures?
+  - the skyprobe image tables place the 'sky' somewhere odd (Myyyy)
+    - make a conversion to limit the number of formats?
+
+- DVO Catalog tools
+  - unify the USNO, HST-GSC, 2MASS, etc lookup functions
+  - place under libohana
+  - split DVO functions from libohana?
+  - rename the functions for accessing the average/measure tables?
+  - allow for different spatial granularity of average/measure tables?
+
+- Docs
+  - go though */doc directories and cleanup notes, move into doc/www
+  - need more extensive descriptions!
+
+- gastro2
+  - final cleanups and some further testing
+  - translate to psLib & add to IPP!

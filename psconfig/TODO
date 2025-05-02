@@ -1,0 +1,40 @@
+
+2007.02.02 : IPP release 1.0 : Known Outstanding Issues
+
+This release of the IPP software is missing a number of major features
+defined in the IPP System Concept Definition.  There are also a number
+of missing minor features, bells and whistles which have been
+identified.
+
+Major Missing Features:
+
+* Phase 4 Tools.  This release does not include the Phase 4 programs
+pswarp, ppStac, and poisub, and the related infrastructure support in
+ippTools and ippScripts.
+
+* Static Sky tools.  This release does not include a number of elements
+related to the static sky definition: the definition of the static sky
+cells and tools to manipulate them; the static sky surface brightness
+modelling tool; and photometry analysis operations for large, extended
+objects.
+
+* relastro.  The global astrometry analysis software is unimplemented.
+
+* flat-field corrections.  The DVO flat-field correction analysis is
+not integrated with the rest of the IPP detrend creation system.
+
+Minor Missing Features:
+
+* full set of columns in output object tables from Phase 2.
+* ippMonitor user interface missing a variety of options
+* output plots from psphot and pspastro are not exported to ippMonitor
+* this list is incomplete.
+* ETC...
+
+In addition, there are 
+
+* incomplete documentation
+
+* incomplete testing on:
+  - Nebulous integration
+  - DVO integration

@@ -1,0 +1,13 @@
+
+   plot <x> <y> [-dx dx] [-dy dy] [+dx dx] [+dy dy]
+
+   plot a pair of vectors.  the options allow for errorbars.  If only
+   one of -dy or +dy is given, the given vector is used for the
+   errorbar.  If both are given, -dy defines the lower errorbar, while
+   +dy defines the upper errorbar.  This allows for assymetric errors
+   in a trivial fashion.  The same applies to the -dx, +dx values.  
+
+   The vectors are plotted with the current plot style.  See style for
+   all of the options.
+
+

@@ -1,0 +1,160 @@
+
+TBD priorities:
+
+- test psImageSmooth / remove psImageSmooth_EAM
+- unify pmSourceLocalSky / pmSourceLocalSky_EAM
+- unify pmSourceMoments_EAM / pmSourceMoments_EAM
+- merge with image data hierarchy stuff
+- better name for psPSF_Test
+
+Defined APIs:
+
+top-level psphot functions : these do not need to be in psModules
+  psMetadata  *psphotArguments ();
+  psImageData *psphotSetup ();
+  psStats     *psphotImageStats ();
+  psArray     *pmPeaksSigmaLimit ();
+  psArray     *psphotSourceStats ();
+  pmPSF       *psphotChoosePSF ();
+  bool         psphotApplyPSF ();
+  bool         psphotFitGalaxies ();
+  void         psphotOutput ();
+
+psphot-specific functions
+  bool         psphotMarkPSF ();
+  bool         psphotSubtractPSF ();
+  int          psphotSortBySN ();
+  int          psphotSaveImage ();
+
+** add the following entries to the psLibSDRS
+
+psLib extra utilities
+  bool         psTimerStart ();		- already in SDRS
+  void         psTimerFree (); 		- already in SDRS
+  bool         psTimerClear ();		- add to psLibSDRS
+  psF64        psTimerMark (); 		- already in SDRS
+  psS32        psLogArguments ();	- now: psArgumentVerbosity in SDRS
+  psS32        psTraceArguments ();	- now: psArgumentVerbosity in SDRS
+  int          psArgumentGet ();	- already in SDRS
+  int          psArgumentRemove ();	- already in SDRS
+  psVector    *psVectorCreate ();	- add to psLibSDRS
+  int          psImageCountPixelMask ();- add to psLibSDRS
+  psVector    *psGetRowVectorFromImage(); - add to psLibSDRS?
+  bool         p_psVectorPrintRow ();     - add to psLibSDRS?
+
+// basic image functions
+  bool         psImageInit ();		- already in SDRS
+  void         psImageSmooth_EAM ();    - test psLib version and drop
+
+// psLine functions
+  psLine      *psLineAlloc ();		- add to psLibSDRS
+  bool         psLineInit (); 		- add to psLibSDRS
+  bool         psLineAdd ();  		- add to psLibSDRS
+
+** compare with current implementation / update psLib
+   we need to define a mechanism to carry the beta values and the
+   parameter limits
+
+// minimize 
+  psBool       p_psMinLM_GuessABP_EAM ();
+  psBool       psMinimizeLMChi2_EAM();
+  psF64        p_psMinLM_dLinear ();  -- not included in pslib.h files
+
+** already in psLib : some need to be cleaned up by MHPCC
+
+// polynomial functions
+  psF64           Polynomial2DEval();
+  psImage        *psBuildSums2D();
+  psPolynomial2D *VectorFitPolynomial2DOrd_EAM();
+  psPolynomial2D *Polynomial2DAlloc();
+  void            psPolynomial2DDump ();
+  psPolynomial2D *RobustFit2D_nomask();
+  psPolynomial2D *RobustFit2D();
+  psVector       *Polynomial2DEvalVector();
+
+  psVector       *psBuildSums1D();
+  void            psPolynomial1DDump ();
+  psF64           Polynomial1DEval_EAM();
+  psVector       *Polynomial1DEvalVector_EAM();
+  psPolynomial1D *Polynomial1DAlloc();
+  psPolynomial1D *VectorFitPolynomial1DOrd_EAM();
+
+** make sure these are all in the psModules SDRS:
+
+pmObjects.h:
+  pmMoments           *pmMomentsAlloc();
+  pmModel             *pmModelAlloc();
+  pmSource            *pmSourceAlloc();
+  psVector            *pmFindVectorPeaks()
+  psArray             *pmFindImagePeaks()
+  psList              *pmCullPeaks()
+  pmSource            *pmSourceLocalSky()
+  bool                 pmSourceMoments()
+  pmPSFClump           pmSourcePSFClump()
+  bool                 pmSourceRoughClass()
+  bool                 pmSourceSetPixelsCircle()
+  pmModel             *pmSourceModelGuess()
+  psArray             *pmSourceContour()
+  bool                 pmSourceFitModel()
+  bool                 pmSourceAddModel()
+  bool                 pmSourceSubModel()
+  int                  pmModelParameterCount ();
+  char                *pmModelGetType ();
+  pmModelType          pmModelSetType ();
+  pmModelFunc          pmModelFunc_GetFunction ();
+  pmModelFlux          pmModelFlux_GetFunction ();
+  pmModelRadius        pmModelRadius_GetFunction ();
+  pmModelLimits        pmModelLimits_GetFunction ();
+  pmModelGuessFunc     pmModelGuessFunc_GetFunction ();
+  pmModelFromPSFFunc   pmModelFromPSFFunc_GetFunction ();
+  pmModelFitStatusFunc pmModelFitStatusFunc_GetFunction ();
+
+model function abstractions:
+  typedef psMinimizeLMChi2Func pmModelFunc;
+  typedef psF64 (*pmModelFlux)(const psVector *params);
+  typedef psF64 (*pmModelRadius)(const psVector *params, double flux);
+  typedef bool (*pmModelLimits)(psVector **beta_lim, psVector **params_min, psVector **params_max);
+  typedef bool (*pmModelGuessFunc)(pmModel *model, pmSource *source);
+  typedef bool (*pmModelFromPSFFunc)(pmModel *modelPSF, pmModel *modelFLT, pmPSF *psf);
+  typedef bool (*pmModelFitStatusFunc)(pmModel *model);
+
+conversions between elliptical shape representations
+  EllipseAxes  EllipseMomentsToAxes ();
+  EllipseShape EllipseAxesToShape ();
+  EllipseAxes  EllipseShapeToAxes ();
+
+output functions
+  bool         pmSourcesWriteText ();  	-- be careful about psImageData...
+  bool         pmSourcesWriteOBJ ();   	-- be careful about psImageData...
+  bool         pmSourcesWriteCMP ();   	-- be careful about psImageData...
+  bool         pmSourcesWriteCMF ();   	-- be careful about psImageData...
+  bool         pmSourcesWriteSX ();    	-- be careful about psImageData...
+  int          pmSourcesDophotType ();
+  bool         pmPeaksWriteText ();
+  bool         pmMomentsWriteText ();
+  bool         pmModelWritePSFs ();
+  bool         pmModelWriteFLTs ();
+  bool         pmModelWriteNULLs ();
+
+// psf utilities
+  pmPSF       *pmPSFAlloc ();
+  pmPSF_Test  *pmPSF_TestAlloc ();
+  pmPSF_Test  *pmPSF_TestModel ();
+  bool         pmPSFFromModels ();
+  pmModel     *pmModelFromPSF ();
+  bool         pmSourcePhotometry ();
+  bool         pmPSFMetricModel ();
+
+// psModule extra utilities
+  bool         pmSourceFitModel_EAM();  -- requires updated version of psMinimize...
+  bool         pmSourceLocalSky_EAM (); -- compare with pmSourceLocalSky & choose
+  bool         pmSourceMoments_EAM();   -- compare with pmSourceMoments & choose
+  bool         pmSourceDefinePixels();  -- be careful about psImageData...
+  bool         pmModelFitStatus ();
+  int          pmSourceDophotType ();
+  psF32        pmConfigLookupF32 ();	-- merge with Paul's image container hierarchy
+
+** this needs to be confronted with the phase2 / image container hierarchy
+
+// psImageData functions
+  psImageData *psImageDataAlloc ();

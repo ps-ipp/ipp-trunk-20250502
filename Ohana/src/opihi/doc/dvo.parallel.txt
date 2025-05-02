@@ -1,0 +1,12 @@
+
+2012.02.17
+
+ To parallelize dvo queries, like mextract, I need a version of dvo
+ that takes acts as the remote client.  It should take a single dvo
+ command on the command line and operate on it on the remote host.
+ eg:
+
+dvo_client mextract (reset of line)
+
+it would dump out a result table somewhere (what is loaded?)
+

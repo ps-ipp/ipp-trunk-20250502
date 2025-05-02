@@ -1,0 +1,374 @@
+#!/usr/bin/env perl
+
+# create a MOPS_DETECTABILITY_QUERY fits table from a text description file
+
+use warnings;
+use strict;
+
+use Astro::FITS::CFITSIO qw( :constants );
+
+use Getopt::Long qw( GetOptions :config auto_help auto_version gnu_getopt );
+use Pod::Usage qw( pod2usage );
+
+use constant EXTNAME => 'MOPS_DETECTABILITY_QUERY'; # Extension name for output table
+
+my ( $input,			# Name of input text file
+     $output,			# Name of output table
+     $query_id, 
+     $nostage,
+     $version,
+     );
+
+GetOptions(
+	   'input|i=s'    => \$input,
+	   'output|o=s'   => \$output,
+	   'query_id|q=s' => \$query_id,
+           'version|v=s'  => \$version,
+           'nostage'      => \$nostage,
+) or pod2usage( 2 );
+
+pod2usage( -msg => "Unknown option: @ARGV", -exitval => 2 ) if @ARGV;
+pod2usage( -msg => "Required options: --input --output",
+           -exitval => 3) unless defined $input and defined $output;
+
+# Read what we've been given
+my $in;
+if ($input eq '-') {
+    $in = \*STDIN;
+} else {
+    open $in, "<$input" or die "cannot open $input for reading";
+}
+my %colData;
+my %headerData;
+my $numRows = read_data_for_table($in,'\s+', \%colData, \%headerData); 
+if (!$numRows) {
+    print STDERR "no data in $input\n";
+    exit 1;
+}
+
+# The header keywords
+my $header = [
+        { name =>  'QUERY_ID', 
+                    writetype => TSTRING, 
+                    comment => 'MOPS Query ID for this batch query',
+                    value => undef
+        },
+        { name =>  'EXTVER', 
+                    writetype => TSTRING, 
+                    comment => 'Extension version',
+                    value => undef
+        },
+        { name =>  'FPA_ID', 
+                    writetype => TSTRING, 
+                    comment => 'orginal FPA_ID used at ingest',
+                    value => undef
+        }, 
+        { name =>  'MJD-OBS', 
+                    writetype => TDOUBLE, 
+                    comment => 'starting time of the exposure, MJD',
+                    value => undef
+        },
+        { name =>  'FILTER', 
+                    writetype => TSTRING, 
+                    comment => 'effective filter use for the exposure',
+                    value => undef
+        },
+        { name =>  'OBSCODE', 
+                    writetype => TSTRING, 
+                    comment => 'site identifier (MPC observatory code)',
+                    value => undef
+        },
+        { name =>  'STAGE',
+                   writetype => TSTRING,
+                   comment => 'processing stage to examine',
+                   value => undef
+        }
+];
+
+# Validate header.
+
+if (defined($query_id)) {
+    $headerData{QUERY_ID} = $query_id;
+}
+unless (exists($headerData{QUERY_ID})) {
+    die "No QUERY_ID specified for header.";
+}
+
+unless (exists($headerData{EXTVER})) {
+    die "No EXTVER specified for header.";
+}
+if ($headerData{EXTVER} == 1) {
+    unless (exists($headerData{STAGE})) {
+	warn "No STAGE value specified in header. Assuming default value of 'diff'";
+	$headerData{STAGE} = 'diff';
+    }
+    foreach my $entry_ref (@{ $header }) {
+	my $name = $entry_ref->{name};
+	unless (exists($headerData{$name})) {
+	    die "Required header value $name not specified (try EXTVER=2?).";
+	}
+	$entry_ref->{value} = $headerData{$name};
+    }
+}    
+elsif ($headerData{EXTVER} == 2) {
+    unless (exists($headerData{STAGE})) {
+	warn "No STAGE value specified in header. Assuming default value of 'diff'";
+	$headerData{STAGE} = 'diff';
+    }
+    my $tmp_header;
+    foreach my $entry_ref (@{ $header }) {
+	my $name = $entry_ref->{name};
+	if (exists($headerData{$name})) {
+	    $entry_ref->{value} = $headerData{$name};
+	    push @{ $tmp_header }, $entry_ref;
+	}
+    }
+    $header = $tmp_header;
+}
+else {
+    die "Unknown EXTVER = $headerData{EXTVER}.";
+}
+
+# Specification of columns to write
+my $columns = [ 
+        # matching rownum from detectability original request
+        { name => 'ROWNUM',   type => '20A', writetype => TSTRING }, 
+        # coordinate at start of exposure, in degrees
+        { name => 'RA1_DEG',  type => 'D',   writetype => TDOUBLE },
+        # coordinate at start of exposure, in degrees
+        { name => 'DEC1_DEG', type => 'D',   writetype => TDOUBLE },
+        # coordinate at end of exposure, in degrees
+        { name => 'RA2_DEG',  type => 'D',   writetype => TDOUBLE },
+        # coordinate at end of exposure, in degrees
+        { name => 'DEC2_DEG', type => 'D',   writetype => TDOUBLE },
+        # apparent magnitude
+        { name => 'MAG',      type => 'D',   writetype => TDOUBLE },
+];
+my $columns_v2 = [
+    { name => 'FPA_ID', type => '20A', writetype => TSTRING },
+    { name => 'MJD-OBS', type => 'D', writetype => TDOUBLE },
+    { name => 'FILTER', type => '20A', writetype => TSTRING },
+    { name => 'OBSCODE', type => '20A', writetype => TSTRING },
+    { name => 'STAGE', type => '20A', writetype => TSTRING }
+    ];
+# Validate the data.
+if ($headerData{EXTVER} == 1) {
+    foreach my $entry_ref (@{ $columns }) {
+	my $name = $entry_ref->{name};
+	unless (exists($colData{$name})) {
+	    die "Required data column $name not found (try EXTVER=2?).";
+	}
+    }
+}
+if ($headerData{EXTVER} == 2) {
+    my $tmp_columns;
+    foreach my $entry_ref (@{ $columns }) {
+	my $name = $entry_ref->{name};
+	if (exists($colData{$name})) {
+	    push @{ $tmp_columns }, $entry_ref;
+	}
+    }
+    foreach my $entry_ref (@{ $columns_v2 }) {
+	my $name = $entry_ref->{name};
+	if (exists($colData{$name})) {
+	    push @{ $tmp_columns }, $entry_ref;
+	}
+    }
+    $columns = $tmp_columns;
+}	    
+
+# Construct the array of arrays
+my @colDataAoA = ();
+foreach my $col_def (@{ $columns }) {
+    my $name = $col_def->{name};
+    push @colDataAoA, $colData{$name};
+}
+
+# foreach (@$columns) {
+#     push @colData, [];
+# }
+
+
+
+my $status = make_fits_table($output, EXTNAME, $numRows, \@colDataAoA, $columns, $header);
+
+exit $status;
+
+# XXXXX: This should be in a module
+# two utility functions that may be used to create a FITS binary
+# table from hashes describing the header keywords and columns
+
+# read_table_description reads the data for a table from a simple text file
+# make_fits_table writes out the table to a named file
+
+use Astro::FITS::CFITSIO qw( :constants );
+Astro::FITS::CFITSIO::PerlyUnpacking(1);
+
+# A function to build a fits binary table from supplied data 
+# 
+sub make_fits_table {
+        my $output = shift;     # name of output file
+        my $extname = shift;    # extension name
+        my $numRows = shift;    # number of rows in the table
+        my $colData = shift;    # ref to array of arrays containing the data for each column
+        my $columns = shift;    # ref to array of column descriptions (each a hash)
+                                # with keys: name, type, and writetype
+        my $header = shift;     # ref to array of header keyword descriptions - each a hash
+                                # with keys: name, name, writetype, comment, and value
+        my $status = 0;
+
+        die "incorrect arguments" if !defined($columns);
+        # note $header can be nil
+
+        # build arrays for cfitsio
+        my @colNames;			# Names of columns
+        my @colTypes;			# Types of columns
+        my @colWriteType;               # type to use to write
+
+        foreach my $colSpec ( @$columns) {
+            push @colNames, $colSpec->{name};
+            push @colTypes, $colSpec->{type};
+            push @colWriteType, $colSpec->{writetype};
+        }
+
+        if (-e $output) {
+            unlink "$output" or die "failed to remove existing $output";
+        }
+
+        my $outFits = Astro::FITS::CFITSIO::create_file( $output, $status ); # Output file handle
+        check_fitsio( $status );
+
+        $outFits->create_img( 16, 0, undef, $status );
+        check_fitsio( $status );
+
+        # Create the table
+
+        $outFits->create_tbl( BINARY_TBL(), $numRows, scalar @colNames,
+                                \@colNames, \@colTypes, undef, $extname, $status );
+        check_fitsio( $status );
+
+        # if header keyword descriptions were provided add them
+        if ($header) {
+            foreach my $headerword ( @$header ) {
+                my $value = $headerword->{value};
+                unless (defined $value) {
+                    print "Can't find header keyword $headerword\n";
+                    next;
+                }
+                # zap quotation marks
+                $value =~ s/\'//g;
+                my $name    = $headerword->{name};
+                my $type    = $headerword->{writetype};
+                my $comment = $headerword->{comment};
+                $outFits->write_key( $type, $name, $value, $comment, $status );
+                check_fitsio( $status );
+            }
+        }
+
+
+        for (my $i = 0; $i < scalar @colNames; $i++) {
+            my $writeType = $colWriteType[$i];
+            $outFits->write_col( $writeType, $i + 1, 1, 1, $numRows, $colData->[$i], $status );
+            check_fitsio( $status );
+        }
+
+        $outFits->close_file( $status );
+
+        return 0;
+
+} # end of sub make_fits_table
+
+
+
+# read the table contents from a file
+#
+# input text file format:
+#   lines that begin with '#' are comment lines and are skipped.
+#   other lines are data. Each data line is split into fields with the
+#   provided separator
+#
+# if $header is not null header the first non-commented line is read to
+# fill the value for each header keyword. The number of fields must match
+# the number of keywords.
+#
+# Following the optional header data, each data line contains data for each
+# row in the table. The number of fields must match the number of column
+# arrays provided.
+
+sub read_data_for_table {
+    my $in      = shift;    # input file handle
+    my $sep     = shift;    # string containing field separator
+    my $colData = shift;    # reference to an array of arrays for the data
+    my $header  = shift;    # rerence to array of header keyword descriptions
+
+    my $line_num = 0;
+    my @keywords = ();
+    my $row_num;
+    while (<$in>) {
+	chomp;
+#	print STDERR "$line_num $#keywords $_\n";
+	if ($_ =~ /^\s*$/) {
+	    next;
+	}
+	if ($line_num == 0) {
+	    if ($_ !~ /EXTVER/) {
+		next;
+	    }
+	    # Parse header information keywords
+	    $_ =~ s/#//g;
+	    @keywords = split /\s+/;
+	    if ($keywords[0] eq '') {
+		shift(@keywords);
+	    }
+	}
+	elsif ($line_num == 1) {
+	    # Parse header information values
+	    my @values = split /\s+/;
+	    if ($#values != $#keywords) {
+		die "Number of header columns in input does not equal expected number of header words $#values $#keywords";
+	    }
+	    for (my $i = 0; $i <= $#values; $i++) {
+		$header->{$keywords[$i]} = $values[$i];
+	    }		
+	}
+	elsif ($line_num == 2) {
+	    if ($_ !~ /ROWNUM/) {
+		next;
+	    }
+	    # Parse table information keywords, dumping old keywords
+	    $_ =~ s/#//g;
+	    @keywords = split /\s+/;
+	    if ($keywords[0] eq '') {
+		shift(@keywords);
+	    }
+	}
+	else {
+	    # Parse table information values
+	    unless ($_ =~ /^#/) {
+		my @values = split /\s+/;
+		if ($#values != $#keywords) {
+		    die "Number of header columns in input does not equal expected number of header words $#values $#keywords";
+		}
+		for (my $i = 0; $i <= $#values; $i++) {
+		    push @{ $colData{$keywords[$i]} }, $values[$i];
+		    $row_num = $#{ $colData{$keywords[$i] } } + 1;
+		}		
+	    }
+	}
+	$line_num++;
+    }
+    # we return the number of rows read
+    return $row_num;
+}
+
+# From Astro::FITS::CFITSIO demo
+sub check_fitsio
+{
+    my $status = shift;		# Status of FITSIO calls
+
+    if ($status != 0) {
+	my $msg;		# Message to output
+	Astro::FITS::CFITSIO::fits_get_errstatus( $status , $msg );
+	die "CFITSIO error: $msg\n";
+    }
+}

@@ -1,0 +1,3 @@
+SELECT
+    chipImfile.*
+FROM chipImfile

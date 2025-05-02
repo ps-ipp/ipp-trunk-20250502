@@ -1,0 +1,40 @@
+
+notation:
+
+object : an astronomical source, may be observed multiple times
+measurement : a single observation of an object (one per object per exposure) 
+m_inst : instrumental magnitude measurement
+m_cat  : catalog magnitude measurement (m_inst + 25.0)
+m_sys  : nominal internal system magnitude measurement (m_inst + ZP(CCD,FILTER)
+m_rel  : transparency adjusted magnitude measurement (m_sys + offset)
+
+M_ave  : average (object) magnitude in internal system
+M_ref  : average (object) magnitude in reference system
+
+test for photometric consistency:
+
+for the output from dither.corr:
+
+M_ave - m_rel(ccd) vs x_ccd, y_ccd
+M_ave - m_rel vs x_mosaic, y_mosaic
+M_ave - m_rel vs airmass?
+
+
+
+  MEGACAM.g.00 Minst - MEGACAM.g.01 Mcal : time
+
+  MEGACAM.g.00 - g : time
+
+  MEGACAM.g.00,Mrel - MEGACAM.g.01,Mcal : MEGACAM.g.00 - MEGACAM.r.00
+
+- use relphot to flag stars in poor locations, etc
+
+- we can choose for entry if it is Minst, Mcat, Msys, Mvrel, Mcal, Mave, or Mref
+
+int GetMagnitudeType (char *name, PhotCode *code, int *MagMode);
+
+- should return photcode & value MEAS_MREL, AVE_MREF, or what ever
+- should provide an appropriate default for measures, etc
+- should check for consistency with photcode type:
+  PRI/SEC : AVE_MREF, AVE_MAVE
+  DEP     : MEAS_ETC

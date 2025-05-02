@@ -1,0 +1,17 @@
+#include <pslib.h>
+#include <[% pkg_name %].h>
+#include <stdlib.h>
+
+int main ()
+{
+    psDB            *dbh;
+
+    dbh = [% pkg_namespace %]Init("localhost", "test", NULL, "test");
+    if (!dbh) {
+        exit(EXIT_FAILURE);
+    }
+
+    psDBCleanup(dbh);
+
+    exit(EXIT_SUCCESS);
+}

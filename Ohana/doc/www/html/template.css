@@ -1,0 +1,75 @@
+
+/* heading styles */
+H1   		{ color: #000000; font-size: xx-large; }
+H2		{ color: #000000; font-size: x-large;  }
+H3		{ color: #000000; font-size: large;    }
+H4		{ color: #000000; font-size: normal;   }
+H5		{ color: #000000; font-size: small;    }
+
+span.title      { font-size: 200% }
+span.line       { color: #ff0000 }
+
+/* document-specific styles come next */
+
+a:link, a:visited, a:active { text-decoration: underline; font-weight: bold; color: #000080 }
+
+body  { bgcolor: #e0d8f0; background-color: #e0d8f0; padding: 0px; margin: 0px }
+table.outline { 
+	text-align: left; 
+	font-size: small; 
+	font-weight: normal; 
+	background: #5c0ca8; 
+	border: 2px solid #5c0ca8; 
+	padding: 0px; 
+}
+
+table.toparea { border-width: 0px}
+
+a.menutop  { text-decoration: none; color: #ffffff; font-weight: bold }
+a.menulink { text-decoration: none; font-weight: normal; color: #000000}
+a.menusele { text-decoration: none; font-weight: normal; color: #ff0000}
+
+td.menutop  { text-align: left; background: #000000; font-size: small; color: #ffffff; padding: 2px; }
+td.menulink { text-align: left; background: #ffffff; font-size: small; color: #000000; padding: 2px; font-weight: normal; text-indent: 8px; }
+td.menumiss { text-align: left; background: #e0e0e0; font-size: small; color: #000000; padding: 2px; text-indent: 8px; }
+td.menusel  { text-align: left; background: #00ffff; font-size: small; color: #ff0000; padding: 2px; font-weight: normal; text-indent: 8px; }
+
+a.ln { text-decoration: none; font-weight: normal; color: #000000}
+a.dl { text-decoration: none; font-weight: normal; color: #000000}
+a.sl { text-decoration: none; font-weight: normal; color: #ff0000}
+
+td.dir0 { background: #c0b0b0; color: #000000; padding: 2px; text-indent: 0px;  }
+td.dir1 { background: #d0c0c0; color: #000000; padding: 2px; text-indent: 8px;  }
+td.dir2 { background: #e0d0d0; color: #000000; padding: 2px; text-indent: 16px; }
+td.dir3 { background: #f0e0e0; color: #000000; padding: 2px; text-indent: 24px; }
+
+td.dsl0 { background: #c0b0b0; color: #ff0000; padding: 2px; text-indent: 0px;  }
+td.dsl1 { background: #d0c0c0; color: #ff0000; padding: 2px; text-indent: 8px;  }
+td.dsl2 { background: #e0d0d0; color: #ff0000; padding: 2px; text-indent: 16px; }
+td.dsl3 { background: #f0e0e0; color: #ff0000; padding: 2px; text-indent: 24px; }
+
+td.doc0 { background: #a090f0; color: #000000; padding: 2px; text-indent: 0px;  }
+td.doc1 { background: #b0a0f0; color: #000000; padding: 2px; text-indent: 8px;  }
+td.doc2 { background: #c0b0f0; color: #000000; padding: 2px; text-indent: 16px; }
+td.doc3 { background: #d0c0f0; color: #000000; padding: 2px; text-indent: 24px; }
+
+td.sel0 { background: #a090f0; color: #ff0000; padding: 2px; text-indent: 0px;  }
+td.sel1 { background: #b0a0f0; color: #ff0000; padding: 2px; text-indent: 8px;  }
+td.sel2 { background: #c0b0f0; color: #ff0000; padding: 2px; text-indent: 16px; }
+td.sel3 { background: #d0c0f0; color: #ff0000; padding: 2px; text-indent: 24px; }
+
+td.title { background-color: #ffffff; padding: 5px; font-size: x-large; text-align: left; vertical-align: top}
+td.body  { background-color: #ffffff; padding: 5px; font-size: normal;  text-align: left; vertical-align: top }
+
+a.submenu { text-decoration: underline; font-weight: bold; color: #ffffff}
+a.sublist { text-decoration: none; font-weight: bold; color: #0000ff}
+a.subplot { text-decoration: underline; font-weight: bold; color: #000000}
+
+td.subtitle  { background: #a02020; font-size: large; font-weight: bold; color: #ffffff; padding: 2px }
+td.submenu   { background: #000000; text-align: center; font-size: small; font-weight: bold; color: #ffffff; padding: 2px }
+td.subsel    { background: #b0b0b0; text-align: center; font-size: small; font-weight: bold; color: #000000; padding: 2px }
+
+table.pretty    { background: #ffffff; border: 1px solid #000000; padding: 0px; cellspacing: 0px; }
+table.pretty td { border: 1px solid #000000; padding: 3px; text-align: left}
+table.pretty th { border: 1px solid #000000; padding: 3px; text-align: left}
+table.pretty caption { font-weight: bold; }

@@ -1,0 +1,15 @@
+
+   fprintf ("format codes") (value1 value2 ...)
+
+   Prints output according to a specified format
+
+   Fomat codes must match the order and number of values.
+
+   FORMAT CODES:
+    %x.yf : floating point number with x total places and y places after
+             the decimal point; further decimal places are rounded
+    %x.ye : number in scientific notation with x places and y places after
+             the decimal point; further decimal places are rounded
+    %xs : ASCII output with x places
+    %xd : Integers with x places
+    %x : Express number in hexidesimal

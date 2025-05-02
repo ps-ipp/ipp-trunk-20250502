@@ -1,0 +1,177 @@
+#!/usr/bin/env perl
+
+# grab the command line options
+$close = "";
+@tARGV = ();
+for (; @ARGV > 0; ) {
+    if ($ARGV[0] eq "-close") {
+	$close = "-close";
+        shift; next;
+    }
+    @tARGV = (@tARGV, $ARGV[0]);
+    shift;
+}
+@ARGV = @tARGV;
+
+if (@ARGV != 2) { &escape ("USAGE: defringe (inlist) (outlist) [-close]"); }
+
+# load config info
+$confdir = `gconfig CONFDIR`; chop $confdir;
+if ($?) { &escape ("config failure"); }
+$script = "$confdir/mana/fringe.pro";
+
+# various lists
+@input  = split (" ", `cat $ARGV[0]`);
+@output = split (" ", `cat $ARGV[1]`);
+@ccds   = split (" ", `cameraconfig -ccds`);
+$Nccd   = @ccds;
+$dbmode = `gconfig DETREND-DB-MODE`; chop $dbmode;
+
+# find fringe-point file
+$frpts  = `detsearch -quiet -image $input[0] $ccds[0] split -type frpts`; chop $frpts;
+if ($?) { &escape ("can't get fringe points for image"); }
+
+# temporary files
+$frstats = mktemp ("defringe");
+$imstats = mktemp ("defringe");
+$fitpars = mktemp ("defringe");
+
+# prepare for defringing:
+# 1) measure input image fringe stats (imstats)
+# 2) extract master fringe frame stats (frstats)
+# 3) create output directory if needed
+# 4) delete output files if present
+
+open (FILE, ">$frstats");
+for ($i = 0; $i < $Nccd; $i++) {
+    # measure fringe amplitude of input image
+    vsystem ("getfringe $input[$i] $ccds[$i]  $frpts 1 >> $imstats");
+    if ($?) { die "failure to measure fringe amplitude\n"; }
+
+    print "imstats; $imstats\n";
+
+    # find fringe master frames
+    @file = `detsearch -quiet $close -image $input[$i] $ccds[$i] split -type fringe`; 
+    $file = $file[-1]; chop $file;
+    if ($?) { &escape ("can't find fringe master for $input[$i]"); }
+    $fringe[$i] = $file;
+    if ($dbmode eq "MEF") { $fringe[$i] = "$file\[$ccds[$i]\]"; }
+
+    print "file: $file\n";
+    print "fringe: $fringe[$i]\n";
+    print "dbmode; $dbmode\n";
+
+    # get fringe master stats
+    if ($dbmode eq "MEF") {
+	($name, $C0, $C1, $SKY, $RNG) = split (" ", `echo $file | fields -x $i FRNG_C0 FRNG_C1 FRNG_SKY FRNG_RNG`);
+    } else {
+	($name, $C0, $C1, $SKY, $RNG) = split (" ", `echo $file | fields FRNG_C0 FRNG_C1 FRNG_SKY FRNG_RNG`);
+    }
+    print FILE "$C0 $C1 $SKY $RNG\n";
+    print STDERR "$C0 $C1 $SKY $RNG\n";
+
+    # check on output directory
+    &ckdir ($output[$i]);
+
+    if (-e $output[$i]) { unlink $output[$i]; }
+}
+close (FILE);
+
+# convert image stats to optimal image parameters
+vsystem ("fr.frstats -applyfit $imstats $frstats $fitpars");
+if ($?) { &escape ("failure in fr.frstats"); }
+@fitpars = `cat $fitpars`;
+
+# load flips parameter file
+$paramfile = `gconfig FLIPS_PARAM_DEFRINGE`; chop $paramfile;
+open (FILE, "$paramfile");
+@rawpars = <FILE>;
+close (FILE);
+
+$infile  = mktemp ("\@defringe");
+$parfile = mktemp ("defringe");
+for ($i = 0; $i < $Nccd; $i++) {
+
+    # create input list file
+    ($s0, $s1, $RF, $ds) = split (" ", $fitpars[$i]);
+    open (FILE, ">$infile");
+    print FILE "$input[$i]  $s0 1.0 $ds\n";
+    print FILE "$fringe[$i] $s1 $RF $ds\n";
+    close (FILE);
+
+    # create input par file
+    @params = @rawpars;
+    foreach $line (@params) {
+	$line =~ s|LISTNAME|$infile|;
+	$line =~ s|FILENAME|$output[$i]|;
+	$line =~ s|COMMENT|Elixir Defringing|;
+    }
+    open (FILE, ">$parfile");
+    foreach $line (@params) { print FILE "$line"; }
+    close (FILE);
+
+    vsystem ("imcombred $parfile");
+    if ($?) { &escape ("failure running imcombred"); }
+}
+
+&goodbye;
+
+########
+
+sub ckdir {
+
+    my ($file) = $_[0];
+    my ($dir, @words);
+
+    @words = split ("/", $file);
+    pop (@words);
+    $dir = join ("/", @words);
+    if ($dir eq "") { $dir = "."; }
+    if (! -e $dir) {
+	system ("mkdir -p $dir");
+	if ($?) { die "can't create output directory $dir\n"; }
+    }
+}
+
+sub loadlist {
+
+    my($command) = $_[0];
+    my(@list, $line);
+
+    @list = `$command`;
+
+    foreach $line (@list) { chop ($line); }
+
+    return @list;
+}
+
+sub vsystem {
+    print STDERR "@_\n";
+    $status = system ("@_");
+    $status;
+}
+
+@temp = ();
+sub mktemp {
+
+    my ($base) = $_[0];
+    my ($name);
+    $name = `mktemp /tmp/$base.XXXXXX`;
+    chop $name;
+
+    push @temp, $name;
+    return $name;
+}
+
+sub escape {
+    $message = $_[0];
+    foreach $name (@temp) {
+	unlink ($name);
+    }
+    die "$message\n";
+}
+
+sub goodbye {
+    foreach $name (@temp) { unlink ($name); }
+    exit 0;
+}

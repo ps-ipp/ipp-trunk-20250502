@@ -1,0 +1,43 @@
+#!/usr/bin/env perl
+
+sub vsystem {
+    print STDERR "@_\n";
+    $status = system ("@_");
+    $status;
+}
+
+sub goodbye {
+    die "@_\n";
+}
+
+if (@ARGV != 3) { die "ERROR: USAGE: fixlists (in) (keep) (out)\n" }
+
+open (FILE, $ARGV[1]);
+@keep = ();
+while ($line = <FILE>) {
+    chop ($line);
+    @keep = (@keep, $line);
+}
+close (FILE);
+
+open (IN, $ARGV[0]);
+open (OUT, ">$ARGV[2]");
+
+for ($j = 0; $line = <IN>; $j++) {
+    chop ($line);
+    $found = 0;
+    for ($i = 0; !$found && ($i < @keep); $i++) {
+	if ($keep[$i] == $j) {
+	    $found = 1;
+	}
+    }
+    if ($found) {
+	print OUT "$line\n";
+    }
+}
+close (IN);
+close (OUT);
+
+print STDERR "SUCCESS\n";
+
+# put the logic for selecting images in this file

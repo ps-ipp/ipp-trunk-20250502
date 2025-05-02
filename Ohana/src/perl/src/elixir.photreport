@@ -1,0 +1,48 @@
+#!/usr/bin/env perl
+
+if (@ARGV != 2) { die "USAGE : elixir.photreport (name) (catdir)\n"; }
+
+$name   = $ARGV[0];
+$catdir = $ARGV[1];
+
+# test named Xserver, or start vnc on specified machine
+$xhost = `gconfig XHOST`; chop $xhost;
+$xdisp = `gconfig XDISP`; chop $xdisp;
+if (system ("/usr/bin/X11/xdpyinfo -display $xdisp")) {
+    print STDERR "X server is not running. start it now on $xhost\n";
+    exit 1;
+}
+$ENV{'DISPLAY'} = $xdisp;
+
+# select filters 
+@filter = split (" ", `filtnames list`);
+
+$logdir   = `gconfig LOGDIR`;   chop $logdir;
+$confdir  = `gconfig CONFDIR`;  chop $confdir;
+$script   = "$confdir/mana/standards";
+
+# run mana, call script
+open (STAT, "|dvo -D CATDIR $catdir --norc");
+print STAT "input $script\n";
+
+# place commands in a macro
+print STAT "macro go\n";
+foreach $filter (@filter) {
+    @word = split (" ", `filtnames $filter -cal`);
+    if (@word[1] == 0) { next; }
+    $target = $word[2];
+    print STAT "echo $filter -> $target\n";
+    print STAT "photreport $target $name\n";
+}
+print STAT "exit 0\n";
+print STAT "end\n";
+
+print STAT "go\n";
+print STAT "exit 1\n";
+close (STAT);
+if ($?) {
+    print STDERR "ERROR problem with photreport\n";
+    exit 1;
+}
+print STDOUT "SUCCESS: finished with photreport\n";
+exit 0;

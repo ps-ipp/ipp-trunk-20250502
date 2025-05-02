@@ -1,0 +1,271 @@
+#!/usr/bin/env perl
+
+# Copyright (C) 2007-2008  Chris Waters
+#
+
+use strict;
+use warnings FATAL => qw( all );
+
+use vars qw( $VERSION );
+$VERSION = '0.01';
+
+use Nebulous::Client;
+
+use Getopt::Long qw( GetOptions :config auto_help auto_version );
+use Pod::Usage qw( pod2usage );
+
+use Digest::MD5;
+use URI;
+
+my ($validate,$server,$nouris);
+
+$server = $ENV{'NEB_SERVER'} unless $server;
+
+$validate = 1;
+$nouris   = 1;
+
+GetOptions(
+    'server|s=s'     => \$server,
+) || pod2usage( 2 );
+
+my $key = shift;
+
+pod2usage( -msg => "Unknown option: @ARGV", -exitval => 2 ) if @ARGV;
+pod2usage( -msg => "Required options: --server", -exitval => 2 ) unless $server;
+pod2usage( -msg => "missing key", exitval => 2 ) unless defined $key;
+
+# this program should exit (with success status) if file is not a neb file
+
+my $scheme = file_scheme ($key);
+if ($scheme eq "file") { print "key is a file, not a nebulous key\n"; exit 0; }
+if ($scheme eq "path") { print "key is a path, not a nebulous key\n"; exit 0; }
+
+my $neb = Nebulous::Client->new(
+    proxy => "$server",
+);
+
+die "can't connect to Nebulous Server: $server"
+    unless defined $neb;
+
+my $stat = $neb->stat($key);
+die "nebulous key: $key not found" unless $stat;   
+
+my $instances = $neb->find_instances($key, 'any');
+die "no instances found" unless $instances;   
+
+my $user_copies;
+eval {
+    $user_copies = $neb->getxattr($key, "user.copies");
+};
+unless(defined($user_copies)) {
+    $user_copies = 2;
+}
+
+my @validation;
+my %md5sum_uniq;
+my %md5sum_valid;
+my $last_f = '';
+my $existing_copies = 0;
+my @existance;
+my @md5sums;
+my @files = map {URI->new($_)->file if $_} @$instances;
+
+for (my $i = 0; $i <= $#files; $i++) {
+    # count existing files and get the MD5 sums
+    if (-e $files[$i]) {
+	$existance[$i] = 1;
+	$existing_copies++;
+	my $fh;
+	open($fh,$files[$i]);
+	$md5sums[$i] = Digest::MD5->new->addfile($fh)->hexdigest;
+	close($fh);
+
+	$md5sum_uniq{$md5sums[$i]} = 1;
+
+	if ($md5sums[$i] eq 'd41d8cd98f00b204e9800998ecf8427e') {
+	    $existance[$i] = 0;
+	    push @{ $md5sum_valid{$md5sums[$i]} }, $files[$i];
+	    next;
+	}
+
+	push @{ $md5sum_valid{$md5sums[$i]} }, $files[$i];
+	$last_f = $files[$i];
+    } else {
+	$existance[$i] = 0;
+	$md5sums[$i] = 'NON-EXISTANT';
+	$md5sum_uniq{$md5sums[$i]} = 1;
+	push @{ $md5sum_valid{$md5sums[$i]} }, $files[$i];
+    }
+}
+
+# check number of copies and number of unique MD5 sum values
+my $N_mds = scalar(keys(%md5sum_uniq));
+my $N_files = scalar(@files);
+
+# seems like we should not call neb-replicate until *after* we have
+# removed 0-byte copies
+if ($N_files < $user_copies) {
+    print "Insufficient copies ($N_files) of $key, replicating!\n";
+    system("neb-replicate $key");
+}
+
+if ($N_mds == 1) {
+    print "Nebulous key $key is consistent.\n";
+} else {
+    my $valid_sum = '';
+    my $valid_file = '';
+    my $m;
+    foreach $m (keys %md5sum_valid) {
+	if (($m ne 'd41d8cd98f00b204e9800998ecf8427e') && ($m ne 'NON-EXISTANT')) {
+	    if ($valid_sum ne '') {
+		die "Too many acceptable files for key $key\n";
+	    }
+	    $valid_sum = $m;
+	    $valid_file = ${ $md5sum_valid{$m} }[0];
+	}
+    }
+    if ($valid_sum eq '') {
+	die "No acceptable file for key $key\n";
+    } else {
+	print "Repairing instances\n";
+	foreach $m (keys %md5sum_valid) {
+	    if ($m ne $valid_sum) {
+		foreach my $f (@{ $md5sum_valid{$m} }) {
+		    print "\tcp $valid_file $f\n";
+		    system("cp $valid_file $f");
+
+		    # if we failed to make a copy, the target ($f) could be inaccessible
+		    if ($? >> 8 != 0) {
+			if ($existance[0] == 1) {
+
+			    # The target is a valid file 0-byte file
+			    # but we cannot replace it with the
+			    # correct file.  We can fix this with
+			    # culls and replications.
+
+			    print "Attempting to fix this.\n";
+			    print("neb-replicate $key\n");
+			    system("neb-replicate $key");
+			    if ($? >> 8 == 0) {
+				# if the neb-replicate succeeded, remove the bad copy with neb-cull
+				my $bad_volume = (split /\//, $f)[2];
+				print("neb-cull --volume $bad_volume $key\n");
+				system("neb-cull --volume $bad_volume $key");
+			    } else {
+				die "Failed to copy file $valid_file to $f, and subsequent replication also failed!\n";
+			    }
+			} else {
+			    die "Failed to copy file $valid_file to $f!\n";
+			}
+		    }
+		}
+	    }
+	}
+    }
+}
+
+# if ($N_files > $user_copies) {
+#     my @split = split /\//, $last_f;
+#     my $volume = $split[2];
+#     print "Culling extra copy: neb-cull --volume $volume $key\n";
+#     system("neb-cull --volume $volume $key");
+# }
+
+# Return the scheme used for a filename (copied from PS-IPP-Config/lib/PS/IPP/Config.pm
+sub file_scheme
+{
+    my $name = shift;                # Filename for which to get the scheme
+    my ($scheme) = $name =~ /^(path|neb|file):/; # The scheme, e.g., file://, path://
+#    if undef $scheme { $scheme = "none"; }
+    # $scheme may be undef if the input doesn't contain one of the above recognised schemes
+    unless (defined($scheme)) { $scheme = "none"; }
+    return $scheme;
+}
+
+__END__
+
+=pod
+
+=head1 NAME
+
+neb-repair - tool to check and repair instances
+
+=head1 SYNOPSIS
+
+    neb-repair [--server <URL>] <key> 
+
+=head1 DESCRIPTION
+
+This program repairs instances and corrects instance counts for a nebulous key:
+
+If some of the existing instances have the MD5 sum corresponding to a
+0-byte file, but the rest have the same, non-zero byte md5sum, then
+replace the 0-byte files with the non-zero byte version.
+
+At the end, if the number of instances is less than the value of
+user.copies, then additional copies are generated.
+
+=head1 OPTIONS
+
+=over 4
+
+=item * --server|-s <URL>
+
+URL of the Nebulous server to connect to.
+
+Optional if the appropriate environment variable is set.
+
+=back
+
+=head1 ENVIRONMENT
+
+These environment variables may be used in place of the specified command line
+options.  All command line option will override the corresponding environment
+value.
+
+=over 4
+
+=item * C<NEB_SERVER>
+
+Equivalent to --server|-s
+
+=back
+
+=head1 CREDITS
+
+
+
+=head1 SUPPORT
+
+Please contact the author directly via e-mail.
+
+=head1 AUTHOR
+
+Chris Waters
+
+=head1 COPYRIGHT
+
+Copyright (C) 2007-2008  Chris Waters
+
+This program is free software; you can redistribute it and/or modify it under
+the terms of the GNU General Public License as published by the Free Software
+Foundation; either version 2 of the License, or (at your option) any later
+version.
+
+This program is distributed in the hope that it will be useful, but WITHOUT ANY
+WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A
+PARTICULAR PURPOSE.  See the GNU General Public License for more details.
+
+You should have received a copy of the GNU General Public License along with
+this program; if not, write to the Free Software Foundation, Inc., 59 Temple
+Place - Suite 330, Boston, MA  02111-1307, USA.
+
+The full text of the license can be found in the L<perlgpl> Pod as supplied
+with Perl 5.8.1 and later.
+
+=head1 SEE ALSO
+
+L<Nebulous::Server>, L<neb-initdb>, L<neb-addvol>, L<nebdiskd>, L<neb-df>,
+L<neb-touch>, C<regex(7)>
+
+=cut

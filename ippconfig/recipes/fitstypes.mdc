@@ -1,0 +1,206 @@
+
+# BITPIX is the bits per pixel for writing the output data
+# COMP = NONE|RICE|GZIP|HCOMPRESS|PLIO is the compression algorithm
+# TILE.[XYZ] are the tile sizes.  0 means entire the dimension, so (0,1,1) forms tiles from rows
+# NOISE [0..16] is the number of "noise bits" to preserve when quantising floating point data; 16 for no loss
+# HSCALE is the scale factor for lossy compression with HCOMPRESS; 0 or 1 for none; 2*RMS --> 10x compression
+# HSMOOTH is the smoothing to apply to HCOMPRESSed data when decompressing; 0 for none
+
+# BITPIX(S32) is the bits per pixel for writing the output data
+# COMPRESSION(STR) = NONE|RICE|GZIP|HCOMPRESS|PLIO is the compression algorithm
+# TILE.[XYZ](S32) are the tile sizes.  0 means entire the dimension, so (0,1,1) forms tiles from rows
+# NOISE(S32) [0..16] is the number of "noise bits" to preserve when quantising floating point data
+# HSCALE(S32) is the scale factor for lossy compression with HCOMPRESS; 0 or 1 for none; 2*RMS --> 10x compression
+# HSMOOTH(S32) is the smoothing to apply to HCOMPRESSed data when decompressing; 0 for none
+# SCALING(STR) = NONE|RANGE|STDEV_POSITIVE|STDEV_NEGATIVE|STDEV_BOTH|MANUAL is the scaling scheme
+# BSCALE(F32) is the manual scaling to apply (when SCALING = MANUAL)
+# BZERO(F32) is the manual zero-point to apply (when SCALING = MANUAL)
+# STDEV.BITS(S32) is the number of bits to map to a standard deviation (when SCALING = STDEV_*)
+# STDEV.NUM(F32) is the number of standard deviations to the edge (when SCALING = STDEV_NEGATIVE|STDEV_POSITIVE)
+# FLOAT(STR) is the name of a custom floating-point type
+
+# Compressed detrend
+COMP_FLAT	METADATA
+	BITPIX		S32	16
+	SCALING		STR	MANUAL
+	BSCALE		F32	1.0
+	BZERO		F32	32768.0
+	COMPRESSION	STR	RICE
+	TILE.X		S32	0
+	TILE.Y		S32	1
+	TILE.Z		S32	1
+	NOISE		S32	8
+END
+
+DET_IMAGE	METADATA
+	BITPIX		S32	-32
+END
+DET_MASK	METADATA
+	BITPIX		S32	16
+END
+DET_WEIGHT	METADATA
+	BITPIX		S32	-32
+END
+
+SKY_IMAGE	METADATA
+	BITPIX		S32	-32
+END
+SKY_MASK	METADATA
+	BITPIX		S32	16
+END
+SKY_WEIGHT	METADATA
+	BITPIX		S32	-32
+END
+
+# Uncompressed positive image
+RAW_IMG	METADATA
+#	BITPIX		S32	-32
+	BITPIX		S32	16
+	SCALING		STR	MANUAL
+	BSCALE		F32	1.0
+	BZERO		F32	32768.0
+	STDEV.BITS	S32	4
+	STDEV.NUM	F32	10
+	COMPRESSION	STR	NONE
+	TILE.X		S32	0
+	TILE.Y		S32	1
+	TILE.Z		S32	1
+	NOISE		S32	8
+END
+
+# Compressed positive image
+COMP_IMG	METADATA
+	BITPIX		S32	16
+	SCALING		STR	STDEV_POSITIVE
+	STDEV.BITS	S32	4
+	STDEV.NUM	F32	10
+	COMPRESSION	STR	RICE
+	TILE.X		S32	0
+	TILE.Y		S32	1
+	TILE.Z		S32	1
+	NOISE		S32	8
+END
+
+# Compressed mask
+COMP_MASK	METADATA
+	BITPIX		S32	16
+	COMPRESSION	STR	GZIP
+	TILE.X		S32	0
+	TILE.Y		S32	1
+	TILE.Z		S32	1
+	NOISE		S32	8
+END
+# Compressed weight image
+COMP_WT		METADATA
+	BITPIX		S32	16
+	SCALING		STR	STDEV_POSITIVE
+	STDEV.BITS	S32	4
+	STDEV.NUM	F32	10
+	COMPRESSION	STR	RICE
+	TILE.X		S32	0
+	TILE.Y		S32	1
+	TILE.Z		S32	1
+	NOISE		S32	8
+END
+# Compressed subtraction image
+COMP_SUB	METADATA
+	BITPIX		S32	16
+	SCALING		STR	STDEV_BOTH
+	STDEV.BITS	S32	4
+	STDEV.NUM	F32	5
+	COMPRESSION	STR	RICE
+	TILE.X		S32	0
+	TILE.Y		S32	1
+	TILE.Z		S32	1
+	NOISE		S32	8
+END
+# Compressed log flux image for stacks.
+COMP_STACK     METADATA
+        BITPIX          S32     16
+        SCALING         STR     ASINH_RANGE
+#	 SCALING        STR      LOG_RANGE
+#        STDEV.BITS      S32     4
+#        STDEV.NUM       F32     100
+	COMPRESSION     STR     RICE
+	TILE.X		S32	0
+	TILE.Y		S32	1
+	TILE.Z		S32	1
+	NOISE		S32	8
+END
+
+# Compressed exposure image
+# NOTE: only allows exposure times up to 6553.6 seconds
+# (too small for UNIONS and other deep stacks)
+EXP	METADATA
+	BITPIX		S32	16
+	SCALING		STR	MANUAL
+	FUZZ		BOOL	FALSE
+	# Note: TRUE = BZERO + BSCALE * DISK
+	BSCALE		F32	0.1	# Disk is stored as 1/10th sec
+	BZERO		F32	3276.8	# Store unsigned zero as zero
+	# switch to NONE to work around ticket 1411
+	#COMPRESSION	STR	NONE
+	COMPRESSION	STR	GZIP
+	TILE.X		S32	0
+	TILE.Y		S32	1
+	TILE.Z		S32	1
+	NOISE		S32	8
+END
+
+# Deep Compressed log flux image for stacks.
+# allows real images values up to 10^8 DN
+STK_UNIONS_RAW     METADATA
+	BITPIX		S32	-32
+	SCALING		STR	MANUAL
+	BSCALE		F32	1.0
+	BZERO		F32	0.0
+	COMPRESSION	STR	NONE
+	TILE.X		S32	0
+	TILE.Y		S32	1
+	TILE.Z		S32	1
+	NOISE		S32	8
+END
+
+STK_UNIONS_COMP     METADATA
+        BITPIX          S32     16
+        SCALING         STR     ASINH_MANUAL
+	BSCALE		F32	0.00061	# 2^15 ~ 100M DN
+	BZERO		F32	0.0	# symmetric about 0.0 DN
+	BOFFSET		F32	0.0	# symmetric about 0.0 DN
+	BSOFTEN		F32	1.0	# bend the curve at 1 DN
+	COMPRESSION     STR     RICE
+	TILE.X		S32	0
+	TILE.Y		S32	1
+	TILE.Z		S32	1
+	NOISE		S32	8
+END
+
+# Deep compressed exposure image
+# NOTE: only allows exposure times up to 65536 seconds
+# (OK for UNIONS but not MD deep stacks)
+EXP_UNIONS METADATA
+	BITPIX		S32	16
+	SCALING		STR	MANUAL
+	FUZZ		BOOL	FALSE
+	# Note: TRUE = BZERO + BSCALE * DISK
+	BSCALE		F32	1	# Disk is stored as 1/10th sec
+	BZERO		F32	32768	# Store unsigned zero as zero
+	# switch to NONE to work around ticket 1411
+	#COMPRESSION	STR	NONE
+	COMPRESSION	STR	GZIP
+	TILE.X		S32	0
+	TILE.Y		S32	1
+	TILE.Z		S32	1
+	NOISE		S32	8
+END
+
+# Compressed number image
+EXPNUM	METADATA
+	BITPIX		S32	16
+	COMPRESSION	STR	GZIP
+	TILE.X		S32	0
+	TILE.Y		S32	1
+	TILE.Z		S32	1
+	NOISE		S32	8
+END
+

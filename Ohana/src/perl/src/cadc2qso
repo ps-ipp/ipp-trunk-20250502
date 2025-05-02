@@ -1,0 +1,46 @@
+#!/usr/local/bin/perl
+# extract mosaic IQ values from table, send to QSO db
+
+sub vsystem {
+    print STDERR "@_\n";
+    $status = system ("@_");
+    $status;
+}
+
+sub goodbye {
+    die "@_\n";
+}
+
+if (@ARGV != 1) { die "USAGE: cadc2qso (table.fits)\n"; }
+
+# update the following entries to the QSO database (one per mosaic):
+
+# --iq_center (OBS_IQ_CENTER)
+# --iq_r_ratio (OBS_IQ_R_RATIO)
+# --iq_x_ratio (OBS_IQ_X_RATIO)
+# --iq_y_ratio (OBS_IQ_Y_RATIO)
+
+# add error checking on the ftable call...
+@obsid = `ftable -column OBSID $ARGV[0]`;
+@iqcen = `ftable -column OBS_IQ_CENTER $ARGV[0]`;
+@iqr   = `ftable -column OBS_IQ_R_RATIO $ARGV[0]`;
+@iqx   = `ftable -column OBS_IQ_X_RATIO $ARGV[0]`;
+@iqy   = `ftable -column OBS_IQ_Y_RATIO $ARGV[0]`;
+
+foreach $value (@obsid) { chop $value; }
+foreach $value (@iqcen) { chop $value; }
+foreach $value (@iqr)   { chop $value; }
+foreach $value (@iqx)   { chop $value; }
+foreach $value (@iqy)   { chop $value; }
+
+$Nrow = @obsid;
+if ($Nrow != @iqcen) { &goodbye ("error in OBS_IQ_CENTER"); }
+if ($Nrow != @iqr) { &goodbye ("error in OBS_IQ_R_RATIO"); }
+if ($Nrow != @iqx) { &goodbye ("error in OBS_IQ_X_RATIO"); }
+if ($Nrow != @iqy) { &goodbye ("error in OBS_IQ_Y_RATIO"); }
+
+for ($i = 0; $i < $Nrow; $i++) {
+    vsystem ("/cfht/bin/update_xexpe.sh -U qso_elixir -P op1eliw --obsid $obsid[$i] --iq_center $iqcen[$i] --iq_r_ratio $iqr[$i] --iq_x_ratio $iqx[$i] --iq_y_ratio $iqy[$i]");
+}
+print STDOUT "SUCCESS: done with $ARGV[0]\n";
+exit (0);

@@ -1,0 +1,30 @@
+#!/bin/csh -f
+
+set sys=`uname -s` 
+switch ($sys)
+ case IRIX64:
+   setenv ARCH irix;
+   breaksw;
+ case SunOS:
+   set ver=`uname -r | awk '{print substr($1,1,1)}'`;
+   if ($ver == 5) then
+     setenv ARCH sol
+   else 
+     setenv ARCH sun4
+   endif
+   breaksw;
+ case Linux:
+   setenv ARCH linux;
+   breaksw;
+ case HP-UX:
+    setenv ARCH hp;
+    breaksw;
+ default:
+   echo "unknown architecture";
+   setenv ARCH unknown;
+   breaksw;
+endsw
+
+setenv PATH /bin:/usr/bin:/data/milo/eugene/elixir/ohana/bin/{$ARCH}
+
+echo $PATH

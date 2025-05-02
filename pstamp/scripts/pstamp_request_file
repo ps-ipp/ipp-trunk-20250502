@@ -1,0 +1,477 @@
+#!/usr/bin/env perl
+
+# create a Postage Stamp Request file from a textual description
+
+use warnings;
+use strict;
+
+use Astro::FITS::CFITSIO qw( :constants );
+Astro::FITS::CFITSIO::PerlyUnpacking(1);
+
+use Getopt::Long qw( GetOptions :config auto_help auto_version gnu_getopt );
+use Pod::Usage qw( pod2usage );
+use File::Basename;
+
+use constant EXTNAME => 'PS1_PS_REQUEST'; # Extension name for output table
+
+my ( $input,			# Name of input text file
+     $output,			# Name of output table
+     $req_name, 
+     $email, 
+     $help
+     );
+
+GetOptions(
+	   'input|i=s'    => \$input,
+	   'output|o=s'   => \$output,
+	   'req_name|r=s' => \$req_name,
+	   'email=s'      => \$email,
+           'help|h'       => \$help,
+) or pod2usage( 2 );
+
+printhelp($0) if $help;
+
+pod2usage( -msg => "Unknown option: @ARGV", -exitval => 2 ) if @ARGV;
+
+unless (defined $input) {
+    print STDERR "Required options: --input\n";
+    printhelp($0);
+}
+
+# The header kewords
+my $header = [
+        { name =>  'REQ_NAME', 
+                    writetype => TSTRING, 
+                    comment => 'Postage Stamp request name',
+                    value => undef
+        },
+        { name =>  'EXTVER', 
+                    writetype => TSTRING, 
+                    comment => 'Extension version',
+                    value => undef
+        },
+        { name => 'ACTION',
+                    writetype => TSTRING,
+                    comment => 'Action to perform: LIST or PROCESS',
+                    value => undef
+        },
+#        { name => 'USERNAME',
+#                    writetype => TSTRING,
+#                    comment => 'username for request (optional)',
+#                    value => undef
+#        },
+        { name => 'EMAIL',
+                    writetype => TSTRING,
+                    comment => 'email for submittor (optional)',
+                    value => undef
+        },
+];
+
+my $email_column_num = 3;
+
+# Specification of columns to write
+my $columns = [ 
+        { name => 'ROWNUM',     type => 'J',   writetype => TULONG }, 
+
+        { name => 'CENTER_X',   type => 'D',  writetype => TDOUBLE },
+        { name => 'CENTER_Y',   type => 'D',  writetype => TDOUBLE },
+        { name => 'WIDTH',      type => 'D',  writetype => TDOUBLE },
+        { name => 'HEIGHT',     type => 'D',  writetype => TDOUBLE },
+        # 2 bits in COORD_MASK indicate what units of roi coords are
+        { name => 'COORD_MASK', type => 'J',  writetype => TULONG },
+
+        { name => 'JOB_TYPE',   type => '16A', writetype => TSTRING },
+        { name => 'OPTION_MASK',type => 'J',   writetype => TULONG },
+
+        # image selection parameters
+        { name => 'PROJECT',    type => '16A', writetype => TSTRING },
+        # new in version 2
+        { name => 'SURVEY_NAME',type => '16A', writetype => TSTRING },
+        { name => 'IPP_RELEASE', type => '64A', writetype => TSTRING },
+        # end of new in version 2
+        { name => 'REQ_TYPE',   type => '16A', writetype => TSTRING },
+        { name => 'IMG_TYPE',   type => '16A', writetype => TSTRING },
+        { name => 'ID',         type => '16A', writetype => TSTRING },           
+        { name => 'TESS_ID',    type => '64A', writetype => TSTRING },
+        { name => 'COMPONENT',  type => '64A', writetype => TSTRING },
+
+        { name => 'DATA_GROUP ',type => '64A', writetype => TSTRING },
+
+        { name => 'REQFILT',    type => '16A', writetype => TSTRING },
+        { name => 'MJD_MIN',    type => 'D',   writetype => TDOUBLE },
+        { name => 'MJD_MAX',    type => 'D',   writetype => TDOUBLE },
+        # new in version 2
+        { name => 'RUN_TYPE',   type => '16A', writetype => TSTRING },
+        { name => 'FWHM_MIN',   type => 'D',   writetype => TDOUBLE },
+        { name => 'FWHM_MAX',   type => 'D',   writetype => TDOUBLE },
+
+        { name => 'COMMENT ',   type => '64A', writetype => TSTRING },
+];
+my $columns_v1 = [ 
+        { name => 'ROWNUM',     type => 'J',   writetype => TULONG }, 
+
+        { name => 'CENTER_X',   type => 'D',  writetype => TDOUBLE },
+        { name => 'CENTER_Y',   type => 'D',  writetype => TDOUBLE },
+        { name => 'WIDTH',      type => 'D',  writetype => TDOUBLE },
+        { name => 'HEIGHT',     type => 'D',  writetype => TDOUBLE },
+        # 2 bits in COORD_MASK indicate what units of roi coords are
+        { name => 'COORD_MASK', type => 'J',  writetype => TULONG },
+
+        { name => 'JOB_TYPE',   type => '16A', writetype => TSTRING },
+        { name => 'OPTION_MASK',type => 'J',   writetype => TULONG },
+
+        # image selection parameters
+        { name => 'PROJECT',    type => '16A', writetype => TSTRING },
+        { name => 'REQ_TYPE',   type => '16A', writetype => TSTRING },
+        { name => 'IMG_TYPE',   type => '16A', writetype => TSTRING },
+        { name => 'ID',         type => '16A', writetype => TSTRING },           
+        { name => 'TESS_ID',    type => '64A', writetype => TSTRING },
+        { name => 'COMPONENT',  type => '64A', writetype => TSTRING },
+
+        { name => 'DATA_GROUP ',type => '64A', writetype => TSTRING },
+
+        { name => 'REQFILT',    type => '16A', writetype => TSTRING },
+        { name => 'MJD_MIN',    type => 'D',   writetype => TDOUBLE },
+        { name => 'MJD_MAX',    type => 'D',   writetype => TDOUBLE },
+
+        { name => 'COMMENT ',   type => '64A', writetype => TSTRING },
+];
+
+my $in;
+if ($input eq '-') {
+    $in = \*STDIN;
+} else {
+    open $in, "<$input" or die "cannot open $input for reading";
+}
+
+# build array of arrays for the column data. Note if the input file is version 1 then
+# some of thes will get dropped
+my @colData;
+foreach (@$columns) {
+    push @colData, [];
+}
+
+
+my $minimum_cols = 6;
+my $extver = 2;
+my $numRows = read_data_for_table($in,'\s+', \@colData, $header, $minimum_cols, \$extver); 
+if (!$numRows) {
+    print STDERR "no data in $input\n";
+    exit 1;
+}
+
+# overwrite the REQ_NAME value from the input file with the command
+# line argument
+
+if ($req_name) {
+    $header->[0]->{value} = $req_name;
+} else {
+    $req_name = $header->[0]->{value};
+}
+if ($email) {
+    $header->[$email_column_num]->{value} = $email;
+}
+
+
+die "no request name defined" unless defined $req_name;
+
+$output = $req_name . ".fits" if !$output;
+
+my $status = make_fits_table($output, EXTNAME, $numRows, \@colData, $extver > 1 ? $columns : $columns_v1, $header);
+
+exit $status;
+
+# XXXXX: This should be in a module
+# two utility functions that may be used to create a FITS binary
+# table from hashes describing the header keywords and columns
+
+# read_table_description reads the data for a table from a simple text file
+# make_fits_table writes out the table to a named file
+
+
+# A function to build a fits binary table from supplied data 
+# 
+sub make_fits_table {
+        my $output = shift;     # name of output file
+        my $extname = shift;    # extension name
+        my $numRows = shift;    # number of rows in the table
+        my $colData = shift;    # ref to array of arrays containing the data for each column
+        my $columns = shift;    # ref to array of column descriptions (each a hash)
+                                # with keys: name, type, and writetype
+        my $header = shift;     # ref to array of header keyword descriptions - each a hash
+                                # with keys: name, name, writetype, comment, and value
+        my $status = 0;
+
+        die "incorrect arguments" if !defined($columns);
+        # note $header can be nil
+
+        # build arrays for cfitsio
+        my @colNames;			# Names of columns
+        my @colTypes;			# Types of columns
+        my @colWriteType;               # type to use to write
+
+        foreach my $colSpec ( @$columns) {
+            push @colNames, $colSpec->{name};
+            push @colTypes, $colSpec->{type};
+            push @colWriteType, $colSpec->{writetype};
+        }
+
+        if (-e $output) {
+            unlink "$output" or die "failed to remove existing $output";
+        }
+
+        my $outFits = Astro::FITS::CFITSIO::create_file( $output, $status ); # Output file handle
+        check_fitsio( $status );
+
+        $outFits->create_img( 16, 0, undef, $status );
+        check_fitsio( $status );
+
+        # Create the table
+
+        $outFits->create_tbl( BINARY_TBL(), $numRows, scalar @colNames,
+                                \@colNames, \@colTypes, undef, $extname, $status );
+        check_fitsio( $status );
+
+        # if header keyword descriptions were provided add them
+        if ($header) {
+            foreach my $headerword ( @$header ) {
+                my $value = $headerword->{value};
+                unless (defined $value) {
+                    print "Can't find header keyword $headerword\n";
+                    next;
+                }
+                # zap quotation marks
+                $value =~ s/\'//g;
+                my $name    = $headerword->{name};
+                my $type    = $headerword->{writetype};
+                my $comment = $headerword->{comment};
+                $outFits->write_key( $type, $name, $value, $comment, $status );
+                check_fitsio( $status );
+            }
+        }
+
+
+        for (my $i = 0; $i < scalar @colNames; $i++) {
+            my $writeType = $colWriteType[$i];
+            my $data = $colData->[$i];
+            if ($writeType == TULONG) {
+                die "invalid integer data found in column $i\n" unless validIntegers($data);
+            } elsif ($writeType == TDOUBLE) {
+                die "invalid numeric data found in column $i\n" unless validNumbers($data);
+            }
+            $outFits->write_col( $writeType, $i + 1, 1, 1, $numRows, $data, $status );
+            check_fitsio( $status );
+        }
+
+        $outFits->close_file( $status );
+
+        return 0;
+
+} # end of sub make_fits_table
+
+
+
+# read the table contents from a file
+#
+# input text file format:
+#   lines that begin with '#' are comment lines and are skipped.
+#   other lines are data. Each data line is split into fields with the
+#   provided separator
+#
+# if $header is not null header the first non-commented line is read to
+# fill the value for each header keyword. The number of fields must match
+# the number of keywords.
+#
+# Following the optional header data, each data line contains data for each
+# row in the table. The number of fields must match the number of column
+# arrays provided.
+
+sub read_data_for_table {
+    my $in      = shift;    # input file handle
+    my $sep     = shift;    # string containing field separator
+    my $colData = shift;    # reference to an array of arrays for the data
+    my $header  = shift;    # rerence to array of header keyword descriptions
+    my $minimum_required_vals = shift;
+    my $r_extver = shift;   # reference to extension version
+
+    my $line_num = 0;
+
+    # read data for header if any data is expected
+    if ($header) {
+        my $nhead = @$header;
+        while (my $line = <$in>) {
+            $line_num++;
+            chomp $line;
+            next if !$line;             # skip blank lines
+            next if ($line =~ /^#/);    # skip comment lines
+            my @vals = split /$sep/, $line;
+            my $nvals = @vals;
+            die "two few columns $nvals in header definition. Require at least 2" if @vals < 2;
+
+            $$r_extver = $vals[1];
+            if ($$r_extver > 1) {
+                die "number of header columns in input $nvals does not equal expected number of header words $nhead"
+                    if (@vals != @$header);
+            } else {
+                # drop header keywords not used in version 1
+                for (my $i = @$header - 1; $i >= $nvals; $i--) {
+                    pop @$header;
+                }
+            }
+
+            for (my $i=0; $i < $nvals; $i++) {
+                my $val = $vals[$i];
+                if (defined $val) {
+                    $header->[$i]->{value} = $val;
+                } else {
+                    $header->[$i]->{value} = 'null';
+                }
+            }
+
+            last; # one line defines the header
+        }
+    }
+    if ($$r_extver == 1) {
+        # pop off the colData arrays to account for the unused columns
+        pop @colData;
+        pop @colData;
+        pop @colData;
+        pop @colData;
+        pop @colData;
+    }
+
+    my $num_rows = 0;
+    my $ncols = @$colData - 1;  # -1 because COMMENT is handled seperatly
+    my @last_vals;
+    my %used_ROWNUMS;
+    my $auto_row_num = 0;
+    while (my $line = <$in>) {
+        chomp $line;
+        $line_num++;
+        next if !$line;             # skip blank lines
+        next if ($line =~ /^#/);    # skip comment lines
+
+        my ($spec, $comment) = split /\|/, $line;
+        if (!$spec) {
+            print STDERR "improper format on line $line_num\n";
+            print STDERR "$line\n";
+            exit 1;
+        }
+        # trim leading whitespace from comment
+        $comment =~ s/^\s+// if $comment;
+        if ($comment) {
+            if ($comment =~ /#/) {
+                print STDERR "WARNING '#' character removed from comment on line $line_num.\n";
+                $comment =~ s/#/ /;
+            }
+            if (length($comment) > 63) {
+                print STDERR "WARNING comment too long truncating to 63 characters on line $line_num.\n";
+                $comment = substr($comment, 0, 63);
+            }
+        } else {
+            $comment = "null";
+        }
+        my @vals = split /$sep/, $spec;
+        my $nvals = @vals;
+        if ($nvals < $minimum_required_vals) {
+            die "Too few values $nvals found at line $line_num. Each row must contain at least $minimum_required_vals columns\n";
+        }
+        if ($nvals < $ncols) {
+            if (!scalar @last_vals) {
+                die "Too few values $nvals found at line $line_num. $ncols values are required\n";
+            }
+            for (my $i = $nvals; $i < $ncols; $i++) {
+                $vals[$i] = $last_vals[$i];
+            }
+        }
+        $vals[$ncols] = $comment;
+        @last_vals = @vals;
+    
+        # check the input ROWNUM value. If zero set it automatically
+        my $this_ROWNUM = $vals[0];
+        $this_ROWNUM = ++$auto_row_num if $this_ROWNUM eq 0;
+
+        # fail if this ROWNUM value has already been used
+        my $previous = $used_ROWNUMS{$this_ROWNUM};
+        if ($previous) {
+            die "ROWNUM for line $line_num: $this_ROWNUM has already been used at line $previous\n";
+        }
+        $used_ROWNUMS{$this_ROWNUM} = $line_num;
+
+        $colData->[0]->[$num_rows] = $this_ROWNUM;
+        for (my $col = 1; $col < @$colData; $col++) {
+            $colData->[$col]->[$num_rows] = $vals[$col];
+        }
+        $num_rows++;
+    }
+
+    # we return the number of rows read
+    return $num_rows;
+}
+
+# From Astro::FITS::CFITSIO demo
+sub check_fitsio
+{
+    my $status = shift;		# Status of FITSIO calls
+
+    if ($status != 0) {
+	my $msg;		# Message to output
+	Astro::FITS::CFITSIO::fits_get_errstatus( $status , $msg );
+	die "CFITSIO error: $msg\n";
+    }
+}
+
+sub checkValid {
+    my $aref = shift;
+    my $float = shift;
+
+    return 0 if !defined $aref;
+
+    my $valid = 0;
+    my $row = 0;
+    foreach my $val (@$aref) {
+        $row++;
+        if ($float) {
+            if (!($val =~  /^([+-]?)(?=\d|\.\d)\d*(\.\d*)?([Ee]([+-]?\d+))?$/)) {
+                $valid = 0;
+                print STDERR "Error on row $row: '$val' is not a valid number\n";
+                last;
+            }
+        } else {
+            if ($val =~ /\D/) {
+                $valid = 0;
+                print STDERR "Error on row $row: '$val' is not a valid integer\n";
+                last;
+            }
+        }
+        $valid = 1;
+    }
+
+    return $valid;
+}
+sub validIntegers {
+    return checkValid(@_, 0);
+}
+
+sub validNumbers
+{
+    return checkValid(@_, 1);
+}
+
+
+sub printhelp
+{
+    my $prog = basename($_[0]);
+
+    print "Create a postage stamp request fits file from a textual description.\n";
+    print "Usage:\n";
+    print "\t$prog --input input_file_name [--req_name request_name] [--output output_file_name ]\n\n";
+    print "If --req_name is provided the REQ_NAME value in the input file is ignored.\n";
+    print "If --output is omitted the output file name is set to REQ_NAME.fits\n\n";
+    print "Header 1 Line.  Format:\n\n";
+    print "REQ_NAME EXTVER ACTION USERNAME EMAIL\n\n";
+    print "REQUEST specification (1 or more lines). Format:\n\n";
+    print "ROWNUM CENTER_X CENTER_Y WIDTH HEIGHT COORD_MASK JOB_TYPE OPTION_MASK PROJECT SURVEY_NAME IPP_RELEASE REQ_TYPE IMG_TYPE ID TESS_ID COMPONENT DATA_GROUP REQFILT MJD_MIN MJD_MAX RUN_TYPE | COMMENT\n\n";
+
+    exit 0;
+}

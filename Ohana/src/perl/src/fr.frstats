@@ -1,0 +1,171 @@
+#!/usr/bin/env perl
+
+if (@ARGV < 1) { &escape ("USAGE: fr.frstats -mode [args]"); }
+if ($ARGV[0] eq "help") { &usage; }
+
+# find the appropriate script file
+$confdir = `gconfig -q CONFDIR`; chop ($confdir);
+$script  = "$confdir/mana/fringe.pro";
+
+# test named Xserver, or start vnc on specified machine
+$xhost=`gconfig -q XHOST`; chop ($xhost);
+$xdisp=`gconfig -q XDISP`; chop ($xdisp);
+if (vsystem ("xdpyinfo -display $xdisp > /dev/null")) {
+    print STDERR "X server is not running. start it now on $xhost\n";
+    exit 1;
+}
+$ENV{'DISPLAY'} = $xdisp;
+
+# determine fit parameters for list of raw fringe measurements
+if ($ARGV[0] eq "-fitpars") {
+    
+    $list = $ARGV[1];
+    $pars = $ARGV[2];
+
+    # run mana script:
+    open (MANA, "|mana --norc");
+    print MANA "input $script\n";
+    print MANA "getfitpars $list $pars\n";
+    print MANA "exit 1\n";
+    close (MANA);
+    if ($?) { &escape ("problem with fr.frstats -fitpars"); }
+
+    &goodbye;
+}
+
+# apply fit parameters for given chip
+if ($ARGV[0] eq "-applyfit") {
+    
+    if (@ARGV != 4) { die "USAGE: fr.frstats -applyfit (imlist) (fitpars) (output)\n"; }
+    $list = $ARGV[1];
+    $pars = $ARGV[2];
+    $output = $ARGV[3];
+
+    if (-e $output) { unlink $output; }
+
+    # run mana script:
+    open (MANA, "|mana --norc");
+    print MANA "input $script\n";
+    print MANA "applyfitstats $list $pars $output\n";
+    print MANA "exit 1\n";
+    close (MANA);
+    if ($?) { &escape ("problem with fr.frstats -applyfit"); }
+
+    &goodbye;
+}
+
+# determine fit parameters for list of raw fringe measurements
+if ($ARGV[0] eq "-plotstats") {
+    
+    $list = $ARGV[1];
+    $pars = $ARGV[2];
+    $output = $ARGV[3];
+
+    # run mana script:
+    open (MANA, "|mana --norc");
+    print MANA "input $script\n";
+    print MANA "showfits $list $pars $output\n";
+    print MANA "exit 1\n";
+    close (MANA);
+    if ($?) { &escape ("problem with fr.frstats -plotstats"); }
+
+    &goodbye;
+}
+
+# create frstats file for list of raw fringe measurements using measure fringe parameters
+if ($ARGV[0] eq "-frstats") {
+    
+    $list    = $ARGV[1];
+    $pars    = $ARGV[2];
+    $frstats = $ARGV[3];
+
+    # check if none of list exist, then skip
+    # otherwise, report error
+
+    open (FILE, "$list");
+    @list = <FILE>;
+    close (FILE);
+
+    $Nfound = 0;
+    foreach $line (@list) {
+	chop $line;
+	if (-e $line) { $Nfound ++; }
+    }
+    if ($Nfound < @list) { 
+	print STDERR "NOTE: missing some file from $list: assuming initial state\n";
+	&goodbye; 
+    }
+
+    # run mana script:
+    open (MANA, "|mana --norc");
+    print MANA "input $script\n";
+    print MANA "getfrstats $pars $list $frstats\n";
+    print MANA "exit 1\n";
+    close (MANA);
+    if ($?) { &escape ("problem with fr.frstats -frstats"); }
+
+    &goodbye;
+}
+
+# create dfstats file for list of fringe residual measurements
+if ($ARGV[0] eq "-dfstats") {
+    
+    $list    = $ARGV[1];
+    $pars    = $ARGV[2];
+    $frstats = $ARGV[3];
+
+    # check if none of list exist, then skip
+    # otherwise, report error
+
+    open (FILE, "$list");
+    @list = <FILE>;
+    close (FILE);
+
+    $Nfound = 0;
+    foreach $line (@list) {
+	chop $line;
+	if (-e $line) { $Nfound ++; }
+    }
+    if ($Nfound < @list) { 
+	print STDERR "NOTE: missing some files from $list: assuming initial state\n";
+	&goodbye; 
+    }
+
+    # run mana script:
+    open (MANA, "|mana --norc");
+    print MANA "input $script\n";
+    print MANA "getdfstats $pars $list $frstats\n";
+    print MANA "exit 1\n";
+    close (MANA);
+    if ($?) { &escape ("problem with fr.frstats -frstats"); }
+
+    &goodbye;
+}
+
+&escape ("unknown fr.frstats command $ARGV[0]");
+
+## utilities
+
+sub vsystem {
+    print STDERR "@_\n";
+    $status = system ("@_");
+    $status;
+}
+
+sub goodbye {
+  print STDOUT "finished with fr.stats\n";
+  exit 0;
+}
+
+sub escape {
+  print STDOUT "ERROR: $_[0]\n";
+  exit 1;
+}
+
+sub usage {
+
+    print STDOUT "fr.mklists -fitpars CONFIG.med.sublist  CONFIG.fitpars\n";
+    print STDOUT "fr.frstats -frstats CONFIG.med.statlist CONFIG.fitpars CONFIG.med.imstats\n";
+
+    exit 2;
+}

@@ -1,0 +1,6 @@
+
+   grid (overlay) (buffer)
+
+   draw a coordinate grid for the given buffer in the 
+   given overlay in Kii.
+

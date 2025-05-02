@@ -1,0 +1,369 @@
+#!/usr/bin/env perl
+
+# Copyright (C) 2006-2009  Joshua Hoblitt
+
+use strict;
+use warnings FATAL => qw( all );
+
+use vars qw( $VERSION );
+$VERSION = '0.03';
+
+use DataStore;
+use File::Path qw( mkpath );
+use File::Temp ();
+use File::Basename qw( basename dirname );
+
+use Getopt::Long qw( GetOptions :config auto_help auto_version gnu_getopt );
+use Pod::Usage qw( pod2usage );
+
+my ($uri,
+    $bytes,
+    $copies,
+    $md5,
+    $nebulous,
+    $filename,
+    $volume,
+    $server,
+    $compress,
+    $timeout,
+    @xattrs,
+    $no_proxy,
+);
+
+$server = $ENV{'NEB_SERVER'} unless $server;
+
+GetOptions(
+    'uri|u=s'       => \$uri,
+    'bytes|m=s'     => \$bytes,
+    'copies=i'      => \$copies,
+    'nebulous|n'    => \$nebulous,
+    'volume|v=s'    => \$volume,
+    'server|s=s'    => \$server,
+    'md5|m=s'       => \$md5,
+    'filename|f=s'  => \$filename,
+    'compress|c'    => \$compress,
+    'timeout|t=s'   => \$timeout,
+    'xattr|x=s'     => \@xattrs,
+    'no-proxy'      => \$no_proxy,
+) or pod2usage( 2 );
+
+pod2usage( -msg => "Unknown option: @ARGV", -exitval => 2 ) if @ARGV;
+pod2usage(
+    -msg => "Required options: --uri --filename",
+    -exitval => 3,
+) unless defined $uri and defined $filename;
+
+my $date = `date`;
+print "starting dsget $date";
+
+# XXX EAM : should not need parse_neb_key, but how to handle case
+# where we supply --volume and neb://volume/path ? 
+# 1) parse anyway and check for conflict
+# 2) drop --volume option
+# JH: the Nebulous server contains the policy to handle this conflict.
+# At present --volume will overide the volume in neb://volume/...
+
+# --volume implies --nebulous
+if ($volume) {
+    $nebulous ||=1;
+} 
+
+if (defined $copies) {
+    if (not defined $nebulous) {
+        warn "--copies is meanless without --nebulous or --volume";
+        undef $copies;
+    }
+    elsif ($copies < 1) {
+        die "--copies must be >= 1";
+    }
+}
+
+if ($compress) {
+    $uri = "$uri?compress";
+}
+
+# default http request timeout is 30s
+$timeout ||= 30;
+$no_proxy = 0 if !defined $no_proxy;
+
+my %p = (
+    uri     => $uri,
+    type    => 'chip',
+);
+
+$p{bytes} = $bytes if defined $bytes; 
+$p{md5sum} = $md5 if defined $md5;
+$p{compressed} = 1 if defined $compress;
+
+my $tmp;
+
+if (!$nebulous) {
+
+    # create path and possibly fix up permissions
+    my $dirname = dirname($filename);
+    if (!-d $dirname) {
+        mkpath([$dirname], 1, 0775);
+    }
+
+    # can we truly write to filename?
+{
+    # open file for read/write but not create
+    my $fh;
+    if (open($fh, '+<', $filename)) {
+        # do nothing and fall through
+    } elsif (open($fh, '>>', $filename)) {
+        # this is the "stomp on it behavior" this probably shouldn't be the
+        # default and it may make sense to check the md5sum/bytes count of the
+        # files that's already in place to see if we really need to re-fetch it
+        unlink $filename or die "can't unlink $filename: $!";
+    } else {
+        die "can't write to $filename";
+    }
+}
+
+    # for non-neb files, use the download directory for the tmp file
+    $tmp = File::Temp->new(
+               DIR         => $dirname,
+               TEMPLATE    => '.' . basename($filename) . '.XXXXXXXX',
+               SUFFIX      => '.tmp',
+               UNLINK      => 1,
+               );
+} else {
+    # for neb files, use /tmp for the tmp file
+    $tmp = File::Temp->new(
+               DIR         => '/tmp',
+               TEMPLATE    => basename($filename) . '.XXXXXXXX',
+               SUFFIX      => '.tmp',
+               UNLINK      => 1,
+               );
+}
+
+my $tmpfilename = $tmp->filename;
+print "downloading file to $tmpfilename\n";
+$date = `date`;
+print "downloading starting  $date";
+
+# request the file from the remote data store server (save in tmpfilename)
+my $response = DataStore::File->new(%p)->request(
+        filename => $tmpfilename,
+        ua_args  => { timeout => $timeout },
+        no_proxy => $no_proxy,
+    );
+
+
+unless (defined $response and $response->is_success) {
+    warn "request failed: ", $response->status_line;
+    exit($response->code - 300);
+}
+
+die "checksum failed" unless $response->data;
+
+# file retreival succeed
+
+# this can't cross a file system boundry so we can assume that a move will
+# always be a rename operation instead of a copy and delete.
+
+$date = `date`;
+print "start copying file into nebulous  $date";
+
+my $neb;
+if ($nebulous) {
+    require Nebulous::Client;
+    import Nebulous::Client;
+    require Nebulous::Util;
+    import Nebulous::Util qw( :standard );
+    require File::Copy;
+    import File::Copy;
+
+    $neb = Nebulous::Client->new(
+        proxy   => $server,
+    );
+
+    die "can't connected to Nebulous Server: $server"
+        unless defined $neb;
+
+    # XXX see comment above about not blindly stomping the file
+    # - if the key doesn't already exist then create it
+    # - if it does, delete it so that we end up on the right storage volume
+    if ($neb->stat($filename)) {
+        $neb->delete($filename)
+            or die "Nebulous can't delete key $filename";
+    }
+
+    my $fh = $neb->open_create( $filename, $volume )
+        or die "Nebulous can't create key $filename";
+
+    # user.copies is always set to at least 2
+    my $user_copies = 2;
+    if (defined $copies) {
+        $user_copies = $copies if $copies > 2;
+    }
+    $neb->setxattr($filename, "user.copies", 2, "create")
+        or die "Nebulous can't set xattr on key $filename";
+
+    if (scalar @xattrs) {
+        write_xattrs($neb, $filename, @xattrs)
+            or die "Nebulous set xattrs on key $filename";
+    }
+
+    open(my $src_fh, $tmpfilename) or die "can't open file $tmpfilename: $!";
+
+    File::Copy::copy( $src_fh, $fh ) or die "file copy failed";
+
+    close($src_fh) or die "can't close file $tmpfilename: $!";
+    $fh->flush or die "can't flush nebulous filehandle: $!";
+    $fh->sync or die "can't sync nebulous filehandle: $!";
+    close($fh) or die "can't close nebulous filehandle: $!";
+
+    # make any required IMMEDIATE copies
+    if (defined $copies and $copies > 1) {
+        foreach (1 .. ($copies - 1)) {
+            $neb->replicate($filename)
+                or die "failed to replicate $filename failed: $!";
+        }
+    }
+} else {
+    $tmp->flush or die "can't flush filehandle: $!";
+    $tmp->sync or die "can't sync filehandle: $!";
+    # set read and write permissions based on umask (ignore other bits)
+    my $umask = umask;
+    chmod 0666 ^ $umask, $tmpfilename or die "failed to chmod $tmpfilename";
+    rename $tmpfilename, $filename
+        or die "renaming $tmpfilename to $filename failed: $!";
+}
+
+DESTROY {
+    unlink $tmpfilename if -e $tmpfilename;
+    if ($nebulous and $neb->stat($filename)) {
+        $neb->delete($filename)
+            or die "Nebulous can't delete key $filename";
+    }
+}
+
+$date = `date`;
+print "finished dsget $date";
+
+__END__
+
+=pod
+
+=head1 NAME
+
+dsget - download a file from a DataStore server
+
+=head1 SYNOPSIS
+
+    dsget --uri <uri> --filename <filename> [--bytes <nbytes>] [--md5 <hex>]
+        [--compress] [--nebulous] [--xattr user.<name>:<value>]
+        [--volume <volume name>] [--copies <n>]
+
+=head1 DESCRIPTION
+
+=head1 OPTIONS
+
+=over 4
+
+=item * --uri|-u <uri>
+
+The URI of the file to be retrieved.
+
+=item * --filename|-f <filename>
+
+The name to use when writing the file to disk.
+
+=item * --bytes|-s <nbytes>
+
+The size of the file in bytes.
+
+Optional, the size check is skipped if no value is specified.
+
+=item * --md5|-m <hex>
+
+The md5 checksum of the file in hex.
+
+Optional, the md5check is skipped if no value is specified.
+
+=item * --nebulous|-n
+
+Flag to enable C<nebulous> support.  When set C<--filename> is used as the
+Nebulous key.
+
+Optional.
+
+=item * --xattr|-x
+
+Flag to set a Nebulous xattr on C<--filename>.  Can be specified more than
+once.
+
+Optional.
+
+=item * --compress|-c
+
+When set C<dsget> will request a compressed version of the file.
+
+Optional.
+
+=item * --volume|-v <volume name>
+
+The volume name to request the first Nebulous instance be stored on.
+
+Optional, implies C<--nebulous>
+
+=item * --timeout|-t
+
+The ammount of time (in seconds) to wait for a response from the DataStore
+after making an HTTP request.  The default is 30s.
+
+Optional.
+
+=item * --no-proxy
+
+Do not load proxy environment variables.
+
+Optional.
+
+=item * --copies <n>
+
+If C<--nebulous> is in use, the number of Nebulous replications to make.
+
+Optional.
+
+=back
+
+=head1 CREDITS
+
+Just me, myself, and I.
+
+=head1 SUPPORT
+
+Please contact the author directly via e-mail.
+
+=head1 AUTHOR
+
+Joshua Hoblitt <jhoblitt@cpan.org>
+
+=head1 COPYRIGHT
+
+Copyright (C) 2006-2009  Joshua Hoblitt.  All rights reserved.
+
+This program is free software; you can redistribute it and/or modify it under
+the terms of the GNU General Public License as published by the Free Software
+Foundation; either version 2 of the License, or (at your option) any later
+version.
+
+This program is distributed in the hope that it will be useful, but WITHOUT ANY
+WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A
+PARTICULAR PURPOSE.  See the GNU General Public License for more details.
+
+You should have received a copy of the GNU General Public License along with
+this program; if not, write to the Free Software Foundation, Inc., 59 Temple
+Place - Suite 330, Boston, MA  02111-1307, USA.
+
+The full text of the license can be found in the L<perlgpl> Pod as supplied
+with Perl 5.8.1 and later.
+
+=head1 SEE ALSO
+
+L<dsget>, L<dsleech>, L<dsrootls>, L<dsproductls>, L<dsfilesetls>, L<DataStore>
+
+=cut

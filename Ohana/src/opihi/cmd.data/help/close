@@ -1,0 +1,14 @@
+
+
+   close [-n win] [-g Kapa win] [-i Kii win]
+
+   Closes the specified graphics window
+
+   Default: the most recently activated window (only works
+    for the first call)
+
+   [win]: the index of the window to close
+
+   -n: any graphics or plotting window
+   -g: the Kapa plotting window
+   -i: the Kii image window

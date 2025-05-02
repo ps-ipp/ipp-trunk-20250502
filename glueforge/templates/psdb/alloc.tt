@@ -1,0 +1,44 @@
+[% USE format -%]
+[% indented = format('%-15s %s') -%]
+static void [% table.object_name %]Free([% table.object_name %] *object);
+
+[% table.object_name %] *[% table.object_name %]Alloc(
+[%- SET i = 0 -%]
+[% FOREACH item = table.columns -%]
+[% IF i == 0 %][% i = 1 %][% ELSE %], [% END -%]
+[% IF item.type == "STR" -%]
+const char *[% item.name %]
+[%- ELSE -%]
+[% item.ctype %] [% item.name %]
+[%- END -%]
+[% END -%]
+)
+{
+    [% indented(table.object_name, "*_object") %];
+
+    _object = psAlloc(sizeof([% table.object_name %]));
+    psMemSetDeallocator(_object, (psFreeFunc)[% table.object_name %]Free);
+
+[% FOREACH item = table.columns -%]
+[% IF item.type == "STR" -%]
+    _object->[% item.name %] = psStringCopy([% item.name %]);
+[% ELSIF item.mtype == "PS_DATA_TIME" -%]
+    _object->[% item.name %] = psTimeCopy([% item.name %]);
+[% ELSE -%]
+    _object->[% item.name %] = [% item.name %];
+[% END -%]
+[% END -%]
+
+    return _object;
+}
+
+static void [% table.object_name %]Free([% table.object_name %] *object)
+{
+[% FOREACH item = table.columns -%]
+[% IF item.type == "STR" -%]
+    psFree(object->[% item.name %]);
+[% ELSIF item.mtype == "PS_DATA_TIME" -%]
+    psFree(object->[% item.name %]);
+[% END -%]
+[% END -%]
+}

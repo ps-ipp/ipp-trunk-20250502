@@ -1,0 +1,240 @@
+#!/usr/bin/env perl
+
+# Copyright (C) 2007-2008  Joshua Hoblitt
+#
+# $Id: neb-stat,v 1.3 2008-06-09 20:25:27 jhoblitt Exp $
+
+use strict;
+use warnings FATAL => qw( all );
+
+use vars qw( $VERSION );
+$VERSION = '0.01';
+
+use Nebulous::Client;
+
+use Getopt::Long qw( GetOptions :config auto_help auto_version );
+use Pod::Usage qw( pod2usage );
+
+use Digest::MD5;
+use URI;
+
+my ($validate,$server,$nouris,$help);
+
+$server = $ENV{'NEB_SERVER'} unless $server;
+
+GetOptions(
+    'server|s=s'    => \$server,
+    'validate|v'    => \$validate,
+    'files|f'       => \$nouris,
+    'help|h'        => \$help,
+) || pod2usage( 2 );
+
+# explicitly defined -h / --help:
+if ($help) { pod2usage( -verbose => 1 ); }
+
+my $key = shift;
+
+pod2usage( -msg => "Unknown option: @ARGV", -exitval => 2 ) if @ARGV;
+pod2usage( -msg => "Required options: --server", -exitval => 2 ) unless $server;
+pod2usage( -msg => "missing key", exitval => 2 ) unless defined $key;
+
+my $neb = Nebulous::Client->new(
+    proxy => "$server",
+);
+
+die "can't connected to Nebulous Server: $server"
+    unless defined $neb;
+
+my $stat = $neb->stat($key);
+die "nebulous key: $key not found" unless $stat;   
+my $instances = $neb->find_instances($key, 'any');
+die "no instances found" unless $instances;   
+
+my $user_copies;
+eval {
+    $user_copies = $neb->getxattr($key, "user.copies");
+    die ("user.copies not found") unless $user_copies;
+};
+unless(defined($user_copies) and $user_copies ne "") {
+    $user_copies = 1;
+}
+
+my @validation;
+my %md5sum_uniq;
+my $existing_copies = 0;
+if (defined $validate) {
+    my @existance;
+    my @md5sums;
+    my @files = map {URI->new($_)->file if $_} @$instances;
+
+    for (my $i = 0; $i <= $#files; $i++) {
+	if (-e $files[$i]) {
+	    $existance[$i] = 1;
+	    $existing_copies++;
+	    my $fh;
+	    open($fh,$files[$i]);
+	    $md5sums[$i] = Digest::MD5->new->addfile($fh)->hexdigest;
+	    $md5sum_uniq{$md5sums[$i]} = 1;
+	    close($fh);
+	} else {
+	    $existance[$i] = 0;
+	    $md5sums[$i] = 'NON-EXISTANT';
+	    $md5sum_uniq{$md5sums[$i]} = 1;
+	}
+
+	if (defined($nouris)) {
+	    $validation[$i] = sprintf("% 3d %32s %s",
+				      $existance[$i],
+				      $md5sums[$i],
+				      $files[$i]);
+	} else {
+	    $validation[$i] = sprintf("% 3d %32s %s",
+				      $existance[$i],
+				      $md5sums[$i],
+				      ${ $instances }[$i]);
+	}
+    }
+}
+
+no warnings qw(uninitialized);
+if (defined $validate) {
+    print
+	"object id:             ", @$stat[0], "\n",
+	"key:                   ", @$stat[1], "\n",
+	"read lock:             ", @$stat[2], "\n",
+	"write lock:            ", @$stat[3], "\n",
+	"epoch:                 ", @$stat[4], "\n",
+	"mtime:                 ", @$stat[5], "\n",
+	"md5sum count:          ", scalar(keys %md5sum_uniq), "\n",
+	"requested instances:   ", $user_copies, "\n",
+	"available instances:   ", @$stat[6], "\n",
+	"existing instances:    ", $existing_copies, "\n",
+	"total instances:       ", @$stat[7], "\n",
+	
+	"instance location:\n", " " x 4,
+	join("\n" . " " x 4, @validation), "\n";
+} else {
+    
+    if (defined($nouris)) {
+	my @files = map {URI->new($_)->file if $_} @$instances;
+
+	print
+	    "object id:             ", @$stat[0], "\n",
+	    "key:                   ", @$stat[1], "\n",
+	    "read lock:             ", @$stat[2], "\n",
+	    "write lock:            ", @$stat[3], "\n",
+	    "epoch:                 ", @$stat[4], "\n",
+	    "mtime:                 ", @$stat[5], "\n",
+	    "available instances:   ", @$stat[6], "\n",
+	    "requested instances:   ", $user_copies, "\n",
+	    "total instances:       ", @$stat[7], "\n",
+	    
+	    "instance location:\n", " " x 4,
+	    join("\n" . " " x 4, @files), "\n";
+    } else {
+	print
+	    "object id:             ", @$stat[0], "\n",
+	    "key:                   ", @$stat[1], "\n",
+	    "read lock:             ", @$stat[2], "\n",
+	    "write lock:            ", @$stat[3], "\n",
+	    "epoch:                 ", @$stat[4], "\n",
+	    "mtime:                 ", @$stat[5], "\n",
+	    "available instances:   ", @$stat[6], "\n",
+	    "requested instances:   ", $user_copies, "\n",
+	    "total instances:       ", @$stat[7], "\n",
+	    
+	    "instance location:\n", " " x 4,
+	    join("\n" . " " x 4, @$instances), "\n";
+    }
+
+}
+
+
+__END__
+
+=pod
+
+=head1 NAME
+
+neb-stat - display Nebulous key status
+
+=head1 SYNOPSIS
+
+    neb-stat [--server <URL>] [--validate] <key> 
+
+=head1 DESCRIPTION
+
+This program lists information about the Nebulous key C<<key>>.
+
+=head1 OPTIONS
+
+=over 4
+
+=item  --server|-s <URL>
+
+URL of the Nebulous server to connect to.
+
+Optional if the appropriate environment variable is set.
+
+=item --validate|-v
+
+Optional - prints out additional information including md5sum.
+
+=item --files
+
+Optional - prints out disk files instead of uris during validate stage.
+
+=back
+
+=head1 ENVIRONMENT
+
+These environment variables may be used in place of the specified command line
+options.  All command line option will override the corresponding environment
+value.
+
+=over 4
+
+=item C<NEB_SERVER>
+
+Equivalent to --server|-s
+
+=back
+
+=head1 CREDITS
+
+Just me, myself, and I.
+
+=head1 SUPPORT
+
+Please contact the author directly via e-mail.
+
+=head1 AUTHOR
+
+Joshua Hoblitt <jhoblitt@cpan.org>
+
+=head1 COPYRIGHT
+
+Copyright (C) 2007-2008  Joshua Hoblitt.  All rights reserved.
+
+This program is free software; you can redistribute it and/or modify it under
+the terms of the GNU General Public License as published by the Free Software
+Foundation; either version 2 of the License, or (at your option) any later
+version.
+
+This program is distributed in the hope that it will be useful, but WITHOUT ANY
+WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A
+PARTICULAR PURPOSE.  See the GNU General Public License for more details.
+
+You should have received a copy of the GNU General Public License along with
+this program; if not, write to the Free Software Foundation, Inc., 59 Temple
+Place - Suite 330, Boston, MA  02111-1307, USA.
+
+The full text of the license can be found in the L<perlgpl> Pod as supplied
+with Perl 5.8.1 and later.
+
+=head1 SEE ALSO
+
+L<Nebulous::Server>, L<neb-initdb>, L<neb-addvol>, L<nebdiskd>, L<neb-df>,
+L<neb-touch>, C<regex(7)>
+
+=cut

@@ -1,0 +1,58 @@
+
+transearch-1.0: 
+  v1: ok
+  v2: ok
+
+transearch-2.0: 
+  v1: not compatible, exits gracefully
+  v2: ok
+
+transreg-1.0:
+  v1: ok
+  v2: not compatible, exits gracefully
+
+transreg-1.0:
+  v1: not compatible, exits gracefully
+  v2: ok
+
+photsearch-1.0:
+  v1: ok
+  v2: ok
+
+photsearch-2.0:
+  v1: not compatible, exits gracefully
+  v2: ok
+
+photreg-1.0:
+  v1: ok
+  v2: ok [creates v1]
+
+photreg-2.0:
+  v1: not compatible, exits gracefully
+  v2: ok
+
+imsearch-1.0:
+  v1, v2: ok
+  v3: not compatible, exits gracefully
+
+imregister-1.0:
+  v1, v2: ok
+  v3: not compatible ****
+
+imregister-2.0:
+  v1, v2: ok
+  v3: not compatible, exits gracefully
+
+imsort-1.0:
+  v1, v2: ok
+  v3: not compatible ****
+
+imsort-2.0:
+  v1, v2: ok
+  v3: not compatible ***
+
+imregtable-3.0:
+  v1, v2: not compatibe, exits gracefully
+  v3: ok
+
+

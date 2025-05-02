@@ -1,0 +1,88 @@
+# -*-sh-*-
+if (not($?VERBOSE)) set VERBOSE = 0
+
+input tap.dvo
+input ptolemy.dvo
+
+# generates ptolemy.rc, dvo.photcodes, $zpt_nominal:g,r $klam_nominal:g,r
+mkptolemy.rc
+
+macro test.all
+  test.relphot PS1_DEV_0 PS1_V1
+  test.relphot PS1_DEV_1 PS1_V1
+  test.relphot PS1_V1 	PS1_V1
+  test.relphot PS1_V2 	PS1_V1
+  test.relphot PS1_DEV_0 PS1_V2
+  test.relphot PS1_DEV_1 PS1_V2
+  test.relphot PS1_V1 	PS1_V2
+  test.relphot PS1_V2 	PS1_V2
+end  
+
+list offset
+  0.000
+ -0.025
+  0.025
+  0.010
+end
+
+# create a populated catdir with a couple of cmf files
+macro test.relphot
+  if ($0 != 3)
+    echo "test.relphot (cmftype) (dvotype)"
+    break
+  end
+
+  tapPLAN 4
+
+  exec rm -rf catdir.test
+
+  $RA = 10.0
+  $DEC = 20.0
+
+  for i 0 $offset:n
+    mkinput $offset:$i
+    exec mkcmf test.in.txt test.cmf -date 2008/1/1 -time $i\:00:00 -radec $RA $DEC -type $1
+    exec addstar -D CATDIR catdir.test -D CAMERA gpc1 test.cmf -D CATFORMAT $2 -quick-airmass
+  end
+
+  $output = >& /dev/null
+  if ($VERBOSE > 2) 
+    $output = 
+  end
+  $command = relphot -D CATDIR catdir.test -region {$RA-1.0} {$RA+1.0} {$DEC-1.0} {$DEC+1.0} -update -nloop 10.0 -images r
+  echo $command
+  exec $command $output
+
+  catdir catdir.test
+  skyregion {$RA-1.0} {$RA+1.0} {$DEC-1.0} {$DEC+1.0} 
+
+  imextract time Mcal
+
+  for i 0 $offset:n
+    tapOK {abs(Mcal[$i] - Mcal[0] - $offset:$i) < 0.001} "Mcal $i"
+  end
+
+  #exec rm test.cmf test.in.txt
+  #exec rm -r catdir.test
+
+  tapDONE
+end
+
+# make a simple input file for mkcmf
+macro mkinput
+  if ($0 != 2)
+    echo "mkinput (offset)"
+    break
+  end
+
+  exec rm -f test.in.txt
+
+  local i j
+  output test.in.txt
+  for i 10 1024 100
+    for j 10 1024 100
+      fprintf " %6.1f %6.1f  %7.3f" $i $j {-15.0 + $1 + 2.5*($i + $j)/1000.0}
+    end
+  end
+  output stdout
+end

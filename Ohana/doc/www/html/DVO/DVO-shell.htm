@@ -1,0 +1,175 @@
+<meta name=file  content=dvo>
+<meta name=title content=DVO Examples>
+<meta name=page  content=DVO Examples>
+
+<h3> Database Functions </h3>
+
+<pre>
+gcat                        -- get catalog at location
+gimages                     -- get images at location
+gstar                       -- get star statistics
+extract                     -- extract average vectors from catalogs
+mextract                    -- extract measurement vectors from catalogs
+imstats                    -- plot image statistics
+imextract                   -- extract image vectors from database
+lcat                        -- list catalogs in display region
+cmatch                      -- match two catalogs
+</pre>
+
+<p>
+There are a variety of other commands which directly refer to the
+photometry database.  Some of these functions extract data of various
+types from the database, others perform more complex plotting
+operations.  The commands listed above are those which simply extract
+data from the database.  The first three list information relevant to
+a specific RA, DEC location on the sky: <tt>gcat (RA) (DEC)</tt> lists
+the catalog at the specified location and places the name in the
+variable <tt>$CATNAME</tt>, <tt>gimages (RA) (DEC)</tt> lists all images
+which overlap the specified location, <tt>gstars (RA) (DEC) (RADIUS)</tt>
+lists data about the stars within a specified radius of the specified
+location (all numbers above are given in decimal degrees).  Similarly,
+<tt>lcat</tt> lists the catalogs in the region.  Imstats lists statistics
+about each image
+
+<p>
+The next three commands extract a specific piece of information from
+the photometry database and places it in a vector.  First,
+<tt>extract</tt> will extract average values for each star and place
+it in a vector.  Next, <tt>mextract</tt> will extract measurement
+values for each star and place it in a vector: as a result a single
+star may have multiple entries in the measurement vectors.  Finally,
+<tt>imextract</tt> will extract image statistics into vectors (not yet
+implemented).
+
+
+<pre>
+catalog                    -- plot catalog stars
+cgrid                      -- plot sky coordinate grid
+cplot                      -- plot vectors in sky coordinates
+czplot                     -- plot scaled vectors in sky coordinates
+images                     -- plot image boxes
+imdense                    -- image density plot
+lcurve                     -- plot lightcurve for a star
+pcat                       -- plot catalog boundaries
+region                     -- define sky region for plot
+resid                      -- plot residuals
+simage                     -- plot stars in an image
+</pre>
+
+<p>
+There are two types of database plotting functions: those that display
+or refer to the spatial charateristics of the data and those that
+refer to other types of charatersitics, such as the time domain.  The
+graphics window 0 is reserved for all plots of objects on the sky.
+The command <tt>region</tt> defines the current sky coordinates for plots
+in graphic window 0.  The command <tt>pcat</tt> plots the outline of all
+photometry database files which are within the currently defined
+region (and by default, only those with data).  <tt>images</tt> plots the
+outline of the images in the image database, while <tt>imdense</tt> shows
+the number of images at a location by randomly spacing dots within the
+boundary of the images.  The command <tt>cgrid</tt>
+draws a grid in celestial coordinates on the for the current region.
+
+<p>
+The most complex, but also one of the most useful command is
+<tt>catalog</tt>, which plots the positions of stars in the photometry
+database (and others) on the sky.  There are many options to this
+command.  One set allows the user to plot stars from the photometry
+database (the default), from the HST GSC, or from an ASCII text file
+with RA, DEC, and Mag in specified columns.  If the ASCII file has a
+fixed number of bytes per line, the data can be more quickly loaded.
+The size of the points may be scaled by the star magnitude, by the
+number of observations of the star, or by the number of missing
+datapoints for the star.  In addition, points may be plotted only if
+they land in specified magnitude ranges, or with specified numbers of
+measurements, or missed measurements.  Also, objects may be plotted
+only if they have a specified Average.code, so that only asteroids or
+only perfect stars may be plotted.  The plotted vectors may be saved,
+if desired, and the source catalog epoch may be specified as different
+from J2000 (only valid for ASCII data).
+
+<p>
+Several other commands relate to non-spatial charateristics of images
+and stars.  <tt>lcurve</tt> will plot a light curve for all stars within
+some radius of a point.  <tt>resid</tt> plots the photometry residuals
+for a particular region file.  
+
+<h3> Some Examples </h3>
+
+\begin{figure}
+%\psfig{file=fullsky.ps,width=16cm}
+\caption{\label{allsky} \small
+  Map of the entire sky, and images added to database.  }
+\end{figure}
+
+<p>
+Fig.~\ref{allsky} shows a map of the entire sky, and the location
+of the images currently in the database.  This picture was made with
+the following commands: (output is not shown) 
+
+<pre>
+dvo: region 0 0 90 gls
+dvo: cgrid
+dvo: style -lw 2 -c red 
+dvo: images
+dvo: ps
+</pre>
+
+<p>
+In this example, on the graphics window, the image boxes are shown in
+red.  The user now has the possiblitiy of using the cursor command to
+narrow in on a specific region, and so forth.  
+
+\begin{figure}
+%\psfig{file=polar.ps,width=16cm}
+\caption{\label{polar} \small
+  Map of the sky in polar project, and images added to database.  }
+\end{figure}
+
+<p>
+Fig.~\ref{allsky} shows a map of the entire sky, and the location of
+the images currently in the database from a polar project.  This
+picture was made with the following commands: (output is not shown)
+
+<pre>
+dvo: region 0 0 90 zea
+dvo: cgrid
+dvo: style -lw 2 -c red 
+dvo: images
+dvo: ps
+</pre>
+
+<p>
+In this example, on the graphics window, the image boxes are shown in
+red.  The user now has the possiblitiy of using the cursor command to
+narrow in on a specific region, and so forth.  
+
+\begin{figure}
+%\psfig{file=catalog.ps,width=9cm}
+\caption{\label{catalog} \small
+  Comparison between HST GSC and photometry database astrometry.  }
+\end{figure}
+
+<p>
+Fig.~\ref{catalog} shows an example comparison of the photometry
+database star positions and the HST Guide Star Catalog star positions.
+The crosses are all objects in the photometry database, while the
+boxes are only the stars identified as USNO stars.  The circles are
+the stars from the HST GSC.  The size of both points is a function of
+brightness.  This plot was made with the following commands (starting
+from the previous image):
+
+<pre>
+dvo: cursor  (typed 1 on region of interest)
+1 137.097858 22.698305
+q 137.097858 22.698305
+dvo: region $R1 $D1 0.2 TAN
+dvo: cgrid
+dvo: box
+dvo: style -pt 0 
+dvo: gcat $R1 $D1 
+  0 n2230/1951.cpt *
+dvo: style -pt 2; cat -all -m 12 18
+dvo: style -pt 1; cat -all -m 12 18 -ID $USNO
+dvo: style -pt 7; cat -all -m 12 18 -g
+</pre>

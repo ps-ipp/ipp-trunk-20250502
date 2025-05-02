@@ -1,0 +1,101 @@
+
+	John Thorstensen, Dartmouth College.
+
+   This program computes many quantities frequently needed by
+   the observational astronomer.  It is written as a completely
+   self-contained program in standard c, so it should be
+   very transportable; the only issue I know of that really affects
+   portability is the adequacy of the double-precision floating
+   point accuracy on the machine.  Experience shows that c compilers
+   on various systems have idiosyncracies, though, so be sure
+   to check carefully.
+
+   This is intended as an observatory utility program; I assume the
+   user is familiar with astronomical coordinates and nomenclature.
+   While the code should be very transportable, I also
+   assume it will be installed by a conscientious person who
+   will run critical tests before it is released at a new site.
+   Experience shows that some c compilers generate unforseen errors
+   when the code is ported, so the output should be checked meticulously
+   against data from other sites.
+
+   The first part (the almanac) lists the phenomena for a single night (sunset,
+   twilight, moonrise, mooset, etc.) in civil clock time.
+   The rise-set and twilight times given are good
+   to a minute or two; the moon ephemeris used for rise/set is good to
+   +- 0.3 degrees or so; it's from the Astronomical Almanac's
+   low precision formulae, (with topocentric corrections included).
+   The resulting moon rise/set times are generally good to better than
+   two minutes.  The moon coordinates for midnight and in the 'calculator
+   mode' are from a more accurate routine and are generally better than
+   1 arcmin.  The elevation of an observatory above its effective
+   horizon can be specified; if it is non-zero, rise/set times are
+   corrected approximately for depression of the horizon.
+
+   After displaying the phenomena for one night, the program goes
+   into a 'calculator mode', in which one can -
+
+	- enter RA, dec, proper motion, epoch, date, time,
+	     new site parameters, etc. ...
+
+	- compute and display circumstances of observation for the
+	   current parameters, including precessed coordinates,
+	   airmass, interference from moon or twilight, parallactic
+	   angle, etc; the program also gives calendar date in
+	   both UT and local, Julian date, and barycentric corrections.
+
+	- compute and display a table of airmasses (etc) at
+	   hourly intervals through the night.  This is very useful
+	   at the telescope.  Also, if one has a modest number of
+	   objects, it may be convenient (using system utilities)
+	   to redirect the output and print a hard copy of these
+	   tables for ready reference.
+
+	- compute and display galactic and ecliptic coordinates.
+
+	- compute and display rough (of order 0.1 degree, but often
+	  much better) positions of the major planets.
+
+	- display the almanac for the current night.
+
+    The program is self-contained.  It was developed on a VMS system,
+   but should adapt easily to any system with a c compiler.  It has
+   been ported to, and tested on, several popular workstations.
+
+	** BUT CAUTION ... **
+   Because many of the routines take a double-precision floating point
+   Julian Date as their time argument, one must be sure that the machine
+   and compiler carry sufficient mantissa to reach the desired accuracy.
+   On VAX/VMS, the time resolution is of order 0.01 second.  This has also
+   proven true on Sun and IBM workstations.
+
+LEGALITIES:
+
+   I make no guarantee as to the accuracy, reliability, or
+   appropriateness of this program, though I have found it to be
+   reasonably accurate and quite useful to the working astronomer.
+
+   The program is COPYRIGHT 1993 BY JOHN THORSTENSEN.
+   Permission is hereby granted for non-profit scientific or educational use.
+   For-profit use (e. g., by astrologers!) must be through negotiated
+   license.  The author requests that observatories and astronomy
+   departments which install this as a utility notify the author
+   by paper mail, just so I know how widely it is used.
+
+   Credits:
+    * The julian date and sidereal time routines were
+    originally coded in PL/I by  Steve Maker of Dartmouth College.
+    They were based on routines in the old American Ephemeris.
+    * The conversion from julian date to calendar date is adapted
+    from Numerical Recipes in c, by Press et al. (Cambridge University
+    Press). I highly recommend this excellent, very useful book.
+
+
+    APOLOGIES/DISCLAIMER:
+    I am aware that the code here does not always conform to
+    the best programming practices.  Not every possible error condition
+    is anticipated, and no guarantee is given that this is bug-free.
+    Nonetheless, most of this code has been shaken down at several
+    hundred sites for several years, and I have never received any
+    actual bug reports.  Many users have found this program
+    to be useful.

@@ -1,0 +1,11 @@
+
+  keyword <buffer> (KEYWORD) [variable] [-w value]
+
+  "keyword" extracts the specified keyword from the header of the
+   specified buffer.  If a third word is listed, the value of the
+   keyword is stored in a variable with the given name.  If the -w
+   option is given, the value is written to the header keyword.
+
+   The header Meta-data is well-defined for FITS, but not necessarily
+   for other data types.
+

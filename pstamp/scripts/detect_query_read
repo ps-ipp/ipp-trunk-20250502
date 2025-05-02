@@ -1,0 +1,419 @@
+#!/usr/bin/env perl
+
+# Read and parse a fits table containing a MOPS_DETECTABILITY_QUERY Extension
+# and optionally print out the contents
+
+# by default prints out the keywords in the exension header followed by the rows of the table
+# with labels
+# -l omits the labels
+# -h omits the header
+# -r omits the rows
+# so -lhr will print nothing
+
+use warnings;
+use strict;
+
+use Astro::FITS::CFITSIO qw( :constants );
+Astro::FITS::CFITSIO::PerlyUnpacking(1);
+use Getopt::Long qw( GetOptions :config auto_help auto_version gnu_getopt );
+use Pod::Usage qw( pod2usage );
+use Math::Trig;
+use Data::Dumper;
+use IPC::Cmd 0.36 qw( can_run run );
+
+use constant EXTNAME => 'MOPS_DETECTABILITY_QUERY'; # Extension name for table
+
+my $no_print_label  = 0;    # omit the labels
+my $no_print_header = 0;    # omit the header keywords
+my $no_print_rows   = 0;    # omit the rows
+my $version = 0;
+
+my ( $input,			# Name of input text file
+     $output,			# Name of output table
+     $save_temps,		# Save temporary files?
+     $dbname,                   # needed to do camtool lookups.
+     );
+
+my $regtool = can_run('regtool') or (die "Can't find regtool");
+my $camtool = can_run('camtool') or (die "Can't find camtool");
+my $difftool = can_run('difftool') or (die "Can't find difftool");
+
+
+GetOptions(
+	   'input|i=s'    => \$input,
+	   'output|o=s'   => \$output,
+           'dbname=s'     => \$dbname,
+           'nolabel|l'    => \$no_print_label,
+           'noheader|h'   => \$no_print_header,
+           'norows|r'     => \$no_print_rows
+) or pod2usage( 2 );
+
+pod2usage( -msg => "Unknown option: @ARGV", -exitval => 2 ) if @ARGV;
+pod2usage( -msg => "Required options: --input",
+           -exitval => 3) unless defined $input;
+
+if ($output && ($output ne "-")) {
+    die "cannot open $output for output\n" unless open OUTFILE, ">$output";
+    select OUTFILE;
+}
+
+my $status = 0;
+
+# Read the input file
+
+my $inFits = Astro::FITS::CFITSIO::open_file( $input, READONLY, $status ); # FITS file handle
+check_fitsio($status);
+
+$inFits->movnam_hdu(BINARY_TBL, EXTNAME, 0, $status) and check_fitsio($status);
+
+my $inHeader = $inFits->read_header(); # Header for input
+
+my $numRows;			# Number of rows in table
+$inFits->get_num_rows($numRows, $status) and check_fitsio($status);
+
+# The keywords found in the header
+
+my $parse_error = 0;
+# Parse the header to determine what we have to work with.
+# Clean up empty space and remove unneeded single quotes.
+foreach my $header_key (keys %{ $inHeader }) {
+    $inHeader->{$header_key} =~ s/\s+//g;
+    $inHeader->{$header_key} =~ s/\'//g;
+}
+my ($EXTVER,$headerEXTNAME,$QUERY_ID,
+    $FPA_ID,$MJD_OBS,$FILTER,
+    $OBSCODE,$STAGE,$COMPONENT_ID,$PROJECT,$TESS_ID) = 
+    ($inHeader->{EXTVER},$inHeader->{EXTNAME},$inHeader->{QUERY_ID},
+     $inHeader->{FPA_ID},$inHeader->{'MJD-OBS'},$inHeader->{FILTER},
+     $inHeader->{OBSCODE},$inHeader->{STAGE},$inHeader->{COMPONENT_ID},
+     $inHeader->{PROJECT},$inHeader->{TESS_ID});
+
+unless(defined($EXTVER) && defined($headerEXTNAME) &&
+       (($EXTVER == 1)||($EXTVER == 2)) && 
+       ($headerEXTNAME eq EXTNAME)&&
+       (defined($QUERY_ID))) {
+    $parse_error = 1;
+}
+unless(($EXTVER == 2)||
+       ((defined($QUERY_ID))&&(defined($FPA_ID))&&(defined($MJD_OBS))&&
+	(defined($FILTER))&&(defined($OBSCODE)))) {
+    $parse_error = 2;
+}
+
+# Specification of columns
+my $column_defs = [ 
+        # matching rownum from detectability original request
+        { name => 'ROWNUM',   type => '20A', writetype => TSTRING, version => 1 }, 
+        # coordinate at start of exposure, in degrees
+        { name => 'RA1_DEG',  type => 'D',   writetype => TDOUBLE, version => 1 },
+        # coordinate at start of exposure, in degrees
+        { name => 'DEC1_DEG', type => 'D',   writetype => TDOUBLE, version => 1 },
+        # coordinate at end of exposure, in degrees
+        { name => 'RA2_DEG',  type => 'D',   writetype => TDOUBLE, version => 1 },
+        # coordinate at end of exposure, in degrees
+        { name => 'DEC2_DEG', type => 'D',   writetype => TDOUBLE, version => 1 },
+        # apparent magnitude
+        { name => 'MAG',      type => 'D',   writetype => TDOUBLE, version => 1 },
+    # v2 query_id: needs to be here.
+    { name => 'QUERY_ID', type => '20A', writetype => TSTRING, version => 2, default => $QUERY_ID },
+    # v2 fpa_id: original FPA_ID used at ingest
+    { name => 'FPA_ID', type => '20A', writetype => TSTRING, version => 2, default => $FPA_ID },
+    # v2 mjd obs: starting time of the exposure, MJD
+    { name => 'MJD-OBS', type => 'D', writetype => TDOUBLE, version => 2, default => $MJD_OBS },
+    # v2 filter: effective filter used for the exposure as a string, allowed values of g, r, i, z, y, B, V, w
+    { name => 'FILTER', type => '3A', writetype => TSTRING, version => 2, default => $FILTER },
+    # v2 obscode: site identifier (MPC observatory code)
+    { name => 'OBSCODE', type => '3A', writetype => TSTRING, version => 2, default => $OBSCODE },
+    # v2 stage: stage name to perform query on, allowed values of 'chip', 'warp', 'stack', and 'diff'
+    { name => 'STAGE', type => '20A', writetype => TSTRING, version => 2, default => $STAGE },
+    #
+    { name => 'COMPONENT_ID', type => '20A', writetype => TSTRING, version => 2, default => $COMPONENT_ID },
+    #
+    { name => 'PROJECT', type => '16A', writetype => TSTRING, version => 2, default => $PROJECT },    
+    #
+    { name => 'TESS_ID', type => '64A', writetype => TSTRING, version => 2, default => $TESS_ID },
+];
+
+# Parse the list of columns
+my @colNames;			# Names of columns
+my @colTypes;			# Types of columns
+my @colWriteType;               # type to use to write
+my %colData;			# Data for each column referenced by name
+foreach my $colSpec ( @$column_defs) {
+    push @colNames, $colSpec->{name};
+    push @colTypes, $colSpec->{type};
+    push @colWriteType, $colSpec->{writetype};
+}
+
+foreach my $col (@$column_defs) {
+    my ($col_num, $col_type, $col_data);
+
+    if ($col->{version} > $EXTVER) {
+	@{ $colData{$col->{name}} } = map { $col->{default} } (0 .. $numRows - 1);
+	next;
+    }
+    else {
+	if (defined($col->{default})) {
+	    @{ $colData{$col->{name}} } = map { $col->{default} } (0 .. $numRows - 1);
+	    next;
+	}	 
+    }   
+
+    $inFits->get_colnum(0, $col->{name}, $col_num, $status);
+    if ($status == 0) {
+	$inFits->get_coltype($col_num, $col_type, undef, undef, $status) and check_fitsio($status);
+	$inFits->read_col($col_type, $col_num, 1, 1, $numRows, 0, $col_data, undef, $status)
+	    and check_fitsio($status);
+	$colData{$col->{name}} = $col_data;
+	if ($col->{name} eq 'QUERY_ID') {
+	    print @{ $col_data } . "\n";
+	}
+
+    }
+    elsif ($status == 219) {
+	@{ $colData{$col->{name}} } = map { "Not_Set" } (0 .. $numRows - 1);
+	$status = 0;
+    }
+}
+
+# Set things that aren't set.
+for (my $i = 0; $i < $numRows; $i++) {
+# Simple stuff first.
+    my %known_filters = ();
+    if ($colData{STAGE}[$i] eq "Not_Set") {
+	$colData{STAGE}[$i] = 'diff';
+    }
+    if ($colData{OBSCODE}[$i] eq "Not_Set") {
+	$colData{OBSCODE}[$i] = 566;
+    }
+# Define filter and MJD from FPA_ID
+    if (($colData{FILTER}[$i] eq "Not_Set")&&($colData{FPA_ID}[$i] ne "Not_Set")) {
+	if (exists($known_filters{$colData{FPA_ID}[$i]})) {
+	    $colData{FILTER}[$i] = $known_filters{$colData{FPA_ID}[$i]};
+	}
+	else {
+	    my $cmd = "$regtool -processedexp -dbname $dbname -exp_name $colData{FPA_ID}[$i]";
+	    my ( $success, $error_code, $full_buf, $stdout_buf, $stderr_buf ) =
+		run(command => $cmd, verbose => 0);
+	    unless ($success) {
+		# This is a problem, because I'm not sure how we handle a failure to read something.
+		# We need to return a $PSTAMP_INVALID_REQUEST, I think, but if we can't read it, 
+		# we can't send that response back.
+		die("Unable to perform $cmd error code: $error_code");
+	    }
+	    foreach my $entry (split /\n/, (join "", @$full_buf)) {
+		$entry =~ s/^\s+//;
+		my @line = split /\s+/, $entry;
+		if (scalar(@line) != 3) {
+		    next;
+		}
+		my ($key,$type,$value) = @line;
+#		print "$entry => $key / $type / $value \n";
+		# if gpc2 then needs .00002
+		if ($key =~ /filter/i) {
+		    $value =~ s/.00000//;
+		    $colData{FILTER}[$i] = $value;
+		    $known_filters{$colData{FPA_ID}[$i]} = $value;
+		}
+	    }
+	}
+    }
+    # Calculate a MJD
+    if (($colData{'MJD-OBS'}[$i] eq "Not_Set")&&($colData{FPA_ID}[$i] ne "Not_Set")) {
+	# HACK!
+	my $mjd = $colData{FPA_ID}[$i];
+	# need to remove g for gpc2
+	$mjd =~ s/o(....)g.*/$1/;
+	$mjd += 50000;
+	$colData{'MJD-OBS'}[$i] = $mjd;
+    }
+    # Calculate an exp_id
+    if (($colData{FPA_ID}[$i] eq "Not_Set")&&(($colData{'FILTER'}[$i] ne "Not_Set")&&
+					      ($colData{'MJD-OBS'}[$i] ne "Not_Set"))) {
+        my $mjd_obs = int $colData{'MJD-OBS'}[$i];
+	my $dateobs_begin = mjd_to_dateobs($mjd_obs);
+	my $dateobs_end = mjd_to_dateobs($mjd_obs + 1);
+	my $ra = $colData{'RA1_DEG'}[$i];
+	my $dec = $colData{'DEC1_DEG'}[$i];
+	# if gpc2 then .00002
+	my $filter = $colData{'FILTER'}[$i] . ".00000";
+	my $cmd;
+	if ($colData{STAGE}[$i] eq 'SSdiff') {
+            # Assumption: All Stack Stack diffs are for a medium deep field
+            # go find which one the coordinates are in
+            # XXX: If we don't find one we'll just get the first SSdiff
+            # in the filter on the day in question
+            my $field = find_md_field($ra, $dec, 1.6);
+	    $cmd = "$difftool -listssrun -dbname $dbname -filter $filter ";
+	    $cmd .= " -mjd_obs_begin $mjd_obs -mjd_obs_end " . (1 + $mjd_obs);
+	    $cmd .= " -limit 1";
+            $cmd .= " -tess_id $field%" if $field;
+	}
+	elsif ($colData{STAGE}[$i] eq 'WSdiff') {
+	    $cmd = "$difftool -listrun -dbname $dbname -filter $filter ";
+	    $cmd .= " -dateobs_begin $dateobs_begin -dateobs_end $dateobs_end ";
+	    $cmd .= " -ra $ra -decl $dec -radius 1.5 -limit 1 -diff_mode 2";
+            $cmd .= " -diff_mode 2";
+	}
+	elsif ($colData{STAGE}[$i] eq 'diff') {
+	    $cmd = "$difftool -listrun -dbname $dbname -filter $filter ";
+	    $cmd .= " -dateobs_begin $dateobs_begin -dateobs_end $dateobs_end ";
+	    $cmd .= " -ra $ra -decl $dec -radius 1.5 -limit 1";
+	}
+	else {
+	    $cmd = "$camtool -processedexp -dbname $dbname -filter $filter ";
+	    $cmd .= " -dateobs_begin $dateobs_begin -dateobs_end $dateobs_end ";
+	    $cmd .= " -ra $ra -decl $dec -radius 1.5 -limit 1";
+	}
+	my ( $success, $error_code, $full_buf, $stdout_buf, $stderr_buf ) =
+	    run(command => $cmd, verbose => 1);
+	unless ($success) {
+	    # This is a problem, because I'm not sure how we handle a failure to read something.
+	    # We need to return a $PSTAMP_INVALID_REQUEST, I think, but if we can't read it, 
+	    # we can't send that response back.
+	    die("Unable to perform $cmd error code: $error_code");
+	}
+	foreach my $entry (split /\n/, (join "", @$full_buf)) {
+	    $entry =~ s/^\s+//;
+	    my @line = split /\s+/, $entry;
+	    if (scalar(@line) != 3) {
+		next;
+	    }
+	    my ($key,$type,$value) = @line;
+#		print "$entry => $key / $type / $value \n";
+	    if ($colData{STAGE}[$i] =~ /diff/) {
+		if ($key =~ /diff_id/i) {
+		    $colData{FPA_ID}[$i] = $value;
+		}
+	    }
+	    else {
+		if ($key =~ /exp_name/i) {
+		    $colData{FPA_ID}[$i] = $value;
+		}
+	    }
+	}
+    }
+    # Correct diff modes
+    if ($colData{STAGE}[$i] eq 'WSdiff') {
+	$colData{STAGE}[$i] = 'diff';
+    }
+    elsif ($colData{STAGE}[$i] eq 'SSdiff') {
+	$colData{STAGE}[$i] = 'diff';
+    }
+}
+
+# Verify uniqueness of important columns:
+# -- need to add PROJECT as well?
+my @unique_fields = ('QUERY_ID','OBSCODE','STAGE');
+foreach my $colName (@unique_fields) {
+    my %counter = ();
+    my $i = 0;
+    foreach my $row (@{ $colData{$colName} }) {
+	$counter{$row} = 1;
+    }
+    if (scalar(keys(%counter)) != 1) {
+	$parse_error = 3;
+    }
+}
+if ($parse_error) {
+    die "Unable to parse detectability query: $parse_error " . &error_message($parse_error) . "\n";;
+}
+
+# # Now produce the output
+
+
+if (!$no_print_label) {
+    print "# ";
+    foreach my $col (@$column_defs) {
+	printf "%-12s ", $col->{name};
+    }
+    print "\n";
+}
+
+for (my $i = 0; $i < $numRows; $i++) {
+    foreach my $col (@$column_defs) {
+	printf "%-12s ", $colData{$col->{name}}->[$i];
+        #foreach my $aref (@col_arrays) {
+	#printf "%-12s ", $aref->[$i];
+    }
+    print "\n";
+}
+
+exit 0;
+
+### Pau.
+
+# From Astro::FITS::CFITSIO demo
+sub check_fitsio
+{
+    my $status = shift;		# Status of FITSIO calls
+
+    if ($status != 0) {
+	my $msg;		# Message to output
+	Astro::FITS::CFITSIO::fits_get_errstatus( $status , $msg );
+	die "CFITSIO error: $status => $msg\n";
+    }
+}
+
+sub error_message {
+    my $error = shift;
+    if ($error == 1) {
+	return("Unknown EXTVER/EXTNAME");
+    }
+    if ($error == 2) {
+	return("Required header field not found");
+    }
+    if ($error == 3) {
+	return("Unique column not uniquely specified");
+    }
+    else {
+	return("Unknown fault.");
+    }
+}
+
+# Stolen from PStamp/Job.pm.  Thanks, Bill.
+sub mjd_to_dateobs {
+    my $mjd = shift;
+
+    my $ticks = ($mjd - 40587.0) * 86400;
+
+    my ($sec, $min, $hr, $day, $mon, $year) = gmtime($ticks);
+
+    return sprintf "'%4d-%02d-%02dT%02d:%02d:%02dZ'", $year+1900, $mon+1, $day, $hr, $min, $sec;
+}
+
+
+
+# Given an RA and  DEC return the MD field that contains it if any.
+# This is much faster than actuallly examining the tessellation
+# using dvoImagesAtCoords
+
+sub find_md_field {
+    my $ra_deg = shift;
+    my $dec_deg = shift;
+    my $radius_deg = shift;
+
+    my @MD     = qw(MD01  MD02    MD03     MD04      MD05    MD06      MD07    MD08    MD09     MD10);
+    my @MD_RA  = (35.875, 53.10, 130.592, 150.000, 161.917, 185.000, 213.454, 242.787, 333.98, 352.312);
+    my @MD_DEC = (-4.25,  -27.8,   44.317,   2.20,   58.083,  47.117,  53.243, 54.95,    0.283, -0.433);
+    my $PS_DEG_RAD = 0.017453292519943;
+
+    my $ra     = $ra_deg * $PS_DEG_RAD;
+    my $dec    = $dec_deg * $PS_DEG_RAD;
+    my $radius = $radius_deg * $PS_DEG_RAD;
+
+    for (my $i = 0; $i < scalar @MD; $i++) {
+        
+        my $dist = acos((cos($PS_DEG_RAD * $MD_DEC[$i]) * cos($dec) * cos($PS_DEG_RAD * $MD_RA[$i] - $ra)) +(sin($PS_DEG_RAD * $MD_DEC[$i]) * sin($dec)));
+
+        if ($dist < $radius) {
+            return $MD[$i];
+        }
+    }
+    print STDERR "failed to find MD field containing $ra_deg $dec_deg\n";
+
+    return undef;
+}
+
+
+__END__

@@ -1,0 +1,77 @@
+#!/usr/bin/env perl
+
+# USAGE: fixcoords (input) (output) (ref) (chip)
+use Math::Trig;
+# $DEG_RAD = 57.298688;
+# $RAD_DEG = 0.017452406;
+$DEG_RAD = 57.29577951;
+$RAD_DEG = 0.017453292;
+
+if (@ARGV != 4) { die "USAGE: fixcoords (input) (output) (ref) (chip)\n"; }
+
+$input  = $ARGV[0];
+$output = $ARGV[1];
+$ref    = $ARGV[2];
+$chip   = $ARGV[3];
+
+if (! -f $input) { die "file $input not found\n"; }
+
+# load astrometric terms from header of reference:
+
+$answer = `echo $ref | fields CRPIX1 CRPIX2 CRVAL1 CRVAL2 NASTRO`;
+($file, $crpix1, $crpix2, $crval1, $crval2, $Nastro) = split (" ", $answer);
+if ($Nastro == 0) { die "no astrometry solution in header\n"; }
+
+$answer = `echo $ref | fields PC001001 PC001002 PC002001 PC002002 CDELT1 CDELT2`;
+($file, $pc11, $pc12, $pc21, $pc22, $cd1, $cd2) = split (" ", $answer);
+
+open (FILE, "$input");
+open (OUT, ">$output");
+
+# copy header lines:
+for ($i = 0; $i < 16; $i++)  { $line = <FILE>; print OUT "$line"; }
+
+while ($line = <FILE>) {
+
+    @words = split (" ", $line);
+    xy2rd ($words[12], $words[13]);
+
+    if ($words[17] eq $chip) {
+	printf OUT "%4d %7.4f %7.4f %8.4f  %9.1f %6.3f %5.2f %2d  %9.1f %6.3f %5.2f %2d  %8.3f %8.3f  %15.11f %11.8f  %1s %2s\n",
+	    $words[0], $words[1], $words[2], $words[3], 
+	    $words[4], $words[5], $words[6], $words[7], 
+	    $words[8], $words[9], $words[10], $words[11], 
+	    $words[12], $words[13], $ra, $dec,
+	    $words[16], $words[17];
+    }
+}
+
+close (OUT);
+close (FILE);
+
+sub xy2rd {
+ $x = $_[0];
+ $y = $_[1];
+
+ $X = $cd1*($x - $crpix1);
+ $Y = $cd2*($y - $crpix2);
+
+ $L = $X*$pc11 + $Y*$pc12;
+ $M = $X*$pc21 + $Y*$pc22;
+
+ $chi = $RAD_DEG*$L;
+ $eta = $RAD_DEG*$M;
+
+ $sdp = sin ($RAD_DEG*$crval2);
+ $cdp = cos ($RAD_DEG*$crval2);
+
+ $talp = $chi / ($cdp - $eta*$sdp);
+ $alpha = atan ($talp);
+ $calp = cos ($alpha);
+ $tdel = $calp*($sdp + $eta*$cdp) / ($cdp - $eta*$sdp);
+ $delta = atan ($tdel);
+    
+ $ra  = $DEG_RAD*$alpha + $crval1;
+ $dec = $DEG_RAD*$delta;
+
+}

@@ -1,0 +1,585 @@
+# -*-sh-*-
+
+input tap.dvo
+input ptolemy.dvo
+
+# generates ptolemy.rc, dvo.photcodes, $zpt_nominal:g,r $klam_nominal:g,r
+mkptolemy.rc
+
+macro test.all
+  $TAP_VERBOSE = 1
+  test.dvomerge.update.new
+end
+
+# create 2 populated catdirs, each with a couple of cmf files
+macro test.dvomerge.continue
+
+  tapPLAN 51
+
+  tapEXEC rm -rf catdir.test1
+  tapEXEC rm -rf catdir.test2
+  tapEXEC rm -rf catdir.test3
+
+  $RA = 10.0
+  $DEC = 20.0
+
+  mkinput
+  tapEXEC mkcmf test.in.txt test.cmf -date 2008/1/1 -time 01:00:00 -radec 10.0 20.0
+  tapEXEC addstar -D CATDIR catdir.test1 -D CAMERA gpc1 test.cmf -quick-airmass
+
+  tapEXEC mkcmf test.in.txt test.cmf -date 2008/1/1 -time 02:00:00 -radec 10.0 20.0
+  tapEXEC addstar -D CATDIR catdir.test1 -D CAMERA gpc1 test.cmf -quick-airmass
+
+  tapEXEC mkcmf test.in.txt test.cmf -date 2008/1/1 -time 03:00:00 -radec 9.9 20.0
+  tapEXEC addstar -D CATDIR catdir.test2 -D CAMERA gpc1 test.cmf -quick-airmass
+
+  tapEXEC mkcmf test.in.txt test.cmf -date 2008/1/1 -time 04:00:00 -radec 9.9 20.0
+  tapEXEC addstar -D CATDIR catdir.test2 -D CAMERA gpc1 test.cmf -quick-airmass
+
+  tapEXEC mkcmf test.in.txt test.cmf -date 2008/1/1 -time 05:00:00 -radec 10.0 19.9
+  tapEXEC addstar -D CATDIR catdir.test1 -D CAMERA gpc1 test.cmf -quick-airmass
+
+  tapEXEC mkcmf test.in.txt test.cmf -date 2008/1/1 -time 06:00:00 -radec 10.0 19.9
+  tapEXEC addstar -D CATDIR catdir.test1 -D CAMERA gpc1 test.cmf -quick-airmass
+
+  tapEXEC mkcmf test.in.txt test.cmf -date 2008/1/1 -time 07:00:00 -radec 9.9 19.9
+  tapEXEC addstar -D CATDIR catdir.test2 -D CAMERA gpc1 test.cmf -quick-airmass
+
+  tapEXEC mkcmf test.in.txt test.cmf -date 2008/1/1 -time 08:00:00 -radec 9.9 19.9
+  tapEXEC addstar -D CATDIR catdir.test2 -D CAMERA gpc1 test.cmf -quick-airmass
+
+  break
+
+  tapEXEC rsync -auc catdir.test2/ catdir.test3/
+
+  date -var t1 -seconds -reftime 1276000000
+  tapEXEC dvomerge catdir.test1 into catdir.test3
+  date -var t2 -seconds -reftime 1276000000
+  echo "merge time: {$t2 - $t1}"
+
+  catdir catdir.test3
+  skyregion {$RA-1} {$RA+1} {$DEC-1} {$DEC+1} 
+  mextract ra dec mag
+  create n 0 ra[]
+  subset r0 = ra if (n % 4 == 0)
+  subset r1 = ra if (n % 4 == 1)
+  subset r2 = ra if (n % 4 == 2)
+  subset r3 = ra if (n % 4 == 3)
+
+  catdir catdir.test1/
+  mextract RA DEC MAG
+  create N 0 RA[]
+  subset R0 = RA if (N % 2 == 0)
+  subset R1 = RA if (N % 2 == 1)
+
+  set dr0 = r0 - R0
+  vstat -q dr0
+  tapOK {abs($MEAN)  < 0.001} "ra (in - 0) vs ra (out - 0) (MEAN)"
+  tapOK {abs($SIGMA) < 0.001} "ra (in - 0) vs ra (out - 0) (SIGMA)"
+
+  set dr1 = r1 - R1
+  vstat -q dr1
+  tapOK {abs($MEAN)  < 0.001} "ra (in - 0) vs ra (out - 0) (MEAN)"
+  tapOK {abs($SIGMA) < 0.001} "ra (in - 0) vs ra (out - 0) (SIGMA)"
+
+  catdir catdir.test2/
+  mextract RA DEC MAG
+  create N 0 RA[]
+  subset R2 = RA if (N % 2 == 0)
+  subset R3 = RA if (N % 2 == 1)
+
+  set dr2 = r2 - R2
+  vstat -q dr2
+  tapOK {abs($MEAN)  < 0.001} "ra (in - 0) vs ra (out - 0) (MEAN)"
+  tapOK {abs($SIGMA) < 0.001} "ra (in - 0) vs ra (out - 0) (SIGMA)"
+
+  set dr3 = r3 - R3
+  vstat -q dr3
+  tapOK {abs($MEAN)  < 0.001} "ra (in - 0) vs ra (out - 0) (MEAN)"
+  tapOK {abs($SIGMA) < 0.001} "ra (in - 0) vs ra (out - 0) (SIGMA)"
+
+  # check on updates to imageID
+  catdir catdir.test3
+  imextract imageID
+  sort imageID
+  tapOK {imageID[]  == 4} "image IDs exist"
+  tapOK {imageID[0] == 1} "updated image IDs"
+  tapOK {imageID[1] == 2} "updated image IDs"
+  tapOK {imageID[2] == 3} "updated image IDs"
+  tapOK {imageID[3] == 4} "updated image IDs"
+
+  catdir catdir.test3
+  mextract imageID, time
+  set id = imageID
+  set t = time
+  imextract imageID, time
+
+  for i 0 time[]
+    subset T = t if (id == imageID[$i])
+    set dT = T - time[$i]
+    vstat dT 
+    tapOK {abs($MEAN)  < 0.00001} "time for measure ID $i (MEAN)"
+    tapOK {abs($SIGMA) < 0.00001} "time for measure ID $i (SIGMA)"
+  end
+
+  # tapEXEC rm test.in.txt test.cmf
+  # tapEXEC rm -rf catdir.test1
+  # tapEXEC rm -rf catdir.test2
+  # tapEXEC rm -rf catdir.test3
+
+  tapDONE
+end
+
+# create 2 populated catdirs, each with a couple of cmf files
+macro test.dvomerge.update
+
+  tapPLAN 51
+
+  tapEXEC rm -rf catdir.test1
+  tapEXEC rm -rf catdir.test2
+  tapEXEC rm -rf catdir.test3
+
+  $RA = 10.0
+  $DEC = 20.0
+
+  mkinput
+  tapEXEC mkcmf test.in.txt test.cmf -date 2008/1/1 -time 01:00:00 -radec $RA $DEC
+  tapEXEC addstar -D CATDIR catdir.test1 -D CAMERA gpc1 test.cmf -quick-airmass
+
+  tapEXEC mkcmf test.in.txt test.cmf -date 2008/1/1 -time 02:00:00 -radec $RA $DEC
+  tapEXEC addstar -D CATDIR catdir.test1 -D CAMERA gpc1 test.cmf -quick-airmass
+
+  tapEXEC mkcmf test.in.txt test.cmf -date 2008/1/1 -time 03:00:00 -radec $RA $DEC
+  tapEXEC addstar -D CATDIR catdir.test2 -D CAMERA gpc1 test.cmf -quick-airmass
+
+  tapEXEC mkcmf test.in.txt test.cmf -date 2008/1/1 -time 04:00:00 -radec $RA $DEC
+  tapEXEC addstar -D CATDIR catdir.test2 -D CAMERA gpc1 test.cmf -quick-airmass
+
+  tapEXEC rsync -auc catdir.test2/ catdir.test3/
+
+  date -var t1 -seconds -reftime 1276000000
+  tapEXEC dvomerge catdir.test1 into catdir.test3
+  date -var t2 -seconds -reftime 1276000000
+  echo "merge time: {$t2 - $t1}"
+
+  catdir catdir.test3
+  skyregion {$RA-1} {$RA+1} {$DEC-1} {$DEC+1} 
+  mextract ra dec mag
+  create n 0 ra[]
+  subset r0 = ra if (n % 4 == 0)
+  subset r1 = ra if (n % 4 == 1)
+  subset r2 = ra if (n % 4 == 2)
+  subset r3 = ra if (n % 4 == 3)
+
+  catdir catdir.test1/
+  mextract RA DEC MAG
+  create N 0 RA[]
+  subset R0 = RA if (N % 2 == 0)
+  subset R1 = RA if (N % 2 == 1)
+
+  set dr0 = r0 - R0
+  vstat -q dr0
+  tapOK {abs($MEAN)  < 0.001} "ra (in - 0) vs ra (out - 0) (MEAN)"
+  tapOK {abs($SIGMA) < 0.001} "ra (in - 0) vs ra (out - 0) (SIGMA)"
+
+  set dr1 = r1 - R1
+  vstat -q dr1
+  tapOK {abs($MEAN)  < 0.001} "ra (in - 0) vs ra (out - 0) (MEAN)"
+  tapOK {abs($SIGMA) < 0.001} "ra (in - 0) vs ra (out - 0) (SIGMA)"
+
+  catdir catdir.test2/
+  mextract RA DEC MAG
+  create N 0 RA[]
+  subset R2 = RA if (N % 2 == 0)
+  subset R3 = RA if (N % 2 == 1)
+
+  set dr2 = r2 - R2
+  vstat -q dr2
+  tapOK {abs($MEAN)  < 0.001} "ra (in - 0) vs ra (out - 0) (MEAN)"
+  tapOK {abs($SIGMA) < 0.001} "ra (in - 0) vs ra (out - 0) (SIGMA)"
+
+  set dr3 = r3 - R3
+  vstat -q dr3
+  tapOK {abs($MEAN)  < 0.001} "ra (in - 0) vs ra (out - 0) (MEAN)"
+  tapOK {abs($SIGMA) < 0.001} "ra (in - 0) vs ra (out - 0) (SIGMA)"
+
+  # check on updates to imageID
+  catdir catdir.test3
+  imextract imageID
+  sort imageID
+  tapOK {imageID[]  == 4} "image IDs exist"
+  tapOK {imageID[0] == 1} "updated image IDs"
+  tapOK {imageID[1] == 2} "updated image IDs"
+  tapOK {imageID[2] == 3} "updated image IDs"
+  tapOK {imageID[3] == 4} "updated image IDs"
+
+  catdir catdir.test3
+  mextract imageID, time
+  set id = imageID
+  set t = time
+  imextract imageID, time
+
+  for i 0 time[]
+    subset T = t if (id == imageID[$i])
+    set dT = T - time[$i]
+    vstat dT 
+    tapOK {abs($MEAN)  < 0.00001} "time for measure ID $i (MEAN)"
+    tapOK {abs($SIGMA) < 0.00001} "time for measure ID $i (SIGMA)"
+  end
+
+  # tapEXEC rm test.in.txt test.cmf
+  # tapEXEC rm -rf catdir.test1
+  # tapEXEC rm -rf catdir.test2
+  # tapEXEC rm -rf catdir.test3
+
+  tapDONE
+end
+
+# create 1 populated catdir, merge into currently non-existent catdir
+macro test.dvomerge.update.new
+
+  tapPLAN 51
+
+  tapEXEC rm -rf catdir.test1
+  tapEXEC rm -rf catdir.test2
+
+  $RA = 10.0
+  $DEC = 20.0
+
+  mkinput
+  tapEXEC mkcmf test.in.txt test.cmf -date 2008/1/1 -time 01:00:00 -radec $RA $DEC
+  tapEXEC addstar -D CATDIR catdir.test1 -D CAMERA gpc1 test.cmf -quick-airmass
+
+  tapEXEC mkcmf test.in.txt test.cmf -date 2008/1/1 -time 02:00:00 -radec $RA $DEC
+  tapEXEC addstar -D CATDIR catdir.test1 -D CAMERA gpc1 test.cmf -quick-airmass
+
+  date -var t1 -seconds -reftime 1276000000
+  tapEXEC dvomerge catdir.test1 into catdir.test2
+  date -var t2 -seconds -reftime 1276000000
+  echo "merge time: {$t2 - $t1}"
+
+  catdir catdir.test2
+  skyregion {$RA-1} {$RA+1} {$DEC-1} {$DEC+1} 
+  mextract ra dec mag
+  create n 0 ra[]
+  subset r0 = ra if (n % 2 == 0)
+  subset r1 = ra if (n % 2 == 1)
+
+  catdir catdir.test1/
+  mextract RA DEC MAG
+  create N 0 RA[]
+  subset R0 = RA if (N % 2 == 0)
+  subset R1 = RA if (N % 2 == 1)
+
+  set dr0 = r0 - R0
+  vstat -q dr0
+  tapOK {abs($MEAN)  < 0.001} "ra (in - 0) vs ra (out - 0) (MEAN)"
+  tapOK {abs($SIGMA) < 0.001} "ra (in - 0) vs ra (out - 0) (SIGMA)"
+
+  set dr1 = r1 - R1
+  vstat -q dr1
+  tapOK {abs($MEAN)  < 0.001} "ra (in - 0) vs ra (out - 0) (MEAN)"
+  tapOK {abs($SIGMA) < 0.001} "ra (in - 0) vs ra (out - 0) (SIGMA)"
+
+  # check on updates to imageID
+  catdir catdir.test3
+  imextract imageID
+  sort imageID
+  tapOK {imageID[]  == 4} "image IDs exist"
+  tapOK {imageID[0] == 1} "updated image IDs"
+  tapOK {imageID[1] == 2} "updated image IDs"
+
+  catdir catdir.test2
+  mextract imageID, time
+  set id = imageID
+  set t = time
+  imextract imageID, time
+
+  for i 0 time[]
+    subset T = t if (id == imageID[$i])
+    set dT = T - time[$i]
+    vstat -q dT 
+    tapOK {abs($MEAN)  < 0.00001} "time for measure ID $i (MEAN)"
+    tapOK {abs($SIGMA) < 0.00001} "time for measure ID $i (SIGMA)"
+  end
+
+  # tapEXEC rm test.in.txt test.cmf
+  # tapEXEC rm -rf catdir.test1
+  # tapEXEC rm -rf catdir.test2
+  # tapEXEC rm -rf catdir.test3
+
+  tapDONE
+end
+
+# create 2 populated catdirs, each with a couple of cmf files -- force some unmatched objects 
+macro test.dvomerge.update.extras
+
+  tapPLAN 51
+
+  tapEXEC rm -rf catdir.test1
+  tapEXEC rm -rf catdir.test2
+  tapEXEC rm -rf catdir.test3
+
+  $RA = 10.0
+  $DEC = 20.0
+
+  mkinput
+  tapEXEC mkcmf test.in.txt test.cmf -date 2008/1/1 -time 01:00:00 -radec $RA $DEC
+  tapEXEC addstar -D CATDIR catdir.test1 -D CAMERA gpc1 test.cmf -quick-airmass
+
+  tapEXEC mkcmf test.in.txt test.cmf -date 2008/1/1 -time 02:00:00 -radec $RA $DEC
+  tapEXEC addstar -D CATDIR catdir.test1 -D CAMERA gpc1 test.cmf -quick-airmass
+
+  # generate a few extra unmatched sources 
+  mkinput.extras
+  tapEXEC mkcmf test.in.txt test.cmf -date 2008/1/1 -time 03:00:00 -radec $RA $DEC
+  tapEXEC addstar -D CATDIR catdir.test2 -D CAMERA gpc1 test.cmf -quick-airmass
+
+  tapEXEC mkcmf test.in.txt test.cmf -date 2008/1/1 -time 04:00:00 -radec $RA $DEC
+  tapEXEC addstar -D CATDIR catdir.test2 -D CAMERA gpc1 test.cmf -quick-airmass
+
+  tapEXEC rsync -auc catdir.test2/ catdir.test3/
+
+  tapEXEC dvomerge catdir.test1 into catdir.test3
+
+  catdir catdir.test3
+  skyregion {$RA-1} {$RA+1} {$DEC-1} {$DEC+1} 
+  mextract ra dec mag
+  create n 0 ra[]
+  subset r0 = ra if (n % 4 == 0)
+  subset r1 = ra if (n % 4 == 1)
+  subset r2 = ra if (n % 4 == 2)
+  subset r3 = ra if (n % 4 == 3)
+
+  catdir catdir.test1/
+  mextract RA DEC MAG
+  create N 0 RA[]
+  subset R0 = RA if (N % 2 == 0)
+  subset R1 = RA if (N % 2 == 1)
+
+  set dr0 = r0 - R0
+  vstat -q dr0
+  tapOK {abs($MEAN)  < 0.001} "ra (in - 0) vs ra (out - 0) (MEAN)"
+  tapOK {abs($SIGMA) < 0.001} "ra (in - 0) vs ra (out - 0) (SIGMA)"
+
+  set dr1 = r1 - R1
+  vstat -q dr1
+  tapOK {abs($MEAN)  < 0.001} "ra (in - 0) vs ra (out - 0) (MEAN)"
+  tapOK {abs($SIGMA) < 0.001} "ra (in - 0) vs ra (out - 0) (SIGMA)"
+
+  catdir catdir.test2/
+  mextract RA DEC MAG
+  create N 0 RA[]
+  subset R2 = RA if (N % 2 == 0)
+  subset R3 = RA if (N % 2 == 1)
+
+  set dr2 = r2 - R2
+  vstat -q dr2
+  tapOK {abs($MEAN)  < 0.001} "ra (in - 0) vs ra (out - 0) (MEAN)"
+  tapOK {abs($SIGMA) < 0.001} "ra (in - 0) vs ra (out - 0) (SIGMA)"
+
+  set dr3 = r3 - R3
+  vstat -q dr3
+  tapOK {abs($MEAN)  < 0.001} "ra (in - 0) vs ra (out - 0) (MEAN)"
+  tapOK {abs($SIGMA) < 0.001} "ra (in - 0) vs ra (out - 0) (SIGMA)"
+
+  # check on updates to imageID
+  catdir catdir.test3
+  imextract imageID
+  sort imageID
+  tapOK {imageID[]  == 4} "image IDs exist"
+  tapOK {imageID[0] == 1} "updated image IDs"
+  tapOK {imageID[1] == 2} "updated image IDs"
+  tapOK {imageID[2] == 3} "updated image IDs"
+  tapOK {imageID[3] == 4} "updated image IDs"
+
+  catdir catdir.test3
+  mextract imageID, time
+  set id = imageID
+  set t = time
+  imextract imageID, time
+
+  for i 0 time[]
+    subset T = t if (id == imageID[$i])
+    set dT = T - time[$i]
+    vstat -q dT 
+    tapOK {abs($MEAN)  < 0.00001} "time for measure ID $i (MEAN)"
+    tapOK {abs($SIGMA) < 0.00001} "time for measure ID $i (SIGMA)"
+  end
+
+  # tapEXEC rm test.in.txt test.cmf
+  # tapEXEC rm -rf catdir.test1
+  # tapEXEC rm -rf catdir.test2
+  # tapEXEC rm -rf catdir.test3
+
+  tapDONE
+end
+
+# create 2 populated catdirs, each with a couple of cmf files
+macro test.dvomerge.create
+
+  tapPLAN 21
+
+  tapEXEC rm -rf catdir.test1
+  tapEXEC rm -rf catdir.test2
+  tapEXEC rm -rf catdir.test3
+
+  $RA = 10.0
+  $DEC = 20.0
+
+  mkinput
+  tapEXEC mkcmf test.in.txt test.cmf -date 2008/1/1 -time 01:00:00 -radec $RA $DEC
+  tapEXEC addstar -D CATDIR catdir.test1 -D CAMERA gpc1 test.cmf -quick-airmass
+
+  tapEXEC mkcmf test.in.txt test.cmf -date 2008/1/1 -time 02:00:00 -radec $RA $DEC
+  tapEXEC addstar -D CATDIR catdir.test1 -D CAMERA gpc1 test.cmf -quick-airmass
+
+  tapEXEC mkcmf test.in.txt test.cmf -date 2008/1/1 -time 03:00:00 -radec $RA $DEC
+  tapEXEC addstar -D CATDIR catdir.test2 -D CAMERA gpc1 test.cmf -quick-airmass
+
+  tapEXEC mkcmf test.in.txt test.cmf -date 2008/1/1 -time 04:00:00 -radec $RA $DEC
+  tapEXEC addstar -D CATDIR catdir.test2 -D CAMERA gpc1 test.cmf -quick-airmass
+
+  tapEXEC dvomerge catdir.test1 and catdir.test2 to catdir.test3
+
+  catdir catdir.test3
+  skyregion {$RA-1} {$RA+1} {$DEC-1} {$DEC+1} 
+  mextract ra dec mag
+  create n 0 ra[]
+  subset r0 = ra if (n % 4 == 0)
+  subset r1 = ra if (n % 4 == 1)
+  subset r2 = ra if (n % 4 == 2)
+  subset r3 = ra if (n % 4 == 3)
+
+  catdir catdir.test1/
+  mextract RA DEC MAG
+  create N 0 RA[]
+  subset R0 = RA if (N % 2 == 0)
+  subset R1 = RA if (N % 2 == 1)
+
+  set dr0 = r0 - R0
+  vstat -q dr0
+  tapOK {abs($MEAN)  < 0.001} "ra (in - 0) vs ra (out - 0) (MEAN)"
+  tapOK {abs($SIGMA) < 0.001} "ra (in - 0) vs ra (out - 0) (SIGMA)"
+
+  set dr1 = r1 - R1
+  vstat -q dr1
+  tapOK {abs($MEAN)  < 0.001} "ra (in - 0) vs ra (out - 0) (MEAN)"
+  tapOK {abs($SIGMA) < 0.001} "ra (in - 0) vs ra (out - 0) (SIGMA)"
+
+  catdir catdir.test2/
+  mextract RA DEC MAG
+  create N 0 RA[]
+  subset R2 = RA if (N % 2 == 0)
+  subset R3 = RA if (N % 2 == 1)
+
+  set dr2 = r2 - R2
+  vstat -q dr2
+  tapOK {abs($MEAN)  < 0.001} "ra (in - 0) vs ra (out - 0) (MEAN)"
+  tapOK {abs($SIGMA) < 0.001} "ra (in - 0) vs ra (out - 0) (SIGMA)"
+
+  set dr3 = r3 - R3
+  vstat -q dr3
+  tapOK {abs($MEAN)  < 0.001} "ra (in - 0) vs ra (out - 0) (MEAN)"
+  tapOK {abs($SIGMA) < 0.001} "ra (in - 0) vs ra (out - 0) (SIGMA)"
+
+  # check on updates to imageID
+  catdir catdir.test3
+  imextract imageID
+  sort imageID
+  tapOK {imageID[]  == 4} "image IDs exist"
+  tapOK {imageID[0] == 1} "updated image IDs"
+  tapOK {imageID[1] == 2} "updated image IDs"
+  tapOK {imageID[2] == 3} "updated image IDs"
+  tapOK {imageID[3] == 4} "updated image IDs"
+
+  catdir catdir.test3
+  mextract imageID, time
+  set id = imageID
+  set t = time
+  imextract imageID, time
+
+  for i 0 time[]
+    subset T = t if (id == imageID[$i])
+    set dT = T - time[$i]
+    vstat -q dT 
+    tapOK {abs($MEAN)  < 0.00001} "time for measure ID $i (MEAN)"
+    tapOK {abs($SIGMA) < 0.00001} "time for measure ID $i (SIGMA)"
+  end
+
+  # tapEXEC rm test.in.txt test.cmf
+  # tapEXEC rm -rf catdir.test1
+  # tapEXEC rm -rf catdir.test2
+  # tapEXEC rm -rf catdir.test3
+
+  tapDONE
+end
+
+# make a simple input file for mkcmf
+macro mkinput.alt
+  tapEXEC rm -f test.in.txt
+
+  output test.in.txt
+  for i 10 1024 400
+    for j 10 1024 400
+      fprintf " %4d %4d  %6.2f" $i $j {-15.0 + 2.5*($i + $j)/1000.0}
+    end
+  end
+  output stdout
+end
+
+# make a simple input file for mkcmf
+macro mkinput
+  tapEXEC rm -f test.in.txt
+
+  output test.in.txt
+  for i 10 1024 100
+    for j 10 1024 100
+      fprintf " %4d %4d  %6.2f" $i $j {-15.0 + 2.5*($i + $j)/1000.0}
+    end
+  end
+  output stdout
+end
+
+# make a simple input file for mkcmf
+macro mkinput.extras
+  tapEXEC rm -f test.in.txt
+
+  output test.in.txt
+  for i 10 1024 100
+    for j 10 1024 100
+      fprintf " %4d %4d  %6.2f" $i $j {-15.0 + 2.5*($i + $j)/1000.0}
+    end
+  end
+  for i 20 1024 500
+    for j 20 1024 500
+      fprintf " %4d %4d  %6.2f" $i $j {-15.0 + 2.5*($i + $j)/1000.0}
+    end
+  end
+  output stdout
+end
+
+# list of cmf fields to test matched to mextract fields
+# this list is good for PS1_DEV_1
+list testfields
+  IPP_IDET          : detid
+  X_PSF             : xccd
+  Y_PSF             : yccd
+  X_PSF_SIG         : xccd:err
+  Y_PSF_SIG         : yccd:err
+  PSF_INST_MAG      : mag:inst
+  PSF_INST_MAG_SIG  : mag:err
+  PEAK_FLUX_AS_MAG  : SKIP
+  SKY               : sky
+  SKY_SIG           : sky_err
+  PSF_CHISQ         : psf_chisq
+  CR_NSIGMA         : cr_nsigma
+  EXT_NSIGMA        : ext_nsigma
+  PSF_WIDTH_X       : FWHM_MAJ
+  PSF_WIDTH_Y       : FWHM_MIN
+  PSF_THETA         : THETA
+  PSF_QF            : PSF_QF
+  N_FRAMES          : SKIP
+  FLAGS             : phot_flags
+end
+

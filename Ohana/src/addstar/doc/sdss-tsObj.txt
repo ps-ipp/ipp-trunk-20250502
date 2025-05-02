@@ -1,0 +1,686 @@
+.
+  Calibrated Objects
+
+*File Format:* FITS binary table
+
+*Name:* /tsObj-rrrrrr-c-v-ffff.fit/, where /rrrrrr/ is the imaging run
+number, /c/ is the camera column (1-6), and /v/ is the rerun number and
+ffff is the first field number of the segment.
+
+*Produced by:* ts
+
+*Used by:* ts, sx
+
+*Size:* 7 * 2880 + (2240 * Nstars) {rounded up to nearest multiple of
+2880) * Nfields. For a single pipeline run with 1000 fields, 400 objects
+per field, 887.06 Mb.
+
+*Archived?* Yes, by sx.
+
+
+    Description
+
+Calibrated version of the object lists put out by the /frames/ pipeline.
+
+
+    Primary Header
+
+SIMPLE  =                    T
+BITPIX  =                    8
+NAXIS   =                    0
+EXTEND  =                    T
+RUN     =                  XXX / Imaging run number.
+CAMCOL  =                  XXX / Column in the imaging camera.
+RERUN   =                  XXX / Rerun number
+FIELD0  =                  XXX / First field reduced.
+NFIELDS =                  XXX / Number of fields reduced.
+STRIPE  =                  XXX / Stripe number
+STRIP   = 'X       '           / N - north, S - south
+EQUINOX =          XXXX.XXXXXX / Equinox of great circle scanned (Julian years)
+NODE    =           XXX.XXXXXX / Ascending node of great circle scanned (deg)
+INCL    =           XXX.XXXXXX / Inclincation of great circle scanned (deg)
+C_OBS   =            XXXXX.XXX / CCD clock rate (usec/unbinned-row)
+TRACKING=            XXXXX.XXX / Tracking rate (arcsec/TAI-sec)
+PHOTO_ID= 'XXX     '           / Photometric pipeline run id.
+TASTR_ID= 'XXX     '           / Astrometric pipeline run id for target.
+EASTR_ID= 'XXX     '           / Astrometric pipeline run id for export.
+TFCAL_ID= 'XXX     '           / Photometric calibration run id for target.
+EFCAL_ID= 'XXX     '           / Photometric calibration run id for export.
+PHOT_VER= 'XXX     '           / Version of frames pipeline used.
+TAST_VER= 'XXX     '           / Version of astrometric pipeline for target.
+EAST_VER= 'XXX     '           / Version of astrometric pipeline for export.
+TFCA_VER= 'XXX     '           / Version of fcalib for target.
+EFCA_VER= 'XXX     '           / Version of fcalib for export.
+TARG_VER= 'XXX     '           / Version of target pipeline used.
+EXPO_VER= 'XXX     '           / Version of export pipeline used.
+FILTERS = 'XXX XXX ...'        / Filter order in array fields
+OBJ_SRC = 'XXX     '           / Source of objects:
+COMMENT                        /    OPDB_PRELIM = OPDB, preliminary data
+COMMENT                        /    OPDB_EXPORT = OPDB, exported to SX
+COMMENT                        /    SX          = Science Database
+COMMENT                        /    FLATFILES   = Flat files
+TARG_SRC= 'XXX     '           / Source of target info:
+COMMENT                        /    OPDB_PRELIM = OPDB, preliminary data
+COMMENT                        /    OPDB_EXPORT = OPDB, exported to SX
+COMMENT                        /    SX          = Science Database
+COMMENT                        /    FLATFILES   = Flat files
+RESOLVED=                    T / Data from a resolved segment
+EXPORTED=                  XXX / Type of objects exported in this file:
+COMMENT                        /    1 = spectroscopic targets only
+COMMENT                        /    2 = primaries only
+COMMENT                        /    3 = primaries and secondaries
+COMMENT                        /    4 = all objects
+FAMILIES=                    T / Contains family members of included objects
+REF_BAND=                    2 / band used for canonical centre
+DARK_VAR= '4 4 4 4 4'          / Per-pixel variances at zero DN (DN^2)
+GAIN    = '3.5 3.5 3.5 3.5 3.5' / Mean gains of amplifiers (e/DN)
+END                         
+
+
+    Table Header
+
+There is one HDU of this type in the file for each field, ordered by
+field number. The "QUALITY" keyword records the quality of data in the
+field, in terms of its acceptance for the survey, and can take the
+following meanings:
+
+  'BAD      '   /* Not acceptable for the survey */
+  'ACCEPTABLE'  /* Acceptable for the survey, but we'd better data */
+  'GOOD     '   /* Fully acceptable --- no desire for better data */
+  'MISSING  '   /* No objects in this field, because data is missing, but we
+                 * accept the field into the survey as a hole in the survey */
+  'HOLE     '   /* Data in this field is not acceptable, but we will accept the
+                 * field into the survey as a hole in the survey, meaning none
+                 * of the objects in the field are part of the survey */
+
+The "STATUS_X" keywords record the status of the PSF fit for that field
+in that filter, and can take the following meanings:
+
+  'UNKNOWN  '    /* ??? */
+  'OK       '    /* PSF fitted by 2nd order parabolas */
+  'PSF22    '    /* PSF fitted by linear functions */
+  'PSF11    '    /* PSF fitted by a constant */
+  'NOPSF    '    /* PSF fit from previous frame used*/
+  'ABORTED  '    /* ??? */
+  'MISSING  '    /* ??? */
+
+PSP_STAT is the maximum value of STATUS_X over all 5 filters.
+
+The /objc_type/, /objc_flags/, /objc_flags2/, /flags/, /flags2/, and
+/type/ fields are enumerated types or bit masks, with the same set of
+legal values as found for the same fields in the fpObjc <fpObjc.html> file.
+
+The /status/ field is a bit mask specifying the status of the object in
+the survey. The bits are defined as:
+
+  AR_OBJECT_STATUS_SET        = 0x1,    /* This object's status has been set */
+					/* in reference to its own run.      */
+  AR_OBJECT_STATUS_GOOD       = 0x2,    /* Good as determined by its         */
+					/* object flags.  Absence implies    */
+                                        /* bad.  This flag is set by         */
+                                        /* "setObjectStatus".                */
+  AR_OBJECT_STATUS_DUPLICATE  = 0x4,    /* This object has one or more       */
+					/* duplicate detections in an        */
+					/* adjacent field of the same Frames */
+					/* Pipeline Run.  This is set by     */
+					/* "setObjectStatus".                */
+  AR_OBJECT_STATUS_OK_RUN     = 0x10,   /* Located within the primary range  */
+					/* of rows for this field.  This is  */
+                                        /* usable object.  This flag is set  */
+                                        /* by "setObjectStatus".             */
+  AR_OBJECT_STATUS_RESOLVED   = 0x20,   /* This object has been resolved     */
+					/* against other runs.               */
+  AR_OBJECT_STATUS_PSEGMENT   = 0x40,   /* Belongs to a PRIMARY segment.     */
+					/* This does not imply that this is a*/
+					/* primary object.                   */
+  AR_OBJECT_STATUS_FIRST_FIELD= 0x100,  /* Belongs to the first field in its */
+					/* segment.  Used to distinguish     */
+					/* objects in fields shared by two   */
+					/* segments.                         */
+  AR_OBJECT_STATUS_OK_SCANLINE= 0x200,  /* Lies within valid nu range        */
+					/* for its scanline.                 */
+  AR_OBJECT_STATUS_OK_STRIPE  = 0x400,  /* Lies within valid eta range for   */
+					/* its stripe.                       */
+  AR_OBJECT_STATUS_SECONDARY  = 0x1000, /* This is a secondary survey object.*/
+  AR_OBJECT_STATUS_PRIMARY    = 0x2000, /* This is a primary survey object.  */
+  AR_OBJECT_STATUS_TARGET     = 0x4000  /* This is a spectroscopic target.   */
+
+The /primTarget/ field is a bit mask specifying which primary target
+catagories the object was selected in. The bits are defined as:
+
+  AR_TARGET_QSO_HIZ           = 0x1,
+  AR_TARGET_QSO_CAP           = 0x2,
+  AR_TARGET_QSO_SKIRT         = 0x4,
+  AR_TARGET_QSO_FIRST_CAP     = 0x8,
+  AR_TARGET_QSO_FIRST_SKIRT   = 0x10,
+  AR_TARGET_QSO_MAG_OUTLIER  = 0x2000000,
+  AR_TARGET_QSO_REJECT	      = 0x20000000,
+  AR_TARGET_GALAXY_RED        = 0x20,
+  AR_TARGET_GALAXY_RED_II     = 0x4000000,
+  AR_TARGET_GALAXY            = 0x40,
+  AR_TARGET_GALAXY_BIG        = 0x80,
+  AR_TARGET_GALAXY_BRIGHT_CORE= 0x100,
+  AR_TARGET_ROSAT_A           = 0x200,
+  AR_TARGET_ROSAT_B           = 0x400,
+  AR_TARGET_ROSAT_C           = 0x800,
+  AR_TARGET_ROSAT_D           = 0x1000,
+  AR_TARGET_ROSAT_E           = 0x8000000,
+  AR_TARGET_STAR_BHB          = 0x2000,
+  AR_TARGET_STAR_CARBON       = 0x4000,
+  AR_TARGET_STAR_BROWN_DWARF  = 0x8000,
+  AR_TARGET_STAR_SUB_DWARF    = 0x10000,
+  AR_TARGET_STAR_CATY_VAR     = 0x20000,
+  AR_TARGET_STAR_RED_DWARF    = 0x40000,
+  AR_TARGET_STAR_WHITE_DWARF  = 0x80000,
+  AR_TARGET_STAR_PN           = 0x10000000,
+  AR_TARGET_SERENDIP_BLUE     = 0x100000,
+  AR_TARGET_SERENDIP_FIRST    = 0x200000,
+  AR_TARGET_SERENDIP_RED      = 0x400000,
+  AR_TARGET_SERENDIP_DISTANT  = 0x800000,
+  AR_TARGET_SERENDIP_MANUAL   = 0x1000000
+
+The /secTarget/ field is a bit mask specifying which secondary target
+catagories the object was selected in. The bits are defined as:
+
+  TAR_TARGET_LIGHT_TRAP        = 0x1,
+  TAR_TARGET_REDDEN_STD        = 0x2,
+  TAR_TARGET_TEST_TARGET       = 0x4,
+  TAR_TARGET_QA                = 0x8,
+  TAR_TARGET_SKY               = 0x10,
+  TAR_TARGET_SPECTROPHOTO_STD  = 0x20,
+  TAR_TARGET_GUIDE_STAR        = 0x40,
+  TAR_TARGET_BUNDLE_HOLE       = 0x80,
+  TAR_TARGET_QUALITY_HOLE      = 0x100,
+  TAR_TARGET_HOT_STD           = 0x200
+
+The /CULLED/ keyword is a bit mask with the same bit values as the
+/primTarget/ field. If a bit is set, then all targets of that target
+type were culled during target selection, and thus this field is
+excluded from that science sample.
+
+XTENSION= 'BINTABLE'          
+BITPIX  =                    8
+NAXIS   =                    2
+NAXIS1  =                 2732
+NAXIS2  =                  XXX
+PCOUNT  =                    0
+GCOUNT  =                    1
+TFIELDS =                  146
+FIELD   =                  XXX / Field sequence number within the run.
+QUALITY = 'XXX     '           / Quality of field in terms of survey acceptance
+CULLED  =                  XXX / Culling bit mask
+MJD_U   =         XXXXX.XXXXXX / MJD(TAI) when row 0 of u' frame was read
+MJD_G   =         XXXXX.XXXXXX / MJD(TAI) when row 0 of g' frame was read
+MJD_R   =         XXXXX.XXXXXX / MJD(TAI) when row 0 of r' frame was read
+MJD_I   =         XXXXX.XXXXXX / MJD(TAI) when row 0 of i' frame was read
+MJD_Z   =         XXXXX.XXXXXX / MJD(TAI) when row 0 of z' frame was read
+SEEING_U=                 XX.X / Seeing on the u' frame (FWHM, arcsecs)
+SEEING_G=                 XX.X / Seeing on the g' frame (FWHM, arcsecs)
+SEEING_R=                 XX.X / Seeing on the r' frame (FWHM, arcsecs)
+SEEING_I=                 XX.X / Seeing on the i' frame (FWHM, arcsecs)
+SEEING_Z=                 XX.X / Seeing on the z' frame (FWHM, arcsecs)
+STATUS_U= 'XXX     '           / PSF fit status on u' frame
+STATUS_G= 'XXX     '           / PSF fit status on g' frame
+STATUS_R= 'XXX     '           / PSF fit status on r' frame
+STATUS_I= 'XXX     '           / PSF fit status on i' frame
+STATUS_Z= 'XXX     '           / PSF fit status on z' frame
+PSP_STAT= 'XXX     '           / Maximum of STATUS value on all 5 frames
+PSFERR_U=               XXX.XX / Photometric err due to imperfect PSF model(mag)
+PSFERR_G=               XXX.XX / Photometric err due to imperfect PSF model(mag)
+PSFERR_R=               XXX.XX / Photometric err due to imperfect PSF model(mag)
+PSFERR_I=               XXX.XX / Photometric err due to imperfect PSF model(mag)
+PSFERR_Z=               XXX.XX / Photometric err due to imperfect PSF model(mag)
+SKY_U   =               XXX.XX / Global sky value after obj sub (mag/arcsec^2)
+SKY_G   =               XXX.XX / Global sky value after obj sub (mag/arcsec^2)
+SKY_R   =               XXX.XX / Global sky value after obj sub (mag/arcsec^2)
+SKY_I   =               XXX.XX / Global sky value after obj sub (mag/arcsec^2)
+SKY_Z   =               XXX.XX / Global sky value after obj sub (mag/arcsec^2)
+TFORM1  = '1J      '          
+TTYPE1  = 'run     '           / Run ID
+TUNIT1  = 'unitless'          
+TFORM2  = '1J      '          
+TTYPE2  = 'camCol  '           / Camera column
+TUNIT2  = 'unitless'          
+TFORM3  = '1J      '          
+TTYPE3  = 'rerun   '           / Rerun number
+TUNIT3  = 'unitless'          
+TFORM4  = '1J      '          
+TTYPE4  = 'field   '           / Field ID
+TUNIT4  = 'unitless'          
+TFORM5  = '1J      '          
+TTYPE5  = 'parent  '           / Parent
+TUNIT5  = 'unitless'          
+TFORM6  = '1J      '          
+TTYPE6  = 'id      '           / Object ID, unique within its field (1 indexed)
+TUNIT6  = 'unitless'          
+TFORM7  = '1J      '          
+TTYPE7  = 'nchild  '           / Number of Children
+TUNIT7  = 'unitless'          
+TFORM8  = '1J      '          
+TTYPE8  = 'objc_type'          / Classification
+TUNIT8  = 'unitless'          
+TFORM9  = '1E      '
+TTYPE9  = 'objc_prob_psf'      / Probablity object is a star
+TUNIT9  = 'unitless'          
+TFORM10 = '1J      '          
+TTYPE10 = 'catID   '           / Catalog ID
+TUNIT10 = 'unitless'          
+TFORM11 = '1J      '          
+TTYPE11 = 'objc_flags'         / Object flags
+TUNIT11 = 'unitless'          
+TFORM12 = '1J      '          
+TTYPE12 = 'objc_flags2'        / More object flags
+TUNIT12 = 'unitless'          
+TFORM13 = '1E      '          
+TTYPE13*= 'objc_rowc'          / Nominal row position (r' coordinates)
+TUNIT13 = 'pixels  '          
+TFORM14 = '1E      '          
+TTYPE14*= 'objc_rowcErr'       / Nominal row position (r' coordinates) error
+COMMENT                        / This is the centroiding error only.  It does
+COMMENT                        / not include errors from the TRANS structures.
+TUNIT14 = 'pixels  '          
+TFORM15 = '1E      '          
+TTYPE15*= 'objc_colc'          / Nominal column position (r' coordinates)
+TUNIT15 = 'pixels  '          
+TFORM16 = '1E      '          
+TTYPE16*= 'objc_colcErr'       / Nominal column position (r' coordinates) error
+COMMENT                        / This is the centroiding error only.  It does
+COMMENT                        / not include errors from the TRANS structures.
+TUNIT16 = 'pixels  '          
+TFORM17 = '1E      '          
+TTYPE17 = 'rowv    '           / Row-component of object's velocity
+TUNIT17 = 'deg/day '          
+TFORM18 = '1E      '          
+TTYPE18 = 'rowvErr '           / Row-component of object's velocity error
+TUNIT18 = 'deg/day '          
+TFORM19 = '1E      '          
+TTYPE19 = 'colv'               / Column-component of object's velocity 
+TUNIT19 = 'deg/day'          
+TFORM20 = '1E      '          
+TTYPE20 = 'colvErr'            / Column-component of obejct's velocity error
+TUNIT20 = 'deg/day'          
+TFORM21 = '5E      '          
+TTYPE21 = 'rowc    '           / Row center
+TUNIT21 = 'pixels  '          
+TFORM22 = '5E      '          
+TTYPE22 = 'rowcErr '           / Row center error
+TUNIT22 = 'pixels  '          
+TFORM23 = '5E      '          
+TTYPE23 = 'colc    '           / Center colum 
+TUNIT23 = 'pixels  '          
+TFORM24 = '5E      '          
+TTYPE24 = 'colcErr '           / Center column error
+TUNIT24 = 'pixels  '          
+TFORM25 = '5E      '          
+TTYPE25 = 'sky     '           / Sky flux
+TUNIT25 = 'asinh mag/arcsec^2'         
+TFORM26 = '5E      '          
+TTYPE26 = 'skyErr  '           / Sky flux error
+TUNIT26 = 'asinh mag/arcsec^2'         
+TFORM27 = '5E      '          
+TTYPE27 = 'psfCounts'          / PSF flux
+TUNIT27 = 'asinh mag     '          
+TFORM28 = '5E      '          
+TTYPE28 = 'psfCountsErr'       / PSF flux error
+TUNIT28 = 'asinh mag     '          
+TFORM29 = '5E      '          
+TTYPE29 = 'fiberCounts'        / Flux in 3 arcsec diameter fiber radius
+TUNIT29 = 'asinh mag     '          
+TFORM30 = '5E      '          
+TTYPE30 = 'fiberCountsErr'     / Flux in 3 arcsec diameter fiber radius error
+TUNIT30 = 'asinh mag     '          
+TFORM31 = '5E      '          
+TTYPE31 = 'petroCounts'        / Petrosian flux
+TUNIT31 = 'asinh mag     '          
+TFORM32 = '5E      '          
+TTYPE32 = 'petroCountsErr'     / Petrosian flux error
+TUNIT32 = 'asinh mag     '          
+TFORM33 = 5E      '          
+TTYPE33 = 'petroRad'           / Petrosian radius
+TUNIT33 = 'arcsec '          
+TFORM34 = '5E      '          
+TTYPE34 = 'petroRadErr'        / Petrosian radius error
+TUNIT34 = 'arcsec '          
+TFORM35 = '5E      '          
+TTYPE35 = 'petroR50'           / Radius with 50 percent of Petrosian light
+TUNIT35 = 'arcsec '          
+TFORM36 = '5E      '          
+TTYPE36 = 'petroR50Err'        / Radius with 50 percent of Petrosian light error
+TUNIT36 = 'arcsec '          
+TFORM37 = '5E      '          
+TTYPE37 = 'petroR90'           / Radius with 90 percent of Petrosian light
+TUNIT37 = 'arcsec '          
+TFORM38 = '5E      '          
+TTYPE38 = 'petroR90Err'        / Radius with 90 percent of Petrosian light error
+TUNIT38 = 'arcsec  '          
+TFORM39 = '5E      '          
+TTYPE39 = 'Q       '           / Stokes Q parameter
+TUNIT39 = 'unitless'          
+TFORM40 = '5E      '          
+TTYPE40 = 'QErr    '           / Stokes Q parameter error
+TUNIT40 = 'unitless'          
+TFORM41 = '5E      '          
+TTYPE41 = 'U       '           / Stokes U parameter
+TUNIT41 = 'unitless'          
+TFORM42 = '5E      '          
+TTYPE42 = 'UErr    '           / Stokes U parameter error
+TUNIT42 = 'unitless'          
+TFORM43 = '5E      '
+TTYPE43 = 'M_e1    '           / Adaptive E1 shape measure
+TUNIT43 = 'unitless'          
+TFORM44 = '5E      '
+TTYPE44 = 'M_e2    '           / Adaptive E2 shape measure
+TUNIT44 = 'unitless'          
+TFORM45 = '5E      '
+TTYPE45 = 'M_e1e1Err'          / Covariance in E1-E1 shape measure
+TUNIT45 = 'unitless'          
+TFORM46 = '5E      '
+TTYPE46 = 'M_e1e2Err'          / Covariance in E1-E2 shape measure
+TUNIT46 = 'unitless'          
+TFORM47 = '5E      '
+TTYPE47 = 'M_e2e2Err'          / Covariance in E2-E2 shape measure
+TUNIT47 = 'unitless'          
+TFORM48 = '5E      '
+TTYPE48 = 'M_rr_cc '           / Adaptive ( + )
+TUNIT48 = 'unitless'          
+TFORM49 = '5E      '
+TTYPE49 = 'M_rr_ccErr'         / Error in adaptive ( + )
+TUNIT49 = 'unitless'          
+TFORM50 = '5E      '
+TTYPE50 = 'M_cr4   '           / Adaptive fourth moment
+TUNIT50 = 'unitless'          
+TFORM51 = '5E      '
+TTYPE51 = 'M_e1_psf'           / Adaptive E1 for PSF
+TUNIT51 = 'unitless'          
+TFORM52 = '5E      '
+TTYPE52 = 'M_e2_psf'           / Adaptive E2 for PSF
+TUNIT52 = 'unitless'          
+TFORM53 = '5E      '
+TTYPE53 = 'M_rr_cc_psf'        / Adaptive () for PSF
+TUNIT53 = 'unitless'          
+TFORM54 = '5E      '
+TTYPE54 = 'M_cr4_psf'          / Adaptive fourth moment for PSF
+TUNIT54 = 'unitless'          
+TFORM55 = '5E      '          
+TTYPE55 = 'iso_rowc'           / Isophotal row centroid
+TUNIT55 = 'pixels  '          
+TFORM56 = '5E      '          
+TTYPE56 = 'iso_rowcErr'        / Isophotal row centroid error
+TUNIT56 = 'pixels  '          
+TFORM57 = '5E      '          
+TTYPE57 = 'iso_rowcGrad'       / Gradient in row centroid with isophote
+TUNIT57 = 'pixels/mag/arcsec^2'
+TFORM58 = '5E      '          
+TTYPE58 = 'iso_colc'           / Isophotal column centroid
+TUNIT58 = 'pixels  '          
+TFORM59 = '5E      '          
+TTYPE59 = 'iso_colcErr'        / Isophotal column centroid error
+TUNIT59 = 'pixels  '          
+TFORM60 = '5E      '          
+TTYPE60 = 'iso_colcGrad'       / Gradient in column centroid with isophote
+TUNIT60 = 'pixels/mag/arcsec^2'
+TFORM61 = '5E      '          
+TTYPE61 = 'iso_a   '           / Isophotal major axis
+TUNIT61 = 'arcsec  '          
+TFORM62 = '5E      '          
+TTYPE62 = 'iso_aErr'           / Isophotal major axis error
+TUNIT62 = 'arcsec  '          
+TFORM63 = '5E      '          
+TTYPE63 = 'iso_aGrad'          / Gradient in major axis with isophote
+TUNIT63 = 'arcsec/mag/arcsec^2'
+TFORM64 = '5E      '          
+TTYPE64 = 'iso_b   '           / Isophotal minor axis
+TUNIT64 = 'arcsec  '          
+TFORM65 = '5E      '          
+TTYPE65 = 'iso_bErr'           / Isophotal minor axis error
+TUNIT65 = 'arcsec  '          
+TFORM66 = '5E      '          
+TTYPE66 = 'iso_bGrad'          / Gradient in minor axis with isophote
+TUNIT66 = 'arcsec/mag/arcsec^2'
+TFORM67 = '5E      '          
+TTYPE67 = 'iso_phi '           / Isophotal position angle
+TUNIT67 = 'degrees (+N thru E)'          
+TFORM68 = '5E      '          
+TTYPE68 = 'iso_phiErr'         / Isophotal position angle error
+TUNIT68 = 'degrees '          
+TFORM69 = '5E      '          
+TTYPE69 = 'iso_phiGrad'        / Gradient in positional angle with isophote
+TUNIT69 = 'degrees/mag/arcsec^2'
+TFORM70 = '5E      '          
+TTYPE70 = 'r_deV   '           / De Vaucouleurs fit scale radius
+TUNIT70 = 'arcsec  '          
+TFORM71 = '5E      '          
+TTYPE71 = 'r_deVErr'           / De Vaucouleurs fit scale radius error
+TUNIT71 = 'arcsec  '          
+TFORM72 = '5E      '          
+TTYPE72 = 'ab_deV  '           / De Vaucouleurs fit a/b
+TUNIT72 = 'unitless'          
+TFORM73 = '5E      '          
+TTYPE73 = 'ab_deVErr'          / De Vaucouleurs fit a/b error
+TUNIT73 = 'unitless'          
+TFORM74 = '5E      '          
+TTYPE74 = 'phi_deV '           / De Vaucouleurs fit position angle
+TUNIT74 = 'degrees (+N thru E)'          
+TFORM75 = '5E      '          
+TTYPE75 = 'phi_deVErr'         / De Vaucouleurs fit position angle error
+TUNIT75 = 'degrees '          
+TFORM76 = '5E      '          
+TTYPE76 = 'counts_deV'         / De Vaucouleurs magnitude fit
+TUNIT76 = 'asinh mag '          
+TFORM77 = '5E      '          
+TTYPE77 = 'counts_deVErr'      / De Vaucouleurs magnitude fit error
+TUNIT77 = 'asinh mag '          
+TFORM78 = '5E      '          
+TTYPE78 = 'r_exp   '           / Exponetial fit scale radius
+TUNIT78 = 'arcsec  '          
+TFORM79 = '5E      '          
+TTYPE79 = 'r_expErr'           / Exponetial fit scale radius error
+TUNIT79 = 'arcsec '          
+TFORM80 = '5E      '          
+TTYPE80 = 'ab_exp  '           / Exponential fit a/b
+TUNIT80 = 'unitless'          
+TFORM81 = '5E      '          
+TTYPE81 = 'ab_expErr'          / Exponential fit a/b error
+TUNIT81 = 'unitless'          
+TFORM82 = '5E      '          
+TTYPE82 = 'phi_exp '           / Exponential fit position angle
+TUNIT82 = 'degrees (+N thru E)'          
+TFORM83 = '5E      '          
+TTYPE83 = 'phi_expErr'         / Exponential fit position angle error
+TUNIT83 = 'degrees '          
+TFORM84 = '5E      '          
+TTYPE84 = 'counts_exp'         / Exponential fit
+TUNIT84 = 'asinh mag '          
+TFORM85 = '5E      '          
+TTYPE85 = 'counts_expErr'      / Exponential fit error
+TUNIT85 = 'asinh mag '          
+TFORM86 = '5E      '          
+TTYPE86 = 'counts_model'       / Better of DeV/Exp magnitude fit
+TUNIT86 = 'asinh mag '          
+TFORM87 = '5E      '          
+TTYPE87 = 'counts_modelErr'    / Better of DeV/Exp magnitude fit error
+TUNIT87 = 'asinh mag '          
+TFORM88 = '5E      '          
+TTYPE88 = 'texture '           / Texture parameter
+TUNIT88 = 'unitless'          
+TFORM89 = '5E      '          
+TTYPE89 = 'star_L  '           / Star likelihood
+TUNIT89 = 'unitless'          
+TFORM90 = '5E      '          
+TTYPE90 = 'star_lnL'           / Star ln(likelihood)
+TUNIT90 = 'unitless'          
+TFORM91 = '5E      '          
+TTYPE91 = 'exp_L   '           / Exponential disk fit likelihood
+TUNIT91 = 'unitless'          
+TFORM92 = '5E      '          
+TTYPE92 = 'exp_lnL '           / Exponential disk fit ln(likelihood)
+TUNIT92 = 'unitless'          
+TFORM93 = '5E      '          
+TTYPE93 = 'deV_L   '           / De Vaucouleurs fit likelihood
+TUNIT93 = 'unitless'          
+TFORM94 = '5E      '          
+TTYPE94 = 'deV_lnL '           / De Vaucouleurs fit ln(likelihood)
+TUNIT94 = 'unitless'          
+TFORM95 = '5E      '          
+TTYPE95 = 'fracPSF '           / Fraction of light in PSF
+TUNIT95 = 'unitless'          
+TFORM96 = '5J      '          
+TTYPE96 = 'flags   '           / Object flags
+TUNIT96 = 'unitless'          
+TFORM97 = '5J      '          
+TTYPE97 = 'flags2  '           / More object flags
+TUNIT97 = 'unitless'          
+TFORM98 = '5J      '          
+TTYPE98 = 'type    '           / Object type
+TUNIT98 = 'unitless'          
+TFORM99 = '5E      '
+TTYPE99 = 'prob_psf'           / Probablity object is a star in each filter
+TUNIT99 = 'unitless'          
+TFORM100= '5J      '          
+TTYPE100= 'nprof   '           / Number of radial bins
+TUNIT100= 'unitless'          
+TFORM101= '75E     '          
+TTYPE101= 'profMean'           / Mean pixel flux in annulus
+TUNIT101= 'maggies/arcsec^2'         
+TDIM101 = '(15,5)  '          
+TFORM102= '75E     '          
+TTYPE102= 'profErr '           / Standard deviation of profMean
+TUNIT102= 'maggies/arcsec^2'        
+TDIM102 = '(15,5)  '          
+TFORM103= '1J      '          
+TTYPE103= 'status  '           / Survey status
+TUNIT103= 'unitless'          
+TFORM104= '1D      '          
+TTYPE104= 'ra      '           / J2000 right ascension (r')
+TUNIT104= 'degrees '          
+TFORM105= '1D      '          
+TTYPE105= 'dec     '           / J2000 declination (r')
+TUNIT105= 'degrees '          
+TFORM106= '1D      '          
+TTYPE106= 'lambda  '           / Survey longitude (r')
+TUNIT106= 'degrees '          
+TFORM107= '1D      '          
+TTYPE107= 'eta     '           / Survey latitude (r')
+TUNIT107= 'degrees '          
+TFORM108= '1D      '          
+TTYPE108= 'l       '           / Galactic longitude (lII, r')
+TUNIT108= 'degrees '          
+TFORM109= '1D      '          
+TTYPE109= 'b       '           / Galactic latitude (bII, r')
+TUNIT109= 'degrees '          
+TFORM110= '5E      '          
+TTYPE110= 'offsetRa'           / Filter position ra minus final ra (* cos(dec))
+TUNIT110= 'arcsec  '          
+TFORM111= '5E      '          
+TTYPE111= 'offsetDec'          / Filter position dec minus final dec
+TUNIT111= 'arcsec  '          
+TFORM112= '1J      '
+TTYPE112= 'primTarget'         / Target selection flags
+TUNIT112= 'unitless'          
+TFORM113= '1J      '
+TTYPE113= 'secTarget'          / Additional Target selection flags
+TUNIT113= 'unitless'          
+TFORM114= '5E      '
+TTYPE114= 'reddening'          / Reddening in each filter
+TUNIT114= 'mag   '
+TFORM115= '1J      '
+TTYPE115= 'propermotionmatch'  / 1= match to USNO catatalog
+TUNIT115= 'unitless'          
+TFORM116= '1E      '
+TTYPE116= 'propermotiondelta'  / Difference in positions between USNO and
+COMMENT                        / photo object (r' band)
+TUNIT116= 'arcsec'
+TFORM117= '1E      '
+TTYPE117= 'propermotion'       / Proper motion of object
+TUNIT117= 'arcsec/century'
+TFORM118= '1E      '
+TTYPE118= 'propermotionangle'  / Direction of proper motion
+TUNIT118= 'degrees (+N thru E)'
+TFORM119= '1E      '
+TTYPE119= 'usnoBlue'           / Blue magntiude of matching USNO object
+TUNIT119= 'mag     '
+TFORM120= '1E      '
+TTYPE120= 'usnoRed '           / Red magntiude of matching USNO object
+TUNIT120= 'mag     '
+TFORM121= '1J      '
+TTYPE121= 'firstMatch'         / Number of FIRST sources matched (0=no match)
+TUNIT121= 'unitless'          
+TFORM122= '1J      '
+TTYPE122= 'firstId '           / FIRST catalog id of one matching source
+TUNIT122= 'unitless'          
+TFORM123= '1D      '
+TTYPE123= 'firstLambda'        / Composite radio source survey longitude
+TUNIT123= 'degrees '
+TFORM124= '1D      '
+TTYPE124= 'firstEta'           / Composite radio source survey latitude
+TUNIT124= 'degrees '
+TFORM125= '1E      '
+TTYPE125= 'firstDelta'         / Position difference between first and photo object (r' band)
+TUNIT125= 'arcsec'
+TFORM126= '1E      '
+TTYPE126= 'firstPeak'          / Peak first radio flux
+TUNIT126= 'mJy'
+TFORM127= '1E      '
+TTYPE127= 'firstInt'           / Integrated first radio flux
+TUNIT127= 'mJy'
+TFORM128= '1E      '
+TTYPE128= 'firstRms'           / Rms error in flux
+TUNIT128= 'mJy'
+TFORM129= '1E      '
+TTYPE129= 'firstMajor'         / Major axis (deconvolved)
+TUNIT129= 'arcsec'
+TFORM130= '1E      '
+TTYPE130= 'firstMinor'         / Minor axis (deconvolved)
+TUNIT130= 'arcsec'
+TFORM131= '1E      '
+TTYPE131= 'firstPa'            / Position angle (east of north)
+TUNIT131= 'degrees'
+TFORM132= '1J      '
+TTYPE132= 'rosatMatch'         / ID of matching ROSAT source (0 = no match)
+TUNIT132= 'unitless'          
+TFORM133= '1E      '
+TTYPE133= 'rosatDelta'         / Position difference between ROSAT and photo object (r' band)
+TUNIT133= 'arcsec'
+TFORM134= '1E      '                                                           
+TTYPE134= 'rosatPosErr'        / Error in ROSAT position
+TUNIT134= 'arcsec '
+TFORM135= '1E      '
+TTYPE135= 'rosatCps'           / Integrated ROSAT counts
+TUNIT135= 'counts/sec'
+TFORM136= '1E      '
+TTYPE136= 'rosatCpsErr'        / Error in integrated ROSAT counts
+TUNIT136= 'counts/sec'
+TFORM137= '1E      '
+TTYPE137= 'rosatHr1'           / ROSAT hardness ratio 1
+TUNIT137= 'unitless'          
+TFORM138= '1E      '
+TTYPE138= 'rosatHr1Err'        / Error in ROSAT hardness ratio 1
+TUNIT138= 'unitless'          
+TFORM139= '1E      '
+TTYPE139= 'rosatHr2'           / ROSAT hardness ratio 2
+TUNIT139= 'unitless'          
+TFORM140= '1E      '
+TTYPE140= 'rosatHr2Err'        / Error in ROSAT hardness ratio 2
+TUNIT140= 'unitless'          
+TFORM141= '1E      '
+TTYPE141= 'rosatExt'           / ROSAT extent parameter
+TUNIT141= 'arcsec'
+TFORM142= '1E      '
+TTYPE142= 'rosatExtLike'       / ROSAT extent parameter likelihood
+TUNIT142= 'unitless'          
+TFORM143= '1E      '
+TTYPE143= 'rosatDetectLike'    / ROSAT detection likelihood
+TUNIT143= 'unitless'          
+TFORM144= '1E      '
+TTYPE144= 'rosatExposure'      / ROSAT exposure time
+TUNIT144= 'seconds '
+TFORM145= '1J      '
+TTYPE145= 'priority'           / Priority bits
+TSCAL145= 1.00000000000000E+00
+TZERO145= 2.14748364800000E+09
+TUNIT145= 'unitless'          
+TFORM146= '50J     '
+TTYPE146= 'matchid '           / Link ids (run,camCol,rerun,field,id)
+TUNIT146= 'unitless'          
+TDIM146 = '(5,10)  '
+

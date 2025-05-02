@@ -1,0 +1,144 @@
+startrule: statement(s) /\z/
+
+statement: scalar | vector | multi_declare | comment
+
+comment: '#' end_of_line
+
+scalar: name type value comment | name type value 
+
+vector: vname vtype vvalue comment | vname vtype vvalue 
+
+multi_declare: name '*' end_of_line
+
+name: /[a-z][.\w]*/i
+
+vname: /\@[a-z][.\w]*/i
+
+type: 
+    vtype | 'STR' | 'STRING'
+
+vtype: 
+    'S8'  |
+    'S16' |
+    'S32' |
+    'S64' |
+    'U8'  |
+    'U16' |
+    'U32' |
+    'U64' |
+    'F32' |
+    'F64' |
+    'C32' |
+    'C64' |
+    'BOOL'
+
+value: vector_value | string
+
+vvalue: vector_value vector_sep vvalue | vector_value vector_sep(?)
+
+vector_sep: ','
+
+vector_value: float | int | bool
+
+int: integer_constant
+
+float: floating_constant
+
+bool: /[tf]\s+?/i
+
+string:
+    /\S[^#\n]*/
+
+end_of_line: /[^\n]*/
+
+### based on syntax found in "C A Reference Manual"
+
+# integer constants
+
+integer_constant:
+    decimal_constant integer_suffix(?) |
+    octal_constant integer_suffix(?) |
+    hexadecimal_constant integer_suffix(?)
+
+decimal_constant:
+    digit(2..) |
+    nonzero_digit
+
+octal_constant:
+    '0' octal_digit(s) |
+    '0'
+   
+hexadecimal_constant:
+    hex_prefix hex_digit_sequence
+
+digit:
+    /[0-9]/
+
+nonzero_digit:
+    /[1-9]/
+
+octal_digit:
+    /[0-7]/
+
+hex_digit:
+    /0_9a-f/i
+
+integer_suffix:
+    long_suffix unsigned_suffix(?) |
+    long_long_suffix unsigned_suffix(?) |
+    unsigned_suffix long_suffix(?) |
+    unsigned_suffix long_long_suffix(?)
+
+long_suffix:
+    /l/i
+
+long_long_suffix:
+    /ll/i
+
+unsigned_suffix:
+    /u/i
+
+# floating-point constants
+
+floating_constant:
+    decimal_floating_constant |
+    hexadecimal_floating_constant
+
+decimal_floating_constant:
+    digit_sequence exponent floating_suffix(?) |
+    dotted_digits exponent(?) floating_suffix(?)
+
+digit_sequence:
+    digit(s)
+
+dotted_digits:
+    digit_sequence '.' digit_sequence  |
+    '.' digit_sequence |
+    digit_sequence '.'
+
+exponent:
+    /e/i sign_part digit_sequence
+
+sign_part:
+    /[+-]/
+
+floating_suffix:
+    /[fl]/i
+
+hexadecimal_floating_constant:
+    hex_prefix dotted_hex_digits binary_exponent floating_suffix(?) |
+    hex_prefix hex_digit_sequence binary_exponent floating_suffix(?)
+
+hex_prefix:
+    /0x/i
+
+dotted_hex_digits:
+    hex_digit_sequence '.' hex_digit_sequence |
+    '.' hex_digit_sequence |
+    hex_digit_sequence '.'
+
+hex_digit_sequence:
+    hex_digit(s) 
+
+binary_exponent:
+    /p/i sign_part(?) digit_sequence

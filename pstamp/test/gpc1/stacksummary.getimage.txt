@@ -1,0 +1,6 @@
+#  TEST: coord stack_summary
+#
+#  REQ_NAME EXTVER ACTION EMAIL
+CHANGEME 2 PROCESS null
+#  ROWNUM CENTER_X CENTER_Y WIDTH HEIGHT COORD_MASK JOB_TYPE OPTION_MASK PROJECT SURVEY_NAME IPP_RELEASE REQ_TYPE IMG_TYPE      ID TESS_ID COMPONENT     DATA_GROUP    REQFILT MJD_MIN MJD_MAX RUN_TYPE FWHM_MIN FWHM_MAX | COMMENT
+1     10.68639  42.27728     100    100   2      get_image      65         gpc1      3PI         null     bycoord   stack_summary  27283 RINGS.V3 null   LAP.ThreePI.20130717%     null        0      0        null      0        0    | M31

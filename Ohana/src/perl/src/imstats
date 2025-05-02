@@ -1,0 +1,63 @@
+#!/usr/bin/env perl
+
+if (@ARGV != 5) { die "USAGE: imstats (file.fits) (file.stats) (file.split) CCD MODE\n" }
+
+$file = $ARGV[0];
+$stats = $ARGV[1];
+$split = $ARGV[2];
+$ccd = $ARGV[3];
+$mode = $ARGV[4];
+
+# check for outdir:
+@words = split ("/", $stats);
+pop (@words);
+$outdir = join ("/", @words);
+if ($outdir eq "") { $outdir = "."; }
+if (! -d $outdir) {
+    vsystem ("mkdir -p $outdir");
+    if ($?) {
+	print STDERR "ERROR: can't make directory component for output $outdir\n";
+	exit 1;
+    }
+}
+
+if (-e $stats) { unlink ($stats); }
+if (-e $split) { unlink ($split); }
+
+# find the appropriate script file
+$confdir = `gconfig -q CONFDIR`; chop ($confdir);
+$script  = "$confdir/mana/imstats.pro";
+
+$ccdkeyword = `gconfig CCDNUM-KEYWORD`; chop ($ccdkeyword);
+
+open (MANA, "|mana --norc");
+print MANA "input $script\n";
+
+print MANA "\$CCDKEYWORD = $ccdkeyword\n";
+print MANA "macro go\n";
+print MANA " getstats $file $ccd $mode $stats $split\n";            # load images, create mosaic
+print MANA " exit 0\n";
+print MANA "end\n";
+
+print MANA "go\n";
+print MANA "exit 1\n";
+close (MANA);
+if ($?) {
+    print STDERR "ERROR problem with imstats\n";
+    exit 1;
+}
+
+print STDOUT "SUCCESS: finished with imstats\n";
+
+exit 0;
+    
+sub vsystem {
+    print STDERR "@_\n";
+    $status = system ("@_");
+    $status;
+}
+
+sub goodbye {
+    die "@_\n";
+}
+

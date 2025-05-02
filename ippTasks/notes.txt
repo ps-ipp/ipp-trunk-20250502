@@ -1,0 +1,373 @@
+
+2008.08.31
+
+  * flatcorr modes:
+    * definebyquery : select the matching rawExp entries and add them to chip table.  this is functionally identical to chiptool -definebyquery,
+      except that it also adds entries in the flatcorr tables to track the processing
+
+    
+    
+
+2008.08.22
+
+  issues related to creating and applying the flat-field correction in a simtest context
+
+  * generating the fake data:
+    * ppSim must be called with a recipe in which the SCATTER.FRACTION is non-zero	
+    * simtest thus needs to accept a ppsim_recipe and supply it to ppSimSequence
+    * ppSimSequence needs to accept the ppsim_recipe and supply it to the generated ppSim calls
+
+  * first stage processing:
+    * we need to build flats which are not corrected (use the standard 'flat' type?)
+    * we need to apply flats which are not corrected
+    ** these can both be accomplished with the current DEFAULT reduction class
+
+  * second stage processing:
+    * we need to apply flats which are corrected
+    ** define a reduction class of type FLATCORR which:
+       * modifies ppImage.config:DETREND.CONTRAINTS:FLAT:DETTYPE = FLAT_CORRECT
+
+  ** adding a new detrend type:
+
+   * add an entry to detrend_stack.pl FILERULES
+   * add an entry to detrend_stack.pl STATRECIPES
+   * add an entry to ppMerge/src/ppMergeArguments.c
+   * add an entry to ippconfig/recipes/ppMerge.config
+
+   * add an entry to ippconfig/recipes/rejections.config
+   * add a section to ippconfig/recipes/reductionClasses.mdc
+
+   * ippScripts/scripts/detrend_norm_apply.pl : entry in DETTYPE table
+   * ippScripts/scripts/detrend_norm_calc.pl : entry in NORMALIZE table
+   * ippScripts/scripts/detrend_resid_imfile.pl : entry in DETRENDS table
+   * ippScripts/scripts/detrend_stack.pl : entry in FILERULES and STATRECIPES tables
+   * ippScripts/scripts/detrend_resid_imfile.pl : entry in DETRENDS table
+
+  * need a block in simtest.auto (or equiv) to check for when the chip processing / cam processing is complete
+
+  * need to modify the detselect -inst arguments in simtest.auto (use @INST@ or equiv)
+
+  * reductions currently being used:
+    ** CHIP -- chip-level analysis
+    ** JPEG.BIN1, JPEG.BIN2 -- camera jpeg terms
+    ** JPEG_BIN1_IMAGE_(dettype), JPEG_BIN2_IMAGE_(dettype) 
+    ** JPEG_BIN1_RESID_(dettype), JPEG_BIN2_RESID_(dettype) 
+    ** (dettype)_STACK, 
+    ** (dettype)_PROCESS, 
+    ** FAKEPHOT
+
+2008.01.22
+
+  proposal to clean scripts/tasks up somewhat wrt names:
+
+  * scripts do NOT use workdir to change the workdir in the db
+  * thus, what is supplied is actually the outputRoot
+  * require the output root for the scripts
+  * have the calling tasks construct the outputRoot
+  ** replace -workdir with -outroot 
+
+  some filename rules :
+
+  * the db entry WORKDIR is the most abstract version:
+    path://GPC-@HOST@/20080130
+    file://data/@HOST@.0/gpc1/20080130
+    neb:///@HOST@/gpc1/20080130 
+    neb://gpc1/20080130 
+    XXX have nebulous distinguish between neb:///host/path and
+    neb://path?
+
+  * the db WORKDIR entry is carried from step to step unless
+    over-ridden with a -queue command
+
+  * psLib-based binaries (ppImage, etc) may be passed URIs, but not
+    files with the @HOST@ abstraction
+
+  * IPP perl scripts may be passed URIs, but not files with the @HOST@
+    abstraction
+
+  * nebulous : convert neb:///@HOST@/path/name
+
+  *** examples:
+
+  * this tells ppImage to use the ipp004 version for both input and output:
+  ppImage -file neb:///ipp004-v0/gpc1/20080130/o4414g0001o/o4414g0001o.XY01.fits neb:///ipp004-v0/gpc1/20080130/o4414g0001o/o4414g0001o.XY01
+  
+  * we already know the hostname at this point; include it in the call
+  chip_imfile.pl --uri neb:///ipp004-v0/gpc1/20080130/o4414g0001o/o4414g0001o.XY01.fits --workdir neb:///ipp004-v0/gpc1/20080130/
+
+
+
+
+
+2008.01.21
+
+  I'm working on the summit.copy.pro interaction with nebulous (and
+  those of the other ippTasks) and the assignment of jobs and data
+  locations to hosts on the basis of the chip/host relationship.  I
+  have defined a table which relates the chip (class_id) to the
+  desired host name.  There are a few places, and a few slightly
+  different ways, in which this gets used:
+
+  * choice of host for command execution:
+
+    every job which operates on a specific chip must be told the chip
+    host so it can run the job on that machine.  the information is
+    supplied in pantasks to the job with the 'host' command.  I've
+    made a pantasks macro 'set.host.by.camera' which takes the camera
+    and class_id, looks up the match in the chip/host table, and calls
+    the host command with the desired host.  If there is no match
+    (camera not listed in chip/host table or chip not listed in
+    table), the host is set to 'anyhost', which randomly chooses one.
+    I have used this command for all tasks which generate a pcontrol
+    command.  For the tasks which are performed at the camera level,
+    these are set to anyhost.  For the tasks which operate on stacks,
+    we can use the same structure to associate the skycell with a
+    host.  
+
+  * specific output filenames
+
+    In both ippTasks and ippScripts, there are references to files
+    which must correctly located on the host.
+
+  * workdir choice of output directory.   
+
+    the 
+
+  * dsget output target:
+
+    dsget is called by pantasks in the task 'dsget'.  currently, dsget
+    accepts a --filename argument which specifies the output filename
+    to use.  in the nebulous context, this is of the form
+    neb://top/next/stuff, without any host-specific information.  To
+    target the file instance to a specific host, we pass dsget the
+    --volume (name) argument.  The volumes refer to the specific
+    devices (potentially more than one per host), and the names can
+    then be chosen to include the host.  
+  
+2007.10.11
+
+  The calibration suite uses a database table of known/registered DVO
+  databases to be calibrated.  The suite operates on a segment of the
+  sky in each run, nominally a section ~1h west of the current ST.
+
+  caltool -pendingdbs returns a list of entries (mdc format), one for
+  each DVO database in the table.  
+
+  caltool -databases [-active] : returns the list of dvo databases
+  caltool -addcalrun : inserts the stats for a single calibration run
+  caltool -setstate (active/inactive) : modify the state of a dvo
+    database
+  caltool -adddatabase : insert a new database
+
+  XXX a potential source of collisions.  the books are marked by
+  unique keys in the db tables, but a single pantasks run may be
+  addressing multiple databases.  IDs are not unique across
+  databases.  we can solve this by including in the key the dbname
+
+  the calibration suite runs the following tasks, in sequences on each
+  of the databases:
+
+  * resort, relphot, uniphot, relastro.objects, relastro.images
+
+  ** detrend correction: any detrend images which need to be corrected
+     get inserted in the detCorrectedExp table.  
+
+  dettool commands needed:
+  * add a detrend exposure (det_id, exp_id) to the detCorrectedExp table
+  * add a detrend imfile (det_id, exp_id, class_id) to the
+  detCorrectedImfile table
+  * select pending detCorrectedExp
+  * select pending detCorrectedImfiles
+
+
+2007.01.08
+
+  I have updated pantasks to used named tags in named groups to make
+  life much easier when changing the schema of the db tables.  The
+  function ipptool2book convernts the output from an ippTool query in
+  the form of a set of metadata structures (saved in stdout) into a
+  book format.
+
+  dettool -tonormalizedstat     DetrendNormStat
+  dettool -tonormalize          DetrendNorm
+  dettool -tonormalizedexp      DetrendNormExp
+  dettool -toprocessedimfile    DetrendProcessImfiles
+  dettool -toprocessedexp       DetrendProcessExposures
+  dettool -residdetrun          DetrendRejectExp
+  dettool -toresidimfile        DetrendResidImfiles
+  dettool -toresidexp           DetrendResidExposures
+  dettool -tostacked            DetrendStackClass
+  p0tool -pendingimfile         Phase0Imfiles
+  p0tool -pendingexp            Phase0Exposures
+  p2tool -pendingimfile         Phase2Imfiles
+  p3tool -pendingexp            Phase3Exposures
+
+2006.08.28
+
+- ipptools need to use expID:camera:telescope as unique key (ie, not expID alone)
+- p0tool -pendingimfile -simple needs to report the expKey (ie, not expID)
+- 
+
+
+This directory contains the PanTasks scripts which define the steps
+performed by the IPP.  These scripts use the ippTools to decide what
+images need to be processed, and to update the Metadata Database with
+the current state of the analysis.  The analysis is performed using
+IPP programs which are distributed to the cluster computers as needed.
+
+1. The Detrend Creation Scripts
+
+The detrend creation process is among the more complex elements of the
+IPP.  There are N major steps which must be performed:
+
+1.1. Define New Detrend Runs
+
+The script 'detrend.mkruns.pro' defines tasks which initiate new
+Detrend Runs.  There is a separate task for each camera automatically
+processed by the system (mkdetruns.CAMERA).  These tasks are executed
+on a regular, but infrequent basis.  The tasks call external helper
+programs which actually run the command dettools -define.  The helper
+programs are thus responsible for identifying all of the types of
+detrend images to be run for a given camera, as well as the correct
+set of filters to apply.  These tasks are run locally and only affect
+the database.  PanTasks does not track the detrend runs which are
+created.  
+
+- we may need to define these within the PanTasks scripts
+- how frequently are these tasks run (1/day?)
+- if no raw images are selected by the query, no new detrun should be
+  created.
+- we may need different schedules for the dark (bias/dark) and the
+  light (flat/fringe) data.  And yet another schedule for sky data
+  (skyflat/skyfringe).
+
+1.2. Process new raw imfiles
+
+The script 'detrend.process.pro' defines tasks which processes the new
+raw imfiles for any detrend run.  This script defines two tasks,
+'dettool.raw.load' and 'dettool.raw.process'.  The first script
+occasionally polls the Metadata Database to select raw imfiles which
+have been identified as part of a detrend run.  The identified raw
+imfiles are added to an internal queue, DetrendImfilesToProcess.  Any
+raw imfile already in the list is ignored.  The imfiles are added to
+the queue with a state of NEW.  The second task examines the queue for
+imfiles with state NEW and defines a ppImage analysis job for that
+imfile.  The job is sent to pcontrol for processing on the distributed
+cluster.  At this point, the corresponding queue entry is set to the
+state RUN. Upon success, the queue entry is set to DONE and the
+database is notified of the successful operation.  The DONE entries
+are occasionally pruned from the queue; this must be done in the same
+task as the initial query and the update of the list based on the
+database results.  
+
+- we need to define the columns in the output of dettool -raw
+- we need a method to associate an imfile with a node in the cluster
+- we need to perform some appropriate action when the queries fail.
+- we need a method to generate the output URIs
+- we need a method to identify the correct recipe (function of type?)
+
+1.3. Stack new processed imfiles
+
+The script 'detrend.stack.pro' defines tasks which stack the newly
+processed imfiles for any detrend run iteration.  This script defines
+two tasks, 'dettool.stack.load and 'dettool.stack.process.  The first
+script occasionally polls the Metadata Database to select class IDs
+for detrend runs for which the input imfiles have all been processed.
+The identified detRun/classID combination is added to an internal
+queue, DetrendClassIDtoStack.  The entries are added to the queue with
+a state of NEW.  The second task examines the queue for entries with a
+state of NEW.  It defines a ppMerge analysis job for that
+detID/classID.  The helper script selects the corresponding input
+imfiles and passes them to ppMerge.  The job is sent to pcontrol for
+processing on the distributed cluster.  At this point, the
+corresponding queue entry is set to the state RUN. Upon success, the
+queue entry is set to DONE and the database is notified of the
+successful operation.  The DONE entries are occasionally pruned from
+the queue; this must be done in the same task as the initial query and
+the update of the list based on the database results.
+
+- we need to define the columns in the output of dettool -chip -processed
+- we need a method to associate a classID with a node in the cluster
+- we need to perform some appropriate action when the queries fail.
+- we need a method to generate the output URIs (not a function of the imfiles...)
+- we need a method to identify the correct recipe (function of type?)
+
+
+1.4. Normalize stacked masters
+
+The script 'detrend.norm.pro' defines tasks which normalize the newly
+processed stacks for any detrend run iteration.  This script defines
+two tasks, 'dettool.norm.load and 'dettool.norm.process.  The first
+script occasionally polls the Metadata Database to select detrun IDs
+for which the classes have all been stacked.  The identified
+detRunID/iteration combination is added to an internal queue,
+DetrendRunToNormalize.  The entries are added to the queue with a
+state of NEW.  The second task examines the queue for entries with a
+state of NEW.  It defines a ppNorm analysis job for that
+detID/iteration.  The job is sent to pcontrol for processing on the
+distributed cluster.  At this point, the corresponding queue entry is
+set to the state RUN. Upon success, the queue entry is set to DONE and
+the database is notified of the successful operation.  The DONE
+entries are occasionally pruned from the queue; this must be done in
+the same task as the initial query and the update of the list based on
+the database results.
+
+- we need to define the columns in the output of dettool
+- we need to perform some appropriate action when the queries fail.
+- we need a method to generate the output URIs (not a function of the imfiles...)
+- we need a method to identify the correct recipe (function of type?)
+- we need to define the ppNorm operation inputs and outputs better
+
+
+1.5. Generate Resid Imfiles
+
+The script 'detrend.resid.pro' defines tasks which apply the newly
+generated detrend image to the corresponding input images to generate
+the residual images.  This script defines two tasks,
+'dettool.resid.load and 'dettool.resid.process.  The first script
+occasionally polls the Metadata Database to select imfiles for which
+the master detrend images has been normalized.  The identified imfiles
+are added to an internal queue, DetrendResidImfiles.  The entries are
+added to the queue with a state of NEW.  The second task examines the
+queue for entries with a state of NEW.  It defines a ppImage analysis
+job for that imfile.  The job is sent to pcontrol for processing on
+the distributed cluster.  At this point, the corresponding queue entry
+is set to the state RUN. Upon success, the queue entry is set to DONE
+and the database is notified of the successful operation.  The DONE
+entries are occasionally pruned from the queue; this must be done in
+the same task as the initial query and the update of the list based on
+the database results.
+
+- we need to define the columns in the output of dettool
+- can we select the imfiles here without apriori knowledge that the
+  master has been normalized?
+- we need to perform some appropriate action when the queries fail.
+- we need a method to generate the output URIs (not a function of the imfiles...)
+- we need a method to identify the correct recipe (function of type?)
+- we need a method to pass the matching detrend image to ppImage in
+  the correct context (ie, a bias needs to be supplied to the -bias element...)
+
+1.6. Assess Detrend Results
+
+The script 'detrend.assess.pro' defines tasks which assess the
+residual statistics for completed detrend runs.  This script defines
+two tasks, 'dettool.assess.load and 'dettool.assess.process.  The
+first script occasionally polls the Metadata Database to select
+detrunIDs/iterations for which the resid imfiles have all been
+generated.  The identified detruns are added to an internal queue,
+DetrendRunToAssess.  The entries are added to the queue with a state
+of NEW.  The second task examines the queue for entries with a state
+of NEW.  It defines an analysis job for that collection.  The job is
+sent to pcontrol for processing on the distributed cluster.  At this
+point, the corresponding queue entry is set to the state RUN. Upon
+success, the queue entry is set to DONE and the database is notified
+of the successful operation.  The DONE entries are occasionally pruned
+from the queue; this must be done in the same task as the initial
+query and the update of the list based on the database results.
+
+- the assess tool needs to trigger a new run, if needed.
+- what is the command to run on the resid statistics?
+- we need to define the columns in the output of dettool
+- can we select the detrend runs here?
+- we need to perform some appropriate action when the queries fail.
+- we need a method to generate the output URIs (not a function of the imfiles...)

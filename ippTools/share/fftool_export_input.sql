@@ -1,0 +1,3 @@
+SELECT
+    fullForceInput.*
+FROM fullForceInput

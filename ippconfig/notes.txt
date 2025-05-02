@@ -1,0 +1,16 @@
+
+creating a new camera:
+
+* add the camera to the CAMERAS list (ipp/ippconfig/ipprc.config)
+* create the camera directory (ipp/ippconfig/CAMERA)
+* copy example recipe files from a similar camera (eg, ipp/ippconfig/megacam)
+* copy Makefile.am from a similar camera (eg, ipp/ippconfig/megacam)
+* edit camera.config to describe your camera
+  - list the ccds and chips in FPA METADATA
+  - list the filters of interest (header name STR internal name)
+    give all varients used in the headers
+  - fix paths which refer to the original paths.
+* edit the format*.config files to match your camera:
+  - set up a rule to recognize the camera
+    - define keywords which will uniquely recognize your headers
+     

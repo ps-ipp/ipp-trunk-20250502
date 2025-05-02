@@ -1,0 +1,243 @@
+#!/usr/bin/env perl
+
+$version = 2.0;
+
+if (@ARGV != 3) { die "USAGE: grab.keywords (infile) (cmproot) (outfile)\n" ; }
+
+$infile  = $ARGV[0];
+$cmproot = $ARGV[1];
+$outfile = $ARGV[2];
+
+# $infile  is the image.fits file
+# $cmproot is the rootname of the processed output for this file (contains astrom keywords)
+# $outfile is the output header data file
+
+if ($cmproot eq "phu") { goto photometry; }
+
+# grab astrometry keywords from $cmpfile:
+@header = ();
+
+ CMPTEST: {
+     # make this look for hdx files in hdxdir (fix dads.keywords as well)
+     # need to extract all header files first
+
+     # try *.smp:
+     $cmpfile = "$cmproot.smp";
+     if (-e $cmpfile) {
+	 $answer = `echo $cmpfile | fields NASTRO`;
+	 @words = split (" ", $answer);
+	 if ($words[1] > 0) { last CMPTEST; }
+     }
+    
+     # try *.cmp:
+     $cmpfile = "$cmproot.cmp";
+     if (-e $cmpfile) {
+	 $answer = `echo $cmpfile | fields NASTRO`;
+	 @words = split (" ", $answer);
+	 if ($words[1] > 0) { last CMPTEST; }
+     }
+
+     $cmpfile = "";
+ }
+
+if ($cmpfile) { @header = `fhead $cmpfile`; }
+
+# set some default values:
+@astrom = ();
+$fsatur = 0;
+$flimit = 0;
+$exptime = 0;
+$Nastro = 0;
+
+# search for the appropriate lines:
+foreach $line (@header) {
+    
+    # astrometry keywords which are copied directly
+    if ($line =~ /CTYPE1  =/) { @astrom = (@astrom, $line);}
+    if ($line =~ /CTYPE2  =/) { @astrom = (@astrom, $line);}
+    if ($line =~ /CRPIX1  =/) { @astrom = (@astrom, $line);}
+    if ($line =~ /CRPIX2  =/) { @astrom = (@astrom, $line);}
+    if ($line =~ /CRVAL1  =/) { @astrom = (@astrom, $line);}
+    if ($line =~ /CRVAL2  =/) { @astrom = (@astrom, $line);}
+    if ($line =~ /NASTRO  =/) { @astrom = (@astrom, $line); $Nastro = substr ($line, 10, 21); }
+    if ($line =~ /CERROR  =/) { @astrom = (@astrom, $line);}
+    if ($line =~ /EQUINOX =/) { @astrom = (@astrom, $line);}
+
+    # convert the PC00i00j matrix & CDELTi to CDi_j
+    if ($line =~ /PC001001=/) { $pc11 = substr ($line, 10, 21); }
+    if ($line =~ /PC001002=/) { $pc12 = substr ($line, 10, 21); }
+    if ($line =~ /PC002001=/) { $pc21 = substr ($line, 10, 21); }
+    if ($line =~ /PC002002=/) { $pc22 = substr ($line, 10, 21); }
+    if ($line =~ /CDELT1  =/) { $cd1  = substr ($line, 10, 21); }
+    if ($line =~ /CDELT2  =/) { $cd2  = substr ($line, 10, 21); }
+
+    # save these values for the photometry section
+    if ($line =~ /FSATUR  =/) { $fsatur = substr ($line, 10, 21); }
+    if ($line =~ /FLIMIT  =/) { $flimit = substr ($line, 10, 21); }
+    if ($line =~ /EXPTIME =/) { $exptime = substr ($line, 10, 21); }
+
+    # we will not use the FWHM values until those are better defined...
+    if (0) {
+	if ($line =~ /FWHM_X  =/) { 
+	    $tmp = substr ($line, 10, 21); 
+	    $tmp = $tmp * 0.2;
+	    $line = sprintf "FWHM_A  = %20G / stellar profile major axis (arcsec)           \n", $tmp; 
+	    @astrom = (@astrom, $line);
+	}
+	if ($line =~ /FWHM_Y  =/) { 
+	    $tmp = substr ($line, 10, 21); 
+	    $tmp = $tmp * 0.2;
+	    $line = sprintf "FWHM_B  = %20G / stellar profile minor axis (arcsec)           \n", $tmp; 
+	    @astrom = (@astrom, $line);
+	}
+	if ($line =~ /ANGLE   =/) { @astrom = (@astrom, $line);}
+    }
+}
+
+# check for validity of astrometry data
+if ($Nastro == 0) {
+    print STDERR "can't find all astrometry keywords from $cmproot\n";
+    $line = sprintf "COMMENT  Elixir:  no astrometry solution for this image\n"; 
+    @astrom = ($line);
+} else {
+    # convert the pc, cdelt terms to cd terms
+    $cd11 = $cd1*$pc11;
+    $cd12 = $cd2*$pc12;
+    $cd21 = $cd1*$pc21;
+    $cd22 = $cd2*$pc22;
+    $line = sprintf "CD1_1   = %20.5E / WCS Coordinate scale matrix                   \n", $cd11; @astrom = (@astrom, $line);
+    $line = sprintf "CD1_2   = %20.5E / WCS Coordinate scale matrix                   \n", $cd12; @astrom = (@astrom, $line);
+    $line = sprintf "CD2_1   = %20.5E / WCS Coordinate scale matrix                   \n", $cd21; @astrom = (@astrom, $line);
+    $line = sprintf "CD2_2   = %20.5E / WCS Coordinate scale matrix                   \n", $cd22; @astrom = (@astrom, $line);
+}
+
+# define a reference chip to grab the photometry data
+ photometry: 
+     if ($cmproot eq "phu") {
+	 $ccd = "phu";
+     } else {
+	 $ccd = `cameraconfig -ID 0`; chop $ccd;
+	 if ($?) { die ("error in camera config\n"); }
+     }
+
+# grab the appropriate photometry data
+@photom = ();
+@photlist = `photsearch -trans -image $infile $ccd split -equiv`;
+if ($?) { @photlist = (); }
+
+# check validity of photometry data
+$Nphot = @photlist;
+if ($Nphot == 0) {
+    print STDERR "can't get photometry data for this image\n";
+    $line = sprintf "COMMENT  Elixir: No photometry calibrations for this night & filter\n"; 
+    @photom = ($line);
+} else {
+    # parse the photometry data line
+    @words = split (" ", $photlist[$Nphot-1]);
+#   we conclude that the nightly zero point contains insufficient information 
+    $line = sprintf "PHOT_C  = %20.4F / Elixir zero point - measured for camera run \n", $words[2];  @photom = (@photom, $line);
+    $line = sprintf "PHOT_CS = %20.4F / Elixir zero point - scatter                \n", $words[4];  @photom = (@photom, $line);
+    $line = sprintf "PHOT_NS = %20d / Elixir zero point - N stars                  \n", $words[5];  @photom = (@photom, $line);
+    $line = sprintf "PHOT_NM = %20d / Elixir zero point - N images                 \n", $words[6];  @photom = (@photom, $line);
+    $line = sprintf "PHOT_C0 = %20.4F / Elixir zero point - nominal                \n", $words[3];  @photom = (@photom, $line);
+    $line = sprintf "PHOT_X  = %20.4F / Elixir zero point - color term             \n", $words[7];  @photom = (@photom, $line);
+    $line = sprintf "PHOT_K  = %20.4F / Elixir zero point - airmass term           \n", $words[8];  @photom = (@photom, $line);
+    $line = sprintf "PHOT_C1 = '%-18s' / Elixir zero point - color 1               \n", $words[10];  @photom = (@photom, $line);
+    $line = sprintf "PHOT_C2 = '%-18s' / Elixir zero point - color 2               \n", $words[11]; @photom = (@photom, $line);
+    
+    if ($cmproot ne "phu") {
+	# is there was no cmpfile, we should not set the SAT and LIM values.
+	if ($exptime == 0) { 
+	    $line = sprintf "COMMENT   Photometric Analysis is incomplete for this image.\n";
+	    @photom = (@photom, $line);
+	    $line = sprintf "COMMENT   MAG_SAT and MAG_LIM cannot be determined.\n";
+	    @photom = (@photom, $line);
+	} else {
+	    # adjust fsatur & flimit values by phot data
+	    $fsatur = $fsatur - 25.0 + $words[2] + 2.5*log($exptime) / log(10.0);
+	    $line = sprintf "MAG_SAT = %20G / approx saturation (mag)                       \n", $fsatur; 
+	    @photom = (@photom, $line);
+	    
+	    $flimit = $flimit - 25.0 + $words[2] + 2.5*log($exptime) / log(10.0);
+	    $line = sprintf "MAG_LIM = %20G / approx completeness limit (mag)               \n", $flimit; 
+	    @photom = (@photom, $line);
+	}
+    }
+
+    # add some comments 
+    $line = sprintf "COMMENT   Formula for Photometry, based on keywords given in this header:      \n"; @photom = (@photom, $line);
+    $line = sprintf "COMMENT   m = -2.5*log(DN) + 2.5*log(EXPTIME)                                  \n"; @photom = (@photom, $line);
+    $line = sprintf "COMMENT   M = m + PHOT_C + PHOT_K*(AIRMASS - 1) + PHOT_X*(PHOT_C1 - PHOT_C2)   \n"; @photom = (@photom, $line);
+}
+
+# add generic Elixir comments:
+
+@time = localtime;
+$now = sprintf "%04d-%02d-%02dT%02d:%02d:%02d", $time[5]+1900, $time[4]+1, $time[3], $time[2], $time[1], $time[0];
+$elsys = `gconfig ELIXIR_VERSION`; chop ($elsys);
+# $frpts  = `detsearch -quiet -image $infile $ccds[$ccd] split -type frpts`; chop $frpts;
+
+@comment = ();
+$line = sprintf "COMMENT  --------------- Elixir Analysis ---------------                \n"; @comment = (@comment, $line);
+$line = sprintf "COMMENT  Elixir: processing performed \@ CFHT, version $elsys           \n"; @comment = (@comment, $line);
+$line = sprintf "COMMENT  Elixir: version: $elsys                                        \n"; @comment = (@comment, $line);
+$line = sprintf "COMMENT  Elixir: processing date: $now                                  \n"; @comment = (@comment, $line);
+$line = sprintf "COMMENT  Elixir: website: http://www.cfht.hawaii.edu/Instruments/Elixir \n"; @comment = (@comment, $line);
+$line = sprintf "COMMENT  Elixir: email: elixir\@cfht.hawaii.edu                         \n"; @comment = (@comment, $line);
+$line = sprintf "COMMENT  Elixir: team: Eugene Magnier & Jean-Charles Cuillandre         \n"; @comment = (@comment, $line);
+$line = sprintf "DATEPROC= '$now' / Processing Date                                      \n"; @comment = (@comment, $line);
+$line = sprintf "EL_SYS  = '%-18s' / Elixir System Version                               \n", "$elsys"; @comment = (@comment, $line);
+# (line < 80)    12345678901234567890123456789012345678901234567890123456789012345678901234567890
+
+@output = (@comment, @astrom, @photom);
+$line = sprintf "COMMENT  --------------- Elixir Analysis (end) ---------------         \n"; @output = (@output, $line);
+
+# write output to file
+open (FILE, ">$outfile");
+foreach $line (@output) {
+    print FILE "$line";
+}
+close (FILE);
+print STDERR "wrote $outfile\n";
+
+exit 0;
+
+# given an image directory with a name like /path/output (a SPLIT):
+
+# for each ccd:
+
+# 1) get astrometry
+# 2) 
+
+#ckrunid 570965o/570965o00.fits
+#set dir=`gconfig -q -D RUNID 01Ak01 TMPDIR`
+#$dir/570965o/570965o00.cmp
+
+
+###################################################################################
+
+sub vsystem {
+    print STDERR "@_\n";
+    $status = system ("@_");
+    $status;
+}
+
+sub goodbye {
+    die "@_\n";
+}
+
+
+
+sub junk {
+
+    # create the basic entries for a header
+    $line = sprintf "SIMPLE  =                    T / Standard FITS \n"; @output = (@output, $line);
+    $line = sprintf "BITPIX  =                    8 / no actual data in this file\n"; @output = (@output, $line);
+    $line = sprintf "NAXIS   =                    0 / Number of axes \n"; @output = (@output, $line);                                
+
+
+
+    # fill in the bottom of the header
+    $line = sprintf "END"; @output = (@output, $line);                                
+}
+

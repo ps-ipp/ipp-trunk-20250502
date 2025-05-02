@@ -1,0 +1,10 @@
+
+   strlen (string) [var]
+
+   Determines the number of characters (plus white spaces) in a string
+    and places it into var
+
+   Default: print to window
+
+   Note: If the string has white spaces, you need to place it within
+    double-quotes.

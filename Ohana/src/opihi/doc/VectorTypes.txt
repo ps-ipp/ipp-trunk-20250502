@@ -1,0 +1,88 @@
+starcontour      : outputs are FLT
+rawstars         : inputs may be FLT or INT; outputs are FLT
+fitcontour       : input must be FLT
+findpeaks        : outputs are FLT
+skycat           : internal vectors only
+simage           : internal vectors only
+showtile         : internal vectors only
+procks           : internal vectors only
+mmextract        : output vector types are determined by selected db field
+mextract         : output vector types are determined by selected db field
+lightcurve       : outputs are FLT
+lcurve           : outputs are FLT
+imstats          : internal vectors only
+imrough          : outputs are FLT
+imextract        : outputs are FLT
+imdense          : internal vectors only
+imdata           : outputs are FLT
+imbox            : internal vectors only
+images           : internal vectors only
+gstar            : outputs are FLT
+fitcolors        : outputs are FLT
+detrend          : outputs are FLT
+compare          : function's outputs are FLT
+cmpread          : outputs are FLT
+cmd              : outputs are FLT
+ccd              : outputs are FLT
+calmextract      : outputs are FLT
+avextract        : output vector types are determined by selected db field
+zplot            : inputs may be FLT or INT
+write_vectors    : inputs may be FLT or INT
+vzload           : inputs may be FLT or INT
+vstat            : inputs may be FLT or INT
+vsmooth          : inputs may be FLT or INT; outputs are FLT
+vroll            : inputs may be FLT or INT
+vpop             : inputs may be FLT or INT
+vmaxwell         : input must be FLT; outputs are FLT
+vload            : inputs may be FLT or INT
+vgrid            : input must be FLT
+vgauss           : input must be FLT; outputs are FLT
+vclip            : inputs may be FLT or INT
+vbin             : inputs may be FLT or INT; outputs are FLT
+uniq             : inputs may be FLT or INT; outputs are set based on input
+ungridify        : outputs are FLT
+svd              : outputs are FLT
+subset           : inputs may be FLT or INT; outputs are set based on input
+sort             : inputs may be FLT or INT
+select           : inputs may be FLT or INT
+read_vectors     : outputs are FLT (someday add a format option to the read statement?)
+periodogram      : input must be FLT; outputs are FLT
+peak             : inputs may be FLT or INT
+mset             : inputs may be FLT or INT
+mget             : outputs are FLT
+medacc           : input must be FLT; outputs are FLT
+lookup           : input must be FLT; outputs are FLT
+interpolate      : input must be FLT; outputs are FLT
+integrate        : inputs may be FLT or INT
+imhist           : outputs are FLT
+imcut            : outputs are FLT
+histogram        : inputs may be FLT or INT, outputs are INT
+gridify          : input must be FLT
+grid             : internal vectors only
+gaussj           : inputs may be FLT or INT; outputs are FLT
+gaussdeviate     : outputs are FLT
+gaussintegral    : outputs are FLT
+fit              : input must be FLT
+fit2d            : input must be FLT
+fft1d            : input must be FLT
+dimenup          : inputs may be FLT or INT
+dimendown        : outputs are FLT
+dbselect         : output vector types are determined by selected db field
+cut              : outputs are FLT
+cumulative       : inputs may be FLT or INT; outputs are FLT
+create           : output vector type defaults to FLT, but may be optionally set to INT with the -int flag
+contour          : outputs are FLT
+concat           : inputs may be FLT or INT; outputs are set based on input
+applyfit         : inputs may be FLT or INT; outputs are FLT
+applyfit2d       : inputs may be FLT or INT; outputs are FLT
+accum            : input must be FLT; outputs are FLT
+spec             : outputs are FLT
+profile          : outputs are FLT
+precess          : inputs may be FLT or INT; outputs are FLT
+multifit         : input must be FLT; outputs are FLT
+czplot           : input must be FLT
+csystem          : inputs may be FLT or INT
+cplot            : input must be FLT
+coords           : input must be FLT
+cgrid            : internal vectors only
+biassub          : outputs are FLT

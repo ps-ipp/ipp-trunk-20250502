@@ -1,0 +1,13 @@
+
+There are two parts to elixir which are a bit dangerous (and limit the
+possibilities).  
+
+First, the number of arguments which describe an object is limited to
+7.  This is limited in LoadPending.c and is due to the dumb way I
+parse these input lines.
+
+Second, in a similar way, the number of arguments to a command line
+argument (the 'process.arg' entries) is limited to 5, again for about
+the same reason.  this is in 'ParseLine' in ProcessOps.c
+
+

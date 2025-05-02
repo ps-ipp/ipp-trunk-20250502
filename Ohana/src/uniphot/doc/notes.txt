@@ -1,0 +1,14 @@
+
+<h2> uniphot </h2>
+
+<ul>
+<li> load images (select on photcode, time range)
+<li> create time groups
+<li> create space groups
+<li> solve for:
+     tgroup[i].M = ave(image[tgroup].Mcal - image[tgroup].sgroup.Mcal)
+     sgroup[i].M = ave(image[sgroup].Mcal - image[tgroup].tgroup.Mcal)
+
+     image.tgroup -> tgroup
+     group.Nimage, image
+     

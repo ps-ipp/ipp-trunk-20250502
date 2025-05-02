@@ -1,0 +1,10 @@
+
+  center (xpix) (ypix) [magnification]
+
+  "center" centers the Kii window at the specified pixel coordinates.
+Specifying a magnification will change the image scale to the
+specified magnification.  If you do not specify a magnification
+(default), the image scale will remain the same.
+
+  See also: Kii, tv
+

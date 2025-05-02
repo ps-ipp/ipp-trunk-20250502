@@ -1,0 +1,20 @@
+
+dvodist manages the parallel distribution of DVO databases.  The basic
+concept of the parallel DVO system is that the spatially distinct
+tables (the 'catalog files', ie, the cpt, cpm, cps, cpn tables) are
+distributed to a set of remote hosts.  Operations which interact with
+those tables fork remote jobs on those remote hosts, perform a local
+operation on the relevant tables, and return results to the main dvo
+programs.  
+
+dvodist is used to ship the tables out to the remote hosts, pull them
+back together to the central host, or make copies for backup.
+
+Currently, this program is implemented to use its own remote copy
+process, which is not very effective.  I would like to switch it to
+use rsync for the actual copies.  
+
+--
+
+new mode: dvodist -duplicate
+

@@ -1,0 +1,18 @@
+
+Config (.ptolemyrc) variables used by relastro:
+
+  RELASTRO_SIGMA_LIM   : exclude measurements with dMag > SIGMA_LIM for image calibrations
+  PM_DT_MIN            : minimum temporal baseline needed to calculate a proper motion
+  PM_TOOFEW            : minimum number of valid detections to calculate a proper motion
+  POS_TOOFEW           : minimum number of valid detections to calculate an average position
+
+  CATDIR               : database directory
+
+  GSCFILE              : template sky layout definition table (used for CATDIRs created before this feature)
+  SKY_DEPTH            : define the output sky catalog size
+  SKY_TABLE            : specify an alternate name for the sky catalog table
+
+  PHOTCODE_FILE        : template photcode table (used for CATDIRs created before the photcode table was added to catdir)
+
+  CATMODE              : define the output catalog mode (mef,split,etc) -- this is ignored
+  CATFORMAT            : define the output catalog format (eg, PS1_DEV_1) -- this is ignored

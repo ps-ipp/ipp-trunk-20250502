@@ -1,0 +1,12 @@
+
+  extract <from> <to> sx sy nx ny sx sy nx ny
+
+  extract takes a portion of an image (buffer <from>) and creates a
+new image (buffer <to>).  The source region is defined by the first
+set of (sx sy nx ny), the resulting image and the location of the
+extracted image are defined by the second (sx sy nx ny).  This allows
+a portion of an image to be overlayed at a particular location in a
+larger image.
+
+  See also: Kii, tv
+

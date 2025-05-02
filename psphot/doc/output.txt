@@ -1,0 +1,15 @@
+
+we have several output formats:
+  - TEXT : separate ASCII tables for PSF, EXT, MNT, and NULL
+  - SX : sextractor-style ASCII file
+  - OBJ : dophot-style ASCII file
+  - CMP : old-style elixir format (header + text)
+  - CMF : fits-table
+
+we have several options for organization:
+  - single chip/readout : outroot.ext
+  - split chips : outroot.NN.ext
+  - mef chips : outroot.ext (extensions with names)
+
+  * only CMF will work with MEF model
+

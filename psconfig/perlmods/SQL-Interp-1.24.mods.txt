@@ -1,0 +1,13 @@
+      2 base
+      6 Carp
+      1 DBD::Mock
+      3 DBI
+      1 DBIx::Interp
+      1 DBIx::Simple
+      1 overload
+      1 Scalar::Util
+      2 SQL::Interp
+     14 strict
+      2 Sub::Exporter
+      1 the
+     12 warnings

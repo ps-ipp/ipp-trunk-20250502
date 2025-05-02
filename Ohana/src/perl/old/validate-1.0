@@ -1,0 +1,287 @@
+#!/usr/bin/env perl
+
+# validate 
+# -update sends the validation value to the QSO database
+#  1 - valid image
+#  2 - subvalid image (problem, but doesn't matter)
+#  3 - invalid image
+#  4 - data error (missing, corrupted image)
+
+# global constants:
+
+$TRUE  = 1;
+$FALSE = 0;
+$RETRY = $TRUE;
+
+$MODE_UNSET    = 0;
+$MODE_VALID    = 1;
+$MODE_SUBVALID = 2;
+$MODE_INVALID  = 3;
+$MODE_DATAERR  = 4;
+
+$infile = "";
+$update = $FALSE;
+# put this in the CONFIG file:
+$runlist = "/data/milo/eugene/elixir/refs/cfh12k.runs";
+
+# include the CFHT bin directory in the path so we have access to QSO functions:
+$ENV{'PATH'} = "$ENV{'PATH'}:/cfht/bin";
+
+# grab the command line arguments:
+@tARGV = ();
+for (; @ARGV > 0; ) {
+
+    if ($ARGV[0] eq "-update") {
+	shift;
+	$update = $TRUE;
+	next;
+    }
+    if ($ARGV[0] eq "-skip") {
+	shift;
+	$RETRY = $FALSE;
+	next;
+    }
+    if ($ARGV[0] eq "-infile") {
+	shift;
+	$infile = $ARGV[0];
+	shift;
+	next;
+    }
+    
+    @tARGV = (@tARGV, $ARGV[0]);
+    shift;
+}
+@ARGV = @tARGV;
+
+if (@ARGV != 1) { die "USAGE: validate (crunid) [-infile filename] [-update]\n" ;}
+
+$crunid = $ARGV[0];
+
+# find qso run id for this camera run id:
+open (FILE, "$runlist");
+@list = <FILE>;
+close (FILE);
+
+# find date range in run list
+foreach $line (@list) {
+    chop ($line);
+    if ($line =~ /^\#/) { next; }
+    ($Crunid, $start, $stop, $Qrunid) = split (" ", $line, 4);
+    if (($start eq "") || ($stop eq "")) { next; }
+    if ($Crunid eq $crunid) { $qrunid = $Qrunid; last; }
+}
+
+print STDERR "qso run ID(s): $qrunid\n";
+
+@valid    = ();
+@invalid  = ();
+@dataerr  = ();
+@subvalid = ();
+
+if ($infile) {
+    # load images from previous output run or source file:
+    open (FILE, $infile);
+    @rawlist = <FILE>;
+    close (FILE);
+    
+    $mode = $MODE_UNSET;
+    @imlist = ();
+    
+  RAWLIST:
+    foreach $name (@rawlist) {
+	chop ($name);
+	
+	if ($name eq "") { next RAWLIST; }
+	    
+	if ($name =~ /^valid images/) {
+	    $mode = $MODE_VALID;
+	    next RAWLIST;
+	}
+	if ($name =~ /^invalid images/) {
+	    $mode = $MODE_INVALID;
+	    next RAWLIST;
+	}
+	if ($name =~ /^subvalid images/) {
+	    $mode = $MODE_SUBVALID;
+	    next RAWLIST;
+	}
+	if ($name =~ /^dataerr images/) {
+	    $mode = $MODE_DATAERR;
+	    next RAWLIST;
+	}
+
+	# plain list of image names (/path/name.fits)
+	if ($mode == $MODE_UNSET) {
+	    # double check on name validity
+	    ($file, $junk) = split (" ", $name, 2);
+	    unless ($file =~ /\d\d\d\d\d\d\w/) { print STDERR "?"; next RAWLIST; }
+	    @imlist = (@imlist, $file);
+	    next RAWLIST;
+	    # if (! -e $file) { print STDERR "x"; next RAWLIST; }
+	}
+	# place image names in the appropriate list
+	if ($mode == $MODE_VALID) {
+	    ($file, $result) = split (":", $name, 2);
+	    @valid = (@valid, $file);
+	    next RAWLIST;
+	}
+	if ($mode == $MODE_INVALID) {
+	    ($file, $result) = split (":", $name, 2);
+	    @invalid = (@invalid, $file);
+	    next RAWLIST;
+	}
+	if ($mode == $MODE_SUBVALID) {
+	    ($file, $result) = split (":", $name, 2);
+	    @subvalid = (@subvalid, $file);
+	    next RAWLIST;
+	}
+	if ($mode == $MODE_DATAERR) {
+	    ($file, $result) = split (":", $name, 2);
+	    @dataerr = (@dataerr, $file);
+	    next RAWLIST;
+	}
+    }
+} else {
+    # load images directly from directory 
+    # this is not sufficient.  we need a better way to get a list of images for 
+    # a given run id (with the current MEF / SPLIT state correct).
+    # 
+    # probably we can just use imsearch -ccd 0
+    $rawdir = `gconfig -q -D RUNID $crunid RAWDIR`;
+    chop ($rawdir);
+    if ($rawdir eq "") {
+	print STDERR "can't find config entry TMPDIR\n";
+	exit 1;
+    }
+    @imlist = ();
+
+    # load in the MEF files (must be of format 123456x.fits)
+    @tlist = <$rawdir/*.fits>;
+    foreach $tname (@tlist) { 
+	if ((-f $tname) && ($tname =~ /\d\d\d\d\d\d\w.fits/)) { 
+	    @imlist = (@imlist, $tname); 
+	} 
+    }
+
+    # load in the SPLIT directories (must be of format 123456x)
+    @tlist = <$rawdir/???????>;
+    foreach $tname (@tlist) { 
+	if ((-d $tname) && ($tname =~ /\d\d\d\d\d\d\w/)) { 
+	    @imlist = (@imlist, $tname); 
+	} 
+    }
+}
+
+# load the QSO validated image list
+@qsovalid = ();
+if ($qrunid) { 
+    @qruns = split (" ", $qrunid);
+    @qsovalid = ();
+    foreach $id (@qruns) {
+	print STDERR "trying $id\n";
+	@answer = `select_val_xexp.sh -U qso_elixir -P op1eliw -qrunid $id`;
+	if ($?) {
+	    print STDERR "error in qso run ID\n";
+	    exit 1;
+	}
+	@qsovalid = (@qsovalid, @answer);
+    }
+}
+foreach $qname (@qsovalid) { chop ($qname); }
+
+if ($RETRY) {
+# evaluate the remaining entries in imlist & invalid:
+    @imlist = (@imlist, @invalid, @dataerr);
+    @invalid = ();
+    @dataerr = ();
+    
+  IMLIST:
+    foreach $name (@imlist) {
+	$answer = `ckvalid $name`;
+	if ($?) { print STDERR "error with $name\n"; }
+	chop ($answer);
+	
+	($file, $result) = split (" ", $answer, 2);
+	@words = split (" ", $answer);
+	
+	if ($words[1] eq "pass") {
+	    @valid = (@valid, $answer);
+	    next IMLIST;
+	}
+	
+	if ($result eq "binned image") {
+	    @subvalid = (@subvalid, $answer);
+	    next IMLIST;
+	}
+	
+	if ($result eq "sub-rastered image") {
+	    @subvalid = (@subvalid, $answer);
+	    next IMLIST;
+	}
+	
+	if ($result eq "wrong image type") {
+	    @subvalid = (@subvalid, $answer);
+	    next IMLIST;
+	}
+	
+	if ($result eq "can't open file") {
+	    @dataerr = (@dataerr, $answer);
+	    next IMLIST;
+	}
+	
+	if ($result eq "no run ID") {
+	    @dataerr = (@dataerr, $answer);
+	    next IMLIST;
+	}
+	
+	if ($result eq "not a valid image") {
+	    @dataerr = (@dataerr, $answer);
+	    next IMLIST;
+	}
+	
+	if ($words[1] eq "fail") {
+	    foreach $line (@qsovalid) {
+		($qname, $qmode, $emode) = split (" ", $line);
+		if ($name =~ /$qname/) {
+		    @invalid = (@invalid, $answer);
+		    next IMLIST;
+		}
+	    }
+	    @subvalid = (@subvalid, $answer);
+	    next IMLIST;
+	}
+	
+	print STDERR "unknown result $answer\n";
+	
+    }
+}
+
+@mode = ('valid',     'subvalid',      'invalid',     'dataerr');
+@code = ($MODE_VALID, $MODE_SUBVALID,  $MODE_INVALID, $MODE_DATAERR);
+
+for ($i = 0; $i < @mode; $i++) {
+    $mode = $mode[$i];
+    $code = $code[$i];
+
+    print STDOUT "$mode images\n";
+    foreach $file (@$mode) {
+	print STDOUT "$file\n";
+	if ($update) { 
+	    @w = split ("/", $file);
+	    $n = substr ($w[-1], 0, 6);
+	    vsystem ("update_xexpe.sh -U qso_elixir -P op1eliw --obsid $n --eval $code >> test.list");
+	}
+    }
+    print STDOUT "\n";
+}
+
+sub vsystem {
+    print STDERR "@_\n";
+    my($status) = system ("@_");
+    $status;
+}
+
+sub goodbye {
+    die "@_\n";
+}
+

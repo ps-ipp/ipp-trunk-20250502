@@ -1,0 +1,68 @@
+#!/bin/csh -f
+# convert a FITS image to jpeg, scaling based on data
+
+set sys=`uname -s` 
+switch ($sys)
+ case IRIX64:
+   setenv ARCH irix;
+   breaksw;
+ case SunOS:
+   set ver=`uname -r | awk '{print substr($1,1,1)}'`;
+   if ($ver == 5) then
+     setenv ARCH sol
+   else 
+     setenv ARCH sun4
+   endif
+   breaksw;
+ case Linux:
+   setenv ARCH linux;
+   breaksw;
+ case HP-UX:
+    setenv ARCH hp;
+    breaksw;
+ default:
+   echo "unknown architecture";
+   setenv ARCH unknown;
+   breaksw;
+endsw
+
+setenv PATH /bin:/usr/bin:/usr/bin/X11:/data/milo/eugene/elixir/ohana/bin/{$ARCH}
+
+if ($#argv != 2) then
+ echo "USAGE: fits2jpeg (fits) (jpeg)"
+ exit;
+endif
+
+set temp=`mktemp /tmp/fitsjpg.XXXXXX`
+rm -f $temp
+
+xset q >& /dev/null
+if ($status) then
+ echo "can't access X server"
+ exit 1
+endif
+
+cat > $temp << END
+ \$KII = kii -nomap -private
+ rd a $1
+ keyword a NAXIS1 nx
+ keyword a NAXIS2 ny
+ rotate a flipy
+ stats a - - - -
+ tv a {\$MEDIAN-0.5*\$SIGMA} {2.5*\$SIGMA} 
+ resize \$nx \$ny
+ center {0.5*\$nx} {0.5*\$ny} 
+ jpeg -name $2
+ exit 0
+END
+
+(mana --only $temp) >& /dev/null
+if ($status) then
+ echo "problem running mana
+ rm -f $temp
+ exit 1
+endif
+
+rm -f $temp
+exit 0
+

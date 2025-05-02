@@ -1,0 +1,20 @@
+#
+# This file is used to generate pmErrorCodes.h
+#
+UNKNOWN			Unknown psModules error code
+PHOTOM			Problem in photometry
+PSF			Problem in PSF
+ASTROM			Problem in astrometry
+CAMERA			Problem in camera
+CONCEPTS		Problem in concepts
+IMCOMBINE		Problem in imcombine
+OBJECTS			Problem in objects
+SKY			Problem in sky
+STAMPS			Unable to select stamps for PSF-matching
+SMALL_AREA              Small area for PSF-matching
+# these errors correspond to standard exit conditions
+ARGUMENTS               Incorrect arguments
+SYS                     System error
+CONFIG                  Problem in configure files
+PROG                    Programming error
+DATA                    invalid data

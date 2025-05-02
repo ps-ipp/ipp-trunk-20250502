@@ -1,0 +1,3 @@
+SELECT
+    warpSkyCellMap.*
+FROM warpSkyCellMap

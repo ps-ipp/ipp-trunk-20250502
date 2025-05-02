@@ -1,0 +1,48 @@
+
+psastro outline:
+
+  psastroParseCamera
+    psastroDefineFiles
+  psastroDataLoad
+    psastroConvertReadout (saves PSASTRO.RAWSTARS on readout->analysis)
+      psastroCorrectKH
+  psastroAnalysis
+    psastroUseModel
+    psastroAstromGuess (plots PSASTRO.RAWSTARS)
+    psastroRemoveClumpsRawstars (saves PSASTRO.RAWSTARS.SUBSET on readout->analysis)
+    psastroLoadRefstars (loads full reference star set)
+    psastroChooseRefstars (save PSASTRO.REFSTARS & PSASTRO.REFSTARS.SUBSET on readout->analysis)
+      psastroRefstarSubset (adjust PSASTRO.REFSTARS.SUBSET on readout->analysis)
+    psastroChooseGlintStars (uses full reference star set)
+    psastroChipAstrom (uses PSASTRO.REFSTARS.SUBSET & PSASTRO.RAWSTARS.SUBSET)
+      psastroOneChipGrid
+      psastroOneChipFit
+    psastroMosaicAstrom
+      psastroFixChips
+      psastroFixChipsTest
+      psastroMosaicFit
+        psastroMosaicSetMatch (uses PSASTRO.REFSTARS.SUBSET & PSASTRO.RAWSTARS.SUBSET)
+        psastroMosaicCommonScale
+        psastroMosaicDistortion
+        psastroMosaicChipAstrom
+    psastroZeroPoint
+    psastroAstromGuessCheck
+    psastroMaskUpdates
+  psastroDataSave
+
+psastroExtract outline:
+  psastroExtractParseCamera
+  psastroExtractDataLoad
+  psastroExtractAnalysis
+    psastroLoadRefstars (loads full reference star set)
+    psastroChooseRefstars (save PSASTRO.REFSTARS & PSASTRO.REFSTARS.SUBSET on readout->analysis)
+      psastroRefstarSubset (adjust PSASTRO.REFSTARS.SUBSET on readout->analysis)
+    psastroExtractGhosts
+    psastroExtractStars
+  psastroDataSave
+
+
+psastroModel outline:
+
+psastroModelFit outline:
+

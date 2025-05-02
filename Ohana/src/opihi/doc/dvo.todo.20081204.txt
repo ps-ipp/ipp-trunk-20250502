@@ -1,0 +1,54 @@
+
+DVO : Outstanding Issues (20081204) TBR before survey start
+
+* fundamentals : 
+  * Commit to and Require C99?  
+  * Integer scalars and vectors to s64?
+  * force float for / for scalars (and vectors?)
+
+* Indices / IDs
+
+  Do we have all of the necessary IDs defined?
+
+  * Image IDs : we need to be able to link back to the IPP tables, but
+    also guarantee an internal unique ID even if images from multiple
+    databases / other sources are injects.  Note that the full 3pi
+    survey will consist of ~ 6000 * 60 * 60 chips = 1.3e7 images.
+
+    * imageID  : Internal image ID (32bit -> 4G rows)
+    * externID : chip_id, warp_id, stack_id, diff_id
+    * sourceID : database + table
+
+  * Object IDs : Our internal ID needs to be unique across all
+    objects.  We enforce this by generating the object ID when the
+    object is created with the objID seq number from the table in
+    which is was created + catID for the table.  We also need to
+    generate and track the external (PSPS) ID (64bit).
+
+    * objID : ID for object in a table
+    * catID : ID of the source table 
+    * extIDlo : high bits for external ID
+    * extIDhi : low bits for external ID
+      (or commit to a 64bit version)
+
+  * Detection IDs : internal only; these are generated as the seq
+    number on the image + the IPP image ID.
+
+* Add PSPS obj ID code
+
+* Orphans / Objects: PSPS considers detections to be orphans until
+  they are correlated with enough (2?) other detections.  IPP needs to
+  send the detections with their IPP objID, but only supply a list of
+  the new PSPS 'objects' when the object is no longer considered an
+  orphan.  The detection-to-object correlation is performed during the
+  addstar process.  IPP needs to generate a table of new non-orphaned
+  objects at that time for distribution.  How do we complete the
+  hand-shake?  
+
+* Schema updates
+
+* External Image IDs :  
+
+  * IMAGEID in header is the ID from chip_imfile, warp_skyfile, etc.
+  * SOURCEID in header maps to the database + stages (chip, warp, etc)
+

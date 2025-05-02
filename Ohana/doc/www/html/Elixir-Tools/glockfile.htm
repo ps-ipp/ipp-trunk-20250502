@@ -1,0 +1,22 @@
+<pre>
+  glockfile (filename) (type) (duration)
+
+  lock the given file, using the Elixir locking functions, for the
+  specified number of seconds.  The lock type may be SOFT, XCLD, or
+  HARD.  These have the following meanings:
+
+  SOFT : read-only lock; will not block a SOFT lock.  will only last
+         for the duration of the program.
+
+  XCLD : write lock; blocks, and is blocked by, all lock types.  will
+         only last for the duration of the program.
+
+  HARD : write lock; blocks, and is blocked by, all lock types.  If
+  the program is interrupted, the lock will remain until cleared by
+  hand (by deleting the file with the name .filename.lck, where
+  'filename' is replaced the the name of the locked file.
+
+
+  
+  
+</pre>

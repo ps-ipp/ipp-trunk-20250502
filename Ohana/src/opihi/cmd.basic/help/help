@@ -1,0 +1,7 @@
+
+   help (function)
+
+   print the contents of the help file.  
+   typing "help" without an argument will list the available help
+   files.  
+

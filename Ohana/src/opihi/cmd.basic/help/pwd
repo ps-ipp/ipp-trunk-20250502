@@ -1,0 +1,7 @@
+
+   pwd -var (variable)
+
+   print current working directory
+
+   Using -var will place the output into the specified variable.
+   Default: print to window

@@ -1,0 +1,19 @@
+Heather can't find instructions on how to change/update the database schemas,
+so she's writing this to make it easier for others to change.
+
+Suppose you add a new table or column or something to the database.  You will
+need to do 3 things to properly set it up:
+
+
+1. in dbconfig dir: add newtable.md, and add include(newtable.md) into ipp.m4
+   If the table already exists, and you are just modifying it, you just need to
+   edit the oldtable.md
+
+2. figure out what changes are needed to get the gpc1/isp/uip/ssp up
+   to the current schema.  Add those changes at the bottom of
+   changes.txt, and modify gpc1/isp/uip/ssp.
+
+3. edit ippTools/share/pxadmin_create_tables.sql.  This is the sql that creates
+   an empty database.
+
+

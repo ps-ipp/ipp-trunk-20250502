@@ -1,0 +1,30 @@
+#!/usr/bin/env perl
+
+# check the usage
+if ($ARGV[0] eq "-h") { &usage (); }
+if ($ARGV[0] eq "-help") { &usage (); }
+if (@ARGV != 1) { &usage (); }
+
+# assign the command line arguments
+$list   = $ARGV[0];
+
+# check for files to be processed
+open (FILE, "$list");
+@list = <FILE>;
+close (FILE);
+
+foreach $file (@list) {
+    chop ($file);
+    if (-e $file) { next; }
+    print STDERR "ERROR: missing file $file\n";
+    exit 1;
+}
+
+print STDOUT "SUCCESS: found all files from $list\n";
+exit 0;
+
+sub usage {
+    print "USAGE: fr.ckfile (list)\n";
+    print " checks for the existence of each file in the list\n";
+    exit 1;
+}

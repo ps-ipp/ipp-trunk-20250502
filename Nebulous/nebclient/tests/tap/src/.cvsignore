@@ -1,0 +1,13 @@
+.deps
+.libs
+Makefile
+Makefile.in
+libtap.la
+tap.lo
+config.h
+config.h.in
+stamp-h1
+*.bb
+*.bbg
+*.da
+gmon.out

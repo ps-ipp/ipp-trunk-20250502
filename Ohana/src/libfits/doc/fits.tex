@@ -1,0 +1,62 @@
+\documentstyle{AA}
+
+\title{FITS I/O Routine}
+\author{gene magnier}
+
+\begin{document}
+\maketitle
+
+        This file documents the C routines I have created for easy
+manipulation of FITS files.  For now, I will assume familiarity with C
+and the FITS format definitions.  (Maybe I will expand this text
+later).  This set of routines consists of a number of subroutines,
+each of which is contained within its own file.  The subroutines fall into
+three classes: those which manipulte headers, those which manipulate
+data matrices, and those which manipulate tables.  Every subroutine
+has a name which starts with the word {\tt fits}, and includes the word
+{\tt header, matrix,} or {\tt table}.  The file names use the letters
+F, H, M, and T as abbreviations for these words.  Below, I list all of
+the subroutines, and following this I describe them and their use.   
+
+\begin{center}
+\begin{tabular}{ll}
+\hline
+routine name               &   file name \\
+\hline
+fits\_read\_header         &   F\_read\_H.c            \\
+fits\_write\_header        &   F\_write\_H.c           \\
+fits\_header\_field        &   F\_H\_field.c           \\
+fits\_scan                 &   F\_scan.c               \\
+fits\_print                &   F\_print.c              \\
+fits\_modify               &   F\_modify.c             \\
+fits\_delete               &   F\_delete.c             \\
+fits\_create\_header       &   F\_create\_H.c          \\
+fits\_copy\_header         &   F\_copy\_H.c            \\
+fits\_free\_header         &   F\_free\_H.c            \\
+\hline
+fits\_read\_matrix         &   F\_read\_M.c            \\
+fits\_write\_matrix        &   F\_write\_M.c           \\
+fits\_get\_matrix\_value   &   F\_get\_M\_value.c      \\
+fits\_set\_matrix\_value   &   F\_set\_M\_value.c      \\
+fits\_add\_matrix\_value   &   F\_add\_M\_value.c      \\
+fits\_create\_matrix       &   F\_create\_M.c          \\
+fits\_copy\_matrix         &   F\_copy\_M.c            \\
+fits\_free\_matrix         &   F\_free\_M.c            \\
+fits\_add\_matrix          &   F\_add\_M.c             \\
+fits\_multiply\_matrix     &   F\_multiply\_M.c        \\
+fits\_divide\_matrix       &   F\_divide\_M.c          \\
+fits\_insert\_matrix       &   F\_insert\_M.c          \\
+fits\_insert\_array        &   F\_insert\_array.c      \\
+\hline
+fits\_read\_Theader        &   F\_read\_TH.c           \\
+fits\_write\_Theader       &   F\_write\_TH.c          \\
+fits\_create\_Theader      &   F\_create\_TH.c         \\
+fits\_read\_table          &   F\_read\_T.c            \\
+fits\_get\_table\_column   &   F\_get\_T\_column.c     \\
+fits\_get\_table\_value    &   F\_get\_T\_value.c      \\
+\hline
+\end{tabular}
+\end{center}
+
+\end{document}
+

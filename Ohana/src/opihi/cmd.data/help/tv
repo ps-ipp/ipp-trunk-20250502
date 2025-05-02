@@ -1,0 +1,13 @@
+
+  tv [-log] (buffer) [zero range]
+
+  display an image in the Ki'i window (X display program).  zero and
+  range specify the data values corresponding to the color mapping.
+  If they are not specified, the old values are used (default is 0,
+  1024).
+
+  If -log is specified the color mapping scale will be logarithmic.  
+
+
+  See Also: Kii, rd, cursor
+

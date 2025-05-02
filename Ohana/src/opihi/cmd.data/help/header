@@ -1,0 +1,8 @@
+
+   header (buffer)
+
+   print the header information for the given buffer.  The header
+   information is Meta-information associated with an image.  It is
+   well-defined for the FITS images, but may not exist for some of the
+   other possible data types.  
+

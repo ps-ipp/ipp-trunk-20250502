@@ -1,0 +1,46 @@
+
+detregister:
+-time")) {
+-label")) {
+-ID")) {
+-order")) {
+-type")) {
+-ccd")) {
+-exptime")) {
+-filter")) {
+
+detsearch:
+--help		: ok
+-ccd		: ok
+-close		: ok
+-exptime	: ok
+-filter		: ok
+-h		: ok
+-image		: ok
+-label		: ok
+-mosaic		: ok
+-recipe		: ok
+-select		: ok
+-time		: ok
+-trange		: ok
+-treg		: ok
+-tstop		: ok
+-type		: ok
+-ve		: ok
+-quiet		: ok
+
+-match		: ?
+-entry		: ok
+
+-fits		: ok
+-binfits	: ok
+-del		: ok
+-delete		: ok
+-modify		: ok
+
+--help : clean up usage statement
+
+option behavior: 
+
+-close implies -time or -trange
+-select returns best for all detrend base selection

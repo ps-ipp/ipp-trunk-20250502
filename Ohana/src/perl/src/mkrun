@@ -1,0 +1,711 @@
+#!/usr/bin/env perl
+
+# check usage
+if (@ARGV < 1) {
+    print STDOUT "USAGE: mkrun (mode) [arguments]\n";
+    print STDOUT " mkrun help gives a complete list\n";
+    &goodbye;
+}
+if ($ARGV[0] eq "help") { &usage; }
+
+# this should come fron the config system
+$runlist  = `gconfig RUN_LIST`; chop $runlist;
+@runlist  = ();
+
+# call appropriate command
+if ($ARGV[0] eq "create")    { &create; }
+if ($ARGV[0] eq "delete")    { &delete; }
+if ($ARGV[0] eq "hstcreate") { &hstcreate; }
+if ($ARGV[0] eq "addqso")    { &addqso; }
+if ($ARGV[0] eq "delqso")    { &delqso; }
+if ($ARGV[0] eq "comment")   { &comment; }
+if ($ARGV[0] eq "status")    { &status; }
+if ($ARGV[0] eq "state")     { &status; }
+if ($ARGV[0] eq "sys")       { &sysfunc; }
+if ($ARGV[0] eq "run")       { &getrun; }
+if ($ARGV[0] eq "date")      { &getdate; }
+if ($ARGV[0] eq "update")    { &update; }
+if ($ARGV[0] eq "test")      { &test; }
+if ($ARGV[0] eq "today")     { &today; }
+
+print STDOUT "invalid mkrun command\n";
+exit 1;
+
+###########################################################
+
+######
+sub test {
+
+    $date = mjd_to_date ($ARGV[1]);
+    print "$ARGV[1] : $date\n";
+    exit 1;
+}
+
+######
+sub sysfunc {
+
+    $statedata = `gconfig STATE_DATA`; chop ($statedata);
+    if ($?) { die "can't find STATE_DATA\n"; }
+
+    # show current state
+    if (@ARGV == 1) {
+	system ("cat $statedata");
+	exit 0;
+    }
+
+    if (@ARGV == 2) {
+	$var  = "\U$ARGV[1]\E";
+	if ($var eq "INIT")          { goto initsys; }
+	if ($var eq "RUNID")         { goto getsys; }
+	if ($var eq "PROCESS")       { goto getsys; }
+	if ($var eq "NOTIFY")        { goto getsys; }
+	if ($var =~ m|CAMERA.(\S+)|) { goto getsys; }
+	if ($var =~ m|RUNID.(\S+)|)  { goto getsys; }
+	die "invalid sys parameter $var\n"; 
+
+      getsys:
+	open (FILE, "$statedata");
+	@list = <FILE>;
+	close (FILE);
+
+	foreach $line (@list) {
+	    ($key, $value) = split (" ", $line);
+	    $key  = "\U$key\E";
+	    if ($key ne $var) { next; }
+	    print STDOUT "$value\n";
+	    exit 0;
+	}
+	die "can't find entry $var\n"; 
+
+      initsys:
+	open (FILE, "$statedata");
+	print FILE "# elixir current state\n";
+	print FILE "\n";
+	print FILE "RUNID 02Bk03\n";
+	print FILE "PROCESS 02Bk03\n";
+	print FILE "\n";
+	print FILE "CAMERA.CURRENT       none\n";
+	print FILE "CAMERA.MKDETREND     none\n";
+	print FILE "CAMERA.MKFRINGE      none\n";
+	print FILE "CAMERA.POSTRUN       none\n";
+	print FILE "\n";
+	print FILE "RUNID.CURRENT        none\n";
+	print FILE "RUNID.MKDETREND      none\n";
+	print FILE "RUNID.MKFRINGE       none\n";
+	print FILE "RUNID.POSTRUN        none\n";
+	print FILE "\n";
+	print FILE "NOTIFY               \n";
+	close (FILE);
+	exit 0;
+    }
+
+    if (@ARGV == 3) {
+	$var  = "\U$ARGV[1]\E";
+	$nval = $ARGV[2];
+	if ($var eq "RUNID")         { goto setsys; }
+	if ($var eq "PROCESS")       { goto setsys; }
+	if ($var eq "NOTIFY")        { goto setsys; }
+	if ($var =~ m|CAMERA.(\S+)|) { goto setsys; }
+	if ($var =~ m|RUNID.(\S+)|)  { goto setsys; }
+	die "invalid sys parameter $var\n"; 
+
+      setsys:
+	open (FILE, "$statedata");
+	@list = <FILE>;
+	close (FILE);
+
+	$found = 0;
+	foreach $line (@list) {
+	    ($key, $value) = split (" ", $line);
+	    $key  = "\U$key\E";
+	    if ($key ne $var) { next; }
+	    $found = 1;
+	    $line = sprintf "%-20s %s\n", $var, $nval;
+	}
+
+	if (! $found) { die "can't find entry $var\n"; }
+	open (FILE, ">$statedata");
+	foreach $line (@list) {
+	    print FILE "$line";
+	}
+	close (FILE);
+	exit 0;
+    }
+
+    print "USAGE: mkrun sys\n";
+    print "USAGE: mkrun sys init\n";
+    print "USAGE: mkrun sys (key)\n";
+    print "USAGE: mkrun sys (key) (value)\n";
+    exit 1;
+}
+
+######
+sub update {
+
+    $now = time;
+    $mjd = &sec_to_mjd ($now);
+
+    &load_runlist;
+
+    $match = "";
+    foreach $line (@runlist) {
+	if ($line =~ /^\#/) { next; } # skip commented lines
+	($runid, $start, $stop, $camera) = split (" ", $line);
+	if ($runid eq "") { next; } # skip empty lines
+	$mjd_start = date_to_mjd ($start);
+	$mjd_stop  = date_to_mjd ($stop);
+	if (($mjd >= $mjd_start) && ($mjd <= $mjd_stop)) { 
+	    $match = $line;
+	    last;
+	}
+    }
+    if ($match eq "") { 
+	$camera = "none";
+	$runid  = "none";
+    }
+    system ("mkrun sys camera.current $camera");
+    system ("mkrun sys runid.current $runid");
+    system ("ssPut /e/state/$camera/cameraRun $runid COMMENT=\"valid current camera run ID (CRUNID)\" LIFETIME=90000");
+    system ("ssPut /e/state/masterRun $runid COMMENT=\"master current camera run ID (CRUNID)\" LIFETIME=90000");
+    exit 0;
+}
+
+######
+sub today {
+
+    $now = time;
+    $mjd = &sec_to_mjd ($now);
+
+    &load_runlist;
+
+    $match = "";
+    foreach $line (@runlist) {
+	if ($line =~ /^\#/) { next; } # skip commented lines
+	($runid, $start, $stop, $camera) = split (" ", $line);
+	if ($runid eq "") { next; } # skip empty lines
+	$mjd_start = date_to_mjd ($start);
+	$mjd_stop  = date_to_mjd ($stop);
+	if (($mjd >= $mjd_start) && ($mjd <= $mjd_stop)) { 
+	    $match = $line;
+	    last;
+	}
+    }
+    if ($match eq "") { 
+	$camera = "none";
+	$runid  = "none";
+    }
+    print STDOUT "CAMERA: $camera, RUNID: $runid\n";
+    exit 0;
+}
+
+######
+sub getrun {
+
+    if (@ARGV != 2) { die "USAGE: mkrun run (runid)\n"; }
+
+    &load_runlist;
+    $line = grab_runline ($ARGV[1]);
+    print STDOUT "$line\n";
+    if ($line eq "") { 
+	exit 1;
+    } else {
+	exit 0;
+    }
+}
+
+######
+sub getdate {
+
+    if (@ARGV != 2) { die "USAGE: mkrun date (yyyy/mm/dd)\n"; }
+
+    my ($mjd) = date_to_mjd ($ARGV[1]);
+
+    &load_runlist;
+
+    foreach $line (@runlist) {
+	if ($line =~ /^\#/) { next; } # skip commented lines
+	($runid, $start, $stop) = split (" ", $line);
+	if ($runid eq "") { next; } # skip empty lines
+	$mjd_start = date_to_mjd ($start);
+	$mjd_stop  = date_to_mjd ($stop);
+	if (($mjd >= $mjd_start) && ($mjd < $mjd_stop)) { 
+	    print STDOUT "$line\n";
+	    exit 0;
+	}
+    }
+    print STDOUT "";
+    exit 1;
+}
+
+############
+sub status {
+
+    &load_runlist;
+    foreach $line (@runlist) {
+	print STDOUT "$line\n";
+    }
+    exit 0;
+}
+
+############
+sub comment {
+
+    my (@argv) = @_;
+    
+    if (@argv != 2) {
+	print STDOUT "USAGE: mkrun comment (comment line)\n";
+	exit 2;
+    }
+
+    $comment = $argv[1];
+
+    &load_runlist;
+    insert_comment ($argv[1]);
+    &save_runlist;
+    exit 0;
+}
+
+############
+sub create {
+
+    if (@ARGV != 5) {
+	print STDOUT "USAGE: mkrun create (run) (start) (stop) (camera)\n";
+	exit 2;
+    }
+
+    $runid  = $ARGV[1];
+    $start  = $ARGV[2];
+    $stop   = $ARGV[3];
+    $camera = $ARGV[4];
+
+    &load_runlist;
+    
+    $line = grab_runline ($runid);
+    ($Orunid, $Ostart, $Ostop, $Ocamera, $qrunid) = split (" ", $line);
+    $line = mk_runline ($runid, $start, $stop, $camera, $qrunid);
+    insert_runline ($line);
+
+    # does not check for overlaps, but probably should
+
+    &save_runlist;
+    exit 0;
+}
+
+############
+sub delete {
+
+    if (@ARGV != 2) {
+	print STDOUT "USAGE: mkrun delete (run)\n";
+	exit 2;
+    }
+
+    $runid  = $ARGV[1];
+
+    &load_runlist;
+    
+    $Ns = @runlist;
+    delete_runline ($runid);
+    $Ne = @runlist;
+
+    if ($Ns == $Ne) {
+	print STDERR "runid $runid not found\n";
+	exit 1;
+    }
+
+    &save_runlist;
+    exit 0;
+}
+
+############
+sub hstcreate {
+
+    if (@ARGV != 1) {
+	print STDOUT "USAGE: mkrun hstcreate\n";
+	exit 2;
+    }
+
+    print STDOUT "Enter HST date for start of first night (YYYY/MM/DD): ";
+    $start = <STDIN>; chop $start;
+    $mjd = date_to_mjd ($start);
+    $mjd += 1.0;
+    $start = date_format (&mjd_to_date ($mjd));
+
+    print STDOUT "Enter HST date for start of last night (YYYY/MM/DD): ";
+    $stop = <STDIN>; chop $stop;
+    $mjd = date_to_mjd ($stop);
+    $mjd += 2.0;
+    $stop = date_format (&mjd_to_date ($mjd));
+
+    print STDOUT "Enter camera: ";
+    $camera = <STDIN>; chop $camera;
+
+    print STDOUT "Enter run ID: ";
+    $runid = <STDIN>; chop $runid;
+
+    print STDOUT "Enter associated QSO run IDs (separated by commas): ";
+    $qrunid = <STDIN>; chop $qrunid;
+
+    &load_runlist;
+    
+#    $line = grab_runline ($runid);
+#    ($Orunid, $Ostart, $Ostop, $Ocamera, $Oqrunid) = split (" ", $line);
+    $line = mk_runline ($runid, $start, $stop, $camera, $qrunid);
+    insert_runline ($line);
+
+    &save_runlist;
+    exit 0;
+}
+
+############
+sub addqso {
+    if (@ARGV != 3) {
+	print STDOUT "USAGE: mkrun addqso (run) (qsorun)\n";
+	exit 2;
+    }
+
+    $runid = $ARGV[1];
+    $qrunid  = $ARGV[2];
+
+    &load_runlist;
+    
+    $line = grab_runline ($runid);
+    if ($line eq "") { 
+	print STDERR "run id $runid not in run list\n";
+	exit 1;
+    }
+    ($runid, $start, $stop, $camera, $Oqrunid) = split (" ", $line);
+    if ($Oqrunid) {
+	$qrunid = $Oqrunid . "," . $qrunid;
+    } 
+
+    $line = mk_runline ($runid, $start, $stop, $camera, $qrunid);
+    insert_runline ($line);
+
+    &save_runlist;
+    exit 0;
+}
+
+############
+sub delqso {
+    if (@ARGV != 2) {
+	print STDOUT "USAGE: mkrun delqso (qsorun)\n";
+	exit 2;
+    }
+
+    $qrunid  = $ARGV[1];
+
+    &load_runlist;
+    
+    # find listed qrunid
+    $match = "";
+  SEARCH:
+    foreach $line (@runlist) {
+	if ($line =~ /^\#/) { next; } # skip commented lines
+	($tmp, $tmp, $tmp, $tmp, $qlist) = split (" ", $line);
+	@qlist = split (",", $qlist);
+	foreach $qid (@qlist) {
+	    if ($qrunid ne $qid) { next; }
+	    $match = $line;
+	    last SEARCH;
+	}
+    }
+    if ($match eq "") {
+	print STDERR "QSO run id $qrunid not found in run list\n";
+	exit 1;
+    }
+
+    # recreate $qlist without $qrunid
+    @qnew = ();
+    foreach $qid (@qlist) {
+	if ($qid eq $qrunid) { next; }
+	push @qnew, $qid;
+    }
+    $qlist = join (",", @qnew);
+
+    ($runid, $start, $stop, $camera) = split (" ", $match);
+
+    $line = mk_runline ($runid, $start, $stop, $camera, $qlist);
+    insert_runline ($line);
+
+    &save_runlist;
+    exit 0;
+}
+
+####### runlist utilities ############################
+sub load_runlist {
+    open (FILE, "$runlist");
+    @runlist = <FILE>;
+    foreach $line (@runlist) {
+	chop ($line);
+    }
+    close (FILE);
+}    
+
+sub save_runlist {
+    open (FILE, ">$runlist");
+    foreach $line (@runlist) {
+	print FILE "$line\n";
+    }
+    close (FILE);
+}    
+
+sub grab_runline {
+    my ($id) = $_[0];
+    my ($line);
+    my ($runid);
+
+    foreach $line (@runlist) {
+	if ($line =~ /^\#/) { next; } # skip commented lines
+	($runid) = split (" ", $line);
+	if ($runid ne $id) { next; }
+	return ($line);
+    }
+    return ("");
+}
+    
+sub insert_comment {
+    my ($comment) = $_[0];
+
+    @runlist = (@runlist, $comment);
+    return 1;
+}
+
+sub insert_runline {
+    my ($runline) = $_[0];
+    my ($line);
+    my ($runid, $id);
+
+    # match the run id lines
+    ($id) = split (" ", $runline);
+    foreach $line (@runlist) {
+	if ($line =~ /^\#/) { next; } # skip commented lines
+	($runid) = split (" ", $line);
+	if ($runid ne $id) { next; }
+	$line = $runline;
+	return 1;
+    }
+    @runlist = (@runlist, $runline);
+    return 0;
+}
+
+sub delete_runline {
+    my ($id) = $_[0];
+    my ($line, $runid);
+
+    # match the run id lines
+    @newlist = ();
+    foreach $line (@runlist) {
+	($runid) = split (" ", $line);
+	if ($runid eq $id) { next; }
+	@newlist = (@newlist, $line); 
+    }
+    @runlist = @newlist;
+    return 0;
+}
+
+sub mk_runline {
+    my ($runid, $start, $stop, $camera, $qrunid, $line);
+    $runid  = $_[0];
+    $start  = $_[1];
+    $stop   = $_[2];
+    $camera = $_[3];
+    $qrunid = $_[4];
+
+    $start = date_format ($start);
+    $stop  = date_format ($stop);
+    $line = sprintf "%s %s %s %-9s  %s", $runid, $start, $stop, $camera, $qrunid;
+    return ($line);
+}
+
+# utilities ##############################################
+
+sub atcommand {
+    my ($cmd, $log, $time, $date);
+    $cmd  = $_[0];
+    $log  = $_[1];
+    $time = $_[2];
+    $date = $_[3];
+
+    if (($log eq "") || ($log eq "NONE")) { $log = "/dev/null"; } 
+
+    printf "%s %s: %s\n", $date, $time, $cmd;
+    $line = sprintf "%s %s %s %s", $date, $time, $log, $cmd;
+    print SCHED "$line\n";
+}
+
+
+sub vsystem {
+    # print STDERR "@_\n";
+    my($status) = system ("@_");
+    $status;
+}
+
+sub goodbye {
+    die "@_\n";
+}
+
+sub date_format {
+    my ($date) = $_[0];
+    my ($year, $month, $day);
+
+    ($year, $month, $day) = $date =~ /(\d+)\/(\d+)\/(\d+)/;
+    $date = sprintf "%4d/%02d/%02d", $year, $month, $day;
+    return ($date);
+}
+
+sub date_to_mjd {
+    my ($date) = $_[0];
+    my ($year, $month, $day, $mjd);
+
+    ($year, $month, $day) = $date =~ /(\d+)\/(\d+)\/(\d+)/;
+
+    $mjd = get_mjd ($year, $month, $day);
+
+    return ($mjd);
+}
+
+sub mjd_to_date {
+    my ($mjd) = $_[0];
+    my ($sec,$min,$hour,$mday,$mon,$year,$wday,$yday);
+    my ($date, $time);
+    
+    $time = 86400 * ($mjd - 40587.0);
+    ($sec,$min,$hour,$mday,$mon,$year,$wday,$yday) = gmtime ($time);  
+    $year += 1900;
+    $mon ++;
+
+    $date = sprintf "%04d/%02d/%02d,%02d:%02d:%04.1f", $year, $mon, $mday, $hour, $min, $sec;
+    
+    return $date;
+}
+
+sub sec_to_mjd {
+    my ($sec) = $_[0];
+    my ($mjd);
+    
+    $mjd = $sec / 86400 + 40587.0;
+    return $mjd;
+}
+
+# gmtime
+# ($sec,$min,$hour,$mday,$mon,$year,$wday,$yday) = gmtime(time);  
+# ($sec,$min,$hour,$mday,$mon,$year,$wday,$yday) = localtime(time);  
+# $time = time
+# 0 sec (unix) = 2440587.5 jd = 40587.0 mjd
+
+sub get_mjd {
+
+    my($year) = $_[0];
+    my($month) = $_[1];
+    my($day) = $_[2];
+
+    my($jd) = $day - 32075 + int (1461*($year + 4800 + int (($month - 14)/12))/4)
+	+ int(367*($month - 2 - int(($month - 14)/12)*12)/12)
+	    - int(3*int(($year + 4900 + int(($month - 14)/12))/100)/4) - 0.5 - 2400000.5;
+
+    return ($jd);
+}
+
+sub usage {
+    
+    if (@ARGV == 1) {
+	print STDERR "create (runid) (start) (stop) (camera) - create / change a camera run\n";
+	print STDERR "delete (runid)                         - delete a camera run\n";
+	print STDERR "hstcreate                              - interactive camera run creation\n";
+	print STDERR "addqso (runid) (qsoid)                 - add a qso run to camera run\n";
+	print STDERR "delqso (qsoid)                         - delete a qso run\n";
+	print STDERR "comment (line)                         - add a comment line to run list\n";
+	print STDERR "status                                 - check current run list\n";
+	print STDERR "date (date)                            - return run info for given date\n";
+	print STDERR "run (runid)                            - return run info for given camera run\n";
+	print STDERR "\n";
+	print STDERR "sys                                    - display current system variables\n";
+	print STDERR "sys init                               - set defaults for system variables\n";
+	print STDERR "sys (key)                              - fetch value of system variable\n";
+	print STDERR "sys (key) (value)                      - set value of system variable\n";
+	print STDERR "\n";
+	&goodbye;
+    }
+    
+    if (@ARGV > 2) { print STDERR "USAGE: prepare.run (help) [mode]\n"; &goodbye; }
+    
+    &goodbye;
+}
+
+
+
+##############
+sub mk_events {
+    my ($runid, $start, $stop);
+    $runid = $_[0];
+    $start = $_[1];
+    $stop  = $_[2];
+    
+    $mjd_start = date_to_mjd ($start);
+    $mjd_stop  = date_to_mjd ($stop);
+
+    $Nday = $mjd_stop - $mjd_start + 1;
+
+    if (! -e $schedule) {
+	# create a new schedule with PREVIOUS set to NEVER
+	open (SCHED, ">$schedule");
+	print SCHED "# schedule for scheduler system\n";
+	print SCHED "# E. Magnier\n";
+	print SCHED "\n";
+	print SCHED "# last time scheduler was run:\n";
+	print SCHED "PREVIOUS NEVER\n";
+	print SCHED "\n";
+	close (SCHED);
+    }
+	
+    open (SCHED, ">>$schedule");
+    print "\n";
+    $date = `date "+%Y/%m/%d %k:%M:%S"`; chop ($date);
+    print SCHED "# added $date\n";
+    
+
+    ($year, $month, $day) = $start =~ /(\d+)\/(\d+)\/(\d+)/;
+    for ($Day = -1; $Day < $Nday + 7; $Day++) {
+
+	$tday = $day + $Day - 1;
+	$date = `date -d $year/$month/$tday +%Y/%m/%d`; chop ($date);
+
+	if ($Day == 0) {
+	    atcommand ("mkrun sys RUNID $runid",                   "$logdir/config.log",    "10:00", $date);
+	    atcommand ("checkconfig -ckdirs",                      "$logdir/config.log",    "10:00", $date);
+	    atcommand ("mkdetrend create $runid $start $stop",     "$logdir/mkdetrend.log", "10:00", $date);
+	    atcommand ("mkfringe config $runid",                   "$logdir/mkdetrend.log", "10:00", $date);
+	    atcommand ("mkfringe mkconfig",                        "$logdir/mkdetrend.log", "10:00", $date);
+	}
+	if ($Day == 4) {
+	    atcommand ("mkdetrend auto set update",                "$logdir/mkdetrend.log", "10:00", $date);
+	}
+	if ($Day == $Nday) {
+	    atcommand ("mkdetrend auto set hold",                  "$logdir/mkdetrend.log", "10:00", $date);
+	}
+    }
+    close (SCHED);
+
+}
+
+
+##############
+
+sub sched {
+    if (@ARGV != 2) {
+	print STDOUT "USAGE: mkrun sched (runid)\n";
+	exit 2;
+    }
+
+    $runid  = $ARGV[1];
+    &load_runlist;
+    
+    $line = grab_runline ($runid);
+    ($runid, $start, $stop, $camera, $qlist) = split (" ", $line, 4);
+
+    mk_events ($runid, $start, $stop);
+    
+    exit 0;
+}
+
+if ($ARGV[0] eq "sched")   { &sched  (@ARGV); }

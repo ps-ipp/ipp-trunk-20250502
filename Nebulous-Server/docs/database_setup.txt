@@ -1,0 +1,59 @@
+# Copyright (C) 2004  Joshua Hoblitt
+#
+# $Id: database_setup.txt,v 1.9 2008-06-20 03:34:28 jhoblitt Exp $
+
+### Database Setup
+
+### MySQL 4.1
+
+DROP DATABASE IF EXISTS nebulous;
+CREATE DATABASE nebulous;
+GRANT ALL PRIVILEGES ON nebulous.* TO 'nebulous'@'ipp019'
+    IDENTIFIED BY '@neb@' WITH GRANT OPTION;
+FLUSH PRIVILEGES;
+USE nebulous;
+
+### Initialization
+
+# localhost
+
+$ mkdir /tmp/po01 /tmp/po02
+INSERT INTO volume VALUES (1,'po01','file:/tmp/po01');
+INSERT INTO volume VALUES (1,'po02','file:/tmp/po02');
+
+# NFS
+
+INSERT INTO volume VALUES (1,'po01','file:/netdisks/po01');
+INSERT INTO volume VALUES (2,'po02','file:/netdisks/po02');
+INSERT INTO volume VALUES (3,'po03','file:/netdisks/po03');
+INSERT INTO volume VALUES (4,'po04','file:/netdisks/po04');
+INSERT INTO volume VALUES (5,'po05','file:/netdisks/po05');
+INSERT INTO volume VALUES (6,'po06','file:/netdisks/po06');
+INSERT INTO volume VALUES (7,'po07','file:/netdisks/po07');
+INSERT INTO volume VALUES (8,'po08','file:/netdisks/po08');
+
+INSERT INTO class VALUES (1,3,0,'raw image data');
+
+### Example queries
+
+LOAD DATA INFILE '/home/moa/jhoblitt/tmp/storage_objects.txt' INTO TABLE storage_object; 
+LOAD DATA INFILE '/home/moa/jhoblitt/tmp/instances.txt' INTO TABLE instance; 
+
+SELECT * FROM storage_object LEFT JOIN instance ON storage_object.so_id=instance.so_id WHERE storage_object.ext_id = "foobarbaz1.fits";
+SELECT * FROM storage_object LEFT JOIN instance USING (so_id) WHERE storage_object.ext_id = "foobarbaz1.fits";
+
+SET AUTOCOMMIT = 0;
+BEGIN;
+UPDATE instance SET read_lock=read_lock+1 WHERE ins_id=1;
+INSERT INTO lock_record values (1, 'read', NULL);
+COMMIT;
+
+SET AUTOCOMMIT = 0;
+BEGIN;
+INSERT INTO storage_object values (NULL, 'myfooedbar.fits', 'mr. wizard made this', NULL);
+INSERT INTO instance values (NULL, LAST_INSERT_ID(), 'file://tmp/bat/man/12345a', 'da39a3ee5e6b4b0d3255bfef95601890afd80709',0, NULL, NULL);
+COMMIT;
+
+IF select write_lock from instance WHERE id=1 THEN
+ELSE
+ENDIF

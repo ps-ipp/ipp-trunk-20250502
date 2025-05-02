@@ -1,0 +1,10 @@
+#
+# This file is used to generate pstampErrorCodes.h
+#
+BASE = 10000		First value we use; lower values belong to psLib
+UNKNOWN			Unknown pstamp error code
+NOT_IMPLEMENTED		Desired feature is not yet implemented
+ARGUMENTS		Incorrect arguments
+CONFIG			Problem in configure files
+IO			Problem in FITS I/O
+DATA                    Problem in data values

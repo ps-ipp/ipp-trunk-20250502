@@ -1,0 +1,8 @@
+#ifndef PS_VERSION_DEFINITIONS_H
+#define PS_VERSION_DEFINITIONS_H
+
+#define PSLIB_VERSION @PSLIB_VERSION@ // SVN version
+#define PSLIB_BRANCH  @PSLIB_BRANCH@  // SVN branch
+#define PSLIB_SOURCE  @PSLIB_SOURCE@  // SVN source
+
+#endif

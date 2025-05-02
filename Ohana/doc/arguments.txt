@@ -1,0 +1,63 @@
+# include <stdio.h>
+
+int get_argument (int argc, char **argv, char *arg) {
+
+  int i;
+
+  for (i = 0; i < argc; i++) {
+    if (!strcmp(argv[i], arg))
+      return (i);
+  }
+  
+  return ((int) NULL);
+}
+
+int remove_argument (int N, int *argc, char **argv) {
+
+  int i;
+
+  if ((N != (int) NULL) && (N != 0)) {
+    (*argc)--;
+    for (i = N; i < *argc; i++) {
+      argv[i] = argv[i+1];
+    }
+  }
+
+  return (N);
+    
+}
+
+main (int argc, char **argv) {
+
+  int VERBOSE;
+  float size;
+
+  /* example of an optional argument */
+  VERBOSE = FALSE;
+  if (N = get_argument (argc, argv, "-v")) {
+    remove_argument (i, &argc, argv);
+    VERBOSE = TRUE;
+  }
+
+  /* one way to do an required argument */
+  size = -1;
+  if (N = get_argument (argc, argv, "-s")) {
+    remove_argument (i, &argc, argv);
+    size = atof (argv[N]);
+    remove_argument (i, &argc, argv);
+  }
+  if (size < 0) {
+    fprintf (stderr, "USAGE: program (file) -s (size) \n");
+    exit (1);
+  }
+
+  /* another way to demand an argument */
+  if (argc != 2) {
+    fprintf (stderr, "USAGE: program (file) -s (size) \n");
+    exit (1);
+  }
+
+}
+
+
+   

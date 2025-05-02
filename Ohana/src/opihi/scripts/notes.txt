@@ -1,0 +1,18 @@
+
+This directory contains useful opihi / dvo / mana scripts
+
+Some possible scripts:
+
+module psphot
+
+  * load image, display, overlay the detections of several classes:
+    - psf stars
+    - good non-linear fit stars
+    - good linear fit stars
+    - good extended sources
+    - saturated stars
+    - defects
+    - failed fits
+    - ??
+
+  * load image, display, load psastro reference stars, display at multiple rotation angles / offsets?

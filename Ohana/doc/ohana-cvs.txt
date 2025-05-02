@@ -1,0 +1,105 @@
+
+The goal is to have two source trees: a development tree in your own
+private location and an official release tree, which contains the
+production version of the code.  In practice, you never edit the
+production version of the code: it is essentially read-only.  you just
+compile that tree and install it wherever the main-line production
+sources go (eg, /apps/elixir/bin).  New releases of the elixir code
+are done by replacing that tree with a new tree extracted from a
+released tarball.
+
+Start by creating you own CVS checkouts of the elixir ohana and config
+source tree.  this can be in your home directory, if you like, or
+where ever.  now check out the complete ohana and config cvs trees:
+
+- make sure you have CVSROOT set:
+
+setenv CVSROOT jcc@naupaka:/data/elixir2/srcdir/cvs
+
+- check out ohana:
+
+cvs co ohana
+
+- check out config:
+
+cvs co config
+
+now you should compile ohana.  I think you have the ARCH variable
+being setup correctly in your environment.  in this case, you can
+configure ohana to recognize that variable and allow for multiplatform
+compilation:
+
+- go into ohana, run configure, make, make install:
+
+cd ohana
+configure --vararch
+(note the last line of the configure output: it tells you how to set
+your path)
+
+make
+make install
+
+The compilation should run to the end without any trouble.  if you
+have any errors, you should let me know so we can fix them.
+
+You should adjust your path to point at the new installation of
+ohana.  when you ran configure, it told you how to set your path.
+if your path is set correctly, you should see the new versions of the
+elixir programs.
+
+Next, you should setup the elixir config data.  go into the config
+directory which you checked out and copy elixir.site.in to
+elixir.site.  Edit this file to reflect the local (CFHT) elixir data
+locations (the settings in this file are probably already correct for
+CFHT).  
+
+at this point, you should be able to run the elixir programs as jcc
+using this new copy and interacting with the standard CFHT elixir
+data.
+
+Now, let's create a production distribution tarball.  To do this, go
+into ohana/etc and run the distribution creation tool:
+
+- mkdist elixir-ohana 1.1
+
+This will create a new tarball for you containing all of the elixir
+ohana components based on the correct tagged versions of the software
+in the repository.  No matter what code changes you make and commit to
+CVS, when you run this command in the future you will get this
+specific snapshot of the elixir ohana software. 
+
+Install this new tarball in the production location:
+
+- cd /data/elixir2/srcdir
+- mv ohana ohana-preCVS
+- tar xvzf (PATH to tarball elixir-ohana-1.1.tgz)
+- ln -s elixir-ohana-1.1 ohana
+
+Compile the new ohana distribution:
+
+- cd ohana
+- configure --vararch
+- make install
+
+This last step will compile it in the local ohana path. At this point,
+from the viewpoint of the rest of Elixir, everything looks the same as
+it does before we started this process.  You can now go into
+/data/elixir2/srcdir and run the make install-test and make install
+just as you have in the past to install updates to the ohana software.
+
+Same process for the config system.  go back to your checked-out copy
+of ohana.  run 'mkdist elixir-config 1.1'.  go to
+/data/elixir2/srcdir.  save the old version of config
+(config-preCVS).  extract the tarball: ' tar xvzf (PATH to
+elixir-config-1.1.tgz)'.  link the config system to the old name: 'ln
+-s elixir-config-1.1 config'  copy config/elixir.site.in to
+config/elixir.site.  edit to match the existing site.  install in
+/apps/elixir/config (cd /data/elixir2/srcdir; make install).
+
+ 
+--
+
+some useful tricks:
+
+ cvs rdiff -s -r TAG MODULE
+ mkdist -diff GROUP VERSION

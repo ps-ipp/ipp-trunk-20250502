@@ -1,0 +1,177 @@
+=pod 
+
+=head1 NAME
+
+Nebulous::Server::QuickStart - Nebulous QuickStart Guide 
+
+=head1 Perl CLIENT
+
+The Nebulous Perl Client is composed of several modules but the user interface
+is accessed via the L<Nebulous::Client> module.  The API is also documented in
+the L<Nebulous::Client> Pod.
+
+=head2 Tracing
+
+There is extensive support for execution tracing.  This is set by passing
+parameters to the L<Nebulous::Client> module when it is imported. e.g.
+
+    use Nebulous::Client trace => qw( debug );
+
+Please see the L<Nebulous::Client> documentation for further details.
+
+=head2 Example program
+
+    #!/usr/bin/env perl
+
+    use strict;
+    use warnings FATAL => qw( all );
+
+    use Nebulous::Client;
+
+    my $neb = Nebulous::Client->new(
+        proxy   => 'http://podb1.ifa.hawaii.edu:80/nebulous'
+    );
+
+    my $key = shift || 'foobarbaz';
+
+    # make sure there isn't already a file named "foobarbaz" so this example
+    # doesn't cause an error
+    $neb->delete($key);
+
+    my $fh = $neb->open_create($key);
+    die "can't create file $key " unless $fh;
+    close($fh);
+
+    if (!$neb->replicate($key)) {
+        die "can't replicate object $key";
+    }
+
+    if (!$neb->delete($key)) {
+        die "can't delete object $key";
+    }
+
+=head1 C CLIENT
+
+The Nebulous C Client consists of a single library named
+F<libnebclient-x.x.x.so> (there is also a static lib, F<libnebclient.a>) and a
+single header file named F<nebclient.h>. The API is documented in
+C<nebclient(3)>. As a convince, pkgconfig configuration information is provided
+for linking against the shared library.
+
+=head2 pkgconfig
+
+The C<pkg-config> utility needs to be able to find the pkgconfig info file
+(F<nebulous.pc>) that Nebulous installed. If Nebulous was installed to a path
+other than F</usr> you may need to set the environment variable
+C<PKG_CONFIG_PATH> so that C<pkg-config> can find it.  For example, if Nebulous
+was installed under F</usr/local> you would set:
+
+    export PKG_CONFIG_PATH=/usr/local/lib/pkgconfig
+
+=head2 Autoconf
+
+If you are using Autoconf to configure your software, it is highly recommended
+that you use pkgconfig to link against Nebulous.  Below is an example suitable
+for inclusion in your F<configure.ac> file.
+
+    PKG_CHECK_MODULES([NEBCLIENT], [nebclient >= 0.0.1])
+
+This will setup the variables C<NEBLCLIENT_CFLAGS> and C<NEBCLIENT_LIBS> for
+you and C<AC_SUBST()> them.
+
+=head2 Example makefile
+
+    NEB_CFLAGS=`pkg-config nebclient --cflags`
+    NEB_LIBS=`pkg-config nebclient --libs`
+
+    nebexample: nebexample.c
+    	$(CC) $(NEB_CFLAGS) $(CFLAGS) $(NEB_LIBS) $< -o $@
+
+=head2 Example program
+
+    #include <stdio.h>
+    #include <stdlib.h>
+    #include <unistd.h>
+    #include <nebclient.h>
+
+    #define NEB_SERVER  "http://podb1.ifa.hawaii.edu:80/nebulous"
+    #define NEB_KEY     "foobarbaz"
+
+    int main (int argc, char **argv) {
+        nebServer       *server = NULL;
+        char            *key = NEB_KEY;
+
+        server = nebServerAlloc(NEB_SERVER);
+        if (!server) {
+            printf("nebServerAlloc() failed\n");
+            exit(EXIT_FAILURE);
+        }
+
+        // make sure there isn't already a file named "foobarbaz" so this
+        // example doesn't cause an error
+        nebDelete(server, key);
+
+        int fh = nebOpenCreate(server, key, 0, NULL, NULL, NULL);
+        if (fh < 0) {
+            printf( "nebOpenCreate() failed: %s\n", nebErr(server));
+            exit(EXIT_FAILURE);
+        }
+
+        // fh is a file descriptor
+        close(fh);
+
+        if (!nebReplicate(server, key, NULL, NULL)) {
+            printf( "nebReplicate() failed: %s\n", nebErr(server));
+            exit(EXIT_FAILURE);
+        }
+
+        if (!nebDelete(server, key)) {
+            printf( "nebDelete() failed: %s\n", nebErr(server));
+            exit(EXIT_FAILURE);
+        }
+
+        exit(EXIT_SUCCESS);
+    }
+
+=head1 DEVELOPER NOTES
+
+All of the examples in this guide are included with the Nebulous distribution
+under the F<./examples> directory.
+
+=head1 CREDITS
+
+Just me, myself, and I.
+
+=head1 SUPPORT
+
+Please contact the author directly via e-mail.
+
+=head1 AUTHOR
+
+Joshua Hoblitt <jhoblitt@cpan.org>
+
+=head1 COPYRIGHT
+
+Copyright (C) 2005  Joshua Hoblitt.  All rights reserved.
+
+This program is free software; you can redistribute it and/or modify it under
+the terms of the GNU General Public License as published by the Free Software
+Foundation; either version 2 of the License, or (at your option) any later
+version.
+
+This program is distributed in the hope that it will be useful, but WITHOUT ANY
+WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A
+PARTICULAR PURPOSE.  See the GNU General Public License for more details.
+
+You should have received a copy of the GNU General Public License along with
+this program; if not, write to the Free Software Foundation, Inc., 59 Temple
+Place - Suite 330, Boston, MA  02111-1307, USA.
+
+The full text of the license can be found in the LICENSE file included with
+this module, or in the L<perlgpl> Pod as supplied with Perl 5.8.1 and later.
+
+=head1 SEE ALSO
+
+L<Nebulous::Client>, L<nebclient(3)>
+
+=cut

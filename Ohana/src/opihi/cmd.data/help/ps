@@ -1,0 +1,16 @@
+
+   ps [-name file.ps] [-g | -i] [-n device] [-raw] [-noscale] [-newpage]
+
+   create a PostScript file from the current graphics window (Kii or
+   Kapa).  The target graphics window may be selected with the -g or
+   -i options (to choose between Kii or Kapa) in combination the -n
+   option (to specify which instance).
+
+   With no additional arguments, Kii produces an encapsulated
+   postscript file called Ximage.ps, while Kapa produces a file called
+   Xgraph.ps.  The output name may be set with the -name (file.ps)
+   option. 
+
+   By default, the output is scaled to fit on a letter page 
+
+   

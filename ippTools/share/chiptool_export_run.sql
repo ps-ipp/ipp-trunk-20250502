@@ -1,0 +1,3 @@
+SELECT
+    chipRun.*
+FROM chipRun

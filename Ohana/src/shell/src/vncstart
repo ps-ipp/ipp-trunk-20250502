@@ -1,0 +1,12 @@
+#!/bin/csh -f
+
+setenv PATH {$PATH}:/apps/elixir/bin
+
+vncserver -kill :1
+
+# remove lock files from Xvnc 
+rm -f /tmp/.X1-lock
+rm -f /tmp/.X11-unix/X1
+
+# start Xvnc as user 'cfh12k' (so users can restart as needed)
+vncserver -depth 16 :1

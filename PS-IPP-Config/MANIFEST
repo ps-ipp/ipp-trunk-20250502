@@ -1,0 +1,7 @@
+Build.PL
+LICENSE
+lib/PS/IPP/Config.pm
+lib/PS/IPP/Metadata/List.pm
+lib/PS/IPP/Metadata/Stats.pm
+t/00_distribution.t
+MANIFEST

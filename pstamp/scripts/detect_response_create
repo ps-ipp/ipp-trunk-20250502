@@ -1,0 +1,176 @@
+#!/usr/bin/env perl
+
+# program to create a simulated MOPS_DETECTABILITY_RESPONSE file
+# based on text format input file
+
+use warnings;
+use strict;
+
+use Astro::FITS::CFITSIO qw( :constants );
+Astro::FITS::CFITSIO::PerlyUnpacking(1);
+use Getopt::Long qw( GetOptions :config auto_help auto_version gnu_getopt );
+use Pod::Usage qw( pod2usage );
+use Math::Trig;
+use Data::Dumper;
+
+use constant EXTNAME => 'MOPS_DETECTABILITY_RESPONSE'; # Extension name for output table
+use constant EXTVER =>  1;
+use constant OBSERVATORY_CODE => 566; # IAU Observatory Code
+
+my ( $input,			# Name of input Detectabilty Query table
+     $output,			# Name of output table
+     $save_temps,		# Save temporary files?
+     );
+
+GetOptions(
+	   'input|i=s'    => \$input,
+	   'output|o=s'   => \$output,
+	   'save-temps' => \$save_temps,
+) or pod2usage( 2 );
+
+pod2usage( -msg => "Unknown option: @ARGV", -exitval => 2 ) if @ARGV;
+pod2usage( -msg => "Required options: --input --output",
+           -exitval => 3)
+    unless defined $input 
+    and defined $output;
+
+my $status = 0;
+
+# Specification of columns to write
+my $columns = [ 
+        # matching rownum from detectability original request
+        { name => 'ROWNUM',   type => '20A', writetype => TSTRING }, 
+
+        # number of pixels used in hypothetical PSF for the query detection
+        { name => 'DETECT_N', type => 'V',   writetype => TULONG },
+
+        # detectibility, indicating the fraction of PSF pixels detetable by IPP
+        { name => 'DETECT_F', type => 'D',   writetype => TDOUBLE },
+            ];
+
+# Header translation table
+my $headers = {
+    'QUERY_ID' => { name => 'QUERY_ID', type => TSTRING, 
+                        comment => 'MOPS Query ID for this batch query' },
+    'FPA_ID' => { name => 'FPA_ID',   type => TSTRING, 
+                        comment => 'original FPA_ID used at ingest' },
+	    };
+
+# Parse the list of columns
+my @colNames;			# Names of columns
+my @colTypes;			# Types of columns
+my %colData;			# Data for each column
+my @colWriteType;                 # type to use to write
+foreach my $colSpec ( @$columns) {
+    push @colNames, $colSpec->{name};
+    push @colTypes, $colSpec->{type};
+    push @colWriteType, $colSpec->{writetype};
+    $colData{$colSpec->{name}} = [];
+}
+
+my $in;
+if ($input eq "-") {
+    $in = *STDIN;
+} else {
+    die "cannot open input file $input" unless open $in, "<$input";
+}
+
+my $numRows;
+my $inHeader = { };
+
+read_input($in);
+
+
+# Write the output
+unlink "$output" if -e "$output";
+# Output file handle
+my $outFits = Astro::FITS::CFITSIO::create_file( $output, $status );
+check_fitsio( $status );
+
+$outFits->create_img( 16, 0, undef, $status );
+check_fitsio( $status );
+
+# Start the table
+$outFits->create_tbl( BINARY_TBL(), $numRows, scalar @colNames, \@colNames, \@colTypes, undef, EXTNAME,
+		      $status );
+check_fitsio( $status );
+
+# TODO: get the extension version number from somewhere common
+$outFits->write_key( TINT, 'EXTVER', EXTVER, 'Version of this Extension', $status );
+check_fitsio( $status );
+
+# Write the Extension keywords
+foreach my $keyword ( keys %$headers ) {
+    my $value = $inHeader->{$keyword}->{value}; # Header keyword value
+    unless (defined $value) {
+	print "Can't find header keyword $keyword\n";
+	next;
+    }
+    $value =~ s/\'//g;
+    my $name    = $headers->{$keyword}->{name}; # New name
+    my $type    = $headers->{$keyword}->{type}; # Type
+    my $comment = $headers->{$keyword}->{comment}; # Comment
+    $outFits->write_key( $type, $name, $value, $comment, $status );
+    check_fitsio( $status );
+}
+
+
+for (my $i = 0; $i < scalar @colNames; $i++) {
+    my $colName = $colNames[$i];# Column name
+    my $writeType = $colWriteType[$i];
+    $outFits->write_col( $writeType, $i + 1, 1, 1, $numRows, $colData{$colName}, $status );
+    check_fitsio( $status );
+}
+
+$outFits->close_file( $status );
+
+### Pau.
+
+
+# From Astro::FITS::CFITSIO demo
+sub check_fitsio
+{
+    my $status = shift;		# Status of FITSIO calls
+
+    if ($status != 0) {
+	my $msg;		# Message to output
+	Astro::FITS::CFITSIO::fits_get_errstatus( $status , $msg );
+	die "CFITSIO error: $msg\n";
+    }
+}
+
+sub read_input
+{
+    my $inh = shift;
+    my $line;
+    # read data for header
+    while ($line = <$inh>) {
+        next if ($line =~ /^#/);    # skip comment lines
+        chomp $line;
+        ($inHeader->{QUERY_ID}->{value}, $inHeader->{FPA_ID}->{value}, $inHeader->{MJD_OBS}->{value}, 
+         $inHeader->{FILTER}->{value}, $inHeader->{OBSCODE}->{value}) 
+                = split " ", $line;
+        last;
+    }
+    die "failed to read valid header words from $input" 
+        unless defined($inHeader->{QUERY_ID}->{value}) &&
+           ($inHeader->{FPA_ID}->{value}) &&
+           ($inHeader->{MJD_OBS}->{value}) && ($inHeader->{FILTER}->{value}) &&
+           ($inHeader->{OBSCODE}->{value}) ;
+
+
+    $numRows = 0;
+    while ($line = <$inh> ) {
+        next if ($line =~ /^#/);    # skip comment lines
+        chomp $line;
+
+        my ($rownum, $npix, $flux) = split " ", $line;
+
+        push @{$colData{'ROWNUM'}},   $rownum;
+        push @{$colData{'DETECT_N'}}, $npix;
+        push @{$colData{'DETECT_F'}}, $flux;
+        $numRows++;
+    }
+}
+
+__END__

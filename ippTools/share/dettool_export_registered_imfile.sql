@@ -1,0 +1,3 @@
+SELECT
+    detRegisteredImfile.*
+FROM detRegisteredImfile

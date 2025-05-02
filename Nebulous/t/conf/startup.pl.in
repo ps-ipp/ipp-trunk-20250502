@@ -1,0 +1,65 @@
+use strict;
+use warnings FATAL => qw( all );
+
+use lib qw( @ServerRoot@/../lib );
+use lib qw( @ServerRoot@ );
+
+use ModPerl::Util (); #for CORE::GLOBAL::exit
+
+use Apache2::RequestRec ();
+use Apache2::RequestIO ();
+use Apache2::RequestUtil ();
+
+use Apache2::ServerRec ();
+use Apache2::ServerUtil ();
+use Apache2::Connection ();
+use Apache2::Log ();
+
+use APR::Table ();
+
+use ModPerl::Registry ();
+
+use Apache2::Const -compile => ':common';
+use APR::Const -compile => ':common';
+
+use Apache::SOAP;
+
+use Apache::DBI;
+use DBI;
+use Nebulous::Server::SOAP;
+use Nebulous::Server::Apache;
+use Nebulous::Server;
+
+# do not inherit here, let's be explicit
+# use Test::Nebulous;
+
+# EAM : making this match Nebulous-Server/docs/apache2-mod_perl-startup.pl:
+
+# use the real mysql server:
+#my $dsn         = 'DBI:mysql:database=nebulous:host=localhost,mysql_socket=8500';
+#my $dbuser      = 'nebulous';
+#my $dbpasswd    = '';
+
+# use the test mysql server (defined in Test::Nebulous)
+my $dsn         = 'DBI:mysql:database=test:host=localhost:mysql_socket=/var/run/mysqld/mysqld.sock';
+my $dbuser      = 'test';
+my $dbpasswd    = '';
+
+#$Apache::DBI::DEBUG = 1;
+#Apache::DBI->connect_on_init( $NEB_DB, $NEB_USER, $NEB_PASS );
+Apache::DBI->setPingTimeOut($dsn, 10);
+
+my $config = Nebulous::Server::Config->new(
+    trace       => 'all',
+    memcached_servers => ['127.0.0.1:11211'],
+);
+$config->add_db(
+    dbindex     => 0,
+    dsn         => $dsn,
+    dbuser      => $dbuser,
+    dbpasswd    => $dbpasswd,
+);
+
+Nebulous::Server::SOAP->new_on_init($config);
+
+1;

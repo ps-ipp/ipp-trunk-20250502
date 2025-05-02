@@ -1,0 +1,288 @@
+
+<h2> PA data requirements </h2>
+
+Counting the total size of the PA database for the PA survey, with
+roughly 20 pointings per location and 30 second exposures.  The depth
+for PA survey in P2 @ 20 \sigma is 21.3 (r).  Each detection uses 100
+bytes (<b>we need to flesh this out with more realistic numbers from
+our table of parameters</b>).  The access speed to a RAID disk is 100
+MB/sec.  The number density of stars in i' in the plane may be higher,
+but we reach saturation at ~1.4e6 detections per deg^2 (one object per
+100 pixels).  This is a factor of 5 higher than the raw numbers.
+
+<h3> stellar counts for PS-1 </h3>
+latitude                 90          30         0
+density (deg^{-2})      5e3         3e4       3e5
+N_det (FPA^{-1})        4e4         2e5       2e6
+Sum N_det (FPA^{-1})    8e5         4e6       4e7
+Sum Nbyte (FPA^{-1})  80 MB      400 MB      4 GB
+Nsec for 1 channel      0.8           4        40
+Nchannel for 2 sec        1           2        20
+
+The total number of bytes for the PA survey for P2 detections is ~12
+TB (30000 x 400MB).  The density of detections per FPA from P4 delta
+is roughly the same as P2 at 0 deg (2e5 vs 3e5 det deg^{-2}).  The
+total number of bytes needed to store the P4 Delta detections from all
+of PS-1 is 
+
+Fields in the plane will take longer to process
+
+<h2> addstar interactions for a distributed db </h2>
+
+addstar.client <---> addstar.daemon
+
+The sky is divided into hierarchical regions, each broken into smaller
+subregions.  Both the image and object tables are divided into
+subtables by region on the sky.  The density of image tables is
+smaller than the density of object tables.  A top-level table defines
+the distribution of the lower-level tables by defining the hierarchy
+of regions and subregions.  Each entry in this table contains:
+
+region ID  - an identifier for the subregion
+RAs, RAe   - RA range of region
+DECs, DECe - DEC range of region
+parent ID  - ID of the region which contains this region (NULL for allsky)
+Nchild     - number of children
+offset     - starting entry of first child
+images     - is this region used for images? (if FALSE, down one layer)
+objects    - is this region used for objects? (if FALSE, down one layer)
+
+use the machine name / file name as the indicator in the images and
+objects entries?
+
+The table defines the relationship between the subregions and provides
+a mechanism to find the subregions appropriate to a given sky
+location.  It also specified for a given depth if that depth is used
+for the image and/or the object table.  The image tables contain
+images whose reference coordinate is located in the given region.
+Other regions which the image overlaps contain entries in the image
+reference table which specify the primary image table in which they
+are stored.  
+
+The details of the sky region definitions do not matter for the
+structure of the region table.  The data structures can handle any
+arrangement of tables which meets the basic requirements that the
+boundaries be lines of constant RA & DEC and that each level defines
+all regions which cover the entire sky.  One implementation is as
+follows and is easy to generate:  
+
+Start with the complete sky as a single region (RAs = 0, RAe = 360;
+DECs = -90, DECe = 90).  To create a new region, always subdivide the
+region with the largest area (roughly (RAe - RAs)*(DECe -
+DECs)*cos((DECs + DECe)/2)).  To subdivide a region, define two
+possible subdivisions: RA = 0.5*(RAs + RAe) (which becomes RAs and RAe
+for the two new regions) or DEC = 0.5*(DECs + DECe).  Determine the
+length of these dividing lines (S1 = (DECe - DECs); S2 = (RAe - RAs) /
+cos (DEC)).  Choose the shorter of these two lines, and subdivide the
+region on that basis.  
+
+The number of subregions increases by a factor of 8 for
+each new level.  Approximate table size: Need at least 200,000
+lowest-level regions, leads to 2^18 regions (256k) in lowest-level.
+Total table size is roughly 300k rows.  Each row is roughly 32 bytes,
+for a table size of 10MB.
+
+There is one addstar.daemon per DVO server.  The addstar.daemons are
+responsible for serving the objects and images from the tables they
+contain.  
+
+addstar.client steps to load a new set of objects:
+- load region table (defined in config db)
+- find overlapping object regions
+- find overlapping image regions
+- identify primary image region
+- send image data to node for primary image region 
+- send image reference to nodes for secondary image regions
+- send detection data (with image ID) to corresponding object region nodes
+
+addstar.daemon responsibilities:
+- receive image data -> add to primary image table
+- receive detection data -> add to local region file
+- request objects in overlap regions from neighbor daemons
+- send detections to neighbor daemons if associated with object over
+  border
+- construct / update objects on basis of detections
+
+in DVO 1.0, addstar updates objects on every upload of the
+detections.  In fact, the construction of the objects need not be
+performed every time detections are added.  Do we need to construct
+objects for all single detections?  The current process is:
+
+- get list of new detections (from incoming image)
+- match each detection with each object
+- update object parameters
+
+another option:
+
+step 1:
+ - get list of new detections
+ - add to new.detection table
+
+step 2:
+ - match detections to object table
+ - update object parameters
+
+third option
+step 1:
+ - add new detections to new table
+
+step 2:
+ - compare detections to orphans 
+ - if found, promote to object
+ - if not, test against objects
+ - if found update object
+ - if not add to orphans
+
+<h2> DVO image organization </h2>
+
+DVO 1.0 uses a single image table to store all image data.  In this
+table, each image is a chip; that is, each entry represents a single
+astrometric system.  In principal, there is no reason this could not
+be an entire mosaic or (in the case of Pan-STARRS) an individual
+Cell. It is usually necessary to be able to define the relationship
+between the different detector / focal plane / etc coordinate
+systems.  If the data entity is a full mosaic, then it will be
+necessary to look up the chip (and cell) transformations.  If the data
+entity is the cell, the reverse conversions will be needed.  
+
+The image table should be distributed to multiple files to speed up
+the access.  One option is to do this by coordinate region.  In the
+plan for DVO 2.0, there will be a table of the region hierarchy for
+the object tables, and the image tables could be distibuted similarly,
+though with a different density.  In PS-1, for example, there will be
+around 250,000 images (FPAs).  If we store OTAs (chips) as the data
+entity in the image table, then we will have in the vicinity of 16M
+rows.  If each contains 256 bytes, the total data volume in the image
+table will be about 4 GB.  If we want to have typical access times to
+any image of 1 second, and we need to scan through the entire table to
+get to the image, then we will need to distribute the data across 40
+tables (note that they need not be distributed by machine).  If each
+table represents a region on the sky, this translates to 1000 - 500
+square degrees per table.  
+
+Some additional aspects are interesting.  First, the
+spatially-distributed tables correspond to specific regions on the
+sky, likely to be bounded by lines of constant RA and DEC, or
+something equivalent.  However, an image cannot be guaranteed to land
+in only one of these regions.  To mitigate this, each image (chip or
+FPA or whatever the data unit is) should have a single defined
+position with which the general location is identified and the choice
+of region is made.  In addition, there should be a table associated
+with each region which defines images in other tables (regions) which
+overlap the given region.  In general, these overlap tables will
+contain only a small fraction of the image entries (regions are much
+large than images) and they need only identify the image ID and the
+corresponding table.
+
+An additional accelerator table would include all images, their
+reference time and their reference coordinate, sorted by time, with an
+index for the name.
+
+The end result is three types of tables: images.db, overlaps.db,
+imagetimes.db.  images.db contains the bulk of the information (256
+byte / row).  overlaps.db contains only the image ID and the the RA
+and DEC of the reference position (not the actual table because that
+may change). imagetimes.db contains only image ID (8 byte? 16 byte?),
+time, RA, DEC, and and index.  This is a total of about 40 bytes per
+image, for a total of roughly 700 MB at the end of PS-1.
+
+<h3> Examples queries </h3>
+
+<h4> find a single, specific image by ID </h4>
+<ul>
+<li> open imagetimes.db
+<li> load block marker (ID,block; every 10000 blocks)
+<li> find appropriate block
+<li> load block
+<li> find appropriate image entry
+<li> determine appropriate image.db table (region)
+<li> open image.db 
+<li> load block marker (ra,block; every 10000 blocks)
+<li> find appropriate block
+<li> load block
+<li> find appropriate image entry
+</ul>
+
+<h4> find a single, specific image by ID </h4>
+<ul>
+<li> open imagetimes.db
+<li> load block marker (ID,block; every 10000 blocks)
+<li> find appropriate block
+<li> load block
+<li> find appropriate image entry
+<li> determine appropriate image.db table (region)
+<li> open image.db 
+<li> load block marker (ra,block; every 10000 blocks)
+<li> find appropriate block
+<li> load block
+<li> find appropriate image entry
+</ul>
+
+<h3> dvo / object catalog scaling to massive collections </h3>
+
+DVO divides the sky into tables which represent specific areas on the
+sky.  Currently, these are pre-defined to match the HST GSC regions,
+roughly 1 - 4 square degree patches with fixed RA and DEC boundaries.
+A future extension will provide a mechanism to increaese or decrease
+the table density on the fly.
+
+The likely data rate under Pan-STARRS PS-1 is in the vicinity of 5 x
+10<sup>5</sup> stars per square degree.  The density is likely to vary
+by a factor of 30 for the bulk of the sky.  The Pan-STARRS camera
+consists of 1.44 x 10<sup>8</sup> pixels.  The confusion limit will
+likely be reached when each object encompases 25 pixels, resulting in
+a saturation of 6 x 10<sup>6</sup> stars per square degree.  The
+Pan-STARRS camera covers a total of 7.45 square degrees, and the
+expected exposure rate is roughly 1 per minute on average.  This
+amounts to a total of 3000 square degrees covered per night of
+observation, or a total of 1.5 x 10<sup>9</sup>detections per night,
+or a total of 5 x 10<sup>11</sup> over the course of one year.  Given
+this total number of detections, and the total sky coverage of 30,000
+square degrees, the average number of detections per square degree
+will be in the vicinity of 1.7 x 10<sup>7</sup>
+
+There are two main limitations to the DVO object storage model.
+First, the large data volume translates to a finite time to read the
+data from the disk.  Second, the large number of objects limits the
+rate at which new detections may be associated with the existing
+objects.  The first of these has generally proven to be the more
+significant limitation in applications to date.  We can easily
+calculate the time needed to load the data relevant to a random image
+pointing, as well as the maximum time based on the range of data
+volumes.  A necessary assumption in this calculation is the number of
+bytes used per detection.  We generously assume 100 bytes per
+detection, 3 times the existing data structures used by DVO.  
+
+Based on the numbers above, the total data volume represented by a
+year of observations is 50 TB, assuming the detection component
+dominates the total.  The average camera footprint translates to
+roughly 13 GB worth of detections.  Since each footprint is performed
+once per minute, it will be necessary to perform the read and write in
+each 10 seconds.  This in turn corresponds to 1.3 GB per second for
+the read and write portions.  With typical local hard-drive access
+speeds for RAIDs of 100 MB/sec, the data will need to be distributed
+across more than the machines in order to achieve these average
+rates.  
+
+The existing DVO system expects only one object table to be open at a
+time.  In addition, access to the tables is not controlled through
+separate machines.  Rather, a single collection of tables is expected
+and all queries are performed independently.  In order to handle the
+above load with the DVO software, the following changes will be
+needed:
+
+<ul>
+<li> tables must be distributed across multiple machines.  This is
+mandatory regardless of the underlying database engine based on the
+data I/O analysis above.
+
+<li> the 'addstar' front end needs to send the data for each table to
+the database backends on each of the corresponding machines.  
+
+<li> the addstar update for a single image can be done in series as is
+currently done.
+
+<li> write locking should be done on the tables rather than on the
+database as a whole (currently using the image table). 
+</ul>
+

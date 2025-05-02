@@ -1,0 +1,133 @@
+
+2002/09/19
+
+I am making some substantial upgrades to libfits.  My primary goal for
+the moment is the improve the table handling, but I am also making
+some minor cleanups in other areas.  A major concern is that no
+changes should be made to existing functions that will alter their
+behavior and break other programs.  Below I list functions that change
+and note if they risk causing any problems.
+
+header:
+
+fits_init_header:   new function (SAFE)
+fits_create_header: changed fits_print to fits_modify (SAFE)
+fits_fread_header:  new function, to eventually replace fits_load_header (SAFE)
+fits_fwrite_header: new function, to eventually replace fits_save_header (SAFE)
+fits_write_header:  cleaned (f == NULL) (SAFE)
+
+matrix:
+
+fits_create_matrix: if NAXIS==0, create 0 size matrix, allocate min 1 byte
+ - this is different, but now follows correct fits standard.
+ - does not affect any existing programs: all assume NAXIS > 0
+fits_fread_matrix:  new function, to eventually replace fits_load_matrix (SAFE)
+fits_load_matrix:   cleanup declaration format (SAFE)
+fits_fwrite_matrix: new function (SAFE)
+fits_write_matrix:  file ops only, wrapper to fwrite (SAFE)
+fits_matrix_size:   new function (SAFE)
+
+table: no changes
+
+---
+
+fits_write_header:  open / truncate file, write header first
+fits_fwrite_header: 
+
+
+
+current table functions: (9/2002)
+
+fits_read_Theader   (char *filename, Header *theader);
+fits_load_Theader   (FILE *f, Header *theader)
+fits_read_table     (char *filename, Table *table);
+fits_table_column   (Table *table, char *field, char *mode, varg array);
+fits_create_Theader (Header *header, char *type);
+
+new functions:
+
+fits_init_header (Header *header);
+ - set all values to defaults: 
+   bitpix = 8, Naxes = 0, bscale = 1, bzero = 0, extend = FALSE, unsign = FALSE;
+   
+fits_create_table_header (Header *header, char *type);
+ - create an empty table header: TFIELDS = 0, NAXIS1 = NAXIS2 = 0
+
+fits_define_table_column (Header *header, char *format, char *type, char *comment, char *unit);
+ - add a column definition to header
+ - add appropriate keywords
+ - update TFIELDS
+ - update NAXIS1
+
+fits_define_bintable_column (Header *header, char *format, char *type, char *comment, char *unit, double scale, double zero);
+ - add a column definition to header
+ - add appropriate keywords
+ - update TFIELDS
+ - update NAXIS1
+
+fits_get_table_column ()
+
+fits_table_column (Table *table, char *field, char *mode, void *result);
+
+
+
+
+typedef struct {
+  int                     simple;
+  int                     unsign;
+  int                     extend;
+  int                     bitpix;
+  int                     Naxes;
+  int                     Naxis[FT_MAX_NAXES];
+  int                     size;
+  double                  bzero;
+  double                  bscale;
+  char                   *buffer;
+} Header;
+
+typedef struct {
+  int                     unsign;
+  int                     bitpix;
+  int                     Naxes;
+  int                     Naxis[FT_MAX_NAXES];
+  int                     size;
+  double                  bzero;
+  double                  bscale;
+  char                   *buffer;
+} Matrix;
+
+typedef struct {
+  int                     bitpix;
+  int                     Nfields;
+  int                     Naxes;
+  int                     Naxis[FT_MAX_NAXES];
+  int                     size;
+  char                   *buffer;
+  Header                  header;
+} Table;
+          
+typedef struct {
+  Header                 *header;
+  char                   *buffer;
+  int                     size;
+} FTable;
+
+typedef struct {
+  Header                 *header;
+  char                  **buffer;
+  int			  Nrow;
+  int                    *row;
+  int                     size;  /* total buffer size */
+  int			  pad;   /* bytes of padding at the end */
+} VTable;
+
+virtual table:
+
+a virtual table contains only part of the data on disk size is the
+total size of the table (disk + mem) buffer is a contiguous block of
+data in the table msize is the size of the memory block stored at
+buffer offset is the start of the memory block
+
+Nx is width of table,
+Ny is number of occupied rows
+size = Nx*Ny + pad;

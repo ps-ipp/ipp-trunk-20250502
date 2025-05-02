@@ -1,0 +1,4 @@
+
+   kern buffer (kernel file or -)
+
+   apply a 3x3 kernel to the image.  

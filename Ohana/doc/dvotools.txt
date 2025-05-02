@@ -1,0 +1,48 @@
+
+The number of DVO support programs probably needs to expand.  I am
+specifically considering the types of functions I need to perform the
+photometric and astrometric calibrations needed by Pan-STARRS, ie the
+AP Survey.
+
+dvo DB manipulations:
+
+  - create a subset of a database (restrict by magnitude limits, time, 
+    region, etc)
+  - re-organize the table structure using a new SkyTable file
+  - remove the automatic extension of the secfilt table; make a mode to 
+    add a new secondary filter
+
+dvo DB organization mods:
+
+  - drop the primary photcodes and put all primaries in the 'secfilt' table
+  - construct a FITS table for the photcodes
+  - tables for the camera and filter data which is currently in the config
+  - tools to update the photcode table
+
+addstar : need a few additional new variations on the addstar concept
+
+  - load2mass : the raw 2MASS format is so broken, I needed to create
+  a special stand-alone program to load the 2MASS catalog data to a
+  given DVO database.
+
+  - sedstar : this program uses an existing DVO database, and fits the
+    (calibrated) stellar photometry to a set of stellar photometry
+    models.  One goal is to predict magnitudes in other filters from
+    the observed data.  Another goal is to determine the fundamental
+    stellar parameters (eg, Temp, Av, logg, distance).  Another goal
+    is to determine the stellar locus coordinates for use in other
+    fitting functions.
+
+    output magnitudes should be in photcodes of DEP type? or SED type?
+
+    
+relastro : the basic concept of this program is fairly clear, but we
+  need to work out the details a bit.  The program should determine
+  the image astrometry terms, the average stellar coordinates, and
+  things like proper-motion and parallax.  It needs to include both
+  the raw astrometry from the images as well as (high-quality)
+  external reference sources.  Dave Monet thinks the initial
+  conditions (errors and systematics in the external catalogs) drive
+  the solutions too strongly.  He is exploring doing direct
+  (non-iterative) solutions using the psSparse tools.  I'm not totally
+  convinced yet...

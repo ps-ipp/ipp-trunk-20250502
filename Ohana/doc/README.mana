@@ -1,0 +1,133 @@
+
+ April 26, 2000
+
+ I am providing the first release of 'mana' and the supporting
+ packages.  Here I will describe the needed steps to get the program
+ compiled and running. 
+
+Directory organization and Architecture selection:
+
+ Mana is part of a large collection of software called 'ohana'.  This
+ distribution of mana only includes the components of ohana needed for
+ mana.  The ohana collection is contained within a directory tree that
+ eases the use of the package on a multi-system network.  To this end,
+ there are separate bin and lib directories for different architecture
+ machines.  At the top level of 'ohana' there are the src, bin, lib,
+ and include directories.  bin and lib have subdirectories named
+ e.g. bin/linux, bin/sol, or bin/hp.  The Makefiles throughout 'ohana'
+ use an environment variable ARCH to decide which of these directories
+ is the appropriate destination.  Therefore:
+
+ BEFORE compiling any of the ohana programs, please set the ARCH
+ environment variable appropriately for your machine.  To do this
+ automatically, I use the following lines in my .cshrc:
+ 
+     ### automatically setting the ARCH variable:
+     set sys=`uname -s` 
+     switch ($sys)
+      case IRIX64:
+        setenv ARCH irix;
+        breaksw;
+      case SunOS:
+        set ver=`uname -r | awk '{print substr($1,1,1)}'`;
+        if ($ver == 5) then
+          setenv ARCH sol
+        else 
+          setenv ARCH sun4
+        endif
+        breaksw;
+      case Linux:
+        setenv ARCH linux;
+        breaksw;
+      case HP-UX:
+        setenv ARCH hp;
+        breaksw;
+      default:
+        echo "unknown architecture";
+        setenv ARCH unknown;
+        breaksw;
+     endsw
+
+  This mechanism also lets you set your PATH correctly, no matter what
+  architecture you are on.  just include in your PATH
+  /h/fred/src/ohana/bin/{$ARCH} (or whatever the path is to the ohana
+  package!).  
+
+  In order to configure the ohana package for your local installation,
+  edit the file ohana/Configure.  Change the entry for ROOT to point
+  to the correct location of the ohana package.  Also in Configure,
+  you can tell ohana to install things in a different location from
+  the ohana directory structure.
+
+  
+Necessary Libraries:
+
+  I've included in this distribution all of the necessary libraries to
+  compile mana.  Two of these are part of the ohana package: the fits
+  and ohana libraries.  These two should compile trivially when you
+  run make.  There are several other libraries that are typically
+  included in various UNIX installations, but are sometimes missing.
+  I've included them in this distribution in case you need them, but
+  the Makefiles are not well tuned to fit with the ohana layout.  In
+  particular, libjpeg and libpng you will have to compile by hand (ie,
+  by going into those directories and compiling there, not from the
+  top level ohana directory).  Install the resulting libraries and
+  include files in the appropriate locations (either in your system,
+  or just in the appropriate lib and include directores in ohana).
+  The readline library might compile correctly from the ohana
+  Makefile, but I am not sure of this. 
+
+  It is a good idea to try the mana compilation without dealing with
+  these libraries.  You'll find out soon enough which ones your
+  systems doesn't have!
+
+  The other oddity is the situation with libnsl and libsocket.  These
+  are required libraries for Suns, but not available (not even needed)
+  under linux.  To keep the same link lines in the Makefiles, I have
+  made a dummy version of libnsl and libsocket, which should be put in
+  ohana/lib/linux.  see the ohana/src/libdummy/Makefile for details.  
+
+Compiling and installing:
+
+  First of all, move Makefile.mana to Makefile.
+
+  If the libaries are all OK, then you should be able to compile and
+  install mana and the display programs kapa and kii with the command:
+
+  make install
+
+  
+Running Mana:
+
+  Just a couple of notes about running mana.  I'm hoping the commands
+  are generally obvious and the help files helpful...
+
+  When mana starts, it loads a resource file ~/.manarc.  This is just
+  a file with a bunch of mana commands.  They can include common macro
+  definitions, defining variables, or whatever.  I've included an
+  example as mana.rc in ohana/src/mana/doc/
+
+  Mana uses two external programs to display images and vector plots,
+  nominally called 'kii' and 'kapa'.  By default, it assumes those two
+  names, but user may change the names if needed.  Mana looks at the
+  variables (mana variables, not env variables) KAPA and KII to decide
+  the program names.  By default these are set to 'kapa' and 'kii'.
+  Type "echo $KAPA" or "echo $KII" in mana to see the current values.
+  If you need to place these programs outside your path or give them
+  different names, just assign these variables (perhaps in the
+  .manarc) to the correct names and they should work fine.
+
+  In the same way, mana looks for the help files in a preset location,
+  specifically the directory of the mana executable, subdirectory
+  mana.hlp.  So, if you have mana in /usr/local/bin, mana will look
+  for the help files in /usr/local/bin/mana.hlp.  But again, this can
+  be reassigned by the user by changing the mana variable HELPDIR.  
+
+  Two useful mana commands are ? and ??.  The first lists all commands
+  and gives a little helpline.  the second lists are currently defined
+  mana variables.
+
+
+
+  Eugene Magnier
+

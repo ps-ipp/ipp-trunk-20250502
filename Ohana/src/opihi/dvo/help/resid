@@ -1,0 +1,12 @@
+
+  resid [-im time] [-X] [-l] (photometry file)
+
+  plot the photometry residuals for a photometry database file. 
+  For every star in the database, the average magnitude is plotted 
+  vs the difference between the average magnitude and each existing 
+  measurement for that star.  
+
+  -l		automatically set the plot limits.
+  -X		plot residual divided by photometric error
+  -im time	only plot the residuals for one of the images 
+		in the database, specified by the obseravation time.

@@ -1,0 +1,20 @@
+#!/sbin/runscript
+
+depend() {
+        need net
+        use logger
+}
+
+start() {
+# archttp looks for and write in config file under /.  as I can tell there is
+# no way to specify the path to the config file.
+        ebegin "Starting nebdiskd"
+        /usr/bin/nebdiskd 
+        eend $?
+}
+
+stop() {
+        ebegin "Stopping nebdiskd"
+        /usr/bin/nebdiskd --stop 
+        eend $?
+}

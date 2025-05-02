@@ -1,0 +1,10 @@
+bool [% table.namespace %]CreateTable(psDB *dbh)
+{
+[% INCLUDE metadata -%]
+
+    bool status = psDBCreateTable(dbh, [% table.namespace FILTER upper %]_TABLE_NAME, md);
+
+    psFree(md);
+
+    return status;
+}

@@ -1,0 +1,44 @@
+
+<p>
+The <a href=navigate.pro>navigate</a> script provides a convenient
+graphical user interface to the DVO shell and database.  To use it,
+simply load it into the DVO shell with the <tt>input</tt> command.  It
+is useful to always load this script by including the input command in
+your <tt>~/.dvorc</tt> file.  Once you have loaded the script, you
+can start it by typing <tt>navigate</tt>.  You can navigate around the
+sky, then exit the script at any time by typing 'q'.  This allows you
+to issue DVO commands related to your current position.  You can then
+resume navigating by restarting the script.
+
+<p>
+The navigate script lets you move about the sky by placing your cursor
+in the display window and clicking various keys.  Below is a summary
+of the basic key stokes:
+
+<pre>
+1 - zoom in factor of 2
+2 - zoom in factor of 1.2
+3 - recenter at cursor
+4 - zoom out factor of 1.2
+5 - zoom out factor of 2
+6 - zoom out factor of 10
+z - zoom to radius (requires 2nd keystroke)
+f - show full sky
+
+q - quit
+g - toggle skygrid on/off
+r - plot detected asteroids (rocks)
+l - plot HST GSC
+L - plot Landolt stars
+m - list measurements for stars within 1 pixel of cursor
+M - list measurements for stars within 1.8 arcsec of cursor
+i - list info about images touching cursor location 
+I - list info about images, with pixel coords of cursor position
+x - plot stars scaled by magnitude Chisq
+X - plot stars by magnitude scatter
+S - toggle auto-plotting of stars
+t - plot light curve for star within 2 arcsec of cursor position
+T - plot 'galaxy' light curve for star within 2 arcsec of cursor position
+c - plot status catalog boundaries
+C - list catalog at cursor location
+</pre>

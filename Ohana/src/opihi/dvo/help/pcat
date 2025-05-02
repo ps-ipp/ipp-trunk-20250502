@@ -1,0 +1,9 @@
+
+  pcat [-all]
+
+  plot outlines of photometry database files in the current region.
+  if the option -all is given, all database in the region are listed.
+  if the option is not given, only those files with data are listed.
+
+  See also: region, lcat
+

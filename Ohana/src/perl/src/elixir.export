@@ -1,0 +1,88 @@
+#!/usr/bin/env perl
+
+if (@ARGV != 3) { die "ERROR: usage: elixir.export (rawfile) (datfile) (mode)\n"; }
+
+$datdir = `gconfig DATDIR`; chop $datdir;
+$logdir = `gconfig LOGDIR`; chop $logdir;
+$config = "$datdir/export.conf";
+
+$rawfile = $ARGV[0];
+$datfile = $ARGV[1];
+$MODE    = $ARGV[2];
+
+if (! -e $config) { die "ERROR: config file $config missing\n"; }
+
+open (FILE, $config);
+while ($line = <FILE>) {
+    if ($line =~ /^\s*$/) { next; } # skip empty lines
+    if ($line =~ /^\s*\#/) { next; } # skip commented lines
+    $Nlist = ($id, $runids, $filters, $modes, $outdir) = split (" ", $line);
+    if ($Nlist != 6) { print STDERR "WARNING: error in config file: $line\n"; }
+    push @id, $id;
+    $runids{$id}  = $runids;
+    $filters{$id} = $filters;
+    $modes{$id}   = $modes;
+    $outdir{$id}  = $outdir;
+}
+close (FILE);
+
+($tmp, $RUNID) = split (" ", `echo $rawfile | fields RUNID`);
+($tmp, $FILTER) = split (" ", `echo $rawfile | fields FILTER`);
+
+$FILTER = `filtnames $FILTER`; chop $FILTER;
+
+open (LOG, ">>$logdir/export.log");
+
+if ($MODE eq "any") { goto wanted; }
+
+foreach $id (@id) {
+
+    if (!findword ($MODE, $modes{$id})) { next; }
+    if (!findword ($RUNID, $runids{$id})) { next; }
+    if (!findword ($FILTER, $filters{$id})) { next; }
+
+    # success, copy datfile to outdir:
+
+    system ("cp $datfile $outdir{$id}\n");
+    if ($?) { print STDERR "WARNING: can't write $datfile to $outdir{$id}\n"; }
+
+    open (FILE, ">>$outdir/export.tbl");
+    print FILE "$datfile\n";
+    close (FILE);
+
+    print LOG "export $datfile to $outdir for $id\n";
+}
+close (LOG);
+
+print STDERR "SUCCESS: export $datfile to $outdir for $id\n";
+exit 0;
+
+wanted:
+foreach $id (@id) {
+
+    if (!findword ($RUNID, $runids{$id})) { next; }
+    if (!findword ($FILTER, $filters{$id})) { next; }
+
+    print LOG "export $datfile is wanted, process\n";
+    close (LOG);
+    print STDERR "SUCCESS: $datfile is wanted\n";
+    exit 0;
+}
+
+print LOG "export $datfile is not wanted, skip\n";
+close (LOG);
+print STDERR "ERROR: $datfile is not wanted\n";
+exit 1;
+
+sub findword {
+    # findword $WORD $list
+    $WORD = "\U$_[0]\E";
+    $list = $_[1];
+
+    @word = split (",", $list);
+    foreach $word (@word) {
+	$word = "\U$word\E";
+	if ($word eq $WORD) { return 1; }
+    }
+    return 0;
+}

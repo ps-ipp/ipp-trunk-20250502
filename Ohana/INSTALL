@@ -1,0 +1,33 @@
+
+Building Ohana from the tarball into your local build directory:
+
+To build Ohana from source, you need to choose a target top-level
+directory (PREFIX).  The build products will go into PREFIX/bin,
+PREFIX/lib, etc.  It is necessary to define or add to the following
+environment variables for the build system.
+
+  PATH            : PREFIX/bin       : location of the built programs
+  CPATH           : PREFIX/include   : location of installed header files
+  LIBRARY_PATH    : PREFIX/lib       : location of installed library files
+  LD_LIBRARY_PATH : PREFIX/lib       : location of run-time shared libraries
+
+Download our repaired version of readline:
+
+  http://dvodist.ipp.ifa.hawaii.edu/dvo.tarballs/readline-5.2-p14.tar.gz
+
+Unpack the tarball, cd into the readline-5.2-p14 directory and build:
+
+  configure --prefix=PREFIX
+  make -j6 
+  make -j6 install
+
+Download the ohana tarball:
+
+  http://dvodist.ipp.ifa.hawaii.edu/dvo.tarballs/Ohana-20160428.tgz
+
+Unpack the tarball, cd into the Ohana-20160428 directory and build:
+
+  configure --prefix=/home/kukui/eugene/src/ohana
+  make -j6
+  make -j6 install
+

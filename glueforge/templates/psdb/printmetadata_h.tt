@@ -1,0 +1,15 @@
+/** Formats and prints a metadata
+ *
+ * Any internal use fields are stripped.
+ *
+ * When mdcf is set the formated output is in psMetadataConfig
+ * format, otherwise it is in a simple tabular format.
+ *
+ * @return true on success
+ */
+
+bool [% pkg_namespace %]PrintMetadata(
+    FILE            *stream,            ///< a stream
+    psMetadata      *md,                ///< An array of metadata
+    bool            mdcf                ///< format as mdconfig or simple
+);

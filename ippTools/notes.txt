@@ -1,0 +1,75 @@
+
+2010.05.24 EAM
+
+  staticskytool:
+
+    definebyquery : choose input stacks that meet a list of
+    		    restrictions.  Require a specific list of filters? 
+		    Require a minimum number of inputs?
+
+      eg: sst definebyquery -filterlist g,r,i,z,y [-label md04%] [-ra_min x] [-dec_min x] ...
+
+      can we do the filter selects in the database?
+
+2008.07.19 EAM
+
+  * need to add cleanup modes to all stages.  here is the minimum list
+    of stages that need the cleanups:
+
+    * chiptool - DONE
+    * camtool 
+    * faketool
+    * warptool
+    * difftool
+    * stacktool
+    * dettool processedimfile
+    * dettool processedexp
+    * dettool stackedimfile
+    * dettool normalizedstat
+    * dettool normalizedimfile
+    * dettool normalizedexp
+    * dettool residimfile
+    * dettool residexp
+
+    * I am modifiying the tools to use the new states: new, full, goto_cleaned, etc.
+      I am NOT changing: regtool, pztool, magictool, flatcorr, pxregister, pstamptool
+
+    * for dettool, I have added a new field, 'data_state' to the
+      detRunSummary.  My plan here is that a complete detRunIteration
+      is cleaned at once.  I've added functions to all of the dettool
+      major modes to list pending entries to be cleaned and a function
+      to update the data_state when cleaning is done.
+
+2008.07.11 EAM 
+
+  * break dettool.c into files for each detrend stage
+  * require -iteration in more places? (esp -add...)
+  * allow %s, %d arguments in the *.sql files or not?
+  * adddetrunsummary has the ability to set values for multiple detRunSummary entries.  why?
+
+2008.07.09 EAM
+
+  In order to implement the 'cleanup' and 'update' strategies, we have
+  changed the state names and defined addtional states as follows:
+
+  * new          : entry is unprocessed (was 'run')
+  * full         : entry is processed and has all output data products (was 'done')
+  * goto_cleaned : entry should be processed by the 'cleanup' system
+  * cleaned   	 : entry has been processed by the 'cleanup' system --
+    		   some output data products are now missing.
+		   
+  * goto_full    : entry should be re-processed by the 'update' system
+  * full         : entry has been re-processed by the 'update' system
+  
+  * goto_purged  : entry should be processed by the 'cleanup' ssytem
+    		   to purge all output data
+  * purged       : entry has been purged
+
+
+
+2008.05.16 EAM
+
+caltool
+  * add the active field, -active flag to -dbs
+  * add the -region 
+  * change 'catdir' to 'dvo_id'

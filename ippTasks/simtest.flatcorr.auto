@@ -1,0 +1,76 @@
+
+automate MULTI
+
+# we run in the sequence BLOCK -> CHECK -> LAUNCH -> BLOCK -> CHECK
+# success on CHECK -> LAUNCH
+# failure on BLOCK -> CHECK
+
+# this is a simplified automate script which only models BIAS and FLAT.  
+# generate appropriate simulated data with the FLATCORR recipe
+
+# wait until 20 bias frames are registered, then define a new bias run
+automate METADATA
+  name       STR BIAS
+  check      STR "regtool -processedexp -exp_type BIAS -inst @CAMERA@ -dbname @DBNAME@"
+  ncheck     S32 10
+  launch     STR "dettool -definebyquery -workdir file://@CWD@/detwork -inst @CAMERA@ -det_type BIAS -select_exp_type BIAS -dbname @DBNAME@"
+  block      STR "dettool -runs -active -det_type BIAS -dbname @DBNAME@"
+END
+
+# wait until the master bias frame is registered, then define a new dark run
+automate METADATA
+  name       STR DARK
+  check      STR "detselect -search -inst @CAMERA@ -det_type BIAS -dbname @DBNAME@"
+  launch     STR "dettool -definebyquery -workdir file://@CWD@/detwork -inst @CAMERA@ -det_type DARK -select_exp_type DARK -dbname @DBNAME@"
+  block      STR "dettool -runs -active -det_type DARK -dbname @DBNAME@"
+END
+
+# wait until the master dark frame is registered, then define a new shutter run
+automate METADATA
+  name       STR SHUTTER
+  check      STR "detselect -search -inst @CAMERA@ -det_type DARK -dbname @DBNAME@"
+  launch     STR "dettool -definebyquery -workdir file://@CWD@/detwork -inst @CAMERA@ -det_type SHUTTER -filter r -select_exp_type SKYFLAT -select_filter r -dbname @DBNAME@"
+  block      STR "dettool -runs -active -det_type SHUTTER -dbname @DBNAME@"
+END
+
+# wait until the master bias frame is registered, then define a new flat-r run
+automate METADATA
+  name       STR RAWFLAT-r
+  check      STR "detselect -search -inst @CAMERA@ -det_type SHUTTER -dbname @DBNAME@"
+  launch     STR "dettool -definebyquery -workdir file://@CWD@/detwork -inst @CAMERA@ -det_type FLAT_RAW -filter r -select_exp_type SKYFLAT -select_filter r -dbname @DBNAME@"
+  block      STR "dettool -runs -active -det_type FLAT_RAW -filter r -dbname @DBNAME@"
+END
+
+# wait until the master flat-r frame is registered, then initiate a flat-field correction analysis
+automate METADATA
+  name       STR FLATCORR-r
+  check      STR "detselect -dbname @DBNAME@ -search -inst @CAMERA@ -filter r -det_type FLAT_RAW"
+  launch     STR "flatcorr -definebyquery -dbname @DBNAME@ -det_type FLATCORR -inst @CAMERA@ -exp_type OBJECT -filter r -set_workdir file://@CWD@/detwork -set_reduction FLATCORR -set_dvodb @CWD@/catdir.flatcorr -set_region 270.6,270.9:-23.8,-23.5 -set_filter r"
+  block      STR "dettool -runs -active -det_type FLATCORR -filter r -dbname @DBNAME@"
+END
+
+# wait until the flat-r correction frame is registered, then define the flat-fields to be corrected
+# XXX for the moment, the det_id here is hard-wired
+automate METADATA
+  name       STR FLATFIX-r
+  check      STR "detselect -dbname @DBNAME@ -search -inst @CAMERA@ -filter r -det_type FLATCORR"
+  launch     STR "dettool -makecorrection -dbname @DBNAME@ -det_id 4 -iteration 0 -det_type FLAT -workdir file://@CWD@/detwork"
+  block      STR "dettool -runs -active -det_type FLAT -filter r -dbname @DBNAME@"
+END
+
+# wait until the corrected master flat-r frame is registered, then initiate a second flat-field correction analysis
+automate METADATA
+  name       STR FLATTEST-r
+  check      STR "detselect -dbname @DBNAME@ -search -inst @CAMERA@ -filter r -det_type FLAT"
+  launch     STR "flatcorr -definebyquery -dbname @DBNAME@ -det_type FLATTEST -inst @CAMERA@ -exp_type OBJECT -filter r -set_workdir file://@CWD@/detwork -set_reduction FLATTEST -set_dvodb @CWD@/catdir.flattest -set_region 270.6,270.9:-23.8,-23.5 -set_filter r"
+  block      STR "dettool -runs -active -det_type FLATCORR -filter r -dbname @DBNAME@"
+END
+
+## # wait until the master flat-r frame is registered, then unblock the r-band data for chip-level processing
+## automate METADATA
+##   name       STR OBJECT-i
+##   check      STR "detselect -dbname @DBNAME@ -search    -inst @CAMERA@ -filter i -det_type FLAT"
+##   launch     STR "chiptool  -dbname @DBNAME@ -updaterun -inst @CAMERA@ -filter i -label wait -set_label proc"
+##   block      STR NONE
+## END
+## 

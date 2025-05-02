@@ -1,0 +1,75 @@
+#!/usr/bin/env perl
+
+# check the usage
+if ($ARGV[0] eq "-h") { usage (); }
+if ($ARGV[0] eq "-help") { usage (); }
+if (@ARGV != 3) { die "USAGE: fr.gtstats (inlist) (binning) (output)\n" }
+
+# define the path to include FLIPS:
+$flipsconf=`gconfig -q FLIPSCONF`; chop ($flipsconf);
+$flipspath=`gconfig -q FLIPSPATH`; chop ($flipspath);
+$ENV{'PATH'} = "$ENV{'PATH'}:$flipspath";
+$ENV{'FLIPSDIR'} = $flipsconf;
+
+# assign the command line arguments
+$inlist = $ARGV[0];
+$bin    = $ARGV[1];
+$output = $ARGV[2];
+
+# load input list:
+open (FILE, "$inlist");
+@inlist = <FILE>;
+close (FILE);
+
+# gtfringe is appending to the output file:
+unlink ($output);
+
+# we construct the Fringe Coord File from: FRINGE_COORD_PATH/CAMERA-FILTER-CCDNN-FringeCoord.reg
+$fkey      = `gconfig -q FILTER-KEYWORD`;    chop ($fkey);
+$ckey      = `gconfig -q CAMERA-KEYWORD`;    chop ($ckey);
+$coordpath = `gconfig -q FRINGE_COORD_PATH`; chop ($coordpath);
+$Nccd      = `cameraconfig -Nccd`;           chop ($Nccd);
+
+# double check lists size:
+if ($Nccd != @inlist) { die "ERROR: mis-matched image list sizes\n"; }
+
+# find filter and camera from image
+$answer = `echo $inlist[0] | fields $fkey $ckey`;
+($name, $filter, $camera) = split (" ", $answer);
+
+for ($ccd = 0; $ccd < $Nccd; $ccd++) {
+    
+    $infile    = $inlist[$ccd];
+    $coordfile = sprintf "%s/%s-%s-CCD%02d-FringeCoord.reg", $coordpath, $camera, $filter, $ccd;
+
+    # each call to gtfringe adds a line to $output 
+    vsystem ("gtfringe $infile $coordfile $bin $output");
+    if ($?) {
+	print STDERR "ERROR running gtfringe\n";
+	exit 1;
+    }
+}
+
+print STDOUT "SUCCESS: finished with fr.gtstats\n";
+exit 0;
+
+sub vsystem {
+    print STDERR "@_\n";
+    $status = system ("@_");
+    $status;
+}
+
+sub goodbye {
+    die "@_\n";
+}
+
+sub usage {
+    print "\n";
+    print "USAGE: fr.gtstats (path) (root) (binning) (output)\n";
+    print " calculate fringe pattern strengths for images in (path)\n";
+    print " path:    path to MEF image or SPLIT dir\n";
+    print " root:    root name of image (MEF: root.fits, SPLIT: root/rootNN.fits)\n";
+    print " binning: binning factor of images\n";
+    print " outdir:  output file\n";
+    exit 1;
+}

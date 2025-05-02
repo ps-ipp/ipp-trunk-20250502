@@ -1,0 +1,21 @@
+make test
+./tap_psArray_all
+./tap_psListIterator
+./tap_psMetadataConfigParse_time
+./tap_psMetadataConfigRead
+./tap_psMetadata_copying
+./tap_psMetadata_creating
+./tap_psMetadataItemCompare
+./tap_psMetadataItemParse
+./tap_psMetadataIterator
+./tap_psMetadata_manip
+./tap_psMetadata_printing
+./tap_psMetadata_polynomials
+./tap_psArguments_all
+./tap_psPixels_all
+./tap_psHash_all
+./tap_psBitSet_all
+./tap_psList_all
+./tap_psLookupTable_all
+./tap_psMetadataConfig_output
+./tap_psMetadataConfig_input

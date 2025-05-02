@@ -1,0 +1,116 @@
+#!/usr/bin/env perl
+
+# this script deals with:
+# - archived images which have not been reported to elixir,
+# - images which need to be reprocessed,
+# - images which can be send to CADC
+
+if (@ARGV != 2) { die "USAGE: ckimregdb (start) (range)\n" ;}
+
+# imsearch and ardrange12k have different default hr:mn:sc values
+# this script converts to the ardrange12k defaults: 12:00:00
+
+# WARNING: define a ref CCD for seeing
+
+# test for current camera?
+
+system ("gconfig CAMERA");
+exit; 
+
+$start = $ARGV[0];
+$range = $ARGV[1];
+
+# force explicit starting hours:
+@words = split (/\D/, $start);
+if (@words == 3) { $start = "$start,12:00:00"; }
+@words = split (/\D/, $range);
+if (@words == 3) { $range = "$range,12:00:00"; }
+
+# get list of images in the archive & imreg.db:
+if ($range =~ m|^-\d+[dhms]|) {
+    $answer = `/h/archive/sw/tools/ardrange12k $start$range`;
+} else {
+    $answer = `/h/archive/sw/tools/ardrange12k $start+$range`;
+}
+
+@ccds = split (" ", `cameraconfig -ccds`);
+if ($?) { &escape ("error with elixir camera configuration"); }
+
+@archive = split (" ", $answer);
+$N = @archive;
+print "archive: $N files\n";
+
+@imregdb = `imsearch -ccd $ccds[0] -trange $start $range -tz 10.0`;
+$N = @imregdb;
+print "imregdb: $N files\n";
+
+# search for missing images in archive
+ ARCH: foreach $arch (@archive) {
+     
+     # is $arch in @imregdb?
+     foreach $imreg (@imregdb) {
+	 @words = split (" ", $imreg);
+	 if ($arch eq $words[5]) { next ARCH; }
+     }
+     
+     push @missing, $arch;
+ }
+
+$Nmiss = @missing;
+print "$Nmiss files missing\n";
+
+# link each missing image in /data/kapu/elixir/cfh12k:
+$linkdir = `gconfig $opts ARCLINK_DIR`;  chop $linkdir;
+if ($?) { die "error in config system: missing ARCLINK_DIR\n"; }
+
+$archive = `gconfig $opts ARCHIVE_DIR`;  chop $archive;
+if ($?) { die "error in config system: missing ARCHIVE_DIR\n"; }
+
+# add missing links, elixir.link will add them to db
+foreach $file (@missing) {
+
+    print STDERR "link: $file\n";
+    $arcfile  = sprintf "%s/%s", $archive, $file;
+    $linkfile = sprintf "%s/%s", $linkdir, $file;
+    
+    if (-l $linkfile) { 
+	print STDERR "$linkfile exists, skipping\n";
+	next;
+    }
+    symlink ($linkfile, $arcfile);
+}    
+    
+# at this point, imstats from the last night is still running
+# the unprocessed images and the newly linked images will be 
+# added to the imstats fifo (not ptolemy, don't bother!)
+
+# find images which need to be re-processed (entire run)
+$runid = `gconfig RUNID.CURRENT`; chop $runid;
+$answer = `mkrun run $runid`;
+($tmp, $start, $stop) = split (" ", $answer);
+
+$fifo = `gconfig imstats`; chop $fifo;
+
+# the db lookup may take a long time or fail, the cat probably won't
+system ("imsearch -trange $start $stop -proc f > $fifo.tmp");
+if (! -s "$fifo.tmp") {
+    system ("glockfile $fifo.source xcld 5 &");
+    system ("cat $fifo.tmp >> $fifo.source");
+}
+
+# generate table of images which can be sent to CADC, mark as distributed:
+system ("imsearch -ccd $ccds[3] -trange $start $stop -proc t -dist f -cadctable cadc.fits");
+system ("imsearch -ccd $ccds[3] -trange $start $stop -proc t -dist f -modify dist t");
+
+# utilities ############################
+
+sub vsystem {
+    print STDERR "@_\n";
+    $status = system ("@_");
+    $status;
+}
+
+sub goodbye {
+    die "@_\n";
+}
+

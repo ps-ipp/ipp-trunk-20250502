@@ -1,0 +1,184 @@
+#!/usr/bin/env perl
+
+# Copyright (C) 2007-2008  Joshua Hoblitt
+#
+# $Id: neb-cull,v 1.1 2008-01-22 22:10:27 jhoblitt Exp $
+
+use strict;
+use warnings FATAL => qw( all );
+
+use vars qw( $VERSION );
+$VERSION = '0.01';
+
+use Nebulous::Client;
+
+use Getopt::Long qw( GetOptions :config auto_help auto_version );
+use Pod::Usage qw( pod2usage );
+
+my ($min_copies, $server, $volume, $one_only);
+my ($soft_volume, $help);
+$server = $ENV{'NEB_SERVER'} unless $server;
+
+GetOptions(
+    'min_copies|m=i'=> \$min_copies,
+    'server|s=s'    => \$server,
+    'volume|v=s'    => \$volume,
+    'one_only|o'    => \$one_only,
+    'soft_volume'   => \$soft_volume,
+    'help|h'        => \$help,
+) || pod2usage( 2 );
+
+# explicitly defined -h / --help:
+if ($help) { pod2usage( -verbose => 1 ); }
+
+my $key = shift;
+
+pod2usage( -msg => "Unknown option: @ARGV", -exitval => 2 ) if @ARGV;
+pod2usage( -msg => "Required options: --server", -exitval => 2 )
+    unless $server;
+pod2usage( -msg => "missing key operand", exitval => 2 )
+    unless defined $key;
+
+my $neb = Nebulous::Client->new(
+    proxy => "$server",
+);
+
+die "can't connected to Nebulous Server: $server"
+    unless defined $neb;
+
+if ($volume) {
+    unless (($soft_volume)) {
+	$volume = '~' . $volume;
+    }
+}
+
+$volume ||= "any";
+$min_copies ||= 2;
+
+my @cull_args;    
+push @cull_args, $key;
+push @cull_args, $volume;
+
+# print "$key $volume\n";
+# print "@cull_args\n";
+
+if ($one_only) {
+    my $status = $neb->there_can_be_only_one(@cull_args);
+    if (not defined $status) {
+        die "not enough instances of Nebulous key: $key";
+    }
+    if ($status == 0) {
+        die "not enough instances of Nebulous key: $key";
+    }
+    if (not defined $status or $status < 1) {
+        die "failed to cull Nebulous key: $key - " . $neb->err
+            if defined $neb->err;
+        die "failed to cull Nebulous key: $key";
+    }
+} else {
+    push @cull_args, $min_copies;
+    unless (defined $neb->cull(@cull_args)) {
+        die "failed to cull Nebulous key: $key - " . $neb->err;
+    }
+}
+
+__END__
+
+=pod
+
+=head1 NAME
+
+neb-cull - remove an instance of an object
+
+=head1 SYNOPSIS
+
+    neb-cull [--server <URL>] [--volume <volume name>] [--one_only] <key>
+
+=head1 DESCRIPTION
+
+This program removes an instance of the Nebulous object specified by C<<key>>.  It will I<NOT> remove the last instance of an object (nor the object itself).
+
+=head1 OPTIONS
+
+=over 4
+
+=item * --server|-s <URL>
+
+URL of the Nebulous server to connect to.
+
+Optional if the appropriate environment variable is set.
+
+=item * --volume <volume name>
+
+Symbolic name of the volume to create the new instance on.
+
+Optional.
+
+=item * --soft_volume
+
+Treat the specified volume name as soft, and allow an instance to be culled 
+from another volume if the specified volume does not have an instance.
+
+Optional.
+
+=item * --one_only|-o
+
+Removes all but one instances of an object.  Any inaccessible instances are
+removed.  If C<--volume> is specified, and an instance exists on that volume,
+all instances but the one on that volume are removed.
+
+Optional.
+
+=back
+
+=head1 ENVIRONMENT
+
+These environment variables may be used in place of the specified command line
+options.  All command line option will override the corresponding environment
+value.
+
+=over 4
+
+=item * C<NEB_SERVER>
+
+Equivalent to --server|-s
+
+=back
+
+=head1 CREDITS
+
+Just me, myself, and I.
+
+=head1 SUPPORT
+
+Please contact the author directly via e-mail.
+
+=head1 AUTHOR
+
+Joshua Hoblitt <jhoblitt@cpan.org>
+
+=head1 COPYRIGHT
+
+Copyright (C) 2007-2009  Joshua Hoblitt.  All rights reserved.
+
+This program is free software; you can redistribute it and/or modify it under
+the terms of the GNU General Public License as published by the Free Software
+Foundation; either version 2 of the License, or (at your option) any later
+version.
+
+This program is distributed in the hope that it will be useful, but WITHOUT ANY
+WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A
+PARTICULAR PURPOSE.  See the GNU General Public License for more details.
+
+You should have received a copy of the GNU General Public License along with
+this program; if not, write to the Free Software Foundation, Inc., 59 Temple
+Place - Suite 330, Boston, MA  02111-1307, USA.
+
+The full text of the license can be found in the L<perlgpl> Pod as supplied
+with Perl 5.8.1 and later.
+
+=head1 SEE ALSO
+
+L<Nebulous::Server>, L<neb-initdb>, L<neb-addvol>, L<nebdiskd>, L<neb-df>
+
+=cut

@@ -1,0 +1,307 @@
+#!/usr/bin/env perl
+
+# in this script, we run addstar and the cleaning routines
+# these must be run in series, so this routine runs
+# independently of the parallel processing in stage1
+
+# for now these directories are hard-wired.  eventually, they
+# should be looked up in the config file, so all scripts are
+# consistent
+$dumpspace = "/pallas/d1/";
+$workspace = "/metis/d27/workspace/";
+# $workspace = "/irene/d11/workspace/";
+
+#$scriptdir = "/hebe/d27/logs/";
+$scriptdir = "./";
+$addstarfile = $scriptdir . "addstared.log";
+$processfile = $scriptdir . "processed.log";
+$flatdir = "/hebe/d27/references/config/";
+
+$database = "/hebe/d27/database/";
+$lockfile = $database . "lock";      # lock on database files
+$alockfile = $database . "alock2";   # lock on stage2 (only 1 running at a time)
+$clockfile = $database . "clock2";   # lock on control2
+$killfile  = $database . "kill";     # quickly stop the processing
+$haltfile  = $database . "halt";     # halt processing after this loop
+$reffile = $database . "start.clean";
+
+sub vsystem {
+    print STDERR "@_\n";
+    $status = system ("@_");
+    $status;
+}
+
+sub goodbye {
+    print STDERR "ending execution\n";
+    vsystem ("date");
+    vsystem ("notify.pl $ARGV[0] none 0");
+    die "@_";
+}
+
+if (@ARGV < 1) {die "USAGE: stage2 Noutfile\n"; }
+$Noutfile = $ARGV[0] + 1;
+$outfile = "stage2." . $Noutfile . ".log";
+
+print STDERR "starting execution\n";
+vsystem ("date");
+if (-e $killfile) { goodbye "process killed with $killfile"; }
+
+if (-e $alockfile) { goodbye "archive lock $alockfile is set"; }
+open (TEMP, ">$alockfile");
+close (TEMP);
+
+$Ntries = 0;
+$Nleft = 0;
+@leftlist = ();
+
+while (! $Nleft) {
+    compare_done_todo ();
+    if (-e $killfile) { goodbye "process killed with $killfile"; }
+    vsystem ("sleep 60");
+    if (-e $killfile) { goodbye "process killed with $killfile"; }
+    $Ntries ++;
+    if ($Ntries == 1440) { goodbye "timeout waiting for new data"; }
+}
+
+if (-e $killfile) { goodbye "process killed with $killfile"; }
+
+chdir $scriptdir;
+
+for ($i = 0; $i < $Nleft; $i++) {
+    print STDERR "adding: $leftlist[$i]\n";
+    @entries = split (" ",$leftlist[$i]);
+    $inlist = $entries[0] . ".addlist";
+    $outlist = $entries[0] . ".outlist";
+    $subdir = $entries[0];
+    $photcode = $entries[1];
+    print STDERR "$subdir: $inlist $outlist $photcode\n";
+    if (-e $outlist) {
+	# partially successful run, restart controller in the middle
+	$tmp_inlist = $entries[0] . ".tmpaddlist";
+	$tmpoutlist = $entries[0] . ".tmpoutlist";
+	if (-e $tmpoutlist) { if (vsystem ("cat $tmpoutlist >> $outlist")) { goodbye "trouble merging $tmpoutlist and $outlist\n"; }}
+	# partially successful re-start: make sure $outlist is complete
+	print STDERR "re-running unfinished entries in outlist\n";
+	if (parse_outlist ($outlist,$tmp_inlist, 4)) {
+	    docontroller ($subdir, $tmp_inlist, $tmpoutlist, $photcode, "-s addstar", 0);
+	    vsystem ("cat $tmpoutlist >> $outlist");
+	}
+	# do inlist entries not in outlist
+	print STDERR "running undone entries in addlist\n";
+	parse_outlist ($inlist,"tmpinlist", 4);
+	parse_outlist ($outlist,"tmpoutlist", 5);
+	if (match_lists ("tmpinlist","tmpoutlist","$tmp_inlist")) {
+	    docontroller ($subdir, $tmp_inlist, $tmpoutlist, $photcode, "-s addstar", 0);
+	    vsystem ("cat $tmpoutlist >> $outlist");
+	}
+	# check ending success
+	unless (unlink ($tmpoutlist)) { goodbye "can't unlink $tmpoutlist, why not?"; }
+	unless (unlink ($tmp_inlist)) { goodbye "can't unlink $tmp_inlist, why not?"; }
+	vsystem ("cleaning.pl");
+	if (-e $lockfile) { goodbye "lock file exists"; }
+	
+	print STDERR "done: $subdir\n";
+	open (DONELOG, ">>$addstarfile");
+	print DONELOG "$subdir\n";
+	close (DONELOG);
+    } else {
+	$controlflags = "";
+	parse_outlist ($inlist,"tmpinlist", 4);
+	docontroller ($subdir, "tmpinlist", $outlist, $photcode, "-s addstar", 1);
+	print STDERR "done: $subdir\n";
+	open (DONELOG, ">>$addstarfile");
+	print DONELOG "$subdir\n";
+	close (DONELOG);
+    }
+}
+unless (unlink ($alockfile)) { goodbye "can't unlink $alockfile, why not?"; }
+print STDERR "remember to delete images from complete directories\n";
+
+unless (-e $haltfile) { 
+    print STDERR "re-did unfinished images\n";
+    print STDERR "starting a new stage2 with output to $outfile\n";
+    vsystem ("notify.pl $ARGV[0] $outfile $Noutfile");
+    vsystem ("stage2 $Noutfile 1>$outfile 2>&1 &");
+    exit;
+}
+goodbye "added images";
+exit;
+
+# do controller (& cleaning if needed), taking care of flats and error conditions
+sub docontroller {
+    if (-e $killfile) { goodbye "process killed with $killfile"; }
+    if (-e $clockfile) { goodbye "lock file $clockfile exists"; }
+    # break up entry line
+    $outsubdir = $_[0];
+    $in = $_[1];
+    $out = $_[2];
+    $phot = $_[3];
+    $flags = $_[4];
+    $clean = $_[5];
+    # run controller and cleanup
+    if (-e $lockfile) { goodbye "lock file exists"; }
+    vsystem ("control2 $flags -o $outsubdir $in $out $phot");
+    if (-e $clockfile) { goodbye "lock file $clockfile exists"; }
+    if (-e $lockfile) { goodbye "lock file exists"; }
+    if (-e $killfile) { goodbye "process killed with $killfile"; }
+    if ($clean) {
+	vsystem ("cleaning.pl");
+	if (-e $lockfile) { goodbye "lock file exists"; }
+    }
+}
+
+sub by_filename {
+    @value1 = split (" ", $a);
+    @value2 = split (" ", $b);
+    $value1[0] cmp $value2[0]; 
+}
+    
+# we read from in and write to out those files with 1st 0 in the mode column
+sub parse_outlist {
+    $in = $_[0];
+    $out = $_[1];
+    $mode = $_[2];
+    
+# load inlist
+    open (INLIST, $in);
+    @inarray = ();
+    while ($line = <INLIST>) {
+	chop ($line);
+	@inarray = (@inarray,$line);
+    }
+    $Nin = @inarray;
+    close (INLIST);
+    @inarray = sort by_filename @inarray;
+
+    @outarray = ();
+    for ($k = 0; $k < $Nin; $k++) {
+	@pvalues = split (" ", $inarray[$k]);
+	$more = 1;
+	while ($more) {
+	    print STDERR ".";
+	    @nvalues = split (" ", $inarray[$k+1]);
+	    if ($nvalues[0] cmp $pvalues[0]) {
+		$more = 0;
+	    } else {
+		$pvalues[1] |= $nvalues[1];
+		$pvalues[2] |= $nvalues[2];
+		$pvalues[3] |= $nvalues[3];
+		$pvalues[4] |= $nvalues[4];
+		$pvalues[5] |= $nvalues[5];
+		$k ++;
+	    }
+	}
+	# in this version, we only care about pvalues[4,5] (addstar) 
+	if (($mode == 4) && $pvalues[4] && !$pvalues[5]) {
+	    $name = $pvalues[0];
+	    $name =~ s/$dumpspace//;
+	    $name =~ s/://;
+	    @outarray = (@outarray,$name);
+	} 
+	if (($mode == 5) && $pvalues[5]) {
+	    $name = $pvalues[0];
+	    $name =~ s/$dumpspace//;
+	    $name =~ s/://;
+	    @outarray = (@outarray,$name);
+	}
+    }
+    $Nout = @outarray;
+    if ($Nout) {
+	open (OUTLIST, ">$out");
+	for ($k = 0; $k < $Nout; $k++) {
+	    print OUTLIST "$outarray[$k]\n";
+	}
+	close (OUTLIST);
+    }
+    $Nout;
+}
+
+# find lines in inlist which are not in outlist
+sub match_lists {
+    $in = $_[0];
+    $out = $_[1];
+    $new = $_[2];
+    
+# load inlist
+    open (INLIST, $in);
+    @inarray = ();
+    while ($line = <INLIST>) {
+	chop ($line);
+	@inarray = (@inarray,$line);
+    }
+    $Nin = @inarray;
+    close (INLIST);
+
+# load outlist
+    open (OUTLIST, $out);
+    @outarray = ();
+    while ($line = <OUTLIST>) {
+	chop ($line);
+	@outarray = (@outarray,$line);
+    }
+    $Nout = @outarray;
+    close (OUTLIST);
+
+# find matched lines 
+    @newarray = ();
+    for ($k = 0; $k < $Nin; $k++) {
+	$gotit = 0;
+	for ($m = 0; ! $gotit && ($m < $Nout); $m++) {
+	    if ($outarray[$m] =~ /$inarray[$k]/) {
+		$gotit = 1;
+	    }
+	}
+	if (!$gotit) {
+	    @newarray = (@newarray,$inarray[$k]);
+	}
+    }
+    $Nnew = @newarray;
+    if ($Nnew) {
+	open (NEWLIST, ">$new");
+	for ($k = 0; $k < $Nnew; $k++) {
+	    print NEWLIST "$newarray[$k]\n";
+	}
+	close (NEWLIST);
+    }
+    $Nnew;
+}
+
+sub compare_done_todo {
+    print STDERR "starting compare\n";
+# load in done date list
+    open (DONELOG, $addstarfile);
+    @donelist = ();
+    while ($line = <DONELOG>) {
+	chop ($line);
+	@donelist = (@donelist,$line);
+    }
+    $Ndone = @donelist;
+    close (DONELOG);
+
+# load in maestro list
+    open (TODOLOG, $processfile);
+    @todolist = ();
+    while ($line = <TODOLOG>) {
+	chop ($line);
+	@todolist = (@todolist,$line);
+    }
+    $Ntodo = @todolist;
+    close (TODOLOG);
+
+# find entries in MAESTRO that are NOT in DONELOG
+    for ($i = 0; $i < $Ntodo; $i ++) {
+	$gotit = 0;
+	for ($j = 0; ($j < $Ndone) && ! $gotit; $j ++) {
+	    @todo = split (" ",$todolist[$i]);
+	    @done = split (" ",$donelist[$j]);
+	    if ($todo[0] eq $done[0]) {
+		$gotit = 1;
+	    }
+	}
+	if (!$gotit) {
+	    @leftlist = (@leftlist, $todolist[$i]);  
+	}
+    }
+    $Nleft = @leftlist;
+    $Nleft;
+}

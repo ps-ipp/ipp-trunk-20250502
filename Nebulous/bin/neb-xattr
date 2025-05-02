@@ -1,0 +1,162 @@
+#!/usr/bin/env perl
+
+# Copyright (C) 2008  Joshua Hoblitt
+#
+# $Id: neb-xattr,v 1.9 2008-05-29 04:27:39 jhoblitt Exp $
+
+use strict;
+use warnings FATAL => qw( all );
+
+use vars qw( $VERSION );
+$VERSION = '0.01';
+
+use Nebulous::Client;
+use Nebulous::Util 0.02 qw( :standard );
+
+use Getopt::Long qw( GetOptions :config auto_help auto_version );
+use Pod::Usage qw( pod2usage );
+
+my ($server, $delete, $write);
+
+$server = $ENV{'NEB_SERVER'} unless $server;
+
+GetOptions(
+    'server|s=s'    => \$server,
+    'delete|d'      => \$delete,
+    'write|w'       => \$write,
+) || pod2usage( 2 );
+
+my $key = shift;
+
+#pod2usage( -msg => "Unknown option: @ARGV", -exitval => 2 ) if @ARGV;
+pod2usage( -msg => "Required options: --server", -exitval => 2 )
+    unless $server;
+pod2usage( -msg => "missing nebulous key", exitval => 2 )
+    unless defined $key;
+pod2usage( -msg => "--delete and --write can not be combined", exitval => 2 )
+    if defined $delete and defined $write;
+
+my $neb = Nebulous::Client->new(
+    proxy => "$server",
+);
+
+die "can't connect to Nebulous Server: $server"
+    unless defined $neb;
+
+# -d flag means delete the list of xattrs from key
+if (defined $delete) {
+    die "--delete requires a list of xattr names" unless scalar @ARGV;
+    delete_xattrs($neb, $key, @ARGV) or die;
+    exit(0);
+}
+
+# key with xattr:value pair and -w flag means write/overwrite xattr:value
+if (defined $write) {
+    die "--write requires a list of xattr:value pairs" unless scalar @ARGV;
+    write_xattrs($neb, $key, @ARGV) or die;
+    exit(0);
+}
+
+# key without xattr name list means print all xattr:value pairs
+if (not scalar @ARGV) {
+    print_all_xattrs($neb, $key) or die;
+    exit(0);
+}
+
+# key with xattr name list means print the xattr:value pairs
+print_xattrs($neb, $key, @ARGV) or die;
+exit(0);
+
+
+
+__END__
+
+=pod
+
+=head1 NAME
+
+neb-xattr - create an empty file
+
+=head1 SYNOPSIS
+
+    neb-xattr [--server <URL>] [--write] <key> [<xattr name>[:<value>]...]
+
+=head1 DESCRIPTION
+
+This program is used to create/update/list or remove xattrs on Nebulous storage objects.
+
+=head1 OPTIONS
+
+=over 4
+
+=item * --server|-s <URL>
+
+URL of the Nebulous server to connect to.
+
+Optional if the appropriate environment variable is set.
+
+=item * --delete 
+
+Delete all named xattrs.
+
+Optional.
+
+=item * --write
+
+Store the value of all xattr name:value pairs.
+
+Optional.
+
+=back
+
+=head1 ENVIRONMENT
+
+These environment variables may be used in place of the specified command line
+options.  All command line option will override the corresponding environment
+value.
+
+=over 4
+
+=item * C<NEB_SERVER>
+
+Equivalent to --server|-s
+
+=back
+
+=head1 CREDITS
+
+Just me, myself, and I.
+
+=head1 SUPPORT
+
+Please contact the author directly via e-mail.
+
+=head1 AUTHOR
+
+Joshua Hoblitt <jhoblitt@cpan.org>
+
+=head1 COPYRIGHT
+
+Copyright (C) 2007-2008  Joshua Hoblitt.  All rights reserved.
+
+This program is free software; you can redistribute it and/or modify it under
+the terms of the GNU General Public License as published by the Free Software
+Foundation; either version 2 of the License, or (at your option) any later
+version.
+
+This program is distributed in the hope that it will be useful, but WITHOUT ANY
+WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A
+PARTICULAR PURPOSE.  See the GNU General Public License for more details.
+
+You should have received a copy of the GNU General Public License along with
+this program; if not, write to the Free Software Foundation, Inc., 59 Temple
+Place - Suite 330, Boston, MA  02111-1307, USA.
+
+The full text of the license can be found in the L<perlgpl> Pod as supplied
+with Perl 5.8.1 and later.
+
+=head1 SEE ALSO
+
+L<Nebulous::Client>
+
+=cut

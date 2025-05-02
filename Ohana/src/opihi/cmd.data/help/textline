@@ -1,0 +1,7 @@
+
+   textline x y (line) [-fn (font) size] [-rot angle]
+
+   write the string at the given coordinates and rotation,
+   in the given font.
+
+   (enclose long strings with spaces in quotes)

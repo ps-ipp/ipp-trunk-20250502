@@ -1,0 +1,10 @@
+
+  echo [anything]
+
+  prints the rest of the line, after variables and math expressions
+are parsed.  
+
+
+  See Also:  Opihi, math
+
+

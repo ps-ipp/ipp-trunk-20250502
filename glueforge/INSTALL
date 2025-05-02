@@ -1,0 +1,95 @@
+# $Id: INSTALL,v 1.6 2006-01-11 02:12:34 jhoblitt Exp $
+
+Using the glueforge meta-database API generator
+--
+
+- Step 0
+
+Setup your shell's environment for Pan-STARRS CVS.  If you need help setting up
+CVS please see this article:
+
+    http://pan-starrs.ifa.hawaii.edu/project/resources/ps-cvs.html
+
+- Step 1
+
+Install the PS:IPP::Metadata::Config and Template modules.
+
+# PS:IPP::Metadata::Config
+$ cvs co PS-IPP-Metadata-Config
+$ cd PS-IPP-Metadata-Config
+$ perl Build.PL
+$ ./Build
+$ ./Build test
+# if you have sudo
+$ sudo ./Build install
+# if not
+$ su
+$ ./Build install
+
+# Template
+# if you have sudo
+$ sudo perl -MCPAN -e 'install Template'
+# if not
+$ su -
+$ perl -MCPAN -e 'install Template'
+
+If you have never used CPAN before you will be given a series of prompts to
+configure the module.
+
+- Step 2
+
+Checkout the glueforge module from Pan-STARRS CVS and build it.  If you need
+help setting up CVS please see this article:
+
+    http://pan-starrs.ifa.hawaii.edu/project/resources/ps-cvs.html
+
+$ cvs co glueforge
+$ cd glueforge
+$ ./autogen.sh
+$ make
+
+- Step 3
+
+Create a MetadataConfig file that describes the table you want to access.  The
+MetadataConfig file syntax is described in the pslib SDRS.  glueforge specific
+details are included in the "glueforge" man page. For reference, both a simple
+and complex config example is provided in the examples directory.
+
+$ perldoc glueforge
+
+or
+
+$ man glueforge
+
+$ cat examples/simple.md
+
+or
+
+$ cat examples/complex.md
+
+- Step 4
+
+Generate the database bindings with the "glueforge" executable.  The example
+simple.md file will generate code under the directory "foodb".
+
+$./glueforge -t templates/psdb -i examples/simple.md
+$ cd foodb
+
+- Step 5
+
+Package the software for distribution.  This is the same as for any 'standard'
+autotools package.  Please note that you must have pslib installed for the step
+to complete.  If you need help installing pslib please see this article:
+
+    http://pan-starrs.ifa.hawaii.edu/project/IPP/software/jhbuild/
+
+$ jhbuild shell
+$ ./autogen.sh && make dist
+
+This should generate two packages suitable for distribution.
+
+$ ls -la foodb-*
+-rw-r--r--  1 jhoblitt users 216367 Jul 28 17:54 foodb-0.0.1.tar.bz2
+-rw-r--r--  1 jhoblitt users 324926 Jul 28 17:54 foodb-0.0.1.tar.gz
+
+The End.

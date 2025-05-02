@@ -1,0 +1,14 @@
+- change dettol -pretend -define... to return a metadata structure that shows what the created detRun would look like
+- rename dettool -residdetrun -> -todetrunsummary
+- add foreign key constraints to the database
+- add the ability to remove dettool detResidExps
+- change p4tool to accept input from/with magic masks
+- change p5tool to accept input from warp * stack
+- difftool/stacktool error handling
+- move all large SQL statements out into separate files
+- add the option of not automatically flowing through from reg -> chip -> cam
+  tools
+- add workdir inheritance rooted in rawExp, eg.
+    select chipProcessedExp.workdir, rawExp.workdir, IFNULL(chipProcessedExp.workdir, rawExp.workdir) from chipProcessedExp join rawExp using(exp_tag);
+- dettool/detRun support for filelevel
+- combind dettool -definebytag & -definebyquery

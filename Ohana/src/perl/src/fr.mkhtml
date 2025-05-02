@@ -1,0 +1,96 @@
+#!/usr/bin/env perl
+
+if (@ARGV < 1) { &escape ("USAGE: fr.mkhtml -mode [args]"); }
+if ($ARGV[0] eq "help") { &usage; }
+
+# copy CONFIG.imstats to html dir
+if ($ARGV[0] eq "-imstats") {
+    
+    $input  = $ARGV[1];
+    $outdir = $ARGV[2];
+
+    if (! -d $outdir) {
+	vsystem ("mkdir -p $outdir");
+	if ($?) { &escape ("can't make directory component for output $outdir"); }
+    }
+
+    vsystem ("cp $input $outdir");
+    if ($?) { &escape ("problem copying $input to $outdir"); }
+
+    &goodbye;
+}
+
+# create frstats file for list of raw fringe measurements using measure fringe parameters
+if ($ARGV[0] eq "-jpglist") {
+    
+    $list    = $ARGV[1];
+    $outdir  = $ARGV[2];
+    $root    = $ARGV[3];
+    $outlist = sprintf "%s/%s.list", $outdir, $root;
+    print STDERR "outlist: $outlist\n";
+
+    if (! -d $outdir) {
+	vsystem ("mkdir -p $outdir");
+	if ($?) { &escape ("can't make directory component for output $outdir"); }
+    }
+
+    open (FILE, "$list");
+    @list = <FILE>;
+    close (FILE);
+    foreach $line (@list) { chop $line; }
+
+    # list contains MOSAIC.med.medbin.jpg
+    # copy to html/CONFIG.med.medbin.NNN.jpg
+
+    $Nfound = 0;
+    foreach $line (@list) {
+	if (-e $line) { $Nfound ++; }
+    }
+    if ($Nfound < @list) { 
+	print STDERR "NOTE: no files from $list: assuming initial state\n";
+	open (FILE, ">$outlist");
+	close (FILE);
+	&goodbye; 
+    }
+
+    open (FILE, ">$outlist");
+    for ($i = 0; $i < @list; $i++) {
+
+	$inname  = $list[$i];
+	$outname = sprintf "%s/%s.%03d.jpg", $outdir, $root, $i;
+	vsystem ("cp -f $inname $outname");
+	if ($?) { &escape ("problem copying $inname to $outname"); }
+	
+	print FILE "$outname\n";
+    }
+    close (FILE);
+    &goodbye;
+}
+
+&escape ("unknown fr.frstats command $ARGV[0]");
+
+## utilities
+
+sub vsystem {
+    print STDERR "@_\n";
+    $status = system ("@_");
+    $status;
+}
+
+sub goodbye {
+  print STDOUT "SUCCESS: finished with fr.stats\n";
+  exit 0;
+}
+
+sub escape {
+  print STDOUT "ERROR: $_[0]\n";
+  exit 1;
+}
+
+sub usage {
+
+    print STDOUT "fr.mklists -fitpars CONFIG.med.sublist  CONFIG.fitpars\n";
+    print STDOUT "fr.frstats -frstats CONFIG.med.statlist CONFIG.fitpars CONFIG.med.imstats\n";
+
+    exit 2;
+}

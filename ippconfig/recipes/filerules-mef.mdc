@@ -1,0 +1,455 @@
+### File rules for PHU=FPA, EXT=CHIP (eg, Megacam)
+### this file specifies compression types for various output files
+### The image types are defined in fitstypes.mdc
+### The default type of NONE means no compression
+
+### Redirections (MEF)
+PPIMAGE.OUTPUT        STR PPIMAGE.OUTPUT.MEF
+PPIMAGE.OUTPUT.MASK   STR PPIMAGE.OUT.MK.MEF
+PPIMAGE.OUTPUT.VARIANCE STR PPIMAGE.OUT.WT.MEF
+
+PPIMAGE.CHIP          STR PPIMAGE.CHIP.MEF
+PPIMAGE.CHIP.MASK     STR PPIMAGE.CHIP.MK.MEF
+PPIMAGE.CHIP.VARIANCE STR PPIMAGE.CHIP.WT.MEF
+
+PPIMAGE.BIN1          STR PPIMAGE.BIN1.MEF
+PPIMAGE.BIN2          STR PPIMAGE.BIN2.MEF
+
+PSASTRO.OUTPUT        STR PSASTRO.OUT.CMF.MEF
+PSPHOT.OUTPUT         STR PSPHOT.OUT.CMF.MEF
+PSPHOT.PSF.SAVE       STR PSPHOT.PSF.RAW.SAVE
+
+FPCAMERA.OUTPUT       STR FPCAMERA.OUT.CMF.MEF
+
+### Redirections (SPL)
+# PPIMAGE.OUTPUT        STR PPIMAGE.OUTPUT.SPL
+# PPIMAGE.OUTPUT.MASK   STR PPIMAGE.OUT.MK.SPL
+# PPIMAGE.OUTPUT.VARIANCE STR PPIMAGE.OUT.WT.SPL
+# 
+# PPIMAGE.CHIP          STR PPIMAGE.CHIP.SPL
+# PPIMAGE.CHIP.MASK     STR PPIMAGE.CHIP.MK.SPL
+# PPIMAGE.CHIP.VARIANCE STR PPIMAGE.CHIP.WT.SPL
+# 
+# PPIMAGE.BIN1          STR PPIMAGE.BIN1.SPL
+# PPIMAGE.BIN2          STR PPIMAGE.BIN2.SPL
+# 
+# PSASTRO.OUTPUT        STR PSASTRO.OUT.CMF.SPL
+# PSPHOT.OUTPUT         STR PSPHOT.OUT.CMF.SPL
+
+### Redirections (common)
+
+PPIMAGE.OUTPUT.FPA1   STR PPIMAGE.OUTPUT.FPA1.MEF
+PPIMAGE.OUTPUT.FPA2   STR PPIMAGE.OUTPUT.FPA2.MEF
+PPSTAMP.CHIP          STR PPSTAMP.CHIP.MEF
+PSASTRO.INPUT         STR PSASTRO.INPUT.CMF
+PSASTRO.OUTPUT.MEF    STR PSASTRO.OUT.CMF.MEF
+#PSASTRO.OUTPUT.CMF    STR PSASTRO.OUT.CMF
+DVOCORR.OUTPUT        STR DVOCORR.MEF.OUTPUT
+DVOFLAT.OUTPUT        STR DVOFLAT.MEF.OUTPUT
+
+### input file definitions
+### use @DETDB entries to get the detrend images from the database
+### replace @DETDB with @FILES if you want to require it from the 
+### command line, or with an explicit name to require a specific file
+TYPE                    INPUT    FILENAME.RULE DATA.LEVEL FILE.TYPE
+
+## files used by ppImage
+PPIMAGE.INPUT           INPUT    @FILES        CHIP       IMAGE
+PPIMAGE.INPUT.MASK      INPUT    @FILES        CHIP       MASK
+PPIMAGE.INPUT.VARIANCE  INPUT    @FILES        CHIP       VARIANCE
+PPIMAGE.INPUT.PSF       INPUT    @FILES        CHIP       PSF
+PPIMAGE.INPUT.SRC       INPUT    @FILES        CHIP       CMF
+PPIMAGE.MASK            INPUT    @DETDB        CHIP       MASK
+PPIMAGE.VIDEOMASK       INPUT    @DETDB        CHIP       MASK
+PPIMAGE.BIAS            INPUT    @DETDB        CHIP       IMAGE
+PPIMAGE.DARK            INPUT    @DETDB        CHIP       DARK
+PPIMAGE.VIDEODARK       INPUT    @DETDB        CHIP       DARK
+PPIMAGE.FLAT            INPUT    @DETDB        CHIP       IMAGE
+PPIMAGE.FRINGE          INPUT    @DETDB        CHIP       FRINGE
+PPIMAGE.SHUTTER         INPUT    @DETDB        CHIP       IMAGE     
+PPIMAGE.LINEARITY       INPUT    @DETDB        CHIP       LINEARITY
+PPIMAGE.PATTERN.ROW.AMP INPUT    @DETDB        FPA        PATTERN.ROW.AMP
+PPIMAGE.PATTERN.DEAD.CELLS INPUT @DETDB        FPA        PATTERN.DEAD.CELLS
+PPIMAGE.NEWNONLIN       INPUT    @DETDB        CHIP       NEWNONLIN
+
+## Files used by ppMerge
+PPMERGE.INPUT           INPUT    @FILES        CHIP       IMAGE
+PPMERGE.INPUT.MASK      INPUT    @FILES        CHIP       MASK
+PPMERGE.INPUT.VARIANCE  INPUT    @FILES        CHIP       VARIANCE
+
+## files used to build and apply the flat-field correction images
+DVOCORR.INPUT           INPUT    @FILES        CHIP       IMAGE
+DVOCORR.REFHEAD         INPUT    @FILES        CHIP       HEADER
+DVOFLAT.INPUT           INPUT    @FILES        CHIP       IMAGE
+DVOFLAT.CORR            INPUT    @DETDB        CHIP       IMAGE
+
+## files used by psphot 
+PSPHOT.LOAD             INPUT    @FILES        CHIP       IMAGE
+PSPHOT.INPUT            INPUT    @FILES        CHIP       IMAGE
+PSPHOT.MASK             INPUT    @FILES        CHIP       MASK     
+PSPHOT.VARIANCE         INPUT    @FILES        CHIP       VARIANCE   
+PSPHOT.PSF.LOAD         INPUT    @FILES        CHIP       PSF       
+PSPHOT.INPUT.CMF        INPUT    @FILES        CHIP       CMF       
+PSPHOT.INPUT.CFF        INPUT    @FILES        CHIP       CFF
+PSPHOT.INPUT.TEXT       INPUT    @FILES        CHIP       SRCTEXT       
+PSPHOT.EXPNUM           INPUT    @FILES        CHIP       MASK       
+
+## files used by psphotStack
+PSPHOT.STACK.INPUT.RAW    INPUT    @FILES        CHIP       IMAGE
+PSPHOT.STACK.MASK.RAW     INPUT    @FILES        CHIP       MASK     
+PSPHOT.STACK.VARIANCE.RAW INPUT    @FILES        CHIP       VARIANCE     
+PSPHOT.STACK.EXPNUM.RAW   INPUT    @FILES        CHIP       EXPNUM     
+PSPHOT.STACK.PSF.RAW      INPUT    @FILES        CHIP       PSF       
+PSPHOT.STACK.BACKMDL.RAW    INPUT    @FILES        CHIP       IMAGE       
+PSPHOT.STACK.INPUT.CNV    INPUT    @FILES        CHIP       IMAGE
+PSPHOT.STACK.MASK.CNV     INPUT    @FILES        CHIP       MASK     
+PSPHOT.STACK.VARIANCE.CNV INPUT    @FILES        CHIP       VARIANCE     
+PSPHOT.STACK.EXPNUM.CNV   INPUT    @FILES        CHIP       EXPNUM     
+PSPHOT.STACK.PSF.CNV      INPUT    @FILES        CHIP       PSF       
+PSPHOT.STACK.SOURCES      INPUT    @FILES        FPA        CMF
+
+
+## files used by psastro 
+PSASTRO.INPUT.CMP       INPUT    @FILES        CHIP       CMP
+PSASTRO.INPUT.CMF       INPUT    @FILES        CHIP       CMF
+PSASTRO.INPUT.MASK      INPUT    @FILES        CHIP       MASK
+PSASTRO.REFMASK         INPUT    @DETDB        CHIP       MASK
+PSASTRO.WCS             INPUT    @FILES        CHIP       CMF
+PSASTRO.MODEL           INPUT    @DETDB        FPA        ASTROM
+PSASTRO.KH.CORRECT      INPUT    @DETDB        FPA        KH.CORRECT
+
+PSASTRO.EXTRACT.ASTROM  INPUT    @FILES        CHIP       CMF
+PSASTRO.EXTRACT.INPUT   INPUT    @FILES        CHIP       IMAGE
+
+## files used by pswarp
+PSWARP.INPUT            INPUT    @FILES        CHIP       IMAGE
+PSWARP.VARIANCE         INPUT    @FILES        CHIP       VARIANCE
+PSWARP.MASK             INPUT    @FILES        CHIP       MASK
+PSWARP.SKYCELL          INPUT    @FILES        CHIP       WCS
+PSWARP.ASTROM           INPUT    @FILES        CHIP       CMF
+# Note: if input astrometry does not have sources, either set the above file type to WCS and/or set pswarp.config:SOURCES to false
+PSWARP.BKGMODEL         INPUT    @FILES	       CHIP	  IMAGE
+
+## files used by ppsub
+PPSUB.INPUT             INPUT    @FILES        FPA        IMAGE
+PPSUB.INPUT.MASK        INPUT    @FILES        FPA        MASK
+PPSUB.INPUT.VARIANCE    INPUT    @FILES        FPA        VARIANCE
+PPSUB.INPUT.SOURCES     INPUT    @FILES        FPA        CMF
+PPSUB.REF               INPUT    @FILES        FPA        IMAGE
+PPSUB.REF.MASK          INPUT    @FILES        FPA        MASK
+PPSUB.REF.VARIANCE      INPUT    @FILES        FPA        VARIANCE
+PPSUB.REF.SOURCES       INPUT    @FILES        FPA        CMF
+PPSUB.INPUT.KERNEL      INPUT    @FILES        FPA        SUBKERNEL
+
+## files used by gdiff
+GDIFF.INPUT             INPUT    @FILES        FPA        IMAGE
+GDIFF.INPUT.MASK        INPUT    @FILES        FPA        MASK
+GDIFF.INPUT.VARIANCE    INPUT    @FILES        FPA        VARIANCE
+GDIFF.INPUT.SOURCES     INPUT    @FILES        FPA        CMF
+GDIFF.REF               INPUT    @FILES        FPA        IMAGE
+GDIFF.REF.MASK          INPUT    @FILES        FPA        MASK
+GDIFF.REF.VARIANCE      INPUT    @FILES        FPA        VARIANCE
+GDIFF.REF.SOURCES       INPUT    @FILES        FPA        CMF
+GDIFF.INPUT.KERNEL      INPUT    @FILES        FPA        SUBKERNEL
+
+## files used by ppstack
+PPSTACK.INPUT           INPUT    @FILES        FPA        IMAGE
+PPSTACK.INPUT.MASK      INPUT    @FILES        FPA        MASK
+PPSTACK.INPUT.VARIANCE  INPUT    @FILES        FPA        VARIANCE
+PPSTACK.INPUT.PSF       INPUT    @FILES        CHIP       PSF
+PPSTACK.INPUT.SOURCES   INPUT    @FILES        FPA        CMF
+PPSTACK.INPUT.BKGMODEL	  INPUT	   @FILES	 FPA	    IMAGE
+
+## files used by ppstamp
+PPSTAMP.INPUT           INPUT 	 @FILES        CHIP       IMAGE
+PPSTAMP.INPUT.MASK      INPUT 	 @FILES        CHIP       MASK
+PPSTAMP.INPUT.VARIANCE  INPUT 	 @FILES        CHIP       VARIANCE
+
+# files used by pparith
+PPARITH.INPUT.IMAGE     INPUT    @FILES        CHIP       IMAGE
+PPARITH.INPUT.MASK      INPUT    @FILES        CHIP       MASK
+
+PPSKYCELL.IMAGE      	INPUT 	 @FILES        CHIP       IMAGE
+PPSKYCELL.MASK      	INPUT 	 @FILES        CHIP       MASK
+PPSKYCELL.WCSREF	INPUT	 @FILES	       CHIP	  IMAGE
+
+PPSIM.INPUT             INPUT    @FILES        FPA        IMAGE     
+PPSIM.REAL.SOURCES      INPUT    @FILES        CHIP       CMF       
+
+PPCOORD.ASTROM		INPUT	 @FILES	       FPA	  WCS
+PPCOORD.RAW		INPUT	 @FILES	       CHIP	  IMAGE
+
+## files used by ppNoiseMap
+PPNOISEMAP.INPUT        INPUT    @FILES        CHIP       IMAGE
+
+## files used by censorObject 
+CENSOR.INPUT       	INPUT    @FILES        CHIP       CMF
+CENSOR.INPUT.MASK       INPUT    @FILES        CHIP       MASK
+
+## Files used by ppSmooth
+PPSMOOTH.INPUT          INPUT    @FILES        CHIP       IMAGE
+PPSMOOTH.INPUT.MASK     INPUT    @FILES        CHIP       MASK
+PPSMOOTH.INPUT.VARIANCE INPUT    @FILES        CHIP       VARIANCE
+
+## Files used by ppbgrestore
+PPBGRESTORE.INPUT       INPUT    @FILES        CHIP       IMAGE
+PPBGRESTORE.BACKMDL     INPUT    @FILES        CHIP       IMAGE
+
+PPVIZPATTERN.INPUT        INPUT    @FILES        CHIP       PATTERN
+
+PPBACKGROUND.IMAGE	  INPUT    @FILES        CHIP       IMAGE
+PPBACKGROUND.MASK	  INPUT    @FILES        CHIP       MASK
+PPBACKGROUND.PATTERN	  INPUT    @FILES        CHIP       PATTERN
+PPBACKGROUND.BACKGROUND	  INPUT    @FILES        CHIP       IMAGE
+PPBACKGROUND.STACK        INPUT    @FILES        FPA        IMAGE
+
+## files used by fpcamera
+FPCAMERA.INPUT           INPUT    @FILES        CHIP       IMAGE
+FPCAMERA.INPUT.MASK      INPUT    @FILES        CHIP       MASK
+FPCAMERA.INPUT.VARIANCE  INPUT    @FILES        CHIP       VARIANCE
+FPCAMERA.INPUT.ASTROM    INPUT    @FILES        CHIP       WCS
+
+### output file definitions
+TYPE                    OUTPUT FILENAME.RULE                     FILE.TYPE FITS.TYPE  DATA.LEVEL FILE.SAVE FILE.FORMAT
+PPIMAGE.OUTPUT.MEF      OUTPUT {OUTPUT}.b0.fits                  IMAGE     COMP_IMG   CHIP       TRUE      MEF
+PPIMAGE.OUT.MK.MEF      OUTPUT {OUTPUT}.mk.fits                  MASK      COMP_MASK  CHIP       TRUE      MEF
+PPIMAGE.OUT.WT.MEF      OUTPUT {OUTPUT}.wt.fits                  VARIANCE  COMP_WT    CHIP       TRUE      MEF
+PPIMAGE.OUTPUT.SPL      OUTPUT {OUTPUT}.{CHIP.NAME}.b0.fits      IMAGE     NONE       CHIP       TRUE      SPLIT
+PPIMAGE.OUT.MK.SPL      OUTPUT {OUTPUT}.{CHIP.NAME}.mk.fits      MASK      NONE       CHIP       TRUE      SPLIT
+PPIMAGE.OUT.WT.SPL      OUTPUT {OUTPUT}.{CHIP.NAME}.wt.fits      VARIANCE  NONE       CHIP       TRUE      SPLIT
+PPIMAGE.OUTPUT.DETMASK  OUTPUT {OUTPUT}.fits                     IMAGE     MASK       CHIP       TRUE      MEF
+PPIMAGE.OUTPUT.DETREND  OUTPUT {OUTPUT}.fits                     IMAGE     NONE       CHIP       TRUE      MEF
+PPIMAGE.OUTPUT.RESID    OUTPUT {OUTPUT}.b0.fits                  IMAGE     NONE       CHIP       TRUE      MEF
+PPIMAGE.CONFIG          OUTPUT {OUTPUT}.{CHIP.NAME}.ppImage.mdc  TEXT      NONE       CHIP       TRUE      NONE
+                                                                                             
+PPIMAGE.CHIP.MEF        OUTPUT {OUTPUT}.ch.fits                  IMAGE     COMP_IMG   CHIP       TRUE      MEF
+PPIMAGE.CHIP.MK.MEF     OUTPUT {OUTPUT}.ch.mk.fits               MASK      COMP_MASK  CHIP       TRUE      MEF
+PPIMAGE.CHIP.WT.MEF     OUTPUT {OUTPUT}.ch.wt.fits               VARIANCE  COMP_WT    CHIP       TRUE      MEF
+PPIMAGE.CHIP.SPL        OUTPUT {OUTPUT}.{CHIP.NAME}.ch.fits      IMAGE     NONE       CHIP       TRUE      SPLIT
+PPIMAGE.CHIP.MK.SPL     OUTPUT {OUTPUT}.{CHIP.NAME}.ch.mk.fits   MASK      NONE       CHIP       TRUE      SPLIT
+PPIMAGE.CHIP.WT.SPL     OUTPUT {OUTPUT}.{CHIP.NAME}.ch.wt.fits   VARIANCE  NONE       CHIP       TRUE      SPLIT
+                                                                                     
+PPIMAGE.OUTPUT.FPA1.MEF OUTPUT {OUTPUT}.b1.fits                  IMAGE     COMP_IMG   FPA        TRUE      MEF
+PPIMAGE.OUTPUT.FPA2.MEF OUTPUT {OUTPUT}.b2.fits                  IMAGE     COMP_IMG   FPA        TRUE      MEF
+PPIMAGE.OUTPUT.FPA1.SPL OUTPUT {OUTPUT}.{CHIP.NAME}.b1.fits      IMAGE     NONE       CHIP       TRUE      SPLIT
+PPIMAGE.OUTPUT.FPA2.SPL OUTPUT {OUTPUT}.{CHIP.NAME}.b2.fits      IMAGE     NONE       CHIP       TRUE      SPLIT
+                                                                                     
+PPIMAGE.BIN1.MEF        OUTPUT {OUTPUT}.b1c.fits                 IMAGE     COMP_IMG   CHIP       TRUE      MEF
+PPIMAGE.BIN2.MEF        OUTPUT {OUTPUT}.b2c.fits                 IMAGE     COMP_IMG   CHIP       TRUE      MEF
+PPIMAGE.BIN1.SPL        OUTPUT {OUTPUT}.{CHIP.NAME}.b1.fits      IMAGE     COMP_IMG   CHIP       TRUE      SPLIT
+PPIMAGE.BIN2.SPL        OUTPUT {OUTPUT}.{CHIP.NAME}.b2.fits      IMAGE     COMP_IMG   CHIP       TRUE      SPLIT
+                                                                                     
+PPIMAGE.JPEG1           OUTPUT {OUTPUT}.b1.jpg                   JPEG      NONE       FPA        TRUE      NONE
+PPIMAGE.JPEG2           OUTPUT {OUTPUT}.b2.jpg                   JPEG      NONE       FPA        TRUE      NONE
+PPIMAGE.PATTERN         OUTPUT {OUTPUT}.ptn                      PATTERN   NONE       CHIP       TRUE      MEF
+PPIMAGE.STATS           OUTPUT {OUTPUT}.stats                    STATS     NONE       FPA        TRUE      MEF
+PPIMAGE.BACKMDL              OUTPUT {OUTPUT}.{CHIP.NAME}.mdl.fits     IMAGE           NONE       CHIP       TRUE      NONE
+
+## note: these use the same output naming convention since they are used for different ppMerge runs
+PPMERGE.OUTPUT.MASK     OUTPUT {OUTPUT}.fits                     MASK      NONE       CHIP       TRUE      NONE
+PPMERGE.OUTPUT.BIAS     OUTPUT {OUTPUT}.fits                     IMAGE     NONE       CHIP       TRUE      NONE
+PPMERGE.OUTPUT.DARK     OUTPUT {OUTPUT}.fits                     DARK      NONE       CHIP       TRUE      NONE
+PPMERGE.OUTPUT.SHUTTER  OUTPUT {OUTPUT}.fits                     IMAGE     NONE       CHIP       TRUE      NONE
+PPMERGE.OUTPUT.FLAT     OUTPUT {OUTPUT}.fits                     IMAGE     NONE       CHIP       TRUE      NONE
+PPMERGE.OUTPUT.NOISEMAP OUTPUT {OUTPUT}.fits                     IMAGE     NONE       CHIP       TRUE      NONE
+PPMERGE.OUTPUT.FRINGE   OUTPUT {OUTPUT}.fits                     FRINGE    NONE       CHIP       TRUE      NONE
+PPMERGE.OUTPUT.SIGMA    OUTPUT {OUTPUT}.sigma.fits               IMAGE     NONE       CHIP       TRUE      NONE
+PPMERGE.OUTPUT.COUNT    OUTPUT {OUTPUT}.count.fits               IMAGE     NONE       CHIP       TRUE      NONE
+                                                                                     
+DVOCORR.MEF.OUTPUT      OUTPUT {OUTPUT}.fc.fits                  IMAGE     NONE       CHIP       TRUE      MEF
+DVOCORR.SPL.OUTPUT      OUTPUT {OUTPUT}.{CHIP.NAME}.fc.fits      IMAGE     NONE       CHIP       TRUE      SPLIT
+DVOFLAT.MEF.OUTPUT      OUTPUT {OUTPUT}.co.fits                  IMAGE     NONE       CHIP       TRUE      MEF
+DVOFLAT.SPL.OUTPUT      OUTPUT {OUTPUT}.{CHIP.NAME}.co.fits      IMAGE     NONE       CHIP       TRUE      SPLIT
+                                                                                     
+PSPHOT.RESID            OUTPUT {OUTPUT}.res.fits                 IMAGE     NONE       CHIP       FALSE     MEF
+PSPHOT.BACKGND          OUTPUT {OUTPUT}.bck.fits                 IMAGE     NONE       CHIP       FALSE     MEF
+PSPHOT.BACKSUB          OUTPUT {OUTPUT}.sub.fits                 IMAGE     NONE       CHIP       FALSE     MEF
+PSPHOT.BACKMDL          OUTPUT {OUTPUT}.mdl.fits                 IMAGE     NONE       CHIP       FALSE     MEF
+PSPHOT.BACKMDL.STDEV    OUTPUT {OUTPUT}.mdl.std.fits             IMAGE     NONE       CHIP       FALSE     MEF
+PSPHOT.BACKMDL.MEF      OUTPUT {OUTPUT}.mdl.fits                 IMAGE     NONE       CHIP       FALSE     MEF
+                                                                                     
+PSPHOT.OUTPUT.RAW       OUTPUT {OUTPUT}.{CHIP.NAME}              RAW       NONE       CHIP       TRUE      NONE
+PSPHOT.OUTPUT.SX        OUTPUT {OUTPUT}.{CHIP.NAME}.sx           SX        NONE       CHIP       TRUE      NONE
+PSPHOT.OUTPUT.OBJ       OUTPUT {OUTPUT}.{CHIP.NAME}.obj          OBJ       NONE       CHIP       TRUE      NONE
+PSPHOT.OUTPUT.CMP       OUTPUT {OUTPUT}.{CHIP.NAME}.cmp          CMP       NONE       CHIP       TRUE      NONE
+PSPHOT.OUT.CMF.SPL      OUTPUT {OUTPUT}.{CHIP.NAME}.cmf          CMF       NONE       CHIP       TRUE      SPLIT
+PSPHOT.OUT.CMF.MEF      OUTPUT {OUTPUT}.cmf                      CMF       NONE       CHIP       TRUE      MEF
+PSPHOT.OUTPUT.CFF       OUTPUT {OUTPUT}.cff                      CFF       NONE       CHIP       TRUE      MEF
+PSPHOT.PSF.RAW.SAVE     OUTPUT {OUTPUT}.psf                      PSF       NONE       CHIP       TRUE      MEF
+PSPHOT.PSF.SKY.SAVE     OUTPUT {OUTPUT}.psf                      PSF       NONE       CHIP       TRUE      MEF
+
+# used by staticsky with single input
+PSPHOT.SKY.CONFIG       OUTPUT {OUTPUT}.psphot.mdc               TEXT      NONE       FPA        TRUE      NONE
+
+# outputs for psphotStack:
+PSPHOT.CHISQ.IMAGE           OUTPUT {OUTPUT}.chisq.im.fits            IMAGE           NONE       FPA        TRUE      NONE
+PSPHOT.CHISQ.MASK            OUTPUT {OUTPUT}.chisq.mk.fits            MASK            NONE       FPA        TRUE      NONE
+PSPHOT.CHISQ.VARIANCE        OUTPUT {OUTPUT}.chisq.wt.fits            VARIANCE        NONE       FPA        TRUE      NONE
+PSPHOT.STACK.OUTPUT.IMAGE    OUTPUT {OUTPUT}.stk.{FILE.ID}.im.fits    IMAGE           NONE       FPA        TRUE      NONE
+PSPHOT.STACK.OUTPUT.MASK     OUTPUT {OUTPUT}.stk.{FILE.ID}.mk.fits    MASK            NONE       FPA        TRUE      NONE
+PSPHOT.STACK.OUTPUT.VARIANCE OUTPUT {OUTPUT}.stk.{FILE.ID}.wt.fits    VARIANCE        NONE       FPA        TRUE      NONE
+PSPHOT.STACK.OUTPUT          OUTPUT {OUTPUT}.stk.{FILE.ID}.cmf        CMF             NONE       FPA        TRUE      NONE
+PSPHOT.STACK.PSF.SAVE        OUTPUT {OUTPUT}.stk.{FILE.ID}.psf        PSF             NONE       FPA        TRUE      NONE
+PSPHOT.STACK.BACKMDL         OUTPUT {OUTPUT}.stk.{FILE.ID}.mdl.fits   IMAGE           NONE       FPA        TRUE      NONE
+PSPHOT.STACK.BACKMDL.STDEV   OUTPUT {OUTPUT}.stk.{FILE.ID}.mdl.sdv.fits IMAGE         NONE       FPA        TRUE      NONE
+
+PSPHOT.STACK.CONFIG          OUTPUT {OUTPUT}.psphotStack.mdc          TEXT            NONE       FPA        TRUE      NONE
+
+PSPHOT.STACK.RESID           OUTPUT {OUTPUT}.stk.{FILE.ID}.res.fits   IMAGE           COMP_SUB   FPA        TRUE      NONE
+PSPHOT.STACK.BACKGND         OUTPUT {OUTPUT}.stk.{FILE.ID}.bck.fits   IMAGE           COMP_IMG   FPA        TRUE      NONE
+PSPHOT.STACK.BACKSUB         OUTPUT {OUTPUT}.stk.{FILE.ID}.sub.fits   IMAGE           COMP_SUB   FPA        TRUE      NONE
+                                                     
+# old outputs for psphotStack:
+# I think these are wrong
+#PSPHOT.CHISQ.IMAGE      OUTPUT {OUTPUT}.{CHIP.NAME}.chisq.im.fits IMAGE    NONE       FPA        TRUE      SIMPLE
+#PSPHOT.CHISQ.MASK       OUTPUT {OUTPUT}.{CHIP.NAME}.chisq.mk.fits MASK     NONE       FPA        TRUE      SIMPLE
+#PSPHOT.CHISQ.VARIANCE   OUTPUT {OUTPUT}.{CHIP.NAME}.chisq.wt.fits VARIANCE NONE       FPA        TRUE      SIMPLE
+#PSPHOT.STACK.OUTPUT     OUTPUT {OUTPUT}.{CHIP.NAME}.sky.{FILE.ID}.cmf CMF      NONE       FPA        TRUE      NONE
+                                                     
+SOURCE.PLOT.MOMENTS     OUTPUT {OUTPUT}.mnt.png                  KAPA      NONE       FPA        TRUE      NONE
+SOURCE.PLOT.PSFMODEL    OUTPUT {OUTPUT}.psf.png                  KAPA      NONE       FPA        TRUE      NONE
+SOURCE.PLOT.APRESID     OUTPUT {OUTPUT}.dap.png                  KAPA      NONE       FPA        TRUE      NONE
+                                                                                     
+PSASTRO.OUTPUT.CMP      OUTPUT {OUTPUT}.{CHIP.NAME}.smp          CMP       NONE       CHIP       TRUE      NONE
+PSASTRO.OUT.CMF.SPL     OUTPUT {OUTPUT}.{CHIP.NAME}.smf          CMF       NONE       CHIP       TRUE      SPLIT
+PSASTRO.OUT.CMF.MEF     OUTPUT {OUTPUT}.smf                      CMF       NONE       FPA        TRUE      MEF
+PSASTRO.OUTPUT.CMF      OUTPUT {OUTPUT}.cmf                      CMF       NONE       CHIP       TRUE      NONE
+#PSASTRO.OUT.CMF         OUTPUT {OUTPUT}.smf                      CMF       NONE       FPA        TRUE      NONE
+PSASTRO.OUT.MODEL       OUTPUT {OUTPUT}.asm                ASTROM.MODEL    NONE       FPA        TRUE      NONE
+PSASTRO.OUT.REFSTARS    OUTPUT {OUTPUT}.aref.fits          ASTROM.REFSTARS NONE       FPA        TRUE      NONE
+PSASTRO.STATS           OUTPUT {OUTPUT}.stats                    STATS     NONE       FPA        TRUE      NONE
+PSASTRO.CONFIG          OUTPUT {OUTPUT}.psastro.mdc              TEXT      NONE       FPA        TRUE      NONE
+PSASTRO.OUTPUT.MASK     OUTPUT {OUTPUT}.{CHIP.NAME}.mk.fits      MASK      COMP_MASK  CHIP       TRUE      NONE
+                                                                                     
+FPCAMERA.OUT.CMF.MEF    OUTPUT {OUTPUT}.cmf                      CMF       NONE       CHIP       TRUE      MEF
+FPCAMERA.RESID          OUTPUT {OUTPUT}.res.fits                 IMAGE     COMP_SUB   CHIP       TRUE      MEF
+FPCAMERA.STATS          OUTPUT {OUTPUT}.stats                    STATS     NONE       FPA        TRUE      NONE
+FPCAMERA.CONFIG         OUTPUT {OUTPUT}.mdc                      TEXT      NONE       FPA        TRUE      NONE
+
+PSWARP.OUTPUT           OUTPUT {OUTPUT}.fits                     IMAGE     COMP_IMG   FPA        TRUE      NONE
+PSWARP.OUTPUT.MASK      OUTPUT {OUTPUT}.mk.fits                  MASK      COMP_MASK  FPA        TRUE      NONE
+PSWARP.OUTPUT.VARIANCE  OUTPUT {OUTPUT}.wt.fits                  VARIANCE  COMP_WT    FPA        TRUE      NONE
+PSWARP.OUTPUT.SOURCES   OUTPUT {OUTPUT}.cmf                      CMF       NONE       FPA        TRUE      NONE
+PSWARP.BIN1             OUTPUT {OUTPUT}.b1.fits                  IMAGE     COMP_IMG   FPA        TRUE      NONE
+PSWARP.BIN2             OUTPUT {OUTPUT}.b2.fits                  IMAGE     COMP_IMG   FPA        TRUE      NONE
+PSWARP.CONFIG           OUTPUT {OUTPUT}.pswarp.mdc               TEXT      NONE       FPA        TRUE      NONE
+PSWARP.OUTPUT.BKGMODEL	OUTPUT {OUTPUT}.mdl.fits		 IMAGE     NONE       FPA        TRUE      NONE
+                                                                                     
+SKYCELL.STATS           OUTPUT {OUTPUT}.stats                    STATS     NONE       FPA        TRUE      NONE
+SKYCELL.STATS.UPDATE    OUTPUT {OUTPUT}.stats.update             STATS     NONE       FPA        TRUE      NONE
+SKYCELL.TEMPLATE        OUTPUT {OUTPUT}.skycell                  SKYCELL   NONE       FPA        TRUE      NONE
+                                                                                     
+PPSUB.OUTPUT            OUTPUT {OUTPUT}.fits                     IMAGE     COMP_IMG   FPA        TRUE      NONE
+PPSUB.OUTPUT.MASK       OUTPUT {OUTPUT}.mk.fits                  MASK      COMP_MASK  FPA        TRUE      NONE
+PPSUB.OUTPUT.VARIANCE   OUTPUT {OUTPUT}.wt.fits                  VARIANCE  COMP_WT    FPA        TRUE      NONE
+PPSUB.OUTPUT.SOURCES    OUTPUT {OUTPUT}.cmf                      CMF       NONE       FPA        TRUE      NONE
+PPSUB.OUTPUT.KERNELS    OUTPUT {OUTPUT}.subkernel                SUBKERNEL NONE       FPA        TRUE      NONE
+PPSUB.OUTPUT.JPEG1      OUTPUT {OUTPUT}.b1.jpg                   JPEG      NONE       FPA        TRUE      NONE
+PPSUB.OUTPUT.JPEG2      OUTPUT {OUTPUT}.b2.jpg                   JPEG      NONE       FPA        TRUE      NONE
+PPSUB.OUTPUT.RESID.JPEG OUTPUT {OUTPUT}.res.jpg                  JPEG      NONE       FPA        TRUE      NONE
+PPSUB.INVERSE           OUTPUT {OUTPUT}.inv.fits                 IMAGE     COMP_SUB   FPA        TRUE      NONE
+PPSUB.INVERSE.MASK      OUTPUT {OUTPUT}.inv.mask.fits            MASK      COMP_MASK  FPA        TRUE      NONE
+PPSUB.INVERSE.VARIANCE  OUTPUT {OUTPUT}.inv.wt.fits              VARIANCE  COMP_WT    FPA        TRUE      NONE
+PPSUB.INVERSE.SOURCES   OUTPUT {OUTPUT}.inv.cmf                  CMF       NONE       FPA        TRUE      NONE
+PPSUB.CONFIG            OUTPUT {OUTPUT}.ppSub.mdc                TEXT      NONE       FPA        TRUE      NONE
+PPSUB.INPUT.CONV        OUTPUT {OUTPUT}.inConv.fits              IMAGE     COMP_IMG   FPA        TRUE      NONE
+PPSUB.INPUT.CONV.MASK   OUTPUT {OUTPUT}.inConv.mk.fits           MASK      COMP_MASK  FPA        TRUE      NONE
+PPSUB.INPUT.CONV.VARIANCE OUTPUT {OUTPUT}.inConv.wt.fits         VARIANCE  COMP_WT    FPA        TRUE      NONE
+PPSUB.REF.CONV        	OUTPUT {OUTPUT}.refConv.fits             IMAGE     COMP_IMG   FPA        TRUE      NONE
+PPSUB.REF.CONV.MASK   	OUTPUT {OUTPUT}.refConv.mk.fits          MASK      COMP_MASK  FPA        TRUE      NONE
+PPSUB.REF.CONV.VARIANCE	OUTPUT {OUTPUT}.refConv.wt.fits          VARIANCE  COMP_WT    FPA        TRUE      NONE
+		      						       		     
+PPSUB.FORCED1.SOURCES   OUTPUT {OUTPUT}.frc1.cmf             	 CMF       NONE       FPA        TRUE      NONE
+PPSUB.FORCED2.SOURCES   OUTPUT {OUTPUT}.frc2.cmf             	 CMF       NONE       FPA        TRUE      NONE
+PPSUB.POS1.SOURCES      OUTPUT {OUTPUT}.pos1.cmf             	 CMF       NONE       FPA        TRUE      NONE
+PPSUB.POS2.SOURCES      OUTPUT {OUTPUT}.pos2.cmf             	 CMF       NONE       FPA        TRUE      NONE
+                                                                                     
+PPSTACK.OUTPUT          OUTPUT {OUTPUT}.fits                     IMAGE     COMP_IMG   FPA        TRUE      NONE
+PPSTACK.OUTPUT.MASK     OUTPUT {OUTPUT}.mk.fits                  MASK      COMP_MASK  FPA        TRUE      NONE
+PPSTACK.OUTPUT.VARIANCE OUTPUT {OUTPUT}.wt.fits                  VARIANCE  COMP_WT    FPA        TRUE      NONE
+PPSTACK.OUTPUT.EXP	OUTPUT {OUTPUT}.exp.fits     		 IMAGE     EXP	      FPA	 TRUE      NONE
+PPSTACK.OUTPUT.EXPNUM	OUTPUT {OUTPUT}.num.fits     		 MASK      EXPNUM     FPA	 TRUE      NONE
+PPSTACK.OUTPUT.EXPWT	OUTPUT {OUTPUT}.expwt.fits               VARIANCE  EXP	      FPA	 TRUE      NONE
+PPSTACK.UNCONV          OUTPUT {OUTPUT}.unconv.fits              IMAGE     COMP_IMG   FPA        TRUE      NONE
+PPSTACK.UNCONV.MASK     OUTPUT {OUTPUT}.unconv.mask.fits         MASK      COMP_MASK  FPA        TRUE      NONE
+PPSTACK.UNCONV.VARIANCE OUTPUT {OUTPUT}.unconv.wt.fits           VARIANCE  COMP_WT    FPA        TRUE      NONE
+PPSTACK.UNCONV.EXP	OUTPUT {OUTPUT}.unconv.exp.fits 	 IMAGE     EXP	      FPA	 TRUE      NONE
+PPSTACK.UNCONV.EXPNUM	OUTPUT {OUTPUT}.unconv.num.fits 	 MASK  	   EXPNUM     FPA	 TRUE      NONE
+PPSTACK.UNCONV.EXPWT	OUTPUT {OUTPUT}.unconv.expwt.fits        VARIANCE  EXP	      FPA	 TRUE      NONE
+PPSTACK.TARGET.PSF      OUTPUT {OUTPUT}.target.psf               PSF       NONE       CHIP       TRUE      NONE
+PPSTACK.CONV.KERNEL     OUTPUT {OUTPUT}.{FILE.INDEX}.kernel      SUBKERNEL NONE       FPA        TRUE      NONE
+PPSTACK.OUTPUT.JPEG1    OUTPUT {OUTPUT}.b1.jpg                   JPEG      NONE       FPA        TRUE      NONE
+PPSTACK.OUTPUT.JPEG2    OUTPUT {OUTPUT}.b2.jpg                   JPEG      NONE       FPA        TRUE      NONE
+PPSTACK.OUTPUT.BKGMODEL OUTPUT {OUTPUT}.mdl.fits		 IMAGE	   NONE	      FPA	 TRUE      NONE
+PPSTACK.OUTPUT.BKGREST  OUTPUT {OUTPUT}.bkgrest.fits		 IMAGE	   	  NONE	     FPA	TRUE      NONE
+PPSTACK.CONFIG          OUTPUT {OUTPUT}.ppStack.mdc              TEXT      NONE       FPA        TRUE      NONE
+                                                                                     
+PPSTAMP.OUTPUT                 OUTPUT {OUTPUT}.fits              IMAGE     COMP_IMG   FPA        TRUE      NONE
+PPSTAMP.OUTPUT.NOCOMP          OUTPUT {OUTPUT}.fits              IMAGE     NONE       FPA        TRUE      NONE
+PPSTAMP.OUTPUT.DIFF            OUTPUT {OUTPUT}.fits              IMAGE     COMP_SUB   FPA        TRUE      NONE
+PPSTAMP.OUTPUT.DIFF.NOCOMP     OUTPUT {OUTPUT}.fits              IMAGE     NONE       FPA        TRUE      NONE
+PPSTAMP.OUTPUT.MASK            OUTPUT {OUTPUT}.mk.fits           MASK      COMP_MASK  FPA        TRUE      NONE
+PPSTAMP.OUTPUT.MASK.NOCMOP     OUTPUT {OUTPUT}.mk.fits           MASK      NONE       FPA        TRUE      NONE
+PPSTAMP.OUTPUT.VARIANCE        OUTPUT {OUTPUT}.wt.fits           VARIANCE  COMP_WT    FPA        TRUE      NONE
+PPSTAMP.OUTPUT.VARIANCE.NOCOMP OUTPUT {OUTPUT}.wt.fits           VARIANCE  NONE       FPA        TRUE      NONE
+PPSTAMP.OUTPUT.JPEG            OUTPUT {OUTPUT}.jpg               JPEG      NONE       FPA        TRUE      NONE
+PPSTAMP.CHIP.MEF               OUTPUT {OUTPUT}.ch.fits           IMAGE     NONE       CHIP       FALSE     MEF
+                                                                                     
+PPSIM.OUTPUT.MEF        OUTPUT {OUTPUT}.fits                     IMAGE     NONE       CHIP       TRUE      NONE
+PPSIM.OUTPUT.SPL        OUTPUT {OUTPUT}.{CHIP.NAME}.fits         IMAGE     NONE       CHIP       TRUE      NONE
+PPSIM.FAKE.CHIP         OUTPUT {OUTPUT}.fake.fits                IMAGE     NONE       FPA        TRUE      NONE
+PPSIM.FORCE.CHIP        OUTPUT {OUTPUT}.force.fits               IMAGE     NONE       FPA        TRUE      NONE
+PPSIM.SOURCES           OUTPUT {OUTPUT}.cmf                      CMF       NONE       FPA        TRUE      NONE
+PPSIM.FAKE.SOURCES      OUTPUT {OUTPUT}.fake.cmf                 CMF       NONE       FPA        TRUE      NONE
+PPSIM.FORCE.SOURCES     OUTPUT {OUTPUT}.force.cmf                CMF       NONE       FPA        TRUE      NONE
+                                                                                     
+PPARITH.OUTPUT.IMAGE    OUTPUT {OUTPUT}.fits                     IMAGE     COMP_IMG   CHIP       TRUE      NONE
+PPARITH.OUTPUT.MASK     OUTPUT {OUTPUT}.fits                     MASK      COMP_MASK  CHIP       TRUE      NONE
+                                                                                     
+PPSKYCELL.JPEG1    	OUTPUT {OUTPUT}.{FILE.INDEX}.b1.jpeg     JPEG      NONE       CHIP       TRUE      NONE
+PPSKYCELL.JPEG2    	OUTPUT {OUTPUT}.{FILE.INDEX}.b2.jpeg     JPEG      NONE       CHIP       TRUE      NONE
+PPSKYCELL.BIN1    	OUTPUT {OUTPUT}.{FILE.INDEX}.b1.fits     IMAGE     NONE       FPA        TRUE      NONE
+PPSKYCELL.BIN2    	OUTPUT {OUTPUT}.{FILE.INDEX}.b2.fits     IMAGE     NONE       FPA        TRUE      NONE
+PPSKYCELL.BIN1.MASK    	     OUTPUT {OUTPUT}.{FILE.INDEX}.b1.mk.fits     MASK     COMP_MASK       FPA        TRUE      NONE
+PPSKYCELL.BIN2.MASK    	     OUTPUT {OUTPUT}.{FILE.INDEX}.b2.mk.fits     MASK     COMP_MASK       FPA       TRUE      NONE
+
+LOG.IMFILE              OUTPUT {OUTPUT}.{CHIP.NAME}.log          TEXT      NONE       CHIP       TRUE      NONE
+LOG.EXP                 OUTPUT {OUTPUT}.log                      TEXT      NONE       FPA        TRUE      NONE
+LOG.IMFILE.UPDATE       OUTPUT {OUTPUT}.{CHIP.NAME}.log.update   TEXT      NONE       CHIP       TRUE      NONE
+LOG.EXP.UPDATE          OUTPUT {OUTPUT}.log.update               TEXT      NONE       FPA        TRUE      NONE
+                                                                                     
+TRACE.IMFILE            OUTPUT {OUTPUT}.{CHIP.NAME}.trace        TEXT      NONE       CHIP       TRUE      NONE
+TRACE.EXP               OUTPUT {OUTPUT}.trace                    TEXT      NONE       FPA        TRUE      NONE
+TRACE.IMFILE.UPDATE     OUTPUT {OUTPUT}.{CHIP.NAME}.trace.update TEXT      NONE       CHIP       TRUE      NONE
+TRACE.EXP.UPDATE        OUTPUT {OUTPUT}.trace.update             TEXT      NONE       FPA        TRUE      NONE
+
+DBINFO.IMFILE                OUTPUT {OUTPUT}.{CHIP.NAME}.dbinfo       TEXT            NONE       CHIP       TRUE      NONE
+DBINFO.EXP                   OUTPUT {OUTPUT}.dbinfo                   TEXT            NONE       CHIP       TRUE      NONE
+
+PPNOISEMAP.OUTPUT       OUTPUT {OUTPUT}.{CHIP.NAME}.fits         IMAGE     NONE       CHIP       TRUE      NONE
+
+CENSOR.OUTPUT           OUTPUT {OUTPUT}.smf                      CMF       NONE       FPA        TRUE      MEF
+
+MAGIC.ORIGINAL.PNG      OUTPUT {OUTPUT}_original.png             JPEG      NONE       FPA        TRUE      NONE
+MAGIC.RESIDUAL.PNG      OUTPUT {OUTPUT}_residual.png             JPEG      NONE       FPA        TRUE      NONE
+MAGIC.MASK.PNG          OUTPUT {OUTPUT}_mask.png                 JPEG      NONE       FPA        TRUE      NONE
+MAGIC.DUPLICATE.PNG     OUTPUT {OUTPUT}_duplicate.png            JPEG      NONE       FPA        TRUE      NONE
+
+PPSMOOTH.OUTPUT          OUTPUT {OUTPUT}.{CHIP.NAME}.fits        IMAGE     NONE       CHIP       TRUE      MEF
+PPSMOOTH.OUTPUT.MASK     OUTPUT {OUTPUT}.{CHIP.NAME}.mk.fits     MASK      NONE       CHIP       TRUE      MEF
+PPSMOOTH.OUTPUT.VARIANCE OUTPUT {OUTPUT}.{CHIP.NAME}.wt.fits     VARIANCE  NONE       CHIP       TRUE      MEF
+
+PPBGRESTORE.OUTPUT      OUTPUT {OUTPUT}.{CHIP.NAME}.fits         IMAGE     COMP_IMG   CHIP       TRUE      NONE
+
+PPVIZPSF.OUTPUT              OUTPUT {OUTPUT}.{CHIP.NAME}.fits         IMAGE           NONE       CHIP       TRUE      NONE
+PPVIZPATTERN.OUTPUT          OUTPUT {OUTPUT}.{CHIP.NAME}.fits         IMAGE           NONE       CHIP       TRUE      NONE
+PPVIZPATTERN.CHIP            OUTPUT {OUTPUT}.{CHIP.NAME}.ch.fits      IMAGE           NONE       CHIP       TRUE      NONE
+
+PPBACKGROUND.OUTPUT	     OUTPUT {OUTPUT}.{CHIP.NAME}.fits         IMAGE           COMP_IMG   CHIP       TRUE      NONE
+PPBACKGROUND.OUTPUT.MASK     OUTPUT {OUTPUT}.{CHIP.NAME}.mk.fits      MASK            COMP_MASK  CHIP       TRUE      NONE
+PPBACKGROUND.CONFIG          OUTPUT {OUTPUT}.{CHIP.NAME}.ppBackground.mdc TEXT        NONE       CHIP       TRUE      NONE
+PPBACKGROUND.STATS           OUTPUT {OUTPUT}.{CHIP.NAME}.stats        STATS           NONE       CHIP       TRUE      NONE
+
+PPBACKGROUND.STACK.OUTPUT    OUTPUT {OUTPUT}.bkgrest.fits        IMAGE     COMP_IMG   FPA        TRUE      NONE
+PPBACKGROUND.STACK.MODEL     OUTPUT {OUTPUT}.bkgmdl.fits        IMAGE     COMP_IMG   FPA        TRUE      NONE
+PPBACKGROUND.OTA.SOLUTION    OUTPUT {OUTPUT}.{CHIP.NAME}.OTAS.fits IMAGE  COMP_IMG   CHIP       TRUE      NONE

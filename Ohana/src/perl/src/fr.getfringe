@@ -1,0 +1,59 @@
+#!/usr/bin/env perl
+
+# check the usage
+if ($ARGV[0] eq "-h") { usage (); }
+if ($ARGV[0] eq "-help") { usage (); }
+if (@ARGV != 3) { die "USAGE: fr.getfringe (inlist) (binning) (output)\n" }
+
+# assign the command line arguments
+$inlist = $ARGV[0];
+$bin    = $ARGV[1];
+$output = $ARGV[2];
+
+# load input list:
+open (FILE, "$inlist");
+@inlist = <FILE>;
+close (FILE);
+foreach $line (@inlist) { chop $line; }
+
+# getfringe appends to the output file:
+unlink ($output);
+
+# basic camera data
+$Nccd      = `cameraconfig -Nccd`;  chop $Nccd;
+if ($Nccd != @inlist) { die "ERROR: mis-matched image list sizes\n"; }
+@ccds = split (" ", `cameraconfig -ccds`); 
+if ($?) { die "ERROR: cameraconfig error\n"; }
+
+# find fringe coordinate file
+$coordfile = `detsearch -quiet -image $inlist[0] $ccds[0] split -type frpts`; chop $coordfile;
+if ($?) { die "ERROR: can't find fringe point file for this image\n"; }
+
+# each call to getfringe adds a line to $output 
+for ($ccd = 0; $ccd < $Nccd; $ccd++) {
+    vsystem ("getfringe $inlist[$ccd] $ccds[$ccd] $coordfile $bin >> $output");
+    if ($?) { die "ERROR running getfringe\n"; }
+}
+
+print STDOUT "SUCCESS: finished with fr.getfringe\n";
+exit 0;
+
+sub vsystem {
+    print STDERR "@_\n";
+    $status = system ("@_");
+    $status;
+}
+
+sub goodbye {
+    die "@_\n";
+}
+
+sub usage {
+    print "\n";
+    print "USAGE: fr.getfringe (inlist) (binning) (output)\n";
+    print " calculate fringe pattern strengths for images in (inlist)\n";
+    print " inlist  : list of input CCDs in CCD order\n";
+    print " binning : binning factor of images\n";
+    print " outdir  : output file\n";
+    exit 1;
+}

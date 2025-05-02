@@ -1,0 +1,15 @@
+bool [% table.namespace %]PrintObject(FILE *stream, [% table.object_name %] *object, bool mdcf)
+{
+    PS_ASSERT_PTR_NON_NULL(object, false);
+
+    psMetadata *md = [% table.namespace %]MetadataFromObject(object);
+
+    if (![% pkg_namespace %]PrintMetadataRaw(stream, md, mdcf)) {
+        psError(PS_ERR_UNKNOWN, false, "failed to print metadata");
+        psFree(md);
+    }
+
+    psFree(md);
+
+    return true;
+}

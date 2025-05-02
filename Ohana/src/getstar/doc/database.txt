@@ -1,0 +1,91 @@
+
+\begin{verbatim}
+
+typedef struct {
+  float R;                    /* RA  in decimal degrees */
+  float D;                    /* DEC in decimal degrees */
+  short int M;                /* thousandths of mag (-32.000 to 32.000 valid range) */
+  unsigned short int Nm;      /* number of measurements */
+  unsigned short int Xp, Xm;  /* chisq values in tenths */
+  unsigned int offset;        /* offset to first Measure-ment */
+} Average;                    /* = 20 bytes / average */
+
+typedef struct {
+  char dR, dD;                /* tenths of arcsec (-12.7 to +12.7 valid range) */
+  short int M;                /* thousandths of mag (-32.000 to 32.000 valid range) */
+  unsigned char dM;           /* thousandths of mag (0.000 -- 0.255 valid range) */
+  float t;                    /* time in seconds (what is reference?) */
+  unsigned int average;       /* reference to corresponding Average entry, 
+				 upper byte of value contains flags.
+				 limit of 16,777,215 stars (Naverage) 
+				 in a file (=0xFFFFFF).
+				 flags = average & 0x1000000 */
+} Measure;                    /* = 13 bytes / measure */
+
+# define BLEND_IMAGE   0X01000000
+# define BLEND_CATALOG 0X02000000
+# define UPPER_LIMIT   0X04000000
+# define CALIBRATED    0X08000000
+
+\end{verbatim}
+
+The above two structures define the entries in the photometry
+database.  The database consists of a large number of files
+representing a small patch on the sky (roughly 1.5 degree$^2$ in most
+places).  These files are organized into directories representing
+bands of Declination.  A reference file determines the coordinate
+boundaries for each of the files so that a given point on the sky can
+unambiguously be associated with a specific file in a specific
+directory.  The sky coordinates for each file is the same as those
+used by the HST Guide Star catalog, except for the region around the
+North celestial pole, for which all stars are included in a single
+file.  
+
+Within a given file, the data are stored in a binary format, with an
+ASCII FITS-like header.  The header is examply in the format of a
+normal FITS header, but with the exception that all files have a fixed
+number of header blocks (for now 3 blocks = 8640 bytes).  This is done
+to speed loading the header and finding the beginning of the binary
+data.  The number of 3 blocks seems quite generous, as currently only
+a few FITS keywords have been defined for each file, basically
+keywords to define the number of stars and the total number of
+measurements stored in the file, as well as values to define the RA
+and DEC range of the file.  
+
+The first section of data following the header blocks consists of
+average measurements for each uniquely observed star.  Each star
+occupies 20 bytes, the size of the Average structure defined above.
+The Average structure contains the average Ra, Dec, and Magnitude for
+the star, as well as the number of measurements, and \chisq\ values
+for the magnitude and position.  Finally, there is a 32 bit integer
+which defines the offset to the first measurement for this star.  This
+offset is defined as the number of Measure records from the start of
+the Measure structure.
+
+The second section of data, following the Average data contains all
+measurements for each star listed in Average.  Each measurement
+occupies 13 bytes, the size of the Measure structure.  This structure
+contains the difference of this position from the average RA and DEC,
+and the instrumental magnitude of this measurement (in the units
+defined by the fstat program, which give m = -2.5*log(cts) + Mo, where
+Mo is currently 24.5 [10/15]).  There is also the magnitude error for
+this measurement, the time of the measurement (in seconds relative to
+a to-be-determined zero point), and a reference to the entry in the
+Average structure so we can relate a given measurement with a given star.
+This last entry also includes a byte of flags, of which only 4 have
+currently been defined.  This means the Average offset can only be as
+large as  16,777,215 (0xffffff), limiting the possible number of stars
+allowed in a given file.  This does not seem like a long term problem,
+though:  aside from the fact that this number is very large and we
+only expect in the vicinity of 20,000 stars per file, the file can
+easily be divided into pieces at a later date if needed.  this last
+step is trivial, consisting of splitting the data up into smaller
+RA,DEC regions, and updating the reference catalog.  With the above
+definitions for the Average and Measure structures, we will typically
+expect 20,000 * 15 measurements per year and 20,000 average entries in
+a given file.  This implies a file size of about 4.3 MB at the end of
+a year.  It is also possible that we will choose to split the files up
+in the future if the number of measurements makes their size
+unweildy.  4.3 MB is sufficiently small that this is not a problem,
+but after only 5 years, the files will be over 21 MB each, getting to
+be fairly significant.  

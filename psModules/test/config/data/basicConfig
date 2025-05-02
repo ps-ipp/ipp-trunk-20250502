@@ -1,0 +1,25 @@
+
+TEST MULTI
+TEST STR FOO
+TEST STR BAR
+
+PATH              STR     .
+
+# load the site-specific information from here
+SITE              STR     site.config
+
+# load the system configuration information from here
+SYSTEM            STR     system.config
+
+### psLib setup
+LOGLEVEL	S32	5			# Logging level; 3=INFO
+LOGFORMAT	STR	M			# Log format
+LOGDEST		STR	STDERR			# Log destination
+TRACEDEST	STR	STDERR			# Trace destination
+
+# place default trace lines here
+TRACE		METADATA			# Trace levels
+  err		S32	10
+# psLib.db      S32	10
+END
+

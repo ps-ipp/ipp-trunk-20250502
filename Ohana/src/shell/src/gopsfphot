@@ -1,0 +1,46 @@
+#!/bin/csh -f
+# load the file, determine bias and sky, then extract a subraster
+# write out the subraster 
+
+set sexconf=/data/milo/eugene/elixir/config/sextract
+
+if ($#argv != 4) then
+ echo "USAGE: gopsfphot file.fits file.px file.st file.psf"
+ exit;
+endif
+
+set infile = $1
+set pxfile = $2
+set stfile = $3
+set psfile = $4
+
+# find the appropriate script file
+set confdir=`gconfig -q CONFDIR`
+
+# sextractor needs full paths to:
+set sexconf = "$confdir/sextract/gosexphot.sex"
+set sexpars = "$confdir/sextract/gosexphot.param"
+set sexfilt = "$confdir/sextract/default.conv"
+set sexnnw  = "$confdir/sextract/default.nnw"
+
+set psfconf = "$confdir/sextract/gopsfphot.psf"
+set psfpars = "$confdir/sextract/psf.param"
+
+set pexconf = "$confdir/sextract/gopsfphot.psfex"
+
+sex $infile \
+    -c $psfconf \
+    -PARAMETERS_NAME $psfpars \
+    -FILTER_NAME     $sexfilt \
+    -STARNNW_NAME    $sexnnw \
+    -CATALOG_NAME    $stfile
+
+psfex $stfile -c $pexconf -PSF_NAME $psfile
+
+sex $infile \
+    -c $sexconf \
+    -PARAMETERS_NAME $sexpars \
+    -FILTER_NAME     $sexfilt \
+    -STARNNW_NAME    $sexnnw \
+    -PSF_NAME        $psfile \
+    -CATALOG_NAME    $pxfile

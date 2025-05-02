@@ -1,0 +1,21 @@
+
+2008.04.20
+
+  I am trying to update the opihi vector code for two important upgrades:
+
+  1) I want to convert the float vector to double vectors
+  2) I want to allow the option of int (unsigned int) vectors, especially for flags
+
+  I've define opihi_float and opihi_int types.  A major portion of the
+  upgrade is to convert all of the places where a vector is allocated
+  or manipulated as a float to use 'opihi_float' which can then be
+  re-defined.  The other trick here is to identify the functions which
+  require a vector to be a float and set assserts or error reporting.
+
+  The other major change is to modify the dvo math code.  for the
+  moment, all functions should result in opihi_float vectors except
+  for the explicit cases of the db extractions which return flags.
+
+  Some math operations on the vectors will force conversion to floats,
+  but some are sensible as functions from int to int, and those
+  results can be kept in their native format.

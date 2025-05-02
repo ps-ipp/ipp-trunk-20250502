@@ -1,0 +1,12 @@
+
+  memory [x]
+
+  list the currently used memory.  This gives a (possibly very) long
+  listing of the size of every allocated piece of memory.  Placing
+  anything after the word "memory" gives a summary also.  This is
+  useful to see just how close you are to filling your computer's
+  entire memory (Does not include memory allocated to Kii!)
+
+  See Also: buffers
+
+

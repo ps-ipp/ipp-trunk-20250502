@@ -1,0 +1,75 @@
+
+We need to have consistent behavior when we determine the PSF from the image or load it externally.
+
+Here is a list of the metadata info generated during the psphot analysis (these are mostly stored on the 'analysis' metadata, sometimes in chip and sometimes in readout).
+
+  ANGLE               : PSF Model position angle 
+  APLOSS	      : flux lost out of reference aperture
+  APMIFIT	      : aperture magnitude - psf fit magnitude (aperture correction
+  DAPMIFIT	      : error on APMIFIT
+ *EFFECTIVE_AREA      : effective area of the PSF model
+  FLIMIT	      : limiting flux (not currently set correctly)
+  FSATUR	      : saturation flux (not currently set correctly)
+  FWHM_MAJ	      : PSF Model FWHM (Major-Axis)
+  FWHM_MIN	      : PSF Model FWHM (Minor-Axis)
+  FW_MJ_LQ	      : PSF Model FWHM (Major-Axis lower quartile)
+  FW_MJ_SG	      : PSF Model FWHM (Major-Axis sigma)
+  FW_MJ_UQ	      : PSF Model FWHM (Major-Axis upper quartile)
+  FW_MN_LQ	      : PSF Model FWHM (Minor-Axis lower quartile)
+  FW_MN_SG	      : PSF Model FWHM (Minor-Axis sigma)
+  FW_MN_UQ	      : PSF Model FWHM (Minor-Axis upper quartile)
+  IQ_FW1	      : Moments-based FWHM (Major-Axis)
+  IQ_FW1_E	      : Moments-based FWHM (Major-Axis Stdev)
+  IQ_FW2	      : Moments-based FWHM (Minor-Axis)
+  IQ_FW2_E	      : Moments-based FWHM (Minor-Axis Stdev)
+  IQ_M2	  	      : Moments-based shape parameter
+  IQ_M2C	      : Moments-based shape parameter
+  IQ_M2C_E	      : Moments-based shape parameter
+  IQ_M2C_L	      : Moments-based shape parameter
+  IQ_M2C_U	      : Moments-based shape parameter
+  IQ_M2S	      : Moments-based shape parameter
+  IQ_M2S_E	      : Moments-based shape parameter
+  IQ_M2S_L	      : Moments-based shape parameter
+  IQ_M2S_U	      : Moments-based shape parameter
+  IQ_M2_ER	      : Moments-based shape parameter
+  IQ_M2_LQ	      : Moments-based shape parameter
+  IQ_M2_UQ	      : Moments-based shape parameter
+  IQ_M3	  	      : Moments-based shape parameter
+  IQ_M3_ER	      : Moments-based shape parameter
+  IQ_M3_LQ	      : Moments-based shape parameter
+  IQ_M3_UQ	      : Moments-based shape parameter
+  IQ_M4	  	      : Moments-based shape parameter
+  IQ_M4_ER	      : Moments-based shape parameter
+  IQ_M4_LQ	      : Moments-based shape parameter
+  IQ_M4_UQ	      : Moments-based shape parameter
+  IQ_NSTAR            : Number of sources used to measure moments-based parameters
+  MOMENTS_GAUSS_SIGMA : Sigma of Gaussian window used for moments analysis 
+  MOMENTS_SX_MAX      : max allowed Mxx (second moment in x) allowed for PSF clump 
+  MOMENTS_SY_MAX      : max allowed Myy (second moment in y) allowed for PSF clump 
+  MSKY_MAX            : Sky Model max value
+  MSKY_MIN            : Sky Model min value
+  MSKY_MN             : Sky Model mean value
+  MSKY_NX             : Sky Model number of cells (x)
+  MSKY_NY             : Sky Model number of cells (y)
+  MSKY_SIG            : Sky Model sigma
+  NAPMIFIT            : Number of stars used for APMIFIT analysis
+  NDET_CR	      : Number of sources classified as 'cosmic ray'
+  NDET_EXT	      : Number of sources classified as 'extended'
+  NPSFSTAR	      : Number of sources used for PSF model
+  NSTARS	      : Total number of sources
+  PEAK_THRESHOLD      : threshold of peak detection analysis (saved but not re-used)
+  PSF.CLUMP.DX        : size of clump in X
+  PSF.CLUMP.DY        : size of clump in Y
+  PSF.CLUMP.NREGIONS  : number of PSF clump regions measured for this image
+  PSF.CLUMP.X         : center of clump in X
+  PSF.CLUMP.Y         : center of clump in Y
+  PSFMODEL	      : do we have a valid PSF model?
+  PSF_APERTURE        : aperture used to measure the aperture magnitude of PSF sources
+  PSF_CLUMP_GRID_SCALE: pixelization size used for PSF clump search 
+  PSF_FIT_RADIUS      : size of window used for PSF model fits
+  PSF_MAX_NSTARS      : maximum number of sources used to find the PSF model
+  PSF_MOMENTS_RADIUS  : size of window used for moments analysis (Gaussian window is applied within this radius)
+  SIGMA_SMOOTH        : sigma of kernel used for smoothing to generate the significance 
+  SIGNIFICANCE_SCALE_FACTOR : factor needed to adjust the level of the significance image
+  SKY_MEAN            : mean of background
+  SKY_STDEV	      : stdev of full background image

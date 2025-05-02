@@ -1,0 +1,29 @@
+
+# multiple entries are allowed for each 
+# command line, MAIN, INIT, DONE. they 
+# are performed in sequence
+
+# there are run at the start of the night
+INIT_COMMAND el_plots init
+INIT_COMMAND elixir.reload sextract
+INIT_COMMAND elixir.reload imstats
+
+MAIN_COMMAND gettemps
+MAIN_COMMAND el_plots plot
+MAIN_COMMAND elixir.link
+
+# these are run at the end of the night
+DONE_COMMAND el_plots done
+DONE_COMMAND elixir.launch mkdetrend 
+
+# PID_FILE /h/eugene/skyprobe/ert.pid
+# LOG_FILE /h/eugene/skyprobe/ert.log
+
+PID_FILE /data/milo/elixir/log/ert.pid
+LOG_FILE /data/milo/elixir/log/ert.log
+
+NIGHT_START 18:00
+NIGHT_STOP  06:00
+
+PERIOD 180
+TIMEOUT 360

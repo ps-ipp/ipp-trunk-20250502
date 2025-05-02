@@ -1,0 +1,107 @@
+#!/bin/env perl
+
+# pstamp_get_calib_info.pl
+
+use warnings;
+use strict;
+
+use Getopt::Long qw( GetOptions :config auto_help auto_version gnu_getopt );
+use Pod::Usage qw( pod2usage );
+use Carp;
+
+use IPC::Cmd 0.36 qw( can_run run );
+#use File::Temp qw( tempfile );
+#use File::Copy;
+#use File::Basename qw(dirname);
+
+use PS::IPP::Metadata::Config;
+# use PS::IPP::Metadata::Stats;
+use PS::IPP::Metadata::List qw( parse_md_list );
+
+use PS::IPP::Config qw( :standard );
+#use PS::IPP::PStamp::RequestFile qw( :standard );
+#use PS::IPP::PStamp::Job qw( :standard );
+
+my ( $cam_id, $output, $dbname, $verbose, $save_temps);
+
+GetOptions(
+           'cam_id=s'       => \$cam_id,
+           'output=s'       => \$output,
+	   'dbname=s'       => \$dbname,
+	   'verbose'        => \$verbose,
+	   'save-temps'     => \$save_temps,
+) or pod2usage( 2 );
+
+pod2usage( -msg => "Unknown option: @ARGV", -exitval => 2 ) if @ARGV;
+
+die "usage: --cam_id <cam_id> --output <output file name> [--dbname dbname --verbose]\n"
+    if !$cam_id or !$output;
+
+my $ipprc = PS::IPP::Config->new(); # IPP Configuration
+
+my $missing_tools;
+
+my $releasetool = can_run('releasetool') or (warn "Can't find releasetool" and $missing_tools = 1);
+if ($missing_tools) {
+    warn("Can't find required tools.");
+    exit ($PS_EXIT_CONFIG_ERROR);
+}
+
+my $mdcParser = PS::IPP::Metadata::Config->new; # Parser for metadata config files
+
+my $relexp;
+{
+    my $command = "$releasetool -listrelexp -state calibrated -priority_order -limit 1 -cam_id $cam_id";
+    $command   .= " -dbname $dbname" if $dbname;
+    my ( $success, $error_code, $full_buf, $stdout_buf, $stderr_buf ) =
+        run(command => $command, verbose => $verbose);
+    unless ($success) {
+        die("Unable to perform $command error code: $error_code");
+    }
+    my $data = join "", @$stdout_buf;
+    if ($data) {
+        # print STDERR $data if $verbose;
+
+        my $metadata = $mdcParser->parse($data) or die("Unable to parse metdata config doc");
+
+        # no need to use parse_md_fast here
+        my $results = parse_md_list($metadata);
+        if (scalar @$results != 1) {
+            print STDERR "get_job_params: failed to parse_md_list\n";
+            exit 0;
+        }
+
+        $relexp = $results->[0];
+    }
+}
+
+
+my $OUT;
+if ($output eq '-') {
+    $OUT = *STDOUT;
+} else {
+    open $OUT, ">$output" or die "failed to open $output for writing\n";
+}
+
+if (!$relexp) {
+    print STDERR "Failed to find calibration information for camRun: $cam_id\n";
+    print $OUT "DVOCALIB     STR         F # exposure not calibrated with DVO\n";
+    exit 0;
+}
+
+my $ubercal_exp = ($relexp->{flags} & 0x200) ? "T # exposure has ubercal zero point" : "F # exposure does not have ubercal zero point";
+
+print $OUT "DVOCALIB     STR         T # exposure calibrated with DVO\n";
+print $OUT "ZPCALIB      F32         $relexp->{zpt_obs} # calibrated zero point\n";
+print $OUT "ZPCALERR     F32         $relexp->{zpt_stdev} # calibrated zero point error - 0 for ubercal exposure\n";
+print $OUT "MCAL         F32         $relexp->{mcal} # zero point offset due to clouds\n";
+print $OUT "UCALEXP      STR         $ubercal_exp\n";
+print $OUT "DVOFLAGS     U32         $relexp->{flags} # dvo flags\n";
+print $OUT "UCALDIST     S32         $relexp->{ubercal_dist} # distance to ubercal image\n";
+print $OUT "DVODB        STR         $relexp->{dvodb} # dvo database used for calibration \n";
+print $OUT "UCALFILE     STR         $relexp->{ubercal_file} # ubercal file used for calibration\n";
+print $OUT "CALDATE      STR         $relexp->{time_stamp} # time of calibration\n";
+print $OUT "PSREL        STR         $relexp->{release_name} # PS release name\n";
+
+close $OUT or die "failed to close $output\n";
+

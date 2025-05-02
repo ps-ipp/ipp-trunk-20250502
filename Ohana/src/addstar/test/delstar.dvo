@@ -1,0 +1,412 @@
+# -*-sh-*-
+
+# relphot can set some secfilt values base on stack properties
+# we would like to test that these are correctly set
+
+input tap.dvo
+
+# set globals
+if (not($?PLOT)) set PLOT = 0 
+if (not($?FSUBSET)) set FSUBSET = 0.5
+
+# set various global variables
+macro init
+  $RA_CENTER = 10.0
+  $DEC_CENTER = 20.0
+  $PLATE_SCALE = 0.25
+  $NSEASON = 3
+  $NFILTER = 3
+  $NCHIP_X = 2
+  $NCHIP_Y = 2
+  $NCELL_X = 2
+  $NCELL_Y = 2
+  $CHIP_DX = 1000
+  $CHIP_DY = 1000
+
+  # images are loaded into dvo with GPC1 photcodes, so we need to get the nominal zps for those filters
+  $zpt_nominal:g = 24.58
+  $zpt_nominal:r = 24.80
+  $zpt_nominal:i = 24.74
+  $zpt_nominal:z = 24.26
+  $zpt_nominal:y = 23.41
+
+  # klam is negative, so klam*(airmass - 1) increase the zero point
+  $klam_nominal:g = -0.15
+  $klam_nominal:r = -0.10
+  $klam_nominal:i = -0.04
+  $klam_nominal:z = -0.03
+  $klam_nominal:y = -0.03
+
+  # photcode values for use elsewhere
+  $photcode_value:g = 11000
+  $photcode_value:r = 11100
+  $photcode_value:i = 11200
+  $photcode_value:z = 11300
+  $photcode_value:y = 11400
+end
+
+macro go
+  if ($0 != 3)
+    echo "go (fileroot) (catdir)"
+    break
+  end
+
+  local i fileroot rootdir catdir
+
+  $fileroot = $1
+  $catdir = $2
+
+  dirname $1 -var rootdir
+  mkdir $rootdir
+
+  init
+  mkstars 500
+
+  # tapPLAN {((mjd_uc[]*4 + mjd_nc[]*4) + (mjd_uc[] + mjd_nc[]) + (mjd_uc[] + mjd_nc[])) / 3}
+
+  # generate the basic images and check they were correctly ingested by dvo
+  if (1)
+    exec rm -rf $catdir
+    mksequence $fileroot $catdir
+  else
+    echo "*** temporarily skip data creation ***"
+  end
+
+  # size of region of interest in linear arcseconds
+  local RA_RANGE DEC_RANGE
+  $RA_RANGE  = 1.25 * $CHIP_DX * $NCHIP_X * $PLATE_SCALE
+  $DEC_RANGE = 1.25 * $CHIP_DY * $NCHIP_Y * $PLATE_SCALE 
+  $RA_MIN = $RA_CENTER  - $RA_RANGE  * 0.5 / 3600 / dcos ($DEC_CENTER)
+  $RA_MAX = $RA_CENTER  + $RA_RANGE  * 0.5 / 3600 / dcos ($DEC_CENTER)
+  $DEC_MIN = $DEC_CENTER - $DEC_RANGE * 0.5 / 3600
+  $DEC_MAX = $DEC_CENTER + $DEC_RANGE * 0.5 / 3600
+
+  # to test the deletion, extract measurements before and after delstar is called
+  catdir $catdir
+  skyregion $RA_MIN $RA_MAX $DEC_MIN $DEC_MAX
+
+  mextract ra dec mag photcode
+  set ra_all       = ra
+  set dec_all      = dec
+  set mag_all      = mag
+  set photcode_all = photcode
+  
+  imextract RA DEC PHOTCODE 
+  set ra_im_all  = RA
+  set dec_im_all = DEC
+  set pc_im_all  = PHOTCODE
+
+  echo "sleep to ensure mtime values are different"
+  sleep 2
+
+  echo delstar -D CATDIR $catdir -v -region $RA_MIN $RA_MAX $DEC_MIN $DEC_MAX -photcodes GPC1.r.SkyChip
+  exec delstar -D CATDIR $catdir -v -region $RA_MIN $RA_MAX $DEC_MIN $DEC_MAX -photcodes GPC1.r.SkyChip
+  echo done with delstar
+
+  mextract ra dec mag photcode
+  set ra_del       = ra
+  set dec_del      = dec
+  set mag_del      = mag
+  set photcode_del = photcode
+
+  imextract RA DEC PHOTCODE 
+  set ra_im_del  = RA
+  set dec_im_del = DEC
+  set pc_im_del  = PHOTCODE
+
+  # check the measurements
+  subset ra_r = ra_all if (photcode_all == $photcode_value:r)
+  tapOK {ra_r[] == (ra_all[] - ra_del[])} "deleted ra_r[] r-band measurements"
+
+  foreach filter g i z y
+    subset ra_0 = ra_all if (photcode_all == $photcode_value:$filter)
+    subset ra_1 = ra_del if (photcode_del == $photcode_value:$filter)
+    tapOK {ra_0[] == ra_1[]} "number of $filter-band measurements unchanged"
+
+    sort ra_0
+    sort ra_1
+    set dra = ra_0 - ra_1
+    vstat -q dra
+    tapOK {abs($MEAN)  < 0.000001} "$filter-band RA measurements unchanged"
+    tapOK {abs($SIGMA) < 0.000001} "$filter-band RA measurements unchanged"
+  end
+
+  # check the images
+  subset ra_r = ra_im_all if (pc_im_all == $photcode_value:r)
+  tapOK {ra_r[] == (ra_im_all[] - ra_im_del[])} "deleted ra_r[] r-band images"
+
+  foreach filter g i z y
+    subset ra_0 = ra_im_all if (pc_im_all == $photcode_value:$filter)
+    subset ra_1 = ra_im_del if (pc_im_del == $photcode_value:$filter)
+    tapOK {ra_0[] == ra_1[]} "number of $filter-band images unchanged"
+
+    set dra = ra_0 - ra_1
+    vstat -q dra
+    tapOK {abs($MEAN)  < 0.000001} "$filter-band RA images unchanged"
+    tapOK {abs($SIGMA) < 0.000001} "$filter-band RA images unchanged"
+  end
+end
+
+macro go.delstar
+
+  foreach filter g r i z y
+    ckexposure $catdir mjd_uc[$i] zpt_uc[$i] exptime_uc[$i] airmass_uc[$i] $filt_uc:$i raw
+  end
+
+  # run relphot on the db and check that the images now match the expected values
+  exec relphot g,r,i,z,y -v -region 9.5 10.5 19.5 20.5 -D CATDIR $catdir -nloop 0 -update >& tmp.log
+  foreach filter g r i z y
+    ckexposure catdir.test mjd_uc[$i] zpt_uc[$i] exptime_uc[$i] airmass_uc[$i] $filt_uc:$i relphot
+  end
+
+  tapDONE
+end
+
+# go testdata/t1 catdir.test
+# ckexposure catdir.test mjd_uc[0] zpt_uc[0] raw : result is mean of 0.0 (since test corrects for ZPT_NOMINAL vs REAL)
+# ckexposure catdir.test mjd_nc[0] zpt_nc[0] raw : result is mean of 0.0 
+# setphot -update -ubercal testzpt.fits -D CATDIR catdir.test
+# ckexposure catdir.test mjd_uc[0] zpt_uc[0] corr : result is mean of 0.0 (since image is corrected to ZPT_REAL)
+# ckexposure catdir.test mjd_nc[0] zpt_nc[0] corr : result is mean of -0.42 (since image is NOT corrected to ZPT_REAL)
+# relphot g -region 9.5 10.5 19.5 20.5 -update -D CATDIR catdir.test -D STAR_TOOFEW 1 -D SIGMA_LIM 0.075 -statmode MEAN
+# dvo: ckexposure catdir.test mjd_uc[0] zpt_uc[0] corr
+#  mean is now -0.42
+# dvo: ckexposure catdir.test mjd_nc[0] zpt_nc[0] corr
+#  mean is now -0.42 
+#  ** setphot assigned the zero point of the uc exposure to an effective -0.4 (ie, negative clouds), relphot was not told to keep this so it dragged the negative clouds to 0.0 -- this seems to be the right thing to do
+
+# re-run setphot, then relphot with -keep-ubercal
+
+# the test case has only 2 exposures, so the STAR_TOOFEW of 1 is necessary.  Also, the mag and sigma distributions are somewhat artificial
+# relphot g -v -region 9.5 10.5 19.5 20.5 -D CATDIR catdir.test -D STAR_TOOFEW 1 -D SIGMA_LIM 0.07 -statmode WT_MEAN -cloud-limit 0.5 -keep-ubercal -D IMAGE_OFFSET 0.5 -update
+# dvo: ckexposure catdir.test mjd_uc[0] zpt_uc[0] corr
+#  mean is now 0.0 
+# dvo: ckexposure catdir.test mjd_nc[0] zpt_nc[0] corr
+#  mean is now 0.0
+#  ** setphot correctly assigned the zero point of UC & relphot adjusted NC to match
+
+macro ckexposure
+  if ($0 != 8)
+    echo "ckexposure (catdir) (mjd) (zpt) (exptime) (airmass) (filter) (mode)"
+    echo "  mode == raw or corr"
+    break
+  end
+
+  local CATDIR MJD_IMAGE ZPT_REAL ZPT_NOMINAL EXPTIME FILTER AIRMASS
+  
+  $CATDIR      = $1
+  $MJD_IMAGE   = $2
+  $ZPT_REAL    = $3
+  $EXPTIME     = $4
+  $AIRMASS     = $5
+  $FILTER      = $6
+  $MODE        = $7
+
+  # XXX need a function to extract the nominal zpt for a given filter / photcode from the db
+  $ZPT_NOMINAL = $zpt_nominal:$FILTER
+  $KLAM_NOMINAL = $klam_nominal:$FILTER
+
+  $TIMEFORMAT = mjd
+  $TIMEREF = 0.0
+
+  catdir $CATDIR
+
+  # assume we still have stars_ra, stars_dec, stars_mag in hand
+  if ($PLOT)
+    dev -n 0
+    region $RA_CENTER $DEC_CENTER 0.2
+    images
+    pmeasure -all -m 15 20
+  end
+
+  skyregion {$RA_CENTER - 0.2/dcos($DEC_CENTER)} {$RA_CENTER + 0.2/dcos($DEC_CENTER)} {$DEC_CENTER - 0.2} {$DEC_CENTER + 0.2} 
+  mextract ra dec mag xccd yccd where (abs(time - $MJD_IMAGE) < 0.0001)
+ 
+  match2d -closest ra dec stars_ra stars_dec 0.001 -index1 index1 -index2 index2
+
+  reindex stars_ra_m  = stars_ra  using index1
+  reindex stars_dec_m = stars_dec using index1
+  reindex stars_mag_m = stars_mag using index1
+  set dr = 3600*(ra - stars_ra_m)
+  set dd = 3600*(dec - stars_dec_m)
+  set dm = mag - stars_mag_m
+
+  if ($PLOT) 
+    dev -n 1
+    lim mag dm; clear; box; plot mag dm
+  end
+
+  set cell_xbin = int(xccd / ($CHIP_DX / $NCELL_X))
+  set cell_ybin = int(yccd / ($CHIP_DY / $NCELL_Y))
+  subset dm00 = dm if (cell_xbin == 0) && (cell_ybin == 0)
+  subset dm01 = dm if (cell_xbin == 0) && (cell_ybin == 1)
+  subset dm10 = dm if (cell_xbin == 1) && (cell_ybin == 0)
+  subset dm11 = dm if (cell_xbin == 1) && (cell_ybin == 1)
+
+  # uncorrected values behave like this:
+  #   mag_DVO  = m_inst + zpt_nominal + 2.5*log(exptime) + K*(airmass - 1.0)
+  #   mag_real = m_inst + zpt_real + cell_offset
+  #   dm = mag_DVO - mag_real = zpt_nominal - zpt_real - cell_offset
+  #   <dm> - zpt_nominal + zpt_real + cell_offset ~ 0.0
+  #   zpt_real (in this case) = 25.0  + 2.5*log(exptime) + K*(airmass - 1.0) 
+  #     (actually, it is the value in the vector 'zpt' for this entry
+  #   zpt_nominal = 24.58
+
+  # setphot-corrected values behave like this:
+  #   mag_DVO  = mag_real (because m_inst has cell_offset applied)
+  #   dm = mag_DVO - mag_real ~ 0.0
+
+  $ZPT_REAL_NORM = $ZPT_REAL - 2.5*log($EXPTIME) - $KLAM_NOMINAL*($AIRMASS - 1.0)
+
+  if ("$MODE" == "raw") 
+    for ix 0 $NCELL_X
+      for iy 0 $NCELL_Y
+        # vstat -q dm$ix\$iy
+        # echo cell_off[$ix][$iy] {$MEDIAN - $ZPT_NOMINAL + $ZPT_REAL + cell_off[$ix][$iy]} $MEDIAN $MEAN $SIGMA 
+  
+        set dm_adjust = dm$ix\$iy - $ZPT_NOMINAL + $ZPT_REAL_NORM + cell_off[$ix][$iy]
+        vstat -q dm_adjust
+        tapOK {abs($MEAN) < 0.005} "addstar raw ZP $MJD_IMAGE $FILTER"
+      end
+    end
+    return
+  end
+
+  if ("$MODE" == "setphot_uc") 
+    vstat -q dm
+    tapOK {abs($MEAN) < 0.005} "setphot_uc  ZP $MJD_IMAGE $FILTER"
+    return
+  end
+
+  if ("$MODE" == "setphot_nc") 
+    vstat -q dm
+    tapOK {abs($MEAN - $ZPT_NOMINAL + $ZPT_REAL_NORM) < 0.005} "setphot_nc  ZP $MJD_IMAGE $FILTER"
+    return
+  end
+
+  if ("$MODE" == "relphot") 
+    vstat -q dm
+    tapOK {abs($MEAN) < 0.005} "relphot    ZP $MJD_IMAGE $FILTER"
+    return
+  end
+
+end
+
+macro mksequence
+  if ($0 != 3)
+    echo "mksequence (fileroot) (catdir)"
+    break
+  end
+
+  local i
+
+  # basic set of 5 stacks
+  foreach filter g r i z y
+    mkstack $1.$filter $RA_CENTER $DEC_CENTER $zpt_nominal:$filter 100.0 1.0 56228.666146 $filter $2
+  end
+end
+
+macro mkstack
+ if ($0 != 10)
+   echo "mkstack (fileroot) (ra) (dec) (zpt) (exptime) (airmass) (mjd) (filter) (catdir)"
+   break
+ end
+
+ local ix iy date time datetime ra dec ROOT RAo DECo ZPT MJD FILTER EXPTIME AIRMASS CATDIR
+
+ $ROOT    = $1
+ $RAo     = $2
+ $DECo    = $3
+ $ZPT     = $4
+ $EXPTIME = $5
+ $AIRMASS = $6 
+ $MJD     = $7
+ $FILTER  = $8
+ $CATDIR  = $9
+
+ $TIMEFORMAT = mjd
+ $TIMEREF = 0.0
+
+ for ix 0 $NCHIP_X
+  for iy 0 $NCHIP_Y
+    $dx  = $CHIP_DX * $PLATE_SCALE * ($ix - 0.5*$NCHIP_X + 0.5)
+    $dy  = $CHIP_DY * $PLATE_SCALE * ($iy - 0.5*$NCHIP_Y + 0.5)
+    $ra  = $RAo  - $dx / 3600.0 / dcos($DECo)
+    $dec = $DECo - $dy / 3600.0
+    # echo $ra $dec $dx $dy
+    mkinput test.in.txt $ra $dec $ZPT $FSUBSET
+    
+    # ra,dec is the center of this chip
+    local options
+    $options = 
+    $options = $options -radec $ra $dec 
+    $options = $options -type PS1_V4
+    $options = $options -coords 
+    $options = $options -photcode GPC1.$FILTER.SkyChip 
+    $options = $options -no-noise 
+    $options = $options -size $CHIP_DX $CHIP_DY 
+    $options = $options -crpix {0.5*$CHIP_DX} {0.5*$CHIP_DY} 
+    $options = $options -exptime $EXPTIME
+
+    # these should not be needed for stacks, right
+    $options = $options -airmass $AIRMASS
+    $options = $options -mjd $MJD 
+
+    exec mkcmf test.in.txt $ROOT.$ix.$iy.cmf $options
+    echo mkcmf test.in.txt $ROOT.$ix.$iy.cmf $options 
+    
+    # the fake images have inconsistent ra,dec and airmass,sidtime values
+    echo addstar $ROOT.$ix.$iy.cmf -D CATDIR $CATDIR -D CATFORMAT PS1_V4 -D CAMERA gpc1 -quick-airmass
+    exec addstar $ROOT.$ix.$iy.cmf -D CATDIR $CATDIR -D CATFORMAT PS1_V4 -D CAMERA gpc1 -quick-airmass >& tmp.log
+  end
+ end
+end
+
+# make a simple input file for mkcmf
+macro mkinput
+  if ($0 != 6)
+    echo "mkinput (filename) (ra) (dec) (zpt) (fSubset)"
+    break
+  end
+
+  # chip coordinate of the stars
+  # ra,dec is at the chip center, which corresponds to pixel (CHIP_DX,CHIP_DY)/2
+  set stars_X = (stars_ra  - $2) * 3600.0 * dcos($3) / $PLATE_SCALE + $CHIP_DX*0.5
+  set stars_Y = (stars_dec - $3) * 3600.0            / $PLATE_SCALE + $CHIP_DY*0.5
+  set stars_M = (stars_mag - $4)
+
+  # a random number to generate a random subset
+  set fkeep = rnd(stars_ra)
+  set valid = (stars_X > 0) && (stars_X < $CHIP_DX) && (stars_Y > 0) && (stars_Y < $CHIP_DX) && (fkeep < $5)
+  subset stars_x  = stars_X if valid
+  subset stars_y  = stars_Y if valid
+  subset stars_mi = stars_M if valid
+  subset stars_r  = stars_ra if valid
+  subset stars_d  = stars_dec if valid
+  subset stars_mr = stars_mag if valid
+
+  write -f "%10.6f %10.6f %7.3f  %6.1f %6.1f %7.3f" $1 stars_r stars_d stars_mr stars_x stars_y stars_mi
+end
+
+# generate a set of stars with raw RA, DEC, MAG values to use for all of the output cmf files
+macro mkstars
+  if ($0 != 2)
+    echo "USAGE: mkstars (Nstars)"
+    break
+  end
+
+  local RA_RANGE DEC_RANGE
+
+  # the images are oriented along N-S, E-W lines
+
+  # size of region of interest in linear arcseconds
+  $RA_RANGE  = 1.25 * $CHIP_DX * $NCHIP_X * $PLATE_SCALE
+  $DEC_RANGE = 1.25 * $CHIP_DY * $NCHIP_Y * $PLATE_SCALE 
+
+  create tmp 0 $1
+  set stars_ra  = $RA_CENTER  + $RA_RANGE  * (rnd(tmp) - 0.5) / 3600 / dcos ($DEC_CENTER)
+  set stars_dec = $DEC_CENTER + $DEC_RANGE * (rnd(tmp) - 0.5) / 3600
+  set stars_mag = 15.0 + 4.0 * rnd(tmp) 
+
+  # stars_ra,dec,mag are the true positions and mags of the stars
+end

@@ -1,0 +1,99 @@
+#!/usr/bin/env perl
+
+# we could test for each resulting file and re-construct the
+# output lists using only the successful ones.  This would work
+# best after we re-organize the flips elixirs to run imselect 1x
+# and the split parallel by image, not config
+
+if (@ARGV != 4) { die "USAGE: split.mef (list.mef) (outdir) (ccd) (list.msplit)\n"; }
+
+$inlist = $ARGV[0];
+$outdir = $ARGV[1];
+$ccd    = $ARGV[2];
+$outlist= $ARGV[3];
+
+$ccdkeyword = `gconfig CCDNUM-KEYWORD`; chop ($ccdkeyword);
+
+$line = `cameraconfig -axes`; chop ($line);
+($Naxis1, $Naxis2) = split (" ", $line);
+
+if (! -d $outdir) { vsystem ("mkdir -p $outdir"); }
+
+open (FILE, "$inlist");
+@mef = <FILE>;
+close (FILE);
+
+@split = ();
+foreach $name (@mef) {
+    chop ($name);
+
+    # convert name /path/name.fits to /outdir/rootccd.fits
+    @words = split ("/", $name);
+    $root = $words[-1];
+    $root =~ s/.fits//;
+    
+    # change to use ccd number, not id?
+    $new = sprintf "%s/%s%s.fits", $outdir, $root, $ccd;
+    push @split, $new;
+}
+ 
+# convert mef file to split files in outdir
+# write all valid entries to outlist
+   
+# start with empty file for msplit
+unlink ($outlist);
+
+open (MANA, "|mana --norc");
+
+# define the macro 'split'
+print MANA "macro split\n";
+print MANA " \$CCDKEYWORD = $ccdkeyword\n";
+print MANA " rd a \$1 -n $ccd\n";
+print MANA " keyword a NAXIS1 nx\n";
+print MANA " keyword a NAXIS2 ny\n";
+print MANA " if ((\$nx == $Naxis1) && (\$ny == $Naxis2))\n";
+print MANA "   wd a \$2 -bitpix 16 -bzero 32768 -bscale 1.0\n";
+print MANA "   exec echo \$2 >> $outlist\n";
+print MANA " end\n";
+print MANA "end\n";
+
+# create the macro 'go' with the commands 
+print MANA "macro go\n";
+for ($i = 0; $i < @mef; $i++) {
+    if (-e $split[$i]) { 
+	# if NAXIS1 & NAXIS2 are valid, add entry to outlist
+	$answer = `echo $split[$i] | fields NAXIS1 NAXIS2`;
+	($tmp, $nx, $ny) = split (" ", $answer);
+	if ($nx != $Naxis1) { next; }
+	if ($ny != $Naxis2) { next; }
+	print MANA "exec echo $split[$i] >> $outlist\n";
+	# print STDERR "$split[$i] exists, skipping\n";
+	next; 
+    }
+    print MANA " split $mef[$i] $split[$i]\n";
+}
+# if the macro ends successfully, exit 0
+print MANA " exit 0\n";
+print MANA "end\n";
+
+# if the macro exits before the end, exit 1
+print MANA "go\n";
+print MANA "exit 1\n";
+close (MANA);
+
+$status = $?;
+print STDERR "mana exit status: $status\n";
+if ($status) {
+    print STDERR "ERROR: problem running split.mef\n";
+    exit 1;
+}
+
+print STDERR "SUCCESS\n";
+exit 0;
+
+sub vsystem {
+    print STDERR "@_\n";
+    $status = system ("@_");
+    $status;
+}
+

@@ -1,0 +1,17 @@
+#  TEST: byid diff
+#
+#  REQ_NAME EXTVER ACTION EMAIL
+CHANGEME 2 PROCESS null
+#  ROWNUM CENTER_X CENTER_Y WIDTH HEIGHT COORD_MASK JOB_TYPE OPTION_MASK PROJECT SURVEY_NAME IPP_RELEASE REQ_TYPE IMG_TYPE ID TESS_ID COMPONENT DATA_GROUP REQFILT MJD_MIN MJD_MAX RUN_TYPE FWHM_MIN FWHM_MAX | COMMENT
+
+#  The first row should select both the warp_warp and warp_stack diffs
+0          136.8461  5.6772   500    500      2          stamp     65         gpc1      null     null    byexp    diff  o6415g0059o null     null     null       null        0    0     null       0        0    |
+
+# warp_warp_only
+0          136.8461  5.6772   500    500      2          stamp     65         gpc1      null     null    byexp    diff  o6415g0059o null     null     null       null        0    0     warp_warp       0        0    | diff_mode
+
+# this should get the warp stack diff
+0          136.8461  5.6772   500    500      2          stamp     65         gpc1      null     null    byexp    diff  o6415g0059o null     null     null       null        0    0     warp_stack       0        0    |
+
+# this should get no stamp because there is no stack_stack diff
+0          136.8461  5.6772   500    500      2          stamp     65         gpc1      null     null    byexp    diff  o6415g0059o null     null     null       null        0    0     stack_stack       0        0    |

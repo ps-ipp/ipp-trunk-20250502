@@ -1,0 +1,89 @@
+
+skyregion APIs:
+
+// a single patch on the sky
+typedef struct {
+  float            Rmin;                 // 
+  float            Rmax;                 // 
+  float            Dmin;                 // 
+  float            Dmax;                 // 
+  int              childS;               // sequence number in full table of first child
+  int              childE;               // sequence number in full table of last child + 1
+  int              parent;               // sequence number in full table of parent
+  int              index;                // sequence number in full table of this entry
+  char             depth;                // depth of this entry
+  char             child;                // does this entry have children?
+  char             table;                // does this entry have a table?
+  char             name[21];             // name / filename
+} SkyRegion;
+
+/* SkyRegion : better implementation than GSCRegion */
+typedef struct {
+  int Nregions;
+  char **filename;
+  SkyRegion *regions;
+} SkyTable;
+
+typedef struct {
+  int Nregions;
+  char **filename;
+  SkyRegion **regions;
+} SkyList;
+
+SkyList *SkyRegionByPoint (SkyTable *table, int depth, double ra, double dec);
+SkyList *SkyListByName (SkyTable *table, char *name);
+SkyList *SkyListByPoint (SkyTable *table, double ra, double dec);
+SkyList *SkyListByRadius (SkyTable *table, int depth, double RA, double DEC, double radius);
+SkyList *SkyListByPatch (SkyTable *table, int depth, SkyRegion *patch);
+SkyList *SkyListByImage (SkyTable *table, int depth, Image *image);
+SkyList *SkyListByBounds (SkyTable *table, int depth, double Rmin, double Rmax, double Dmin, double Dmax);
+SkyList *SkyListChildrenByBounds (SkyTable *table, int No, int depth, double Rmin, double Rmax, double Dmin, double Dmax);
+void SetImageCorners (double *X, double *Y, Image *image);
+int SkyTableSetDepth (SkyTable *sky, int depth);
+int SkyListFree (SkyList *list, int ELEMENTS);
+int SkyTableFree (SkyTable *table);
+int SkyListMerge (SkyList **outlist, SkyList *newlist);
+
+--- db query sky region ---
+
+// options for selecting the ra,dec limits of the db selections
+typedef struct {
+  char *name;
+  char *list;
+  int useDisplay;
+  int useSkyregion;
+} SkyRegionSelection;
+
+int get_skyregion (double *Rs, double *Re, double *Ds, double *De);
+int set_skyregion (double Rs, double Re, double Ds, double De);
+
+void FreeSkyRegionSelection (SkyRegionSelection *selection);
+SkyRegionSelection *SetRegionSelection (int *argc, char **argv);
+
+
+--- photometry.c api ---
+
+* int GetTimeSelection (time_t *tz, time_t *te) {
+int GetPhotcodeInfo (char *string, PhotCode **Code, int *Mode) {
+int SetSelectionParam (int param) {
+int GetSelectionParam () {
+int GetMeasureParam (char *parname) {
+int GetAverageParam (char *parname) {
+int TestPhotSelections (PhotCode **code, int *mode, int param) {
+void GetAverageParamHelp () {
+int InitPhotcodes () {
+int ListPhotSelections () {
+int SetPhotSelections (int *argc, char **argv, int Nparams) {
+double *ExtractMeasures (PhotCode *code, int mode, Average *average, SecFilt *secfilt, Measure *measure, int *nlist, int param) {
+double ExtractAverages (PhotCode *code, int mode, Average *average, SecFilt *secfilt, Measure *measure, int param) {
+double DetermineTypefrac (Average *average, Measure *measure, PhotCode *code) {
+int DetermineTypeCode (Average *average, Measure *measure, int code) {
+int GetMeasureTypeCode (Measure *measure) {
+int Quality (Measure *measure, int IsDophot) {
+int TestAverage (PhotCode *code, Average *average, SecFilt *secfilt, Measure *measure) {
+double *ExtractMagnitudes (PhotCode *code, int mode, Average *average, SecFilt *secfilt, Measure *measure, int *n) {
+double *ExtractDMag (PhotCode **code, int *mode, Average *average, SecFilt *secfilt, Measure *measure, int *nlist) {
+double *ExtractMeasuresDMag (PhotCode **code, int *mode, Average *average, SecFilt *secfilt, Measure *measure, int *nlist) {
+double *ExtractByDMag (PhotCode **code, int *mode, Average *average, SecFilt *secfilt, Measure *measure, int *nlist, int param) {
+double *ExtractMeasuresByDMag (PhotCode **code, int *mode, int use_first, Average *average, SecFilt *secfilt, Measure *measure, int *nlist, int param) {
+double GetMeasure (int param, Average *average, Measure *measure, double mag) {

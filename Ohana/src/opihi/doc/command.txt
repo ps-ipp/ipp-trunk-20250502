@@ -1,0 +1,24 @@
+
+readline: allocates a line and returns it; empty lines return NULL
+
+expand_vars: (recursively) expand expressions of the form $X
+	     frees the input line, allocates a new one.
+	     returns NULL on error (including NULL input)
+
+expand_vectors: expand expressions of the form $X
+	     frees the input line, allocates a new one.
+	     returns NULL on error (including NULL input)
+
+parse performs math expansion on the line, returning a new line (old one is freed)
+
+
+in newmath:
+
+isolate_elements converts argc,argv to cstack,Ncstack (argc,argv NOT freed)
+convert_to_RPN takes cstack,Nstack and converts to stack,Nstack; input cstack,Ncstack are freed
+check_stack puts pointers to data types on stack, no data allocated
+evaluate_stack 
+
+
+command parses a single input line (line) and expands
+

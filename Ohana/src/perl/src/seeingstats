@@ -1,0 +1,113 @@
+#!/usr/bin/env perl
+
+sub vsystem {
+    print STDERR "@_\n";
+    $status = system ("@_");
+    $status;
+}
+
+sub goodbye {
+    die "@_\n";
+}
+
+sub min {
+  if ($_[0] < $_[1]) {
+    return ($_[0]);
+  } else {
+    return ($_[1]);
+  }
+}
+
+sub max {
+  if ($_[0] > $_[1]) {
+    return ($_[0]);
+  } else {
+    return ($_[1]);
+  }
+}
+
+if (@ARGV != 1) { die "ERROR: USAGE: seeingstats (file)\n" }
+
+open (FILE, $ARGV[0]);
+@list = <FILE>;
+close (FILE);
+
+# the file contains results from sextractor. the lines
+# contain: FWHM FLAGS CLASS MAG 
+# reject bad objects, find mag min & number
+@mag = ();
+for ($i = 0; $i < @list; $i++) {
+  @words = split (" ", $list[$i]);
+  if ($words[1] > 0) { next; }
+  if ($words[3] > 0) { next; }
+  @mag = (@mag, $words[3]);
+}
+
+# find Mag threshold 
+@Mag = sort {$a <=> $b} @mag;
+$Nmag = @Mag;
+$Nwant = int(min(max(0.25*$Nmag, 10), $Nmag-1));
+$Mlim = $Mag[$Nwant];
+
+# fast way to zero a list of 1024 elements
+@Nfwhm = (0.0);
+for ($i = 0; $i < 10; $i++) {
+  @Nfwhm = (@Nfwhm, @Nfwhm);
+}
+$N = @Nfwhm;
+
+# reject bad objects, find mag min & number
+@fwhm = ();
+for ($i = 0; $i < @list; $i++) {
+  @words = split (" ", $list[$i]);
+  if ($words[1] > 0) { next; }
+  if ($words[3] > $Mlim) { next; }
+  @fwhm = (@fwhm, $words[0]);
+
+  # accumulate entry in histogram (@Nfwhm)
+  $bin = int ($words[0]*10.0);
+  if ($bin < 0)   { next; }
+  if ($bin > 999) { next; }
+  $Nfwhm[$bin] ++;
+}
+
+# find the mode (bin size = 0.1 pixels)
+$mode = 0;
+$Nmode = $Nfwhm[$mode];
+for ($i = 1; $i < @Nfwhm; $i++) {
+  if ($Nfwhm[$i] > $Nmode) {
+    $mode = $i;
+    $Nmode = $Nfwhm[$mode];
+  }
+}
+$Vmode = $mode * 0.1;
+$Fmin = $Vmode - 0.2;
+$Fmax = $Vmode + 0.2;
+
+# find the mean of values within 0.2 pix of the mode
+$F = 0;
+$N = 0;
+for ($i = 0; $i < @fwhm; $i++) {
+  if ($fwhm[$i] < $Fmin) { next; }
+  if ($fwhm[$i] > $Fmax) { next; }
+  $N++;
+  $F += $fwhm[$i];
+}
+if ($N > 3) {
+  $fwhm = $F / $N;
+  printf "%7.3f\n", $fwhm;
+  exit 0;
+}
+
+# I don't think the above can ever fail to get an answer, but...
+# if the mode search didn't work, resort to median
+$F = 0;
+$N = 0;
+@Fwhm = sort {$a <=> $b} @fwhm;
+$Nc = int(0.5*@Fwhm);
+for ($i = $Nc-1; $i < $Nc+2; $i++) {
+  $N++;
+  $F += $Fwhm[$i];
+}
+$fwhm = $F / $N;
+printf "%7.3f\n", $fwhm;

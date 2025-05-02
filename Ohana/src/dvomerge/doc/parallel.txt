@@ -1,0 +1,8 @@
+
+dvomergeUpdate parallel version:
+
+ * master should update photcode table & image table
+ * master should call remote clients to update their catalog tables
+ * write out a temporary IDmap for the remote clients?
+ * put the inlist loop into a function which can be called by the client or the master
+ 

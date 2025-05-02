@@ -1,0 +1,129 @@
+
+here are keywords used in Elixir:
+
+Elixir defined keywords:
+(detrend dB)
+TVSTART
+TVSTOP
+FILTER
+EXPTIME
+OBSTYPE
+NENTRY - values in dB
+
+(phot dB)
+NIMAGES 
+
+(imregister / iminfo)
+EXPTIME-KEYWORD   : ExptimeKeyword   : EXPTIME : Exposure time
+IMAGETYPE-KEYWORD : ImagetypeKeyword : OBSTYPE / EXPTYPE : Image type (DARK, OBJECT, etc)
+CCDNUM-KEYWORD    : CCDnumKeyword    : IMAGEID : CCD number
+FILTER-KEYWORD    : FilterKeyword    : FILTER  : filter name
+AIRMASS-KEYWORD   : AirmassKeyword   : AIRMASS : airmass
+FOCUS-KEYWORD     : FocusKeyword     : TELFOCUS: telescope focus setting
+ROTATION-KEYWORD  : RotationKeyword  : ROTANGLE: rotation angle
+DETTEMP-KEYWORD   : DettempKeyword   : DETTEM  : detector temperature
+TELDATA1-KEYWORD  : Teldata1Keyword  : XPROBE  : bonnette probe x position
+TELDATA2-KEYWORD  : Teldata2Keyword  : YPROBE  : bonnette probe y position
+TELDATA3-KEYWORD  : Teldata3Keyword  : ZPROBE  : bonnette focus
+RA-DDD-KEYWORD    : RADecDegKeyword  : CRVAL1  : RA in dec. degrees
+DEC-DDD-KEYWORD   : DECDecDegKeyword : CRVAL2  : DEC in dec. degrees
+RA-HMS-KEYWORD    : RASexigKeyword   : CRVAL1  : RA in hour,min,sec
+DEC-DMS-KEYWORD   : DECSexigKeyword  : CRVAL2  : DEC in dec,min,sec
+CAMERA-KEYWORD    : CameraKeyword    : INSTRUME: unique name of camera
+
+(time keywords already abstracted)
+DATE-KEYWORD	  : DateKeyword	     : DATE-OBS   : date
+DATE-MODE	  : DateMode	     : yyyy-mm-dd : format for DATE-KEYWORD
+UT-KEYWORD	  : UTKeyword	     : UTC-OBS	  : UT
+JD-KEYWORD	  : JDKeyword	     : NONE	  : JD
+MJD-KEYWORD	  : MJDKeyword	     : NONE	  : MJD
+
+(photcode)
+CAMERA-KEYWORD    : CameraKeyword    : DETECTOR: unique name of camera
+FILTER-KEYWORD    : FilterKeyword    : FILTER  : filter name
+CCDNUM-KEYWORD    : CCDnumKeyword    : IMAGEID : CCD number
+
+
+EXTEND  : extensions present (FITS required keyword for MEF)
+NEXTEND : extension number (not necessarily IMAGEID)
+
+(gophot)
+SATVALUE: saturation value for this image
+GAIN    : gain (e/DN) for this image
+NEWGAIN : a stupid name for an altered gain.
+RDNOISE : read noise (in electrons) ***
+DNNOISE : read noise (in DN)        ***
+
+(gastro / coordops in ohana)
+WCS keywords (these do not need to be abstracted)
+CD1_1
+CD1_2
+CD2_1
+CD2_2
+CDELT1
+CDELT2
+CROTA2
+CRPIX1
+CRPIX2
+CRVAL1
+CRVAL2
+CTYPE2
+NPLYTERM
+PC001001
+PC001002
+PC002001
+PC002002
+PCA1X0Y2
+PCA1X0Y3
+PCA1X1Y1
+PCA1X1Y2
+PCA1X2Y0
+PCA1X2Y1
+PCA1X3Y0
+PCA2X0Y2
+PCA2X0Y3
+PCA2X1Y1
+PCA2X1Y2
+PCA2X2Y0
+PCA2X2Y1
+PCA2X3Y0
+DEC_O
+DEC_X
+DEC_Y
+RA_O
+RA_X
+RA_Y
+EPOCH
+EQUINOX
+
+NAXIS1  : FITS mandatory keyword
+NAXIS2  : FITS mandatory keyword
+RA	: RA in sexigesimal (for rough astrometry)
+DEC	: DEC in sexigesimal (for rough astrometry)
+NSTARS  : elixir-added keyword (number of stars, from imclean)
+
+EXPTIME
+AIRMASS 
+IMAGEID
+
+ZERO_PT : Elixir-added keyword (imclean)
+NASTRO  : Elixir-added keyword (imclean)
+CERROR  : Elixir-added keyword (gastro)
+PHOTCODE: Elixir-added keyword (imclean)
+APMIFIT : Elixir-added keyword (imclean)
+dAPMIFIT: Elixir-added keyword (imclean)
+FLIMIT  : Elixir-added keyword (imclean)
+FSATUR  : Elixir-added keyword (imclean)
+FWHM_X  : Elixir-added keyword (imclean)
+FWHM_Y  : Elixir-added keyword (imclean)
+TZERO   : Elixir-added keyword (imclean)
+TRATE   : Elixir-added keyword (imclean)
+NSTARS  : Elixir-added keyword (imclean)
+
+NIMAGES : (Elixir keyword for phot db)
+
+parse_time.c:    fits_scan (header, JDKeyword, "%lf", 1, &jd);
+parse_time.c:    fits_scan (header, MJDKeyword, "%lf", 1, &jd);
+parse_time.c:  fits_scan (header, UTKeyword, "%s", 1, line);
+parse_time.c:  fits_scan (header, DateKeyword, "%s",  1, line);
+wimage.c:  fits_scan (&header, "NIMAGES", "%d", 1, &Nimages);

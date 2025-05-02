@@ -1,0 +1,147 @@
+<meta name=title content=DVO extractions>
+<meta name=page  content=extractions>
+
+<p>
+DVO provides several ways to access the photometry information stored
+in the database.  Several simple commands allow the user to extract 1
+dimensional information directly from one of the primary database
+tables.  The commands are:
+<ul>
+<li> imextract
+<li> avextract
+<li> mextract
+<li> imsearch
+<li> detsearch
+</ul>
+
+<h3> imextract </h3> 
+
+This command allows the user to extract one of the columns from the
+image table, applying filtering as desired:
+
+<pre>
+  dvo: imextract
+  USAGE: imextract (value) [-region] [-time start range] [-photcode photcode]
+  dvo: imextract help
+  value may be one of the following:
+   ra dec airmass Mcal dMcal Xm photcode time fwhm exptime nstar ncal sky flag
+</pre>
+
+<p>
+The extracted data is saved in a vector with the same name used to
+select the column.  The vector name will have the same case as the
+choice given, but the column selection is case-insensitive (since
+there are no ambiguities in the database columns names by case).  
+
+<h3> avextract </h3>
+
+This command allows the user to extract data from one of the Average
+table columns:
+
+<pre>
+  dvo: avextract
+  USAGE: avextract (from) (value) [options]
+    from: cpt name or 'all'
+    value: average.parameter or photcode
+  dvo: avextract all help
+  value may be one of the following:
+   ra dec dmag Nmeas Nmiss Xm Xp Nphot Ncode flag type
+</pre>
+
+<p>
+This command takes as the first argument the name of one of the
+database regions.  Alternatively, all regions currently displayed may
+be selection with the word 'all'.  The second option specifies which
+column to select from the Average table.  In addition to the basic
+data columns (ra, dec, etc), the magnitude-related average values
+(mag, dmag, Xm, Nphot, Ncode) are coupled to a photcode, which is thus
+required for these selections.  The value 'mag' may also be subsituted
+with a primary or secondary photcode.  Eg:
+
+<pre>
+  avextract all ra : select ra for all objects in displayed region
+  avextract all g  : select g magnitudes
+  avextract all mag -photcode r : select r magnitudes 
+  avextract all Xm -photcode r  : select chisq values for r average mags
+</pre>
+
+<h3> mextract </h3>
+
+This command allows the user to extract data from one of the Measure
+table columns:
+
+<pre>
+  dvo: mextract
+  USAGE: mextract (from) (value) [options]
+    from: cpt name or 'all'
+    value: measure.parameter or photcode
+  dvo: mextract all help
+  value may be one of the following:
+   ra dR dec dD mag dmag Mrel Mcal photcode time fwhm dophot xccd yccd xmosaic ymosaic flags
+</pre>
+
+<p>
+This command takes as the first argument the name of one of the
+database regions.  Alternatively, all regions currently displayed may
+be selection with the word 'all'.  The second option specifies which
+column to select from the Measure table.  In addition to the basic
+data columns (ra, dec, etc), the magnitude-related average values
+(mag, dmag) are coupled to a photcode, which is thus required for
+these selections.  The value 'mag' may also be subsituted with a
+primary or secondary photcode.  Eg:
+
+<pre>
+  mextract all ra : select ra for all objects in displayed region
+  mextract all g  : select g magnitudes
+  mextract all mag -photcode r : select r magnitudes 
+  mextract all Xm -photcode r  : select chisq values for r average mags
+</pre>
+
+<h3> option filtering </h3>
+
+The following extraction options allow the user to restrict the
+selections:
+
+<p>
+<tt> -time (start) (range)<tt><br> 
+
+select data for images within the given time range.  The start date is
+given in the format YYYY/MM/DD,hh:mm:ss (any of these element may be
+dropped, in which case they default to 00 [for hh,mm,ss] or 01 [for
+MM,DD]).  The date may also be written as a number of days followed by
+j (JD) or J (MJD).  The two special date names "now" and "today" are
+also valid.  The range is written as a number followed by a unit, with
+valid units of s (seconds), m (minutes), h (hours), d (days).  Times
+are in UT.  For example:
+
+<pre>
+ -time 2001/1/1 30d : select the range starting at midnight on 2001/1/1
+  and ending 30 days (86400*30 seconds) later.
+
+ -time now -3h : select the time range starting three hours ago and
+  ending now.
+</pre>
+
+<tt> -region<tt><br> 
+
+restrict the selection to the currently display portion of the sky.
+This filter expects a portion of the sky to be plotted, and will only
+select data for images in the part of the sky.  The algorithm for
+selecting the displayed region may not be perfect, so images near the
+boundaries may be unexpected included or excluded (this depends on the
+exact overlap details).  Multiple queries with the same region will
+result in the same subset of images selected.
+
+<tt>-photcode (photcode) </tt><br>
+
+This restricts the selection to the given photcode.  Images may only
+have photcodes of 'Dependent' type (eg, CFH12K.R.00).  This filter
+allows the selection of images by exact match (selected photcode is
+Dependent type) or by equivalence match (selected photcode is Primary
+or Secondary type).  Thus, selecting images based on CFH12K.R.00 will
+ignore images with photcode CFH12K.R.10, while selecting images based
+on photcode 'r' will return all images with CFH12K.R.*, since all are
+equivalent to 'r'.  (NOTE: these details depend on the layout of the
+photcode table).
+
+<em> fill this out with all other restrictions provided by photometry.c</em>

@@ -1,0 +1,18 @@
+item1 BOOL  TRUE #I am a boolean 
+item2 S32  55  
+item3 F32  3.14  
+item4 F64  6.28  
+item5 STR  GNIRTS  #I am a string 
+@vector6 S32 1 2 3 4 5  #I am a vector 
+time01 PS_TIME_TAI  1000, 25, T  #I am time 
+
+metadata7  METADATA  
+   ITEM01 S32  666  
+   META NEW  METADATA  
+      @VECTORNEW S32 1 2 3 4 5  #Newest VECTOR 
+      cell STR  pStArRs  #I am a p-Star 
+   END   #I AM Newest METADATA
+   ITEM02 F32  666.6  #I AM FLOAT 
+   ITEM03 F64  666.666  #I AM DOUBLE 
+END   #I am a metadata
+

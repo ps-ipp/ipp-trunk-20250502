@@ -1,0 +1,17 @@
+[% USE format -%]
+[% indented = format('%-15s %s') -%]
+/** [% table.object_name %] data structure
+ *
+ * Structure for representing a single row of [% table.name %] table data.
+ */
+
+typedef struct {
+[% SET i = 0 -%]
+[% FOREACH item = table.columns -%]
+[% IF item.type == "STR" -%]
+    [% indented("char", "*$item.name") %];
+[% ELSE -%]
+    [% indented("$item.ctype", "$item.name") %];
+[% END -%]
+[% END -%]
+} [% table.object_name %];

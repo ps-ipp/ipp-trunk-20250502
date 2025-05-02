@@ -1,0 +1,18 @@
+# Description:
+
+  package		FITS Handling Library
+  version		1
+  organization		Canada-France-Hawaii Telescope
+  email			daprog@cfht.hawaii.edu
+  year			2001
+
+# Contents:
+
+  Makefile		Use with GNU make to build libfh
+
+  fh.h			FITS Handling Routines for Standard FITS and MEF
+  fh.c			FITS Handling Routines (see fh.h for descriptions)
+  fh_rt.h		FITS RealTime routines
+  fh_rt.c		FITS RealTime routines
+  fh_validate.c		A routine to validate the completeness of header.
+  fh_registry.h		A registry of FITS keywords in use at CFHT.

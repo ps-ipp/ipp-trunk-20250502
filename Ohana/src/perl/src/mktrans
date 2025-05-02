@@ -1,0 +1,141 @@
+#!/usr/bin/env perl
+
+if (@ARGV != 2) { die "USAGE: mktrans (start) (stop)\n" ;}
+
+$start = $ARGV[0];
+$stop  = $ARGV[1];
+
+@photcodes = split (" ", `filtnames list`);
+
+foreach $code (@photcodes) {
+
+    print STDERR "filter: $code\n";
+    @list = `photsearch -trange $start $stop -photcode $code`;
+    if (! @list) { next; }
+
+    # the lines from photsearch look like this:
+    # filter date            zp      dzp   N T label (N - Nmeas, T - Ntime)
+    # V 2001/02/03,15:38:53  26.249  0.017 3 1 elixir
+
+    if (1) {
+
+	# first pass, get list of zp, sort, find median 
+	@zp = ();
+	$sumN = $sumM = $sum1 = $sum2 = $n = 0;
+	foreach $line (@list) {
+	    @words = split (" ", $line);
+	    push @zp, $words[2];
+	    $sumN ++;
+	    $sumM += $words[5];
+	}
+	@zp = sort {$a <=> $b} @zp;
+
+	$N = @zp;
+	for ($i = 0.2*$N; $i < 0.8*$N; $i++) {
+	    $sum1 += $zp[$i];
+	    $sum2 += $zp[$i]*$zp[$i];
+	    $n ++;
+	}
+	
+	$zp = $sum1 / $n;
+	$dzp = sqrt (abs($sum2 / $n - $zp*$zp));
+
+	printf STDOUT "photreg -trans -photcode $code -zp %6.3f -dzp %6.4f -trange $start $stop -Nmeas $sumM -Ntime $sumN\n", $zp, $dzp;
+
+    } else {
+	# use date hashes to extract stats for each date:
+	@dates = ();
+	foreach $line (@list) {
+	    
+	    # parse the line for the date
+	    @words = split (" ", $line);
+	    ($date) = $words[1] =~ /(\d\d\d\d\/\d\d\/\d\d),/;
+	    
+	    # if this is a new date, save it in the list
+	    unless ($sum1{$date}) { @dates = (@dates, $date); }
+
+	    # add to the stats 
+	    $sumN{$date} ++;
+	    $sumM{$date} += $words[5];
+	    $sum1{$date} += $words[2];
+	    $sum2{$date} += $words[2]*$words[2];
+	}
+
+	@sdates = sort by_date @dates;
+
+	# calculate mean and stdev for each date
+	foreach $date (@sdates) {
+	    
+	    $Nm  = $sumM{$date};
+	    $Np  = $sumN{$date};
+	    $zp  = $sum1{$date} / $Np;
+	    $dzp = sqrt (abs($sum2{$date} / $Np - $zp*$zp));
+
+	    printf STDOUT "photreg -trans -photcode $code -zp %6.3f -dzp %6.4f -trange $start $stop -Nmeas $Nm -Ntime $Np\n", $zp, $dzp;
+	}
+
+	%sumM = ();
+	%sumN = ();
+	%sum1 = ();
+	%sum2 = ();
+	print STDOUT "\n";
+    }
+    
+}
+
+exit 0;
+
+sub by_date {
+    
+    ($year, $month, $day) = $a =~ /(\d\d\d\d).(\d\d).(\d\d)/;
+    $va = get_jd ($year, $month, $day);
+    ($year, $month, $day) = $b =~ /(\d\d\d\d).(\d\d).(\d\d)/;
+    $vb = get_jd ($year, $month, $day);
+    $va <=> $vb;
+}
+    
+
+
+###################################################################################
+
+sub vsystem {
+    print STDERR "@_\n";
+    $status = system ("@_");
+    $status;
+}
+
+sub goodbye {
+    die "@_\n";
+}
+
+
+sub get_jd {
+
+    my($year) = $_[0];
+    my($month) = $_[1];
+    my($day) = $_[2];
+
+    my($jd) = $day - 32075 + int (1461*($year + 4800 + int (($month - 14)/12))/4)
+	+ int(367*($month - 2 - int(($month - 14)/12)*12)/12)
+	    - int(3*int(($year + 4900 + int(($month - 14)/12))/100)/4) - 0.5;
+    
+
+    return ($jd);
+
+}
+
+sub get_mjd {
+
+    my($year) = $_[0];
+    my($month) = $_[1];
+    my($day) = $_[2];
+
+    my($jd) = $day - 32075 + int (1461*($year + 4800 + int (($month - 14)/12))/4)
+	+ int(367*($month - 2 - int(($month - 14)/12)*12)/12)
+	    - int(3*int(($year + 4900 + int(($month - 14)/12))/100)/4) - 0.5 - 2400000.5;
+    
+
+    return ($jd);
+
+}
+

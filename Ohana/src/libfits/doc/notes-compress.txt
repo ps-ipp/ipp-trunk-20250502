@@ -1,0 +1,72 @@
+
+20150525 : 
+
+uncompression steps:
+
+ * read in a table: gfits_fread_ftable_data (f, &ftable, FALSE); (no byte swap)
+ * uncompress the image: gfits_uncompress_image (&buf[0].header, &buf[0].matrix, &ftable);
+   * get ZIMAGE from heaer & delete
+   * get ZCMPTYPE 
+   * get ZBITPIX, ZNAXIS, ZNAXISnn
+   * get ZTILEn (if missing ZTILE1 = Nx, others 1)
+   * get ZNAME, ZVAL
+   * ZSIMPLE, ZTENSION, ZEXTEND, ZBLOCKED, ZPCOUNT, ZGCOUNT, etc
+   * ZSCALE, ZBLANK, OBLANK, ZZERO
+
+   * data is stored in fits table COMPRESSED_DATA (1PB, 1PI, 1PJ)
+
+------------------------------------------------
+
+TFORMn : rPt(e_max)
+r is 0, 1, or absent
+P is literal
+t is datatype character for binary tables
+e_max is the largest record in the column
+
+data column actually contains: 2 32bit values:
+Length + Offset
+
+THEAP : offset from start of data to start of heap
+(note that the heap starts at NAXIS1 x NAXIS2, not Nx2880 bytes). 
+
+total size of heap segment (gap + heap data) is PCOUNT
+
+I need to implement (at least) support for read of compressed images.
+It might be a good plan to upgrade the gfits API set, or at least
+identify needed work.
+
+* PCOUNT / GCOUNT : these are currently ignored.  I need to at least
+  include them in the calculation of the fits data segment size.  I
+  might need to use them in the interpretation of the table data.
+
+* implement variable-length columns in FITS table support.  
+
+* add the I/O support directly to gfits_read/write_matrix, or define
+  low-level APIs to support read/write of a compressed image?
+
+  * we should start with the low-level APIs and add in the higher
+    level ones as needed.
+
+* possible needed APIs & upgrades:
+
+  - gfits_image_is_compressed (Header *header) 
+    does the specified header correspond to a compressed image?	
+    what about the PHU which implies a compressed image in the next
+    HDU?
+
+  - Matrix *gfits_uncompress_image (Header *header, Table *table)
+    convert the specified table into an image, modifying the header in
+    place
+
+  - Table *gfits_compress_image (Header *header, Matrix *matrix, Compression *options)
+    compress the given image returning the table data
+
+  o include PCOUNT in data area size (gfits_matrix_size)
+
+  o read heap when reading table (gfits_fread_table_data)
+
+  - void *gfits_varlength_column_pointer (FTable *ftable, VarLengthColumn *column, int row);
+
+  o int gfits_varlength_column_define (FTable *ftable, VarLengthColumn *def, int column);
+
+

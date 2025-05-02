@@ -1,0 +1,96 @@
+
+2009.02.07
+
+The autocode tables currently use type names which are ambiguous in
+terms of their actual sizes in bits.  I've added the intNN_t and
+uintNN_t types -- this requires --use-gnu99 with configure
+
+see libdvo/doc/notes.txt for instructions on adding new dvo catalog formats
+
+2007.00.00
+
+This directory contains a collection of autocoded FITS I/O routines
+used to define FITS Table DB functions.  
+
+The autocoder program is a perl script 'generate'.  This scripts takes
+as input a schema file and a template source code file, and produces
+an output file from these two inputs.  A single schema file is meant
+to be associated with a single data concept which is being coded.  For
+example, in the case of the FITS DB tables, a single schema file
+defines a single FITS table, or equivalently, a single C structure
+representing a row in that FITS table.
+
+Schema File
+
+The schema file currently consists of two types of information.
+
+First, there are simple keyword / name pairs which the autocoder
+simply applies as a direct replacement anywhere in the template.  For
+example, the keyword NAME replaces any instance of "$NAME" in the
+template with the corresponding value.  
+
+Second, there is a special type of keyword: FIELD.  The FIELD entry
+defines an entry in the data structure.  The FIELD entry is followed
+by the following comma-separated pieces of information:
+
+- the element name
+- the element FITS field (in FITS table)
+- the element data type
+- the element description
+- the element physical unit
+
+SUBFIELD / SUBSTRUCT keywords allows the user to define elements of a
+structure which are themselves structures.  These fields are used as
+follow:
+
+Binary / ASCII FITS tables write out the SUBFIELD entries as if they
+were regular table rows (substructure distinction not visible in FITS
+table).  SUBSTRUCT rows are NOT added to the FITS table.
+
+In a C-structure, the SUBFIELD rows are skipped and only the SUBSTRUCT
+row is saved.  The definition of the substructure is assumed to be
+defined elsewhere in the C code.
+
+Template File
+
+The template file is a source code in whatever language is desired.
+Within the template, the defined keywords may be used as desired,
+wherever needed.  
+
+In addition, there are special directives which invoke additional
+special behavior.  All special directives have the form of comments
+within their target language.  They are replaced with a block of code
+in that target language, normally one which iterates over the FIELD
+elements of the schema file.  As such, the directive appropriate for
+one language should not be used within code for a different language.
+Here is a list of existing special directives:
+
+/** STRUCT DEFINITION **/
+
+This tells the autocoder to create a structure definition for the
+schema.  The structure definition creates a structure with elements
+based on the FIELD entries, with the name $NAME (NOTE: this is perhaps
+making too much of an assumption.  we could require the template to
+provide the wrapper: "typedef struct { } $NAME;" and have the
+autocoder only insert the field lines).  
+
+/** TABLE DEFINITION **/
+
+This tells the autocoder to output the lines which add a column to an
+exiting empty table.  The assumption is that the template contains
+code to initialize a table.  It then invokes the table definition
+code, which defines each of the appropriate columns.  This is perhaps
+followed by some code which finalizes the table definition.  (Note:
+the code output by the autocoder in this block is not very flexible:
+it the current example, it explicitly uses the Elixir FITS Table
+functions, and refers to some data elements in the template code.  The
+latter could possibly be more abstracted with the keyword / value
+pairs, but in any case, the autocoded lines will have to be
+constructed somewhat by hand for a specific API set.
+
+/** BYTE SWAP **/
+
+This tells the autocoder to output code defining the byte swaps
+appropriat to the data structure.  Again, the resulting code depends a
+bit on the intended use and API set.
+

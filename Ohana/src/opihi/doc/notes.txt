@@ -1,0 +1,103 @@
+
+opihi improvements / fixes:
+
+* single math processing system : inline shell math used one set of
+  functions (shell/math.c), while the set = () used another set, and
+  logic used part of a third set.  This has been unified into a single
+  math handling function (newmath).  The new math expression handling
+  also returns temporary in-line vectors and matrix expressions.
+
+* global user variables (Buffers, Vectors) and other global variables
+  (outfile, tv parameters, graphic and image tool parameters) have
+  been encapsulated in fuctions to avoid the global data constructs.  
+
+* improved command exit status handling : in the past, a function
+  returning FALSE would halt all script executing, returning to the
+  top level of the command stack.  we now set the variable $STATUS
+  with the exit status and allow the the user to test the exit
+  status to choose an operation.  loops, macros, and input files can
+  use the 'break' and 'continue' functions to escape from the current
+  location.  calling break returns with an exit status of FALSE,
+  calling break returns immediately with an exit status of TRUE.
+
+* more extensive use of 'outfile' 
+
+* support for opihi scripts: there is now better interpretation of
+  command-line arguments to allow for embedded opihi scripts, ie
+  scripts with the dvo or mana interpretter named on the first line
+  with the prefix #! like a shell script.  The first command-line
+  argument is interpreted as a file to input while successive ones are
+  converted to variables $argv:0 - $argv:n  WARNING: in the past,
+  multiple input files could be specified on the command-line.  this
+  now must be specified with --load file arguments.
+
+* local variables: there is now support for local (vs global) opihi
+  variables.  any macro may have a variable declared as local with the
+  command 'local (var)', which may take a list of variables.  these
+  variables are stored internally in association with the macro name.
+  the command may include the option -static, in which case the
+  variable will retain its value on successive calls to the same
+  macro.
+
+- merge of all old opihi-type programs into a single code base 
+
+- group related functions into libraries
+
+- function names, etc, should come from a single function, now a
+  global include file.
+
+- update help files
+
+- update web pages
+
+--
+
+some notes: 
+
+- new vector interpretation is now somewhat slower, due to the multiple
+  assignments.
+
+- BinaryOp does not leak memory (tested)
+
+- 55 seconds for 1000 floating-pt operations on a 4Mpix (3 GHz) -> 0.2
+  seconds per FP OP on a 4k square image
+
+- loop / list functions:
+
+  opihi.c
+  run_loop.c
+  run_if.c
+  input.c
+  for_loop.c
+  macro_exec.c
+
+  I have added continue / break functionality to all loop operations:
+
+  * the variable $STATUS is set based on the exit status of each command
+  * each loop tests for break and continue
+  * in the case of break, the loop returns a status of FALSE
+  * in the case of continue, the loop returns a status of TRUE
+  * if break -auto is set to 'on', then any exit status of FALSE escapes to  
+    the top level.
+  * interrupts are carried up to the top level.
+
+- local variables
+
+  I have added local variables.  They have names of the form
+  MacroName.VarName, where MacroName is the macro in which they are
+  local.  They are declared local with the command 'local', which
+  takes a list of variables to declare local, and the optional -static
+  flag, which requires the shell to test for the existence of the
+  variable before creating it, and only create it if it does not
+  exist.  otherwise the existing value of the variable is maintained.
+
+- math
+
+  I have removed the last instances of math interpretation being
+  performed by math, not newmath, in expand_vectors (interpreting the
+  contents of the vector square brackets: x[5]), and in the two
+  locations where logic was used in the evaluation: run_in and
+  run_while.  there are still some error in the precedence of the
+  operators: logical operators >,<,==,!=, etc need to be lower
+  priority than other binary operators.
+

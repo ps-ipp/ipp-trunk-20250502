@@ -1,0 +1,150 @@
+#!/usr/bin/env perl
+
+# this script searches for new links in the archive elixir directory,
+# creates links for the new images in the elixir TMPDIR tree,
+# registers the images in the elixir database, and 
+# sends the images to imstats for processing.
+
+use English;
+
+# check usage
+if (@ARGV != 0) { die "USAGE: elixir.link\n"; }
+
+# what do we do about config file?  demand account be set up correctly?
+$camera = `gconfig CAMERA.CURRENT`; chop $camera;
+$runid  = `gconfig RUNID.CURRENT`; chop $runid;
+$opts = "-D CAMERA $camera -D RUNID $runid";
+
+{ # check camera validity
+    if ($camera eq "cfh12k")  { last; } 
+    if ($camera eq "megacam") { last; } 
+    if ($camera eq "meganorth") { last; } 
+    if ($camera eq "cfhtir")  { last; } 
+    die "invalid camera $camera";
+}
+
+$fifos = `gconfig $opts FIFOS`; chop $fifos;
+if ($?) { die "error in config system: missing FIFOS\n"; }
+
+$rawdir = `gconfig $opts RAWDIR`;  chop $rawdir;
+if ($?) { die "error in config system: missing RAWDIR\n"; }
+
+$linkdir = `gconfig $opts ARCLINK_DIR`;  chop $linkdir;
+if ($?) { die "error in config system: missing ARCLINK_DIR\n"; }
+
+$archive = `gconfig $opts ARCHIVE_DIR`;  chop $archive;
+if ($?) { die "error in config system: missing ARCHIVE_DIR\n"; }
+
+@links = glob ("$linkdir/*");
+
+if (! @links) { exit 0; }
+
+$Ngood = 0;
+$Nskip = 0;
+$Nfail = 0;
+
+foreach $name (@links) {
+    if (! -l $name) { $Nskip ++; next; }
+    
+    # find real path
+    $rootname     = filename ($name);
+    $arcfile = sprintf "%s/%s", $archive, $rootname;
+    
+    # set new path (skip if it exists)
+    $rawfile = sprintf "%s/%s", $rawdir, $rootname;
+    if ((-e $rawfile) || (-l $rawfile)) { 
+	$Nskip ++;
+	unlink ($name);
+	next; 
+    }
+    
+    # link file into rawdir:
+    $status = symlink ($arcfile, $rawfile);
+    if (! $status) {
+	$Nfail ++;
+	next;
+    }
+    
+    # these files always come in as MEF or CUBE 
+    # -needtype will skip focus frames
+    vsystem ("imsort -needtype $opts $rawfile");
+    if ($?) { 
+	# allow for retry on failure
+	$Nfail ++;
+
+	# save links for record.
+	if (! -d "$linkdir/failure") { mkdir "$linkdir/failure"; }
+	system ("mv $name $linkdir/failure/");
+	next; 
+    }
+
+    $Ngood ++;
+    unlink $name;
+}
+
+print STDERR "elixir.link: $Ngood good, $Nskip skip, $Nfail fail\n";
+exit 0;
+
+# utilities ##############################################
+
+sub vsystem {
+    print STDERR "@_\n";
+    my ($status) = system ("@_");
+    $status;
+}
+
+sub filename { 
+
+    my ($path) = $_[0];
+    my (@tmp);
+    
+    @tmp = split ("/", $path);
+    return $tmp[-1];
+}
+
+sub convertlink {
+    my ($link) = $_[0];
+    my ($file);
+
+    while (-l $link) {
+	$file  = readlink ($link);
+	$path1 = path ($link);
+	$path2 = path ($file);
+	
+	unless ($path2 =~ m|^/|) {
+	    $file = "$path1/$file";
+	}	
+	$link = $file;
+    }
+    return ($link);
+}    
+
+sub usage {
+    
+    if (@ARGV == 1) {
+	print STDERR "\n --- user modes ---\n";
+	print STDERR "create (run) (start) (stop)\n";
+	print STDERR "addqso (runid) (qsoid)\n";
+	print STDERR "delqso (qsoid)\n";
+	print STDERR "sched (runid)\n";
+	print STDERR "status\n";
+	&goodbye;
+    }
+    
+    if (@ARGV > 2) { print STDERR "USAGE: prepare.run (help) [mode]\n"; &goodbye; }
+    
+    &goodbye;
+}
+
+sub path {
+
+    my ($file) = $_[0];
+
+    @words = split ("/", $file);
+
+    pop (@words);
+    
+    $path = join ("/", @words);
+
+    return ($path);
+}

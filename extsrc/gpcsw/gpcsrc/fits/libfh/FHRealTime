@@ -1,0 +1,186 @@
+
+DRAFT - Real-Time extensions to libfh for "video" mode image clients.
+---------------------------------------------------------------------
+
+I. Definition of "real-time" display mode
+
+  A FITS viewer could be started in a special mode (e.g., with
+  a command line option) in which it is intended to display
+  only "current" image data.  The idea is to define an interface
+  that allow a FITS client to determine:
+
+  A. The number of extensions (if any) and the dimensions of the
+     image area(s), and whether or not the dimensions have changed.
+
+  B. If a file is current, whether or not it is still dynamically
+     changing (currently being written by DetCom, for example.)
+
+  C. If a single plane/image is partially written, which regions
+     are complete and which are yet to be read (e.g. from the camera.)
+
+  D. If the file has NAXIS>2, which plane in a cube is the most recent.
+
+  E. If a single plane/image is being built from an iterative
+     process such as on-the-ramp sampling, or being re-used
+     as in a circular buffer for guider images, which revision
+     of the data currently exists.
+
+  F. Whether a file is the most current or not, and which file
+     supercedes it.
+
+II. Methods
+
+  A. Extensions, file geometry - When a FITS client attempts to open
+     a new file, libfh takes care of waiting for the proper read-lock
+     to happen.  Once such a read lock can be obtained, the following
+     items are guaranteed to be populated and must not be changed
+     by detcom or whatever is providing the FITS file:
+
+     1. The number of extensions (NEXTEND in the primary header unit)
+     2. The number of dimensions (NAXIS for each image)
+     3. The dimensions themselves (NAXIS1, NAXIS2, NAXIS3, ...)
+     4. The pixel format (BITPIX)
+
+     . . . others?
+
+     Use of BITPIX and NAXIS* follows the FITS standard.
+
+     Use of extensions requires a little explanation.  If the
+     file has no extensions, a basic FITS image is assumed.
+     Otherwise, a set of FITS image extensions (other extension
+     types ignored??) are expected, exactly equal to NEXTEND
+     in the primary header.  The steps below may apply either
+     to a single basic FITS, or to an iteration through each
+     extension.
+
+     The above information is essentially available as soon as the
+     file exists.  This is ensured by the way a program generating
+     a FITS file using libfh uses file locks.
+
+  B. Next, a keyword RTACTIVE=T/F can be checked.  Its presence
+     during step (A) indicates whether or not the current FITS
+     buffer is going to support the real-time extensions that follow.
+     Initially, it will appear as T(rue), meaning that the FITS
+     file is actively being formed in real time.  Once the file will
+     no longer be changing RTACTIVE will change to F(alse).  The
+     internal methods in libfh for determining progress of a real-time
+     file are affected by this keyword in the following way:
+
+       RTACTIVE=T: Checks are made for zero-pixels plus a signature
+                   pixel within each image plane (if cubes) to determine
+                   current real-time progress of a frame, or a cube sequence.
+       RTACTIVE=F: Progress functions return 100% complete.
+       RTACTIVE not present: Real-time extensions should be disabled and
+                             progress functions also return 100% complete.
+
+  C. During the process of reading pixels from a camera, it may
+     be desirable to display the part of the image area which has
+     been read if the process takes several seconds.  For this case,
+     each extension (or the single FITS image) must end up getting
+     filled from the beginning or end of its image area buffer.
+     (If NOAO's model was followed strictly, and no flipping is
+     ever done on pixel data as it is read from the amplifier, only
+     the beginning-to-end case would be needed, but we have decided
+     to do some of our own flipping.)
+
+     By setting the RTACTIVE keyword, a creator of a FITS file is
+     indicating that it has initialized the pixel image areas with
+     marker-pixels at select locations.  It must set these if the
+     RTACTIVE keyword is used.  These locations are checked by libfh
+     to determine the progress of a FITS file being written.
+
+  D. In addition to determining the progress within a 2D image plane,
+     the marker pixels can be used to determine which plane(s) of
+     a cube have been written so far, by checking which planes are
+     still at 0%.  FITS providers which will be re-using a cube as a
+     circular buffer of frames (e.g., for guiding) must always maintain
+     an entire frame as unused (0%) by rewriting the marker pixels
+     in that buffer, before re-using the last remaining buffer with
+     marker pixels.  In this way, the most recent frame shall be determined
+     by looping through all of the planes and finding the first one
+     that is at 0%, and then backing up one (with a modulo.)  This finds
+     the most recent complete or partially complete frame.  To find the
+     most recently completed frame only, the same method is followed
+     except the search is made for the first frame that is <100% instead
+     of equal to 0%.  This plane will be the most recent one that an
+     image display should attempt to render at all times.
+
+  E. A keyword RTVERS will contain a version number (integer) which
+     increments each time a buffer is re-used.  If a client uses the
+     methods from (D) to determine that it is still on the correct
+     cube plane, (C) is used to compare the displayed-part with the
+     now-available-part.  However, the value of displayed-part must
+     be reset to 0 whenever the RTVERS number no longer matches.
+
+  F. Finding the "current" file.
+
+     For a science frame, creation of a totally new "current" file
+     may correspond to going to the next odometer number.  If a display
+     has been trained on viewing the current image stream from the
+     camera, it must switch to the new file when this happens.
+
+     For a guider, when a stream of images are not being saved, the
+     filename will typically be re-used (see (E), above)
+     However, since it greatly simplifies things
+     to constrain the size (NAXIS1, NAXIS2) of an image once it is
+     created, the guider could also use a jump to a new filename as
+     a signal that the image size may have changed, but otherwise be
+     able to rely on those and other parameters (BITPIX, etc.) not
+     changing.
+
+     The FITS client could accept control messages on stdin, telling
+     it to switch to a new FITS file location (and possibly do other
+     things, like turning on/off histogram equalization) through
+     the use of a basic command set.
+
+     From the session side, a link or symbolic link could be maintained
+     which always indicates the most "current" science and guide frame.
+     The full filename of the most recent frame could also be kept in a
+     fixed variable in the status server.
+
+     Joining the two previous pieces together would be a separate program
+     that monitors the filename in the status server and sends the command
+     to update to the FITS viewer.  For example:
+
+ssFitsMonitor /i/wircam/guide.fits | rtfits
+
+     Note that ssFitsMonitor would only be sending an update on every frame
+     if this happens to be a science frame done without cubes.  For other
+     cases where a cube is being built, rtfits would use libfh to poll
+     for the most recent cube plane.
+
+III. Keyword Examples
+
+RTACTIVE=                        T / Is file still being built?
+RTVERS  =                        3 / Number of real-time re-writes
+
+  ... everything else is determined from the marker pixels.
+
+IV. Libfh convenience functions
+
+  Real-time FITS files can be opened and accessed the usual way
+  with standard libfh calls.  But instead of accessing the RT*
+  keywords and marker pixels directly, it is recommended to use
+  the following new functions in libfh to determine the state of
+  "real time" FITS files:
+
+fh_bool fh_rt_present(HeaderUnit hu);
+fh_bool fh_rt_active(HeaderUnit hu);
+int     fh_rt_version(HeaderUnit hu);
+int     fh_rt_plane_completed(HeaderUnit hu); /* Returns 0..(NAXIS3-1) */
+int     fh_rt_plane_latest(HeaderUnit hu);    /* Returns 0..(NAXIS3-1) */
+int     fh_rt_plane_row_latest(HeaderUnit hu, int plane); /* Returns 0..(NAXIS2-1) */
+
+  It is not always necessary to call fh_rt_present() and fh_rt_active().
+
+  If fh_rt_present() would return false, then:
+
+     fh_rt_active() will also always return false,
+
+  and whenever fh_rt_active() would return false, then:
+
+     fh_rt_version() always returns some constant number,
+     fh_rt_plane_completed() returns NAXIS3-1, or 0 if no NAXIS3,
+     fh_rt_plane_latest() returns NAXIS3-1, or 0 if no NAXIS3,
+     fh_rt_plane_row_latest() returns NAXIS2-1 for any plane.
+

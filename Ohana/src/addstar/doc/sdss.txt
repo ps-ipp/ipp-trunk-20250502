@@ -1,0 +1,60 @@
+
+adding SDSS object tables:
+
+* autodetect the SDSS files from the header?
+* do I need to read multiple files for a single data set?
+* how are we going to determine photcodes?
+  * do we need to set the photcode on a per-object basis in LoadData or equivalent?
+
+* some re-org might be needed for LoadStars
+
+
+** fields to keep:
+
+name          sdss 
+ X            'objc_colc' (or colc)
+ Y            'objc_rowc' (or rowc)
+ dX           'objc_colcErr' (or colcErr)
+ dY           'objc_rowcErr' (or rowcErr)
+ R            ra  + offset Ra (get cos des right)
+ D            dec + offset Dec
+ dR           (calculate from dX * plate scale?)
+ dD           (calculate from dX * plate scale?)
+ uR           (from 'propermotion' and 'propermotionangle')
+ uD           (from 'propermotion' and 'propermotionangle')
+ duR          ?
+ duD          ?
+ P            X
+ dP           X
+ M            psfCounts (is already a mag?)
+ dM           psfCountsErr (is already a mag?)
+ sky          sky (convert to flux?)
+ dsky         skyErr (convert to flux?)
+ fx           ?
+ fy           ?
+ df           ?
+ Mgal         X
+ Map          X
+ Mpeak        X
+ detID        X
+ found        -1
+ t            MJD_U + Y*rate
+ dt           fixed? NY*rate
+ psfChisq     
+ crNsigma     
+ extNsigma    
+ psfQual      
+ Mcal         
+ airmass      
+ az            
+ code         
+ nFrames      
+ flags        
+ dophot       
+ dummy        
+
+we can use these header fields to get the exp times, and I suppose alt, az, airmass, etc:
+NODE    =           XXX.XXXXXX / Ascending node of great circle scanned (deg)
+INCL    =           XXX.XXXXXX / Inclincation of great circle scanned (deg)
+C_OBS   =            XXXXX.XXX / CCD clock rate (usec/unbinned-row)
+TRACKING=            XXXXX.XXX / Tracking rate (arcsec/TAI-sec)

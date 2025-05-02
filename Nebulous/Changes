@@ -1,0 +1,163 @@
+Revision history for Nebulous
+
+0.17
+    - add chmod() API
+    - change neb-ls to always output in --long format
+    - add neb-rm --force flag
+    - change neb-locate's output seperator to \n
+    - add Nebulous::Client->prune() method
+    - add Nebulous::Client->there_can_be_only_one() method
+    - add neb-cull --one_only flag
+
+0.10
+    - allow ->replicate() volume param to be undef
+    - fix ->delete() still work if the neb implies a volume on which there is
+      no instance
+    - retry all calls to open()
+    - add Nebulous::Client->swap() method
+    - add neb-swap
+    - add nebclient:nebSetXattr()
+    - add neb-rm --move flag
+
+0.09 Wed Jul  9 16:36:27 HST 2008
+    - change "any" volume usage to corespond to changes in Nebulous::Server
+    - add neb-replicate --copies option
+    - fix neb-stat to work when a neb key is used that implies a storage volume
+      that does not have instances on it
+    - make neb-ls non-recursive by default and add a --recursive flag
+    - add neb-copies util
+    - move print_all_xattrs(), print_xattrs(), write_xattrs(), delete_xattrs(),
+      and parse_xattr_pair() from neb-xattr into Nebulous::Util
+    - change replicate() to report when it fails to cleanup (after a failure)
+    - add neb-xattr util
+    - change Nebulous::Client->find() to handle a volume param and to fall back
+      to searching on the ':any' volume if the first search fails
+    - change open_create() to attempt to open the instance file 10 times before
+      failing
+    - only send fatal errors to the screen
+    - send log messages to stderr instead of stdout
+    - overhaul SOAP fault message handling
+    - suppress non-existant key errors from Nebulous::Client->find_instances()
+    - in Nebulous::Client->stat(), handle the SOAP quirk of thinking an "undef"
+      return is a fault (even when no fault code is set).
+    - add ->setxattr_object(), ->getxattr_object(), ->listxattr_object(),
+      ->removexattr_object()
+    - change ->create() to accept volume == undef
+    - modernize neb-touch API calls
+    - change Nebulous::Client->replicate() to check the md5sum of the
+      replicated file and to not leave empty instances laying around if there
+      is a failure
+    - add a virtual "summary" volume to neb-df
+    - fix neb-df coding issues
+    - set default logging level to warn
+
+0.08 Thu Apr 17 14:07:18 HST 2008
+    - add Nebulous::Client::open() '>' (truncate) mode
+
+0.07
+    - modify neb-df to use Nebulous::Client::mounts()
+    - add Nebulous::Client::mounts()
+    - server/client split into Nebulous::Server and Nebulous::Client packages
+    - add support for storing instances in multi-tier 'hashed' directories 
+    - pickup test DB settings from the env.
+    - add neb-ls -l|-1 option
+    - add neb-fsck
+    - add neb-stat
+    - add additional fkey constrains to the instance table
+    - fix installation of neb-replicate & neb-cull
+    - redo database schema with foreign keys
+    - add Nebulous::Keys pod
+
+0.06 Fri Jan 25 10:55:59 HST 2008
+    - define Nebulous::Client::find_objects() as returning [] when NO keys are
+      found
+    - change neb-touch to use Nebulous::Client::find_objects() instead of
+      ::find()
+    - add Nebulous::Sever:: neb key/uri support
+    - add Nebulous::Util::parse_neb_key()
+    - change bin/* scripts to conistently use --volume instead of --node,
+      etc.
+    - pod cleanups
+    - add neb-replicate & neb-cull
+
+0.05 2007-05-04 16:59:31(???)
+    - make filesystem xattr support optional & disabled by default
+    - generate instance filenames that leave the "key" at the end so as to not
+      break a pplications that expect a certain "extension" on the filename
+    - set an xattr on all created files of "user.nebulous_key"
+    - add neb-locate
+    - change all Nebulous::Client public methods to behave in list context
+    - rework the getmountedvol() stored procedure to attempt to work around
+      what appears to be some nasty transacational isolation leak throught that
+      was causing getmountedvol() to randomly hang when nebdiskd changed the
+      mount table.
+    - fix a nasty logic bug in Nebulous::Client->replicate()
+    - break 1:1 relationship between key names and on disk file names
+    - overhaul Nebulous::Client->cull()
+    - add the number of instances to ->stat_object()
+    - SQL cleanup
+    - better paramter checking
+    - overhaul instance table
+    - add ->_is_valid_object_key() method
+    - change ->find_instances() to check it's params and only return instances
+      on mounted & available volumes
+    - add volume.available field and logic to use it
+    - add volume.allocate field and logic to use it
+    - add instance.vol_id field
+    - remove $class_id & $comment params from Nebulous::Server->create() and
+      Nebulous::Client->create*() and all supporting functions and tests
+    - add Nebulous::Server->{setxattr_object, listxattr_object,
+      getxattr_object, removexattr_object}()
+    - add neb-cat
+    - add neb-mv
+    - change Nebulous::Client->move() to use ->rename_object()
+    - add Nebulous::Server->rename_object()
+    - add neb-rm
+    - add neb-cp
+    - add neb-ls
+    - add Nebulous::Client->find_objects()
+    - add Nebulous::Server->find_objects()
+    - add neb-touch
+    - add neb-df
+    - change neb-addvol to properly mangle URIs into paths
+
+0.04 Mon Apr 23 13:33:16 HST 2007
+    - include autogen.sh in the tarball
+    - add nebdiskd
+    - [nebclient] VERSION to '0.0.3'
+    - change API to generally return true URIs instead of file paths
+    - add support for some what intelligent volume allocations
+    - minor code & build fixes, ws changes
+
+0.03 Mon Dec 11 14:19:45 HST 2006
+    - change Nebulous::Server instantiate objects (init -> new) instead of
+      working with class data
+    - add a DESTROY method to Nebulous::Server to tear down the database
+      connection
+    - add a Nebulous::Server->config() accessor
+    - make Nebulous::Server->db() Apache::DBI aware
+    - make SQL syntax MySQL 5 compatible
+    - update SOAP, DBI & DBD, and Apache::* deps
+    - change Nebulous::Server::SOAP to be mod_perl aware
+    - change Nebulous::Server::SOAP install stub methods to bypass AUTOLOAD on
+      successive calls to the same method
+    - make Nebulous::Server::Log mod_perl aware
+    - change Nebulous::Server::Log to accept a Nebulous::Server::Config object
+      as a parameter instead of fetching it as a singleton
+    - make Nebulous::Server::Config no longer a singleton
+
+0.02 Fri Dec  2 17:36:59 HST 2005
+    - recommend Test::Distribution 1.22
+    - add t/00_distribution.t
+    - rename test files
+    - [nebclient] VERSION to '0.0.2'
+    - Nebulous::Client, Nebulous::Server, & Nebulous::Server::SQL
+        VERSION to '0.02'
+    - add Nebulous::Client->open_create()
+    - change Nebulous::Client->create() to return just a filename
+    - [nebclient] add nebOpenCreate()
+    - [nebclient] change nebCreate() to return just a filename
+
+0.01 Fri Sep  3 10:23:31 2004
+    - first working version
+	- original version; created by ExtUtils::ModuleMaker 0.32

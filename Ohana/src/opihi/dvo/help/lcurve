@@ -1,0 +1,8 @@
+
+  lcurve RA DEC Radius [-l]
+
+  plot light curves for all stars within Radius of the given
+  coordinates.  The units for all three are decimal degrees.  
+  The option -l autoscales the limits of the plot.  
+
+  See also: limits

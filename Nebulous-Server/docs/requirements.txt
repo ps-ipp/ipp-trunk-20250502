@@ -1,0 +1,28 @@
+# Copyright (C) 2004  Joshua Hoblitt
+#
+# $Id: requirements.txt,v 1.2 2005-09-14 00:46:01 jhoblitt Exp $
+
+- store all image data aquired during the first two years of PS1's
+  operations.  Approximately 10^8 files (OTA level).
+
+- injest new data from the summit at the same rate it is produced when
+  operating at a cadence of 40s between integrations.  Approximately 400Mb/s
+  and 64 files/integration.
+
+- support phase 1 & 2 processing. x files per t_min
+
+- support phase 3 & 4 processing. x files per t_min
+
+- support accessing small blocks of a file (ie., seek)
+
+- tolerate partal system failures without data loss
+
+- execeedly efficent use of both disk and network I/O
+
+what are the science drivers for these 3?
+--
+- data corruption is guarenteed to be detectable.
+
+- relibably store xx.x% of files 
+
+- xx.x% of stored images must be retreivable in xs.

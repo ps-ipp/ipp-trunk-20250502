@@ -1,0 +1,25 @@
+#include <pslib.h>
+#include <[% pkg_name %].h>
+#include <stdlib.h>
+
+int main ()
+{
+[% FOREACH table = tables -%]
+    {
+        psDB            *dbh;
+
+        dbh = psDBInit("localhost", "test", NULL, "test");
+        if (!dbh) {
+            exit(EXIT_FAILURE);
+        }
+
+        if (![% table.namespace %]DropTable(dbh)) {
+            exit(EXIT_FAILURE);
+        }
+
+        psDBCleanup(dbh);
+    }
+
+[% END -%]
+    exit(EXIT_SUCCESS);
+}

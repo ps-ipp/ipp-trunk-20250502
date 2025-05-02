@@ -1,0 +1,47 @@
+./cmd.astro/cgrid.c - OK (graph only)
+./cmd.astro/cplot.c  - OK (graph only)
+./cmd.astro/czplot.c - OK (graph only)
+./cmd.data/cursor.c - OK (graph only)
+./dvo/catalog.c - OK (graph only)
+./dvo/pcat.c - OK (graph)
+./dvo/pmeasure.c - OK (graph)
+./dvo/procks.c - OK (graph)
+./dvo/showtile.c - OK (graph)
+./cmd.astro/coords.c - fixed
+./dvo/gimages.c - fixed
+./dvo/ImageOps.c - fixed
+./dvo/images.c - fixed
+./dvo/imdense.c - fixed
+./dvo/imextract.c - fixed
+./dvo/imlist.c - fixed
+./dvo/imstats.c - fixed
+./dvo/photometry.c - fixed
+./dvo/subpix.c - fixed
+./dvo/get_regions.c - fixed
+
+./cmd.astro/drizzle.c - needs work
+./cmd.astro/transform.c - needs work
+./cmd.data/load.c - needs work
+./cmd.data/point.c - needs work
+./cmd.data/tvgrid.c - needs work
+./dvo/cmpread.c - needs work (single image)
+./dvo/imbox.c - needs work (single image)
+./dvo/simage.c - needs work (single image)
+
+dvo commands / functions affected by WRP / DIS astrometry
+
+LoadImage - no
+badimages.c - yes : also, use LoadImages
+get_regions.c - ? : OK if we register DIS image
+gimages.c
+ImageOps.c        : need to make association with DIS
+images.c
+imbox.c
+imdense.c
+imextract.c
+imlist.c
+imstats.c
+photometry.c
+showtile.c
+simage.c
+subpix.c

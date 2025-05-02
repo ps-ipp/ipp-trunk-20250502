@@ -1,0 +1,10 @@
+#
+# This file is used to generate ppStatsErrorClasses.h
+#
+BASE = 2000		First value we use; lower values belong to psLib
+# these errors correspond to standard exit conditions
+ARGUMENTS               Incorrect arguments
+SYS                     System error
+CONFIG                  Problem in configure files
+PROG                    Programming error
+DATA                    invalid data

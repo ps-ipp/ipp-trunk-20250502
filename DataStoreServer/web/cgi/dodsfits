@@ -1,0 +1,42 @@
+#!/usr/bin/env perl
+
+use strict;
+use CGI ':standard';
+
+my $DS_DIR = $ENV{"DS_ROOT"};
+
+my $uri = $ENV{'REQUEST_URI'};
+
+$uri = $ARGV[0];
+#print STDERR "uri is $uri\n";
+
+(my $left, my $param) = split(/\,/, $uri);
+
+#print STDERR "left: $left param: $param\n";
+
+if ($left !~ /\.fits$/) {
+	print header( -status => '404 Not Found' );
+	exit;
+}
+
+my @path = split(/\//, $left);
+
+my $fn = @path[$#path];
+my $fpath = $DS_DIR.'/'.$left;
+
+
+
+print header(	-type => 'image/fits',
+				-attachment => $fn,
+				-content_length => -s $fpath,
+			);
+
+
+open F, $DS_DIR.'/'.$left;
+
+binmode(F);
+binmode(STDOUT);
+
+print while (<F>);
+
+close F;

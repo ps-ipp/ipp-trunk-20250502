@@ -1,0 +1,56 @@
+
+# input data options
+# IMAGE             STR    file.fits
+# MASK_IMAGE	    STR    mask.fits
+# WEIGHT_IMAGE	    STR	   weight.fits
+
+# output data options
+OUTPUT_FILE	    STR	   output.smp    # output object file
+OUTPUT_MODE	    STR	   TEXT          # output mode: TEXT, OBJ, SX, CMP, CMF 
+# RESID_IMAGE	    STR	   resid.fits    # output residual image
+
+# image noise parameters
+RDNOISE             STR  HD:RDNOISE      # read-noise in electrons
+GAIN                STR  HD:GAIN         # electrons / DN
+
+# masking parameters
+XMIN                F32  32        	 # minimum valid x-coord
+XMAX                F32   0        	 # maximum valid x-coord
+YMIN                F32   1        	 # minimum valid y-coord
+YMAX                F32   0        	 # maximum valid y-coord
+SATURATION          F32  50000     	 # saturation level on this chip
+
+# image statistics parameters
+IMSTATS_NPIX        S32  100000    	 # number of pixels to use for sky estimate:
+
+# peak finding 
+PEAKS_SMOOTH_SIGMA  F32  1.0       	 # smoothing kernel sigma in pixels
+PEAKS_SMOOTH_NSIGMA F32  3.0   	   	 # smoothing kernel width in sigmas
+PEAKS_NSIGMA_LIMIT  F32  10.0  	   	 # peak significance threshold
+
+# basic object statistics
+SKY_INNER_RADIUS    F32  15		 # square annulus for local sky measurement
+SKY_OUTER_RADIUS    F32  25		 # square annulus for local sky measurement
+PSF_MOMENTS_RADIUS  F32  5
+PSF_SN_LIM          F32  100
+
+# PSF model parameters : choose the PSF model
+# list as many PSF_MODEL options as desired
+PSF_MODEL           STR  PS_MODEL_QGAUSS
+#PSF_MODEL           STR  PS_MODEL_PGAUSS
+#PSF_MODEL           STR  PS_MODEL_GAUSS
+PSF_FIT_RADIUS      F32  25		 # fitting radius for test PSF model
+
+# PSF model parameters : apply the PSF model
+PSF_FIT_NSIGMA       F32  1		 # significance for pixel included in fit
+PSF_FIT_PADDING      F32  5              # extra annulus to use for fit 
+PSF_SHAPE_NSIGMA     F32  3.0		 # max significance for shape variation
+PSF_MIN_SN           F32  2.0		 # reject objects below this significance
+PSF_MAX_CHI          F32  10.0		 # reject objects worse that this
+
+# Galaxy model parameters
+GAL_MODEL            STR  PS_MODEL_SGAUSS
+GAL_MIN_SN           F32  3
+GAL_FIT_NSIGMA       F32  1		 # significance for pixel included in fit
+GAL_FIT_PADDING      F32  5              # extra annulus to use for fit 
+GAL_MOMENTS_RADIUS   F32  9

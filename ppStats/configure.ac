@@ -1,0 +1,38 @@
+AC_PREREQ(2.61)
+
+AC_INIT([ppStats], [1.1.1], [ipp-support@ifa.hawaii.edu])
+AC_CONFIG_SRCDIR([src])
+
+AM_INIT_AUTOMAKE([1.6 foreign dist-bzip2])
+AM_CONFIG_HEADER([src/config.h])
+AM_MAINTAINER_MODE
+
+IPP_STDLDFLAGS
+
+AC_LANG(C)
+AC_GNU_SOURCE
+AC_PROG_CC
+AC_PROG_INSTALL
+AC_PROG_LIBTOOL
+AC_SYS_LARGEFILE 
+
+PKG_CHECK_MODULES([PSLIB], [pslib >= 1.0.0])
+PKG_CHECK_MODULES([PSMODULE], [psmodules >= 1.0.0])
+
+IPP_STDOPTS
+IPP_STDCFLAGS
+
+dnl not clear why the below is needed
+CFLAGS="${CFLAGS=} -std=c99"
+
+IPP_VERSION
+
+AC_SUBST([PPSTATS_CFLAGS])
+AC_SUBST([PPSTATS_LIBS])
+
+AC_CONFIG_FILES([
+  Makefile
+  src/Makefile
+  ppStats.pc
+])
+AC_OUTPUT

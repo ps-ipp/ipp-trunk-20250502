@@ -1,0 +1,13 @@
+AT_SETUP([[% table.namespace %]SelectRowsFits()])
+AT_KEYWORDS([[% table.namespace %]SelectRowsFits])
+
+AT_CHECK([dbsetup])
+# run insert so there is a row in the table
+AT_CHECK([insert])
+AT_CHECK([selectrowsfits])
+AT_CHECK([dbcleanup])
+if [ test -f "blargh" ] ; then
+    rm -f "blargh"
+fi
+
+AT_CLEANUP

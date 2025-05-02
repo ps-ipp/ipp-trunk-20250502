@@ -1,0 +1,28 @@
+
+Region APIs
+
+Region table is a FITS table
+
+- load region data from FITS table
+- save region data to FITS table
+
+/* find region which overlaps c at given depth (-1 : max depth) */
+SkyRegion *SkyFindPoint (SkyRegion *db, SkyCoord c, int depth);
+
+/* find regions at all levels which overlap c */
+SkyRegion **SkyFindLevels (SkyRegion *db, SkyCoord c, int *Nregion);
+
+/* find regions contained within rectangular region  c1 - c2 */
+SkyRegion **SkyFindArea (SkyRegion *db, SkyCoord c1, SkyCoord c2, *nlist);
+
+- I have created table generation functions which construct a
+  collection of table entries starting with the full sky and iterating
+  down N levels.  The function also fills out the names at the
+  appropriate levels.  This is currently ok up to level 6, but runs
+  out of memory at level 7.  This should not be the case, so I suspect
+  I'm not free'ing some memory.  
+
+- I need to create a function to take the GSC table list and construct
+  a set of SkyRegions that match the layout, starting with the full
+  sky and iterating down to and past the GSC tables.  
+

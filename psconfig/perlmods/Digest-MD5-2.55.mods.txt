@@ -1,0 +1,4 @@
+      8 Digest::MD5
+      1 Encode
+      1 strict
+      1 vars

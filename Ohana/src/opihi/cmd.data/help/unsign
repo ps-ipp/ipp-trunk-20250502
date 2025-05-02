@@ -1,0 +1,20 @@
+  unsign
+
+  "unsign" toggles the status of the UNSIGN mode.  Warning: This is a
+non-FITS standard implementation.  The FITS standard does not allow
+for unsigned integer data values, but many sites write CCD images with
+16 bit UNSIGNED data.  Mana looks for a FITS keyword "UNSIGN" to
+determine if an image which is read in has signed or unsigned
+integers.  However, since this is a non-standard concept, many sites
+do not use the UNSIGN flag, yet still write unsigned data.  If the
+user knows the data in the file is unsigned (ie, the user must have
+apriori knowledge -- a FITS no-no!), then the user should set the
+UNSIGN mode to true.  In the event that the UNSIGN mode is set, if a
+FITS file is encountered which contains integers, but which does not
+contain the UNSIGN keyword, Mana will make the default assumption that
+the data is unsigned.  If the SIGNED mode is set, Mana will assume all
+integer FITS files contain signed integers.  
+
+((( should be able to say "unsign <buffer>" to convert the status of a
+buffer to UNSIGN or to toggle the buffer's status, but not yet
+implemented)))

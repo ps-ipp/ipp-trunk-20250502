@@ -1,0 +1,236 @@
+#!/usr/bin/perl
+#
+#  This is a perl script
+#
+#  SYNOPSIS:  SlocCount options topLevelDirectory
+#
+#       where  options =
+#             --verbose     Display extra information to user
+#             --noverbose   Don't display extra information to user
+#             --recursiv e  Recursively run tests in directory tree
+#             --norecursive Test only the specified or current directory
+#             --silent      Don't display any information to user
+#             --nosilent    Display progress of script to user
+#
+#              arguements = directory(ies) to perform software line count
+#
+#  RETURN : zero upon successful parsing of directories
+#
+#  $Revision: 1.4 $  $Name: not supported by cvs2svn $
+#  $Date: 2005-09-23 19:03:12 $
+#
+#  Copyright 2004 Maui High Performance Computing Center, University of Hawaii
+#
+##############################################################################
+
+# Provide functions for determining the pathname of current working directory
+use Cwd;
+
+# Provides functions for handling long command line options
+use Getopt::Long;
+
+# Assign variables based on the presence of command line options to the script
+# The ! option allows for --nooption to be set to zero
+# (e.g. --noverbose --recursive causes $verbose=0 and $recursive=1)
+GetOptions("verbose!"=>\$verbose,
+           "recursive!"=>\$recursive,
+           "silent!"=>\$silent);
+
+# Check if both silent and verbose options are set and if so stop the script
+die "Can't specify both verbose and silent options." if ($verbose && $silent);
+
+# Initialize variables for counting the total lines of code, files
+$cFileCount = 0;
+
+# Initialize variable indicating how many arguements were passed
+$args = 0;
+
+open(COVFILE, "> coverageFileResult.txt");
+
+# Loop through all the arguements passed to the script
+foreach (@ARGV) {
+    # Remove newline if there is one
+    chomp;
+    # Increment number of arguements found
+    $args++;
+    # Set variable to current working directory
+    $cwd = cwd;
+    # Change directory to the directory of the arguement
+    chdir($_);
+    # Check for the recursive option
+    if ($recursive) {
+        # Invoke subroutine to go to the lowest directory in tree
+        # starting at the specified directory
+#        &worm($_);
+    }
+    # Change directory back to the directory where FullUnitTest was invoked
+    chdir($cwd);
+}
+
+# Check if there were no arguements specified
+if ($args == 0){
+    # Display message to user that all directories under the current will be
+    # tested
+    print("Recursively testing current directory tree.\n");
+    # Invoke subroutine to go to recursively test each directory in tree
+    &worm($ENV{"PWD"});
+}
+
+# Display summary of line counts
+print("\nSUMMARY STATISTICS\n");
+print("Files");
+print("$cFileCount");
+$totalFiles = $cFileCount;
+print("\nTotal\t$totalFiles\n\n");
+
+close(COVFILE);
+
+# Exit
+exit(0);
+
+
+################################################################################
+#
+# SUBROUTINE: worm
+#
+#     Description:  This subroutine will perform the necessary unit tests be
+#                   calling makeTestDrivers and executeTestDrivers  subroutines
+#                   and then check each subdirectory below the base directory
+#                   recursively.
+#
+#     Parameter(s):  base directory to counting slocs
+#
+################################################################################
+
+sub worm {
+    # Assign local variable to input parameter
+    local($base_dir) = @_;
+    local(@files, $i);
+
+    # Create array of entries found in directory
+    @files = <*>;
+
+    # Loop through the file list looking for another directory that is not
+    # labelled CVS and recursively invoke subroutine worm
+    $i = 0;
+    while ($files[$i]) {
+        # Check for directory and directory not labelled CVS
+        if (-d $files[$i] && ($files[$i] ne "CVS") && ($files[$i] ne "temp")
+                          && ($files[$i] ne "verified") && ($files[$i] ne ".libs")) {
+            # Change current directory to directory found
+            chdir($files[$i]);
+            # Invoke subroutine worm again
+            &worm("$base_dir/$files[$i]");
+            # Change current directory back to parent
+            chdir("..");
+        }
+        # Increment file list index
+        $i++;
+    }
+
+    # Count the number of files and test coverage in this directory
+    &getTestCoverage($base_dir);
+}
+
+################################################################################
+#
+#  SUBROUTINE: getSlocNumber
+#
+#      Description:  This subroutine will parse the output file for the sloc
+#                    count.
+#
+#      Parameter(s):  base directory where make and test drivers are located
+#
+################################################################################
+
+sub getFileCoverage{
+    local($base_dir) = @_;
+    local($retVal) = 0;
+
+    $fname = 0;
+
+    # Open the output file for reading if it exists
+    if ( -e "$base_dir/coverage" ) {
+        open(OUTFILE, "< $base_dir/coverage");
+        while($retVal = <OUTFILE>) {
+            @result = split(/ /,$retVal);
+
+            if( $result[6] !~ /file/) {
+               if( $result[0] !~ /Creat/) {
+                  print COVFILE ("$result[0]\t$result[2]\t$result[6]\t$result[7]");
+               }
+            }
+            else {
+               print COVFILE ("$result[0]\t$result[2]\t$result[6]\t$result[7]");
+            }
+       }
+
+        $retVal = s/\D//;
+        close(OUTFILE);
+    }
+
+    return($result[0]);
+}
+
+################################################################################
+#
+#  SUBROUTINE: getTestCoverage
+#
+#      Description:  This subroutine will
+#
+#      Parameter(s):  base directory where make and test drivers are located
+#
+################################################################################
+
+sub getTestCoverage{
+    local($base_dir) = @_;
+    local($pwd);
+
+    my($cfiles);
+
+    $cfiles = 0;
+
+    # Set variable to pwd to current test directory
+    # Display total for this directory
+    print("\n$base_dir\n");
+
+    $pwd = cwd;
+
+    # Create a list of all elements in base directory
+    @files = <*>;
+
+    # Loop through all the items in the files array
+    $initialTest = 0;
+    $j = 0;
+    while ( $files[$j]) {
+        # Check that the item is not a directory
+        if ( ! (-d $files[$j]) ) {
+
+            if ( ( $files[$j] =~ m@\.c$@ ) ) {
+
+                $objfile = $files[$j];
+                $objfile =~ s/\.c$/\.o/;
+                $objfile = `find $base_dir/.libs -name "*$objfile"`;
+                chop $objfile;
+
+                if (length($objfile) > 0) {
+                    # Increment total number of c files
+                    $cfiles++;
+
+                    # Call C source sloc count
+                    system("gcov -f -o $objfile $base_dir/$files[$j] > $base_dir/coverage");
+                    if ( $? == 0 ) {
+                        getFileCoverage($base_dir);
+                    }
+                    if ( -e "$base_dir/coverage" ) {
+                        system("rm $base_dir/coverage");
+                    }
+                }
+            }
+        }
+        $j++;
+    }
+    $cFileCount += $cfiles;
+}
+
+

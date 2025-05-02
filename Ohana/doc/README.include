@@ -1,0 +1,23 @@
+
+this top level directory contains the header files associated with
+ohana library packages or basic ohana code snipets not in libraries:
+
+fitsio.h - libFITS.h
+ohana.h, Xohana.h - libohana
+skycalc.h - libskycalc
+loneos.h - FITS database interactions
+
+the architecture-dependent subdirectories allow us to install
+libraries for one architecture which are not needed and would conflict
+on another architecture.  this is mostly a problem for solaris, which
+does not have various libraries installed by default.  we can install
+an older solaris version of these libraries and not cause conflicts
+with the more recent linux versions:
+
+libpng
+libjpeg
+libreadling
+zlib
+
+
+  

@@ -1,0 +1,124 @@
+#!/usr/bin/env mana
+
+if (($argv:n != 1) && ($argv:n != 2)) 
+  echo "USAGE: gpc.cell.zoom (gpcdir) [output]"
+  exit 2
+end
+
+macro cell-zoom 
+  $CCDKEYWORD = EXTNAME
+  $gpcdir = $argv:0
+  $basename = `basename $gpcdir`
+
+  $output = $basename.grid.fits
+  if ($argv:n == 2)
+    $output = $argv:1
+  end
+
+  # we assume the files have names of the form gpcdir/gpcdirXY.fits
+  list name -x "ls $gpcdir/$basename??.fits"
+
+  if ($name:n == 0)
+    echo "No fits files found in $gpcdir"
+    exit 1
+  end
+
+  # judge the full mosaic size by a single sample cell
+  rd cell $name:0 -x 0
+  keyword cell NAXIS1 Nx
+  keyword cell NAXIS2 Ny
+
+  mcreate mosaic {8*$Nx} {8*$Ny}
+
+  for ix 0 8
+    for iy 0 8
+      sprintf filename "%s/%s%d%d.fits" $gpcdir $basename $ix $iy
+      file $filename found
+      if (not($found)) continue
+
+      # try to read the center cell:
+      #  3,3 if (x < 4) && (y < 4)
+      #  3,4 if (x < 4) && (y > 3)
+      #  3,4 if (x > 3) && (y < 4)
+      #  3,3 if (x > 3) && (y > 3)
+      if (($ix < 4) && ($iy < 4))
+        $xo = 3; $yo = 3
+      end
+      if (($ix < 4) && ($iy > 3))
+        $xo = 3; $yo = 4
+      end
+      if (($ix > 3) && ($iy < 4))
+        $xo = 3; $yo = 4
+      end
+      if (($ix > 3) && ($iy > 3))
+        $xo = 3; $yo = 3
+      end
+
+      # avoid the calcite cells & another poor cell
+      if (($ix == 7) && ($iy == 6))
+        $xo = 2; $yo = 2
+      end
+      if (($ix == 1) && ($iy == 7))
+        $xo = 2; $yo = 5
+      end
+      if (($ix == 4) && ($iy == 4))
+        $xo = 3; $yo = 4
+      end
+
+      break -auto off
+      sprintf cell "xy%d%d" $xo $yo
+      rd cell $filename -n $cell
+      if (not($STATUS))
+        echo "failed to find desired cell, just using first in file"
+        rd cell $filename -x 0
+      end
+      break -auto on
+
+      stats -q cell
+
+      set cell = cell - $MEDIAN
+
+      keyword cell LTM1_1 dx
+      keyword cell LTM2_2 dy
+      if ($ix < 4)
+        $dx = $dx * -1
+        $dy = $dy * -1
+      end
+
+      if (($dx == -1) && ($dy == -1)) 
+        rotate cell upsize
+      end
+      if (($dx == -1) && ($dy == +1)) 
+        rotate cell flipx
+      end
+      if (($dx == +1) && ($dy == -1)) 
+        rotate cell flipy
+      end
+
+      keyword cell NAXIS1 nx
+      keyword cell NAXIS2 ny
+      if (($nx != $Nx) || ($ny != $Ny))
+        echo "cell has different size"
+        $nx = $nx << $Nx
+        $ny = $ny << $Ny
+      end
+      extract cell mosaic 0 0 $nx $ny {$ix*$Nx} {$iy*$Ny} {8*$Nx} {8*$Ny}
+    end
+  end
+
+  # apply the header from the 00 chip:
+  sprintf filename "%s/%s11.fits" $gpcdir $basename
+  header mosaic -w $filename
+
+  keyword mosaic NAXIS  -wd 2
+  keyword mosaic NAXIS1 -wd {8*$Nx}
+  keyword mosaic NAXIS2 -wd {8*$Ny}
+
+  wd mosaic $output -bitpix -32 -bzero 0.0 -bscale 1.0
+  exit 0
+end
+
+cell-zoom 
+
+echo "error in gpc.cell.zoom"
+exit 2

@@ -1,0 +1,42 @@
+
+2007.06.08 : EAM
+
+ * when changing the database schema:
+   * increment the pkg_version number on dbconfig/config.md
+   * increment the ippdb version number in ippTools/configure.ac (to match)
+   * increment the ippTools version number in ippTools/configure.ac
+   * build ippbd ('make src' in dbconfig)
+   * check in dbconfig, ippdb, and ippTools
+   * update dbversion.schema.version (added by bills)
+
+2007.06.04 : EAM
+
+I am adding additional fields which we will need for selecting the
+input detrend images:
+
+rawExp : 
+ user stat 1
+ user stat 2
+ user stat 3
+ user stat 4
+ user stat 5
+
+detProcessedImfile, detProcessedExp:
+ fringe amplitude
+ user stat 1
+ user stat 2
+ user stat 3
+ user stat 4
+ user stat 5
+
+detResidImfile, detResidExp:
+ binned stdev
+ fringe_0
+ fringe_1
+ fringe_2
+ user stat 1
+ user stat 2
+ user stat 3
+ user stat 4
+ user stat 5
+

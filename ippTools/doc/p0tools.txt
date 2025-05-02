@@ -1,0 +1,40 @@
+
+Phase 0 pipeline tools:
+
+p0search -pending :
+  * examine the new.imfiles,new.exposures tables and select exposures ready for analysis
+  * output is: (expID) (camera)
+
+p0search -update (expID) (camera):
+  * select a the corresponding images from the new.imfiles/new.exposures table
+  * extract the specified header information
+  * search the summit metadata db tables
+  * write an entry to the raw.imfiles and raw.exposure tables
+  * set the state on the new.imfiles,new.exposure tables
+  * based on the camera config information;
+    * add an entry to the p1.pending table (mosaic) 
+    - or
+    * add an entry to the p2.pending table (single)
+
+p0search -stats (expID) (camera):
+  * select a specified image in the new.imfiles/new.exposures table
+  * extract the specified header information
+  * search the summit metadata db tables
+  * report the image stats
+  [-update without output to MDDB]
+
+p0search -mkraw (expID) (camera):
+  * select a specified image in the new.imfiles/new.exposures table
+  * extract the specified header information
+  * search the summit metadata db tables
+  * write an entry to the raw.imfiles and raw.exposure tables
+  * set the state on the new.imfiles,new.exposure tables
+
+p0search -cleanup:
+  * remove completed entries from the new.imfiles,new.exposure tables
+
+** note : the division of -pending and -update allows separate processes
+   to be examining the image headers and measuring some stats.  these
+   jobs can be run via pcontrol to reduce the load on the PanTasks
+   machines
+

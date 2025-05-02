@@ -1,0 +1,228 @@
+#!/usr/bin/env perl
+
+# USAGE: ckrunid (name) 
+# (name) may be a MEF or SINGLE CCD file or a SPLIT directory
+# does not depend on the number of CCDs in the image
+
+if (@ARGV != 1) { die "USAGE: ckrunid (name)\n" ;}
+
+$name = $ARGV[0];
+$imtype = ckimtype ($name);
+if (!$imtype) { exit 1; }
+
+if ($imtype eq SPLIT) {
+    $root = gt_names ($name, "root", $imtype);
+    $tmpname = "$name/$root" . "00.fits";
+} else {
+    $tmpname = $name;
+}
+
+# need to abstract MJD-OBS keywrod
+$answer = `echo $tmpname | fields MJD-OBS`; chop ($answer);
+($fullname, $mjd_obs) = split (" ", $answer);
+if ($mjd_obs eq "") {
+    print STDOUT "MJD-OBS not found in header for $tmpname\n";
+    exit 1;
+}
+
+$date = mjd_to_date ($mjd_obs);
+print STDERR "date: $date\n";
+
+$runinfo = `mkrun date $date`;
+if ($?) { die "no run defined $date $mjd\n"; }
+
+($crunid, $start, $stop, $camera, $qrunid) = split (" ", $runinfo);
+print STDOUT "$crunid\n";
+exit 0;
+
+###################################################################################
+
+sub vsystem {
+    print STDERR "@_\n";
+    $status = system ("@_");
+    $status;
+}
+
+sub goodbye {
+    die "@_\n";
+}
+
+sub get_jd {
+
+    my($year) = $_[0];
+    my($month) = $_[1];
+    my($day) = $_[2];
+
+    my($jd) = $day - 32075 + int (1461*($year + 4800 + int (($month - 14)/12))/4)
+	+ int(367*($month - 2 - int(($month - 14)/12)*12)/12)
+	    - int(3*int(($year + 4900 + int(($month - 14)/12))/100)/4) - 0.5;
+    
+
+    return ($jd);
+
+}
+
+sub get_mjd {
+
+    my($year) = $_[0];
+    my($month) = $_[1];
+    my($day) = $_[2];
+
+    my($jd) = $day - 32075 + int (1461*($year + 4800 + int (($month - 14)/12))/4)
+	+ int(367*($month - 2 - int(($month - 14)/12)*12)/12)
+	    - int(3*int(($year + 4900 + int(($month - 14)/12))/100)/4) - 0.5 - 2400000.5;
+    
+
+    return ($jd);
+
+}
+
+sub mjd_to_date {
+    my ($mjd) = $_[0];
+    my ($sec,$min,$hour,$mday,$mon,$year,$wday,$yday);
+    my ($date, $time);
+    
+    $time = 86400 * ($mjd - 40587.0);
+    ($sec,$min,$hour,$mday,$mon,$year,$wday,$yday) = gmtime ($time);  
+    $year += 1900;
+    $mon ++;
+
+    $date = sprintf "%04d/%02d/%02d,%02d:%02d:%04.1f", $year, $mon, $mday, $hour, $min, $sec;
+    
+    return $date;
+}
+
+sub gt_names {
+    # in: filename mode type
+    # out: word
+
+    my ($value);
+
+    $value = "";
+    if ($_[2] eq "MEF")   { $value = mefnames ($_[0], $_[1]); }
+    if ($_[2] eq "SPLIT") { $value = splitnames ($_[0], $_[1]); }
+    
+    return $value;
+}
+
+sub mefnames {
+    # in: (/path/file.fits) (mode) 
+    # out: word
+
+    my($fullname) = $_[0];
+    my($mode) = $_[1];
+    my($answer);
+
+    # split rootdir and filename:
+    my (@words) = split ("/", $fullname);
+    $N = @words;
+
+    if ($mode eq "path") {
+	$answer = "";
+	for ($i = 0; $i < $N - 1; $i++) {
+	    $answer = $answer . $words[$i] . "/";
+	}
+	chop ($answer); # strip off last /
+	if ($answer eq "") { $answer = "."; }
+	return ($answer);
+    }
+    
+    if ($mode eq "root") {
+	$answer = "$words[$N-1]";
+	$answer =~ s/.fits$//;
+	return ($answer);
+    }
+    
+    if ($mode eq "Nccd") {
+	if (! -e $fullname) {
+	    return (0);
+	}
+	$answer = `echo $fullname | fields NEXTEND`;
+	@words = split (" ", $answer);
+	if ($words[1] eq "") {
+	    return (0);
+	}
+	return ($words[1]);
+    }
+    
+    return (0);
+}
+
+sub splitnames {
+    # in: (/path/file) (mode) 
+    # out: word
+    # /path/file is directory containing Nccd fits images
+
+    my($fullname) = $_[0];
+    my($mode) = $_[1];
+    my($answer, $N, $tmpname, @imlist, @words);
+
+    # split rootdir and filename:
+    @words = split ("/", $fullname);
+    $N = @words;
+
+    if ($mode eq "path") {
+	$answer = "";
+	for ($i = 0; $i < $N - 1; $i++) {
+	    $answer = $answer . $words[$i] . "/";
+	}
+	chop ($answer); # strip off last /
+	if ($answer eq "") { $answer = "."; }
+	return ($answer);
+    }
+    
+    if ($mode eq "root") {
+	$answer = "$words[$N-1]";
+	return ($answer);
+    }
+    
+    if ($mode eq "Nccd") {
+	
+	$tmpname = "$fullname/$words[$N-1]";
+	@imlist = <$tmpname??.fits>;
+
+	$Nccd = @imlist;
+	return $Nccd;
+    }
+    
+    return (0);
+}
+
+sub ckimtype {
+    # in: (/path/file)
+    # out: MEF | SPLIT | SINGLE | (NULL)
+    
+    my ($answer, $name, $value);
+    my ($file) = $_[0];
+
+    if (! -e $file) { 
+	print STDOUT "can't open file\n";
+	return ""; 
+    }
+
+    # if /path/file is a directory, it is split:
+    if (-d $file) { return "SPLIT"; }
+
+    # check that the file is a FITS image
+    $answer = `file -L $file`;
+    if ($?) { 
+	print STDOUT "can't open file\n";
+	return ""; 
+    }
+    ($name, $value) = split (" ", $answer);
+    if ($value ne "FITS") { 
+	print STDOUT "not a valid image\n";
+	return ""; 
+    }
+    
+    # check for NAXIS = 0 (MEF) 
+    $answer = `echo $file | fields NAXIS`;
+    # if ($?) { return ""; }
+    ($name, $value) = split (" ", $answer);
+    if ($value eq 0) { return "MEF"; }
+    
+    if ($value == 2) { return "SINGLE"; }
+
+    print STDOUT "not a valid image\n";
+    return "";
+}

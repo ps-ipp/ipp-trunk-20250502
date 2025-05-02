@@ -1,0 +1,28 @@
+# Configure file for Ohana Package
+# the values of the form @WORD@ are filled in by configure
+
+# location of the package and architecture
+ROOT    = @ROOTDIR@
+ARCH    = @ARCHVAL@
+
+# destination directories:
+DESTBIN	 = @BINDIR@
+DESTINC	 = @INCDIR@
+DESTLIB	 = @LIBDIR@
+DESTMAN	 = @MANDIR@
+DESTDATA = @DATADIR@
+
+# C compiler options
+CC       = @CC@
+CFLAGS   = @CFLAGS@
+CPPFLAGS = @CPPFLAGS@
+LDFLAGS  = @LDFLAGS@
+DLLTYPE  = @DLLTYPE@
+
+# flags for external dependencies
+INCDIRS  = @INCDIRS@
+LIBDIRS  = @LIBDIRS@
+LIBFLAGS = @LIBFLAGS@
+
+# select the appropriate version of ranlib
+RANLIB = @RANLIB@

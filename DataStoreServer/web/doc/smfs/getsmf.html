@@ -1,0 +1,117 @@
+<html>
+<head>
+<title>IPP SMF Access Tools</title>
+</head>
+
+<body>
+<H1>
+Access to IPP smf files
+</H1>
+
+<a href=index.html>Go back up.</a><br>
+
+<h2>
+getsmf</h2>
+
+IPP smf files contain the results of camera stage processing. 
+They are FITS format files containg tables with the photometric and
+astronometric measurements for the
+sources detected in a single exposure.
+<br>
+<br>
+getsmf.php is a tool that may be used to retrieve an IPP smf file
+given certain parameters. 
+<br><br>The url of the tool is
+<pre>    http://misc.ipp.ifa.hawaii.edu/getsmf.php</pre>
+
+When this page is accessed without parameters it simply displays an 
+error message. 
+With valid parameters the tool returns the contents of the selected
+smf file. 
+<br> <br>
+Note: Obviously displaying the contents of a FITS file in a web browser is
+not very useful.
+getsmf.php is intended to be accessed directly using HTTP. 
+It is easy to write scripts that use the command line tools curl or wget
+to retrieve smf files using this tool.
+<br><br>
+For example, the following two equivalent unix commands copy the contents of 
+the smf containing the results from the cameraRun with cam_id=1780283) 
+to a local files:
+<pre>
+    curl 'http://misc.ipp.ifa.hawaii.edu/getsmf.php?cam_id=1780283' -o 1780283.smf
+
+    wget 'http://misc.ipp.ifa.hawaii.edu/getsmf.php?cam_id=1780283' -O 1780283-wget.smf
+</pre>
+
+The previous method allows the user to control the name of the local copy.
+If one would like to use the original file name supplied by the server
+the commands may be changed to:
+<pre>
+    curl 'http://misc.ipp.ifa.hawaii.edu/getsmf.php?cam_id=1780283' -O --remote-header-name
+
+    wget 'http://misc.ipp.ifa.hawaii.edu/getsmf.php?cam_id=1780283' --content-disposition
+
+</pre>
+In this example the name of the downloaded file is "o7616g0008o.1131492.cm.1780283.smf".
+<br><br>
+<b>Note:</b> The quote characters in these commands are needed to prevent
+the '?' characters from being interpreted by user's shell.
+
+<h3>parameters</h3>
+There are a few parameters that may be used to select specific smf files.
+Parameters are supplied by appending them to the base url following
+a '?' character. 
+<br><br>
+If multiple parameters are needed
+they should be separated by a '&' character.
+<br><br>
+<h4>cam_id=value</h4>
+The examples above demonstrated selection by cam_id. When a
+cam_id is supplied any other parameters supplied are ignored.
+
+<h4>exp_name=value</h4>
+Selects an smf file for an exposure with the given name. <br><br>
+For example supplying the parameter: <pre>exp_name=o7616g0008o</pre>
+gets the same result as the examples listed above. (As of the time
+of this writing).
+<br>
+Note that exposures may be processed multiple times. If no other selection
+parameters are found, the smf for the most recent processing is selected.
+<h4>release=value</h4>
+When used with exp_name, the release parameter specifies the 
+ipp release (processing version) for the smf file.<br>
+For example: <pre>exp_name=o5275g0401o&release=3PI.PV3</pre> retrieves the
+smf processed for exposure o5275g0401o in 3PI.PV3.
+If the release were changed to 3PI.nightly
+the smf from the original nightly procecessing would be retrieved. 
+(At the time of this writing, if the release parameter were omitted
+the 3PI.PV3 version would also be retrieved since it is currently
+the latest processing.)
+<h4>data_group=value</h4>
+This is a rarely used parameter.
+With exp_name, chooses smfs from camRuns processed as part of 
+the supplied data group. 
+
+<h3>Errors and Exceptions</h3>
+If an smf matching the supplied parameters is not found in the IPP, a message
+is included in the response. The http request succeeds.
+<br>
+After a user retrieves a file in this manner it should be checked 
+to insure that it
+is actually a FITS format file. 
+
+For example the following getsmf request asks for a non-existent smf:
+<pre>
+    curl 'http://misc.ipp.ifa.hawaii.edu/getsmf.php?cam_id=99999999999' -o test.smf
+</pre>
+After this command succeeds, the file test.smf is not a FITS file.
+Instead it contains text. This fact and its contents may be found 
+with the following 
+commands.
+<pre>
+    $ file test.smf
+    test.smf: ASCII text
+    $ cat test.smf
+    Could not find smf for cam_id: 99999999999.
+</pre>

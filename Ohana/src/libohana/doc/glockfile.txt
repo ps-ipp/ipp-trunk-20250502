@@ -1,0 +1,55 @@
+
+FILE *fsetlockfile (char *filename, double timeout, int type, int *state);
+   
+ set a lockfile on [path]/filename.  
+
+ we allow three types of locks: 
+ LCK_HARD - exclusive lock with persistent lock file
+ LCK_XCLD - exclusive lock, no persistent lock file
+ LCK_SOFT - shared lock
+
+ all three types of locks set a filesystem lock (using NFS lockd) on
+ the given file, using an exclusive lock for HARD and XCLD and a
+ shared lock for SOFT locks.  
+
+ a HARD lock also uses a lockfile to make the lock persistent in the
+ event the calling program crashes: the lockfile must be actively
+ removed and will not vanish even if the locking program dies
+
+ SOFT and XCLD locks will vanish if the locking program dies.
+
+ if a HARD or XCLD lock is set, HARD, XCLD & SOFT locks will block
+
+ if a SOFT lock is set, HARD and XCLD locks will block, but not a SOFT
+ lock
+
+ the hard lockfile uses the file [path]/.filename.lck
+
+ this function locks and opens the file, returning the file pointer to
+ the now opened file.  the file is either opened for reading and
+ writing (HARD, XCLD == r+) or just reading (SOFT).
+
+ Error Conditions:
+
+ on error, fsetlockfile closes the file, closes the lockfile, and
+ returns NULL.  In come cases, an empty file may be left behind
+ (LCK_TIMEOUT, LCK_HARDOPEN, LCK_HARDLOCK, LCK_HARDLOCKHARD,
+ LCK_HARDLOCKCLOSE)
+
+ - invalid type (LCK_INVALID)
+   * no file created, no lock file created : OK
+ - SOFT and file does not exist (LCK_EMPTY)
+   * no file created, no lock file created : OK 
+ - file not accessible, cannot be opened (LCK_ACCESS)
+   * no file created, no lock file created : OK
+ - FS lock timed out (LCK_TIMEOUT)
+   * new file is created, file is open, file is unlocked, lock file is not created : OK
+ - lockfile not accessible (LCK_HARDOPEN)
+   * new file is created, file is open, file is locked, lock file is not created : OK
+ - cannot lock lockfile, held by another user (LCK_HARDLOCK)
+   * new file is created, file is open, file is locked, lock file is created : OK
+ - lockfile says 'BUSY', previous holder crashed (LCK_HARDLOCKHARD)
+   * new file is created, file is open, file is locked, lock file exists, lock file locked : OK
+ - error writing 'BUSY' to lockfile (LCK_HARDCLOSE)
+   * new file is created, file is open, file is locked, lock file exists, lock file locked
+

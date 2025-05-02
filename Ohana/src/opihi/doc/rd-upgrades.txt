@@ -1,0 +1,10 @@
+
+rd a file.fits : read from PHU
+rd a file.fits -x N : read from extension N (0 - N)
+rd a file.fits -n name : read from extension name
+
+-plane : read only slice N
+
+* this function needs to check for compressed data:
+
+  * if PHU has been compressed, 

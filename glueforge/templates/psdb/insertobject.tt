@@ -1,0 +1,10 @@
+bool [% table.namespace %]InsertObject(psDB *dbh, [% table.object_name %] *object)
+{
+    return [% table.namespace %]Insert(dbh,
+[%- SET i = 0 -%]
+[%- FOREACH item = table.columns -%]
+[%- IF i == 0 -%][%- i = 1 -%] [% ELSE %], [% END -%]
+object->[% item.name -%]
+[%- END -%]
+);
+}

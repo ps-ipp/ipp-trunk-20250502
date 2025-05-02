@@ -1,0 +1,417 @@
+Installing the data store sample implementation
+XXX: This text was found lying around in my workspace. It needs to be
+checked for accuarcy
+
+Overview
+--------
+
+This note describes the installation and operation of the IPP Postage Stamp Server.
+We assume that IPP source for examination and that the user has the standard
+IPP configuration environment set up.
+
+This component of the IPP system is not intended for general distribution to IPP users
+and does not have streamlined installation procedures at this time.
+
+The PSS is a system which responds to requests to retrieve images from an IPP Image Server.
+The images may be either complete images or subsets of images known as "Postage Stamps".
+
+The internal mechanisms of the PSS are also used to service MOPS detectabiltiy
+query requests.
+
+Given this more general utility it should perhaps be called the "IPP Request Server".
+
+
+Data Store
+----------
+The PSS uses the Data Store mechanism to find incoming requests and to 
+provide results to the end user.
+
+A DataStore is simply a web server with URLS that supports an interface
+that allows collections of data called File Sets to be located and accessed.
+
+A Data Store is organized into 3 levels. These are described in the following sections.
+
+Data Store Root - a list of Products
+-------------------------------------
+
+Assume that a datastore is located on the server WEBSERVERHOST.
+An HTTP get to the url http://WEBSERVERHOST/ds/index.txt would give a list of the
+products in the Data Store.
+
+    # productID  |Most recent |Time registered     |type     |Description                     |
+    pstampresults|web204      |2008-10-16T00:35:16Z|psresults|Postage Stamp Results           |
+    pstamprequests|TEST0012    |2008-08-29T03:26:40Z|psrequest|Postage Stamp Requests          |
+    mops-pstamp-results|MOPSSTAMPREQ20080813T214918Z_00|2008-08-13T21:49:42Z|psresults|Postage Stamp Results for MOPS  |
+
+Each line is divided into fields separated by a 'pipe' character | .
+
+Data Store Product - a list of filesets
+---------------------------------------
+
+Similarly the url http://WEBSERVERHOST/ds/pstampresults/index.txt gives the list of filesets
+in the product pstampresults:
+
+    # filesetID|time registered     |type     |
+    TEST0011   |2008-08-29T03:05:03Z|PSRESULTS|
+    TEST0012   |2008-08-29T03:31:36Z|PSRESULTS|
+    web190     |2008-10-15T02:29:11Z|PSRESULTS|
+    web191     |2008-10-15T02:32:16Z|PSRESULTS|
+    web192     |2008-10-15T02:38:50Z|PSRESULTS|
+    web193     |2008-10-15T03:08:57Z|PSRESULTS|
+    web194     |2008-10-15T23:32:11Z|PSRESULTS|
+    web195     |2008-10-15T23:35:39Z|PSRESULTS|
+    web196     |2008-10-15T23:52:40Z|PSRESULTS|
+    web197     |2008-10-15T23:59:05Z|PSRESULTS|
+    web198     |2008-10-16T00:04:17Z|PSRESULTS|
+    web200     |2008-10-16T00:17:46Z|PSRESULTS|
+    web204     |2008-10-16T00:35:16Z|PSRESULTS|
+
+Note that the fileset ID for the latest fileset (web204) in the list appears in the root listing in the last
+section.
+
+The product list protocol accepts a query string which can be used to limit the listing to all filesets
+registered after a given fileset.
+
+For example, http://WEBSERVERHOST/ds/pstampresults/index.txt?web198 yields
+
+    # filesetID|time registered     |type     |
+    web200     |2008-10-16T00:17:46Z|PSRESULTS|
+    web204     |2008-10-16T00:35:16Z|PSRESULTS|
+
+
+File Set - a list of files
+--------------------------
+http://ippds.somwhere.net/ds/pstampresults/web205/index.txt
+
+    # fileID          |bytes   |md5sum                          |type        |
+    results.fits      |28800   |4e2048479e551844e31102a301d50740|table       |
+    # fileID          |bytes   |md5sum                          |type        |chipname|
+    1_1_o4748g0259o.ota01.fits|19840320|19a6233ab966cf3e13b7da8271dead67|chip        |XY01    |
+    1_2_o4748g0259o.ota02.fits|20416320|625bf8198dd7aef7c892af03584ee0ed|chip        |XY02    |
+
+    .... followed by 58 other files in this GPC1 exposure
+
+
+The IPP includes a number of tools for accessing a data store. An introduction to these tools may
+be seen by using the program perldoc.
+
+    dsrootls
+    dsproductls
+    dsfilesetls
+    dsget
+
+
+Installing the IPP Data Store Server Implementation
+---------------------------------------------------
+
+The data store implementation consists of a set of cgi scripts which are
+invoked by an apache web server. The indexes for the Data Store are stored in a mysql
+database. The cgi scripts use DBI perl module to query the database. No database updates
+are performed by the Data Store cgi scripts.
+
+The files for the Data Store Server located in the IPP source tree in the directory
+DataStoreServer (this directory may not be available in the distributed IPP
+tarballs).
+
+Mysql data base configuration
+-----------------------------
+
+The tables for the PSS are part of the regular IPP database tables.
+
+The Data Store implementation has been designed to not require the IPP for its
+operation so the Data Store's tables are not created as part of the IPP database setup.
+
+Currently however, the PostageStamp Server implementation assumes that the data
+store and postage stamp tables are in the same mysql database (this will be
+fixed soon).
+
+To set up the database go to the directory DataStoreServer/scripts and start up mysql.
+
+If you do not already have a current IPP database that you would like to use
+for the Postage Stamp Request tables issue the following commands
+
+    mysql> create database mydatabase;
+    mysql> use mydatabase;
+    mysql> source scripts/tabledefs.sql;
+
+Now exit mysql and run the command
+    pxadmin -create -dbname mydatabase
+
+If you already have a database set up, then just issue the commands
+    mysql> use mydatabase;
+    mysql> source scripts/tabledefs.sql;
+
+Web Server Configuration
+------------------------
+The apache configuration needs to have the following entries added to
+the appropriate configuration file. (Different apache distributions have
+different locations for these files so it's up to the installer to
+figure out where these configuration lines should go).
+
+       <Directory "/DATASTOREDIR/dsroot">
+
+          DirectoryIndex /ds-cgi/dsindex.cgi
+
+          #Options None
+
+          # turn on server side includes
+          Options +Includes
+
+          # files will be processed for server side includes if they have the
+          # executable bit set
+          XBitHack on
+
+          AddType text/plain .txt
+          AddOutputFilter INCLUDES .txt
+
+          AllowOverride None
+
+          Order allow,deny
+          Allow from all
+        </Directory>
+
+        #
+        # Location of the cgi scripts
+        #
+
+        <Directory "/DATASTOREDIR/ds-cgi">
+          Options ExecCGI
+
+
+          Order allow,deny
+          Allow from all
+        </Directory>
+
+        Alias       /ds     /DATASTOREDIR/dsroot/
+        ScriptAlias /ds-cgi /DATASTOREDIR/ds-cgi/
+
+(another sample of this configuration file may be found in 
+    DataStoreServer/web/conf/httpd-datastore.conf
+
+Here we have assumed that the data store cgi scripts will be installed in
+/DATASTOREDIR/ds-cgi and the data store data files will be stored in
+/DATASTOREDIR/dsroot.
+
+To install the cgi scripts
+    cd your_ipp_src_directory
+    cd DataStoreServer
+    scripts/installscripts --dsroot /DATASTOREDIR/dsroot --cgidir /DATASTOREDIR/ds-cgi
+
+The file /DATASTOREDIR/ds-cgi/dsshellconfig is a shell script that sets
+several environment variables that are required by the scripts.
+
+This script should be editied to customize the values for the installation.
+(This file will not be overwritten by subsequent invocations of
+installscripts).
+
+There are some scripts that the Postage Stamp Server uses that need to be
+installed into the IPP build directory. These are not included in the current IPP
+build. To build them invoke the following commands from the DataStoreServer
+directory.
+    psautogen
+    make install
+
+
+Testing the DataStore
+---------------------
+At this point an empty data store should be up and running. This can be tested
+by going to the following url in a web browser
+    http://WEBSERVERHOST/ds/index.txt
+
+If things are working properlly you should see the following output
+
+# productID  |Most recent |Time registered     |type     |Description                     |
+
+If an errror occurs check the web server error log and begin debugging.
+
+The following command may be used to create a test product in the data store
+
+dsprodtool --dbname mydatabase --dsroot   /DATASTOREDIR/dsroot/ \
+     --add testproduct --type psresults --description 'test data store product'
+
+Now if you point to http://WEBSERVERHOST/ds/index.txt with a web browser you
+should see 
+
+# productID  |Most recent |Time registered     |type     |Description                     |
+testproduct  |none        |2008-10-16T20:48:23Z|psresults|test data store product         |
+
+(of course your timestamp will be different).
+
+As a final test we will add a fileset to the data store.
+
+echo this is a file > testfile.txt
+
+echo 'testfile.txt|||text|' | dsreg --dbname mydatabase --dsroot /DATASTOREDIR/dsroot/ \
+    --product testproduct --add testfileset --type PSRESULTS --list - --copy --datapath .
+
+-list - tells dsreg to get the list of files for the fileset from stdin.
+(Usually a file is used).  The input to the command gives the name of the file to be added to the
+fileset, blank entries for size and md5sum, and the file type 'text'. 
+
+Now if you go to http://WEBSERVERHOST/ds/testfileset/index.txt you should see
+the fileset.
+
+If you leave off the index.txt in the urls you will get a more web browser
+friendly html pages with links.
+For example
+    http://WEBSERVERHOST/ds
+
+To delete the test product
+    dsprodtool --dbname mydatabase --dsroot /DATASTOREDIR/dsroot/ --del psresults --rm
+
+Set up the product for the postage stamp results with
+
+    dsprodtool --dbname mydatabase --dsroot /DATASTOREDIR/dsroot/ \
+         --add pstampresults --type psresults --description 'Postage Stamp results'
+
+and a product for requests
+
+    dsprodtool --dbname mydatabase --dsroot /DATASTOREDIR/dsroot/ \
+         --add pstamprequests --type psrequest --description 'Postage Stamp requests'
+
+Postage Stamp Server Set up
+---------------------------
+
+Now we are ready to set up the Postage Stamp Server.
+
+The programs that make up the PSS are controlled by a set of pantasks tasks. 
+There are some configuration variables that must be added to the site.config file.
+
+    # root directory of the data store
+    # this must match the directory used above in the Data Store setup
+    DATA_STORE_ROOT STR /DATASTOREDIR/dsroot
+
+    # default data store product used for results 
+    # (used by the web interface)
+    PSTAMP_DATA_STORE_PRODUCT STR pstampresults
+
+    # This directory is used for downloaded request files and other purposes
+    # it can go anywhere. The permissions on the directory must be such that
+    # that the web server program has permission to write there.
+    PSTAMP_WORKDIR STR /SOMEWHERE/pstamp-work
+
+PSS projects
+------------
+Each Postage stamp request selects images from a particular 'project'. 
+Each project has a row in the table pstampProject has the following columns
+
+    column      example
+    -------------------
+    name        simtest
+    state       enabled
+    dbname      ps_simtest
+    dvodb       NULL      (currently not used)
+    camera      SIMTEST
+    telescope   SimScope
+    need_magic  0
+
+The column dbname contains the name of the database that is used to look up images.
+To create a project use pstamptool. In this example ps_simtest is a database
+refererencing images made by a simtest run.
+
+pstamptool -dbname mydatabase -addproject -name foo -imagedb ps_simtest -inst SIMTEST -telescope SimScope
+
+
+Postage Stamp Request Tables
+----------------------------
+
+Postage Stamp requests are submitted in the form of a FITS binary table. The
+format of this table is described in a document which may be found on the IPP wiki.
+http://kiawe.ifa.hawaii.edu/IPPwiki/index.php/PostageStampServer
+
+Only the first table extension found in the request file is processed. 
+
+Each postage stamp request file submitted to the PSS generates a "Request".
+The name of the request is given by the value for the keyword REQ_NAME in
+the extension's fits header. Each postage stamp request must have a unique REQ_NAME must be unique.
+
+To process the request the PSS parses the request file.
+Each row in a request table contains a request specification. Each request specification
+causes zero or more "Jobs" to be queued for processing. Each Job operates on
+one input image.
+
+When all of the Jobs for a given Request complete, a Postage stamp results
+file is created and it along with the images produced by the jobs are
+registered in a fileset on the output Data Store.
+
+There are two job types specified by the value for the JOB_TYPE keyword in the
+request specification.
+
+    JOB_TYPE = "stamp" creates a "postage stamp" image.
+    JOB_TYPE = "get_image" builds a fileset containing copies of images
+
+There are two programs that may be used to create a postage stamp request.
+pstamprequest creates a request file with a single request specification.
+
+For example
+
+    pstamprequest -req_name REQ_00001 -project simtest /mydirectory/req.fits \
+                  -byexp chip simtest.004.000 null \
+                  -pixcenter 500 500 -pixrange 100 100
+
+creates a request file req.fits containing a request specification for a 100 x 100 pixel 
+postage stamp image centered at (500,500) in the source.
+The source image is chip processed image for one of the object exposures from a simtest run.
+
+Another program that may be used to create a request file is located in
+pstamp/test/pstamp_req_create.  This program takes a text file and creates a multi-row postage
+stamp request.  A couple of example input files may be found in pstamp/test/*.txt
+
+Queueing a PostageStamp Request
+-------------------------------
+The postage stamp server looks for work to do by examining a collection of
+input Data Stores. For example, the MOPS team will have a datastore onto which
+they will submit their postage stamp requests.
+
+There will also be a web based interface. A prototype for this will be
+discussed in a later section of this document.
+
+For testing, we may queue a request by hand using the program pstamptool
+
+    pstamptool -dbname mydatabase -addreq -uri /mydirectory/req.fits
+
+This adds an entry to the table pstampRequests with state = 'new'
+
+Request Processing
+------------------
+
+Postage stamp requests are processed by a set of pantasks tasks.
+
+ Task Status
+  AV Name                Njobs  Ngood Nfail Ntime Command            
+  ++ pstamp.request.find   921    921     0     0 pstamp_queue_requests.pl
+  ++ pstamp.request.run     13     13     0     0 pstamp_parser_run.pl
+  ++ request.finish.load  1839   1839     0     0 pstamptool         
+  ++ request.finish.run     14     14     0     0 request_finish.pl  
+  ++ pstamp.job.load      1840   1840     0     0 pstamptool         
+  ++ pstamp.job.run         30     30     0     0 pstamp_job_run.pl  
+  ++ pstamp.request.load  1566   1566     0     0 pstamptool
+
+pstamp.request.find examines incoming data stores for new requests and adds
+them if found
+
+pstamp.request.load dispatches pending requests for parsing
+
+pstamp.request.run runs the request parser which queues jobs to service the
+request specifications.
+
+pstamp.job.load dispatches pending jobs for processing
+
+pstamp.job.run runs a single job
+
+pstamp.finish.load looks for requests which have no pending jobs
+
+pstamp.finish.run builds the results fileset and registers it on the ouptut
+Data Store.
+
+Output Fileset
+-------------
+A successful request will generate a fileset with the name the REQ_NAME of the
+request in the output Data Store. The output product is determined by the
+source of the request as discussed in the next section. (If the request did
+not come from a data store the product is given by the value of PSTAMP_DATA_STORE_PRODUCT
+in the IPP site.config file.
+
+
+
+

@@ -1,0 +1,139 @@
+
+2014.10.28
+
+Going over the sequence of steps in relastro.  I'm concerned that the
+iteration is not modifying the measure.R,D values, preventing any
+actual iterative improvements.
+
+* UpdateObjects : takes measure.R,D to calculate average.R,D and
+  motion terms
+
+* ImageOps : 
+  * getImageRaw : takes measure.X,Y, applies image.coords to get (L,M),
+    		  (P,Q), etc, calculates 
+  * getImageRef : takes average.R,D, applies image.coords to get
+    		  (P,Q), (L,M), etc
+  * FitChip : fit raw.X,Y to ref.L,M, plus residual map (dX,dY)
+  
+  *** modified raw.L,M values are then dropped and not used to update measure.R.D
+
+2014.07.03
+
+Thinking some more about the galactic rotation / solar motion based
+tie of relastro.  What do I need in the db to do this process?  Here
+is an outline:
+
+* generate the PS1 + 2MASS (+ other) database
+
+* ingest the stellar distances from greg.  this boils down to distance
+  (or parallax) + error.  These values exist for ~500M objects, so a
+  non-trivial fraction of the db.  I suppose the easiest way to handle
+  this is as an extra 2 fields in average.d.  The correct (database)
+  way to do this would be to define another table with objID, par,
+  dpar, refID
+
+* a stand-alone process like setastrom would run through the database
+  and set the RoffGAL,DoffGAL offsets.
+
+** I have a model for the motion, but I will need to choose a
+   reference date.  I suppose it does not matter too much in detail,
+   but obviously I should not choose J1900.  I assume I should choose
+   something like the mean epoch (but it needs to be a single epoch
+   for the survey).  so, eg, 2012.01.01.  So, I use the model to
+   predict the offset for the given distance in the dR,dD direction.  
+
+ref: R,D -> P,Q -> L,M -> X,Y (average)
+raw: X,Y -> L,N -> P,Q -> R,D (measure)
+
+* fit is raw.X,Y -> ref.L,M
+
+* KHE : apply correction to raw.X,Y (I can calculate it for all stars
+
+* DCR : apply correction to raw.X,Y (need more than one color, can
+  calculate up front). choose a median color and airmass?  
+
+* GAL : I want the transformation of a given image to convert X,Y to
+  R,D for that epoch. This really says I need to apply the proper
+  motion offset to the ref.R,D so ref.L,M is a prediction of the true
+  position.
+
+* QSO : I have the QSO coordinates in the db as specific measurments
+  with their own photcode(s).  During the iteration, extract all
+  average.R,D for the QSOs and their specific measurements.  Fit
+  Y(l,m) to dR,dD.  Find the significant entries (how).  Subtract the
+  offsets from ALL average.R,D values??
+
+---------------------------------------------------
+
+* external steps:
+
+  * set the KHE X,Y offset values
+  * set the DCR X,Y offset values
+  * ingest the GAL P,dP values, set the GAL dR,dD values
+
+* relastro loop
+  * update objects
+  * fit & apply the QSO correction
+  * update chips
+
+  ** I need to do a better job of tracking the change from each
+     iteration.
+
+  ** add a bunch of visualizations to demonstrate the quality  
+
+2014.07.01
+
+I had a nice conversation with Valeri Makarov about astrometric
+calibration.  I have committed to send them the qsos matched to ps1
+positions.
+
+some things Valeri raised:
+
+1) if I make the QSOs into hard points, then they will drive the
+solution have to a peak consistency at that location.  thus errors
+will build up away from those points, with potential ringing.  His
+suggestion is to use a set of spherical harmonics to fit the residual
+between the QSO positions and relastro fitted position and to correct
+based on this model fit. 
+
+How exactly that works is not completely clear to me.  I imaging doing
+something iteratively.  my sequence is basically:
+
+1) fit the image parameters
+2) determine the per-epoch R,D values
+3) determine mean positions
+4) fit the Ylms between QSO radio positions (selected subset only)
+   and the new fitted R,D values 
+5) identify the significant Ylm terms, the negative of this is the
+   correction (actually, I'm fitting dR,dD = Y^D_lm, Y^R_lm
+6) adjust the mean positions for all objects based on the correction
+7) re-fit the images to these new positions
+8) back to step 2 and repeat...
+
+Clearly I can only do this (consistently) if I fit the entire sky (or
+as much as possible) in a single pass. I'll need to put some smarts
+into the relastro_parallel_regions to get this right.  But, also note
+that having the technology in place to apply the Ylms means that I can
+apply a correction from Valeri, if supplied.
+
+** What new fields do I need to handle this?  
+
+2) regarding the application of the Galactic rotation / solar motion
+model, Valeri raise the concern that different populations follow
+different rotation curves.  This is a good point, and an obvious one
+in retrospect.  In fact, we would like to be able to measure this.  
+
+Now, clearly Pop I and Pop II stars are very different in terms of
+rotation / stellar motions.   How much does this matter?
+Specifically, how much does solar motion matter vs the galactic
+rotation model?  Also, what fraction of my reference stars are likely
+to be giants instead of MS stars?  
+
+Some mitigation strategies:  
+
+1) attempt to use only stars in a modest range of colors and predicted
+distances? 
+2) ??
+
+NOTE: I need to get the QSOs from bertrand
+

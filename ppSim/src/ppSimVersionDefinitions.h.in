@@ -1,0 +1,8 @@
+#ifndef PPSIM_VERSION_DEFINITIONS_H
+#define PPSIM_VERSION_DEFINITIONS_H
+
+#define PPSIM_VERSION @PPSIM_VERSION@ // SVN version
+#define PPSIM_BRANCH  @PPSIM_BRANCH@  // SVN branch
+#define PPSIM_SOURCE  @PPSIM_SOURCE@  // SVN source
+
+#endif

@@ -1,0 +1,70 @@
+
+I have changed the meaning of coord type PLY from the historical
+meaning.  The only previous use that is in a DVO-style database is in
+the loneos data (all cfht data needed to go to linear terms).  these
+can be easily converted by changing from PLY to DIS.
+
+There are now three types of higher-order transformation which may be
+used depending on the circumstance.  The new naming scheme is:
+
+PLY : a cartesian transformation (ie, no projection implied)
+DIS : equivalent to TAN projection with up-to-3rd order polynomial
+WRP : a second-level cartesian transformation, implying the presence
+      of a DIS coord frame (must be registered with libohana function)
+
+{ 
+
+  X = coords[0].cdelt1*(x - coords[0].crpix1);
+  Y = coords[0].cdelt2*(y - coords[0].crpix2);
+  L = (X*coords[0].pc1_1 + Y*coords[0].pc1_2);
+  M = (X*coords[0].pc2_1 + Y*coords[0].pc2_2);
+  R = hypot (L,M);
+  if ((L == 0) && (M == 0)) {
+    sphi = 0;
+    cphi = 1;
+  } else {
+    sphi =  L / R;
+    cphi = -M / R;
+  }
+  if (R == 0) {
+    stht = 1.0;
+    ctht = 0.0;
+  } else {
+    T = DEG_RAD / R;
+    stht =   T / sqrt ( 1.0 + T*T);
+    ctht = 1.0 / sqrt ( 1.0 + T*T);
+  }
+  sdp  = sin(RAD_DEG*coords[0].crval2);
+  cdp  = cos(RAD_DEG*coords[0].crval2);
+    
+  sdel = stht*sdp - ctht*cphi*cdp;
+  salp = ctht*sphi;
+  calp = stht*cdp + ctht*cphi*sdp;
+  alpha = atan2 (salp, calp);
+  delta = asin (sdel);
+    
+  *ra  = DEG_RAD*alpha + coords[0].crval1;
+  *dec = DEG_RAD*delta;
+}
+
+RD_to_XY () {
+
+  sdp  = sin(RAD_DEG*coords[0].crval2);
+  cdp  = cos(RAD_DEG*coords[0].crval2);
+  salp = sin(RAD_DEG*(ra - coords[0].crval1));
+  calp = cos(RAD_DEG*(ra - coords[0].crval1));
+  sdel = sin(RAD_DEG*dec);
+  cdel = cos(RAD_DEG*dec);
+
+  stht = sdel*sdp + cdel*cdp*calp;    /* sin(theta) */
+  sphi = cdel*salp;                   /* = cos(theta)*sin(phi) */
+  cphi = cdel*sdp*calp - sdel*cdp;    /* = cos(theta)*cos(phi) */
+  if (stht < 0) status = FALSE;
+
+  X =  DEG_RAD * sphi / stht;
+  Y = -DEG_RAD * cphi / stht;
+  tmp_d = 1.0 / (coords[0].pc1_1*coords[0].pc2_2 - coords[0].pc1_2*coords[0].pc2_1);
+  *x = tmp_d * (coords[0].pc2_2*X - coords[0].pc1_2*Y) / coords[0].cdelt1 + coords[0].crpix1;
+  *y = tmp_d * (coords[0].pc1_1*Y - coords[0].pc2_1*X) / coords[0].cdelt2 + coords[0].crpix2;
+
+}

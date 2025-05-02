@@ -1,0 +1,148 @@
+#!/usr/bin/env perl
+
+# Copyright (C) 2005-2007  Joshua Hoblitt
+#
+# $Id: neb-initdb,v 1.8 2008-06-30 22:44:12 jhoblitt Exp $
+
+use strict;
+use warnings FATAL => qw( all );
+
+use vars qw( $VERSION );
+$VERSION = '0.03';
+
+use DBI;
+use Nebulous::Server::SQL;
+
+use Getopt::Long qw( GetOptions :config auto_help auto_version );
+use Pod::Usage qw( pod2usage );
+
+my ($db, $dbhost, $dbuser, $dbpass);
+my ($trap, $actually_do_it);
+# Removed default options using environment variables because it's too dangerous.
+
+GetOptions(
+    'db=s'      => \$db,
+    'host=s'    => \$dbhost,
+    'user=s'    => \$dbuser,
+    'pass=s'    => \$dbpass,
+    'yes_i_know_what_im_doing'  => \$trap,
+    'yes_i_know_what_im_doing_really=s' => \$actually_do_it,
+) || pod2usage( 2 );
+
+pod2usage( -msg => "Unknown option: @ARGV", -exitval => 2 ) if @ARGV;
+pod2usage( -msg => "Required options: --db --user --pass --host", -exitval => 2 )
+    unless $db && $dbuser && $dbpass && $dbhost;
+pod2usage( -msg => "Aborting due to mistake in options.  Check code.", -exitval => 2) if ($trap);
+pod2usage( -msg => "Aborting due to mistake in options.  Check code.", -exitval => 2) unless (defined($actually_do_it));
+if ($actually_do_it ne 'this_is_intentionally_difficult') {
+    pod2usage( -msg => "Aborting due to mistake in options.  Check code.", -exitval => 2);
+}
+
+my $dbh = DBI->connect(
+    "DBI:mysql:database=$db:host=$dbhost",
+    $dbuser,
+    $dbpass,
+    {
+        RaiseError => 1,
+        PrintError => 0,
+        AutoCommit => 1,
+    },
+);
+
+my $sql = Nebulous::Server::SQL->new();
+
+print "Not dropping any existing tables because that's dangerous...";
+#
+#foreach my $statement (@{ $sql->get_db_clear }) {
+#    $dbh->do( $statement );
+#}
+
+print " OK!\nCreating new tables...";
+
+foreach my $statement (@{ $sql->get_db_schema }) {
+    eval {
+	$dbh->do( $statement );
+    };
+    if ($@) {
+	die "Error received: $@\n";
+    }
+}
+
+print " OK\n";
+
+__END__
+
+=pod
+
+=head1 NAME
+
+neb-initdb - initialize a Nebulous server database
+
+=head1 SYNOPSIS
+
+    neb-initdb [--db <database>] [--user <username>] [--pass <password>] [--host <dbhost>]
+
+=head1 DESCRIPTION
+
+This program initialize a database for use by L<Nebulous::Server> by creating
+the appropriate set of tables.  Any pre-existing tables with conflicting names
+are first removed.  This help file intentionally does not tell you how to make
+the program actually work.
+
+=head1 OPTIONS
+
+=over 4
+
+=item * --db <database>
+
+Name of database (C<namespace>) to create tables in.
+
+
+=item * --user <username>
+
+Username to authenticate with.
+
+
+=item * --pass <password>
+
+Password to authenticate with.
+
+=item * --host <dbhost>
+
+Host to generate the database tables on.
+
+=back
+
+=head1 ENVIRONMENT
+
+No environment variables interact with this program.
+
+=head1 SUPPORT
+
+Please contact the author directly via e-mail.
+
+=head1 COPYRIGHT
+
+Copyright (C) 2005-2016  IPP.  All rights reserved.
+
+This program is free software; you can redistribute it and/or modify it under
+the terms of the GNU General Public License as published by the Free Software
+Foundation; either version 2 of the License, or (at your option) any later
+version.
+
+This program is distributed in the hope that it will be useful, but WITHOUT ANY
+WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A
+PARTICULAR PURPOSE.  See the GNU General Public License for more details.
+
+You should have received a copy of the GNU General Public License along with
+this program; if not, write to the Free Software Foundation, Inc., 59 Temple
+Place - Suite 330, Boston, MA  02111-1307, USA.
+
+The full text of the license can be found in the L<perlgpl> Pod as supplied
+with Perl 5.8.1 and later.
+
+=head1 SEE ALSO
+
+L<Nebulous::Server>, L<neb-addvol>, L<neb-df>, L<nebdiskd>
+
+=cut

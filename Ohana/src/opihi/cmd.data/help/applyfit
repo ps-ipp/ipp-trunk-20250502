@@ -1,0 +1,10 @@
+
+  applyfit x y
+
+  apply the results of a polynomial fit (stored in variables 
+  $C0, $C1, etc, with $Cn representing the order of the fit).
+  The second vector will contain the function value at the 
+  corresponding x coordinates of the first vector.
+
+  See also: fit
+

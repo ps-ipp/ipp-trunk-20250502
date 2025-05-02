@@ -1,0 +1,22 @@
+NAME
+     tap -- write tests that implement the Test Anything Protocol
+
+SYNOPSIS
+     #include <tap.h>
+
+DESCRIPTION
+     The tap library provides functions for writing test scripts that produce
+     output consistent with the Test Anything Protocol.  A test harness that
+     parses this protocol can run these tests and produce useful reports indi-
+     cating their success or failure.
+
+
+---
+
+*** Note for Ohana ***
+
+This is a locally modified version of tap to work within the Ohana
+framework.  I have stripped the library down to the source code and
+tests, removed the autogen and libtool stuff, and made a Makefile
+which uses the Ohana $(ARCH) system.  The tap library is installed
+with the name tap_ohana (-ltap_ohana, tap_ohana.h).

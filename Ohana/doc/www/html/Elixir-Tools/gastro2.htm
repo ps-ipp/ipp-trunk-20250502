@@ -1,0 +1,68 @@
+<meta name=file  content=gastro2>
+<meta name=title content=gastro2>
+<meta name=page  content=gastro2>
+
+<p>
+gastro2 is the successor to gastro.  The gastro2 program determines
+the astrometric transformation for an image based on the cmp/smp file.
+This file contains both the table of object data and the complete
+image FITS header.  Using the header astrometric information as a
+starting point, gastro2 loads the reference astrometry objects
+appropriate for the region and determines the matching objects between
+the image and the reference.  These objects are used, with iteration
+to improve the sample, to determine the astrometric transformation
+with up to 3rd order polynomials.
+
+<pre>
+gastro filtname.cmp
+options:
+  -h
+  -help
+  -v
+  -p (photcode)
+  -plot
+  -maglims
+  -nstars
+  -fx
+  -fy
+  -coords (ra) (dec)
+  -dump
+  -mdmp
+  -cdmp
+  -loneos
+
+gastro2 configuration variables:
+OFFSET_RADIUS     - unused
+MIN_MATCHES	  - unused
+DEFAULT_RADIUS	  - unused
+MINIMUM_RADIUS	  -
+MAX_ERROR	  -
+MAX_NONLINEAR	  -
+MAX_PRECISE	  -
+CCD_PC1_1	  -
+CCD_PC2_2	  -
+CCD_PC1_2	  -
+CCD_PC2_1	  -
+ASEC_PIX	  -
+NFIELD		  -
+NPOLYTERMS	  -
+ROT_ZERO	  -
+dROT		  -
+NROT		  -
+POLAR_ALIGNMENT	  -
+GSCFILE		  -
+GSCDIR		  -
+2MASS_DIR         -
+POLAR_AXIS_RA     -
+POLAR_AXIS_DEC    -
+RA_OFFSET         -
+DEC_OFFSET        -
+LONEOS_REGIONS    - 
+USNO_CDROM        -
+ASTRO_REFCAT      - 
+CATDIR            - 
+ROUGH_ASTROMETRY  - 
+PHOTCODE_FILE     -
+GASTRO_MAX_NSTARS -
+
+</pre>

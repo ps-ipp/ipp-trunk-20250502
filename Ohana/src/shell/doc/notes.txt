@@ -1,0 +1,113 @@
+block			general
+checkdisks		CFHT specific
+dads.cleanup		
+dads.remef		
+dads.split		
+defringe		N CCDs, CFH12K Coord file
+detrend			Not Used?
+detstats		OK (check mana scripts)
+doflips			OK
+dumptape		
+elixir.fork		
+elixir.grab		
+elixir.report		
+fits2jpeg		
+fixdetrend		
+flatten.flips		OK
+flatten.mana		OK	
+focusstats		
+fr.ckfile		Not Used
+fr.defringe		N CCDs (check mana scripts)
+fr.mkimage		OK
+fr.mkrough		OK
+fr.mkstats		(check scripts)
+fr.smooth		Scale is CCD dependent
+fr.stats		OK
+getfocus		
+getseeing		
+gettemps		
+gopsfphot		
+gosexphot		
+gtfringe		(sh) OK
+imstats			CCD size specific -- should use DETSEC
+merge.lists		OK
+mk2d			Not Used
+mkjpeg			(realtime) N CCD specific
+normalize		OK
+normalize.invert	-
+phot.by.night		
+pt.export		(ptolemy export process)
+rm.elixir		(drop & convert to the exit status method)
+setpath			unused?
+sexstats		OK
+skyprobephot		
+split.mef		OK
+spphot			
+
+-
+
+cfht.names		a
+checkconfig		CFHT specific
+ckastrom		
+ckdetrend		
+ckphotom		
+ckrunid			
+ckvalid			
+clear.rawdir		
+create.imlists		nut used
+create.subset		OK
+dads.detrend		
+dads.jpeg		
+dads.keywords		
+darktime.cfht		CFH12K specific -- these curves must be measured for a new device!
+fixlists		
+fl.split2mef		not used?
+fr.detrend		Nccds from gt_names -- more general encapsulation
+fr.gtstats		Nccds
+fr.medbin		Nccds
+fr.medbin.spline	Nccds
+fr.mklists		OK
+fr.select		
+fr.subset		
+get.standards		
+grab.keywords		
+images.names		
+imclean.cfht		
+imselect		
+imstatqso		
+merge.lists		
+mkdetrend		
+mkfringe		
+mkptolemy.names		
+mktrans			
+mktreport		
+mosaic.merge		
+mosaic.stats		
+pt.run			
+seeingstats		
+validate		
+
+shell scripts that use awk -v (convert to perl):
+defringe
+fr.defringe
+fr.smooth
+gtfringe   (convert from sh anyway)
+
+shell scripts which use CFH12K dependent things:
+
+defringe		N CCDs, CFH12K Coord file
+detstats		(check mana scripts)
+fr.ckfile		Nccds
+fr.defringe		N CCDs (check mana scripts)
+fr.mkimage		(check scripts)
+fr.mkstats		(check scripts)
+fr.smooth		Scale is CCD dependent
+fr.stats		(check scripts)
+imstats			CCD size specific -- should use DETSEC
+normalize		OK
+split.mef		CCD size specific
+
+(watch out for header keywords -- make a complete dictionary)
+
+shell -> perl
+split.mef

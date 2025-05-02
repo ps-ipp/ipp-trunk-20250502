@@ -1,0 +1,180 @@
+<meta name=file  content=gastro>
+<meta name=title content=gastro>
+<meta name=page  content=gastro>
+
+<p>
+mosastro takes a collection of data from mosaic CCD images, all
+individually astrometrized, and determines a single global astrometric
+solution for the complete system.  In this process, it determines a
+distortion model for the telescope arising from the optical system, as
+well as mapping solutions relating the coordinate systems of the
+individual chip pixels to the focal plane.  Both of these
+transformations may involve up to 3rd order polynomials.  
+
+<p>
+The suggested operation is to use gastro (or gastro2) to determine
+linear astrometric solutions for the individual chips before running
+mosastro.  Mosastro requires the individual chip astrometry have an
+accuracy of roughly 1 arcsec or better in order to select the match
+between the observed stars and the astrometric reference catalog.   
+This two stage approach allows a more robust linear solution for the
+individual chips, which may have too few reference star matches to
+define reliable high-order solution.  The mosaic analysis determines a
+single distortion model representing the physical contribution of the
+telescope optics.
+
+Mosastro is run assuming the user has a collection of Elixir-style
+astrometry / photometry files in one of the CMP/SMP/SMF set of
+formats.  Mosastro will auto-detect the data format and load the
+stellar astrometric and photometric measurements.  The collection of
+data is assumed to consist of one file per chip, with names which are
+sufficiently consistent that they can be identified with a single
+filename including wild-cards.
+
+<p>
+The user command looks like:
+<pre>
+mosastro (glob) (ext) (phu)
+</pre>
+
+The first argument is an expression containing wild-cards which
+expands into the collection of files containing the astrometric data.
+The mosastro program must receive the wild-card expression
+<em>without</em> expansion by the shell.  The user call needs to
+protect the wild-card against expansion, which can usually be done by
+placing the expression within double-quote marks.  The second argument
+is the new output extension.  The stellar photometry will be written
+out to files using the same names as the input, replacing the final
+filename extension with the provided extension.  The standard input
+extensions are one of the following: 'cmp', 'smp' (used for dophot or
+sextractor output files in raw text format), 'cmf, 'smf' (used for
+dophot or sextractor output files in fits table format).  The
+recommended output extensions replace the 'c' or 's' with 'x': 'xmp'
+for raw text format, or 'xmf' for FITS table format.  The final
+argument is the name of the output 'primary header unit' file.  The
+standard usage here is to use the filename root (without chip
+identifiers) with the extension 'phu'.  The output telescope boresite
+and optical distortion terms are written to this primary header entry,
+which is constructed from the first of the chip files (true?).  
+
+<em> future expansions: allow input list of files from a file, allow
+input MEF collection of chip astrom/photom </em>
+
+<p>
+In the following discussion, we refer to conversions between
+several coordinate frames.  We use the term 'project' to describe the
+projection of the celestial coordinates to the linear (focal plane or
+chip) coordinates; we use the term 'deproject' to describe the
+conversion from the linear chip or focal-plane coordinates to the
+spherical celestial coordinates.
+
+<p>
+mosastro performs the following steps in the analysis.  
+<ul>
+<li> Load the raw stellar astrometry data from the chip files
+<li> Deproject the stars using the approximate chip astrometry
+<li> Determine the RA and DEC range of the observed star measurements
+<li> Define the initial guess telescope boresite / distortion model
+<li> Project the observed star coordinates to the focal plane
+<li> Load the astrometric reference catalog.
+<li> Project the reference catalog to the focal plane
+<li> Match obs and ref on the focal plane
+<li> Measure the local gradient of the matched star coordinate in the
+tangent plane as a function of focal plane coordinate.  
+<li> Fit the local gradient values as a function of focal plane coordinates
+<li> Use the measured gradient model to modify the distortion model
+<li> Fit low-order solution for the chip model
+<li> Clip outlier matches
+<li> Fit high-order solution for the chip model
+<li> Perform several clip / fit iterations
+<li> Write out the new solutions / data to the output file
+</ul>
+
+<h3> options </h3>
+
+The following command-line options are available to the user:
+
+<ul>
+<li> -help or -h : print summary help information
+<li> -v : turn on verbosity
+
+<li> -dump (selection) : write out matched stars data at some
+processing stage.  The selection specifies where in the analysis to
+write out the result.  The following options are available:
+<ul>
+<li> rawstars : write out the raw input observed star positions, after
+the initial projection
+<li> refcat   : write out the reference catalog data (after initial
+projection). 
+
+<li> rawmatch : write out the obs and ref stars after the first match,
+before any fit is performed
+ 
+<li> fitgrads : write out the obs and ref stars after correction for
+the local gradient
+ 
+<li> fitchips_unclip : write out the obs and ref stars after fitting
+the initial chip term
+
+<li> fitchips : write out the obs and ref stars after the clipping
+iterations. 
+</ul>
+
+<li> -save-residuals : save table of obs and ref star matches, with
+coordinates in the multiple frames, as an extension to the PHU file.
+
+<li> -chips : load the initial chip focal-plane mapping (not yet implemented)
+
+<li> -field : load the inital field rotation, boresite, plate-scale
+from reference file
+
+<li> -order : define the polynomial order of the telescope distortion
+model (default is 0).
+
+-chiporder : define the polynomial order of the chip mapping model
+(default is 1).
+</ul>
+
+<h3> Elixir Configuration Data </h3>
+
+Mosastro uses the following Elixir configuration variables:
+
+<ul>
+<li> EXPTIME-KEYWORD  : header keyword defining exposure time
+<li> DATE-KEYWORD  : header keyword defining the date 
+<li> DATE-MODE  : mode for header date information: use a combination
+of Ys, Ms, Ds to specify order.  If only 2 digits are specified for
+the year, numbers greater than 50 are assumed in the 1900s, less than
+in the 2000s.  eg YYYY/MM/DD
+<li> UT-KEYWORD  : header keyword defining UT
+<li> MJD-KEYWORD  : header keyword defining MJD
+<li> JD-KEYWORD  : header keyword defining JD
+
+note that only one of the combination JD, MJD, or DATE/UT needs to be
+defined. 
+
+<li> ASTRO_REFCAT  : desired astrometric reference catalog.  allowed
+values are <tt>GSC, USNO, 2MASS, PTOLEMY, STONE</tt>.  
+
+<li> GSCDIR      : location of the HST Guide Star Catalog
+<li> USNO_CDROM  : location of the USNO-A data
+<li> STONE_DIR   : location of the Stone et al reference data
+<li> 2MASS_DIR   : location of the 2MASS data 
+<li> CATDIR      : location of the ptolemy data
+<li> GSCFILE     : location of the GSC layout file (for GSC and ptolemy)
+
+note that 'ptolemy' refers to data using the DVO format.  2MASS data
+must be in a DVO format database.  USNO and GSC are both loaded from
+their idiosyncratic formats.  
+
+<li> RADIUS  : matching radius in arcsec to select reference stars
+<li> SIGMA_LIM  : exclude stars with formal error larger than this
+
+<li> ZERO_PT  : default zero point, nominally 25.0.  don't set this to
+a 'real' zero point.  it is used only for reference.
+
+<li> INST_MAG_MIN  : exclude stars brighter than this instrumental magnitude
+<li> INST_MAG_MAX  : exclude stars fainter than this instrumental magnitude
+<li> INST_BRIGHT  : use stars brighter than this value to measure
+systematic error limit.
+</ul>

@@ -1,0 +1,53 @@
+
+2014.07.03
+
+NOTE: 2 questions on these measurements: chisq and ubercal dist?
+
+I think I have worked out all of the issues in the mag / flux
+calibrations for stacks and forced warps.  It took me a few passes to
+get the right combinations of the 3.56 or the 8.9 offset to the mags.
+But now, the stack psf mags, warp psf mags, stack flux, warp flux, and
+mean psf mags all agree at the 0.1 mmag level.
+
+I still have some concerns regarding the flags and astrometry.  I am
+not set on my laptop to test the primary cell stuff (well, I could
+probably reproduce it, but easier to wait until I'm home).  I need to
+review the 'waterfall' and check that the choices make sense (and
+write it down for review).
+
+2014.07.02
+
+I am trying to run a (rather artificial) test of relphot
+specifically, I have taken a single smf and an associated warp cmf and
+modified the headers so I can load them in DVO and run relphot.  Some
+issues I've hit:
+
+* needed to specify PHOTCODE for the stack and fforce fake cmfs
+* needed to modify IMAGEID and MJD-OBS so the chips associated
+  correctly with different gpc1 images
+* modified relphot/MosaicOps.c to explicitly skip stack and warp by
+  photcode when matching chips into mosaics (kind of a hack as it
+  won't work with other cameras)
+
+2014.07.01
+
+thinking about the issues with relphot for the new PV2 / PV3 schema.
+I now have 3 separate sets of mean photometry for each of the stages
+cam/staticsky/warp.  I need to make sure I am handling everthing
+needed.
+
+Calibration sequence:
+
+* relphot_images / relphot_parallel_images : calculate the zero points
+
+Loop around with the standard sequence, but only fitting for the mean
+camera mags and camera zero points.   At the end of the iteration, fit
+the stacks and warps to the new mean object mags.  
+
+Some things I've started to worry about:
+
+1) QSOs & other variables.  Am I detecting and avoiding these well
+enough?
+
+2) what is the appropriate ubercal weight (10, 100, 1000?)
+

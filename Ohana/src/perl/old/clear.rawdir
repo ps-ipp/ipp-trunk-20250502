@@ -1,0 +1,258 @@
+#!/usr/bin/env perl
+
+# this script is very much specific to the CFHT data layout
+
+$archive = "/h/archive/current/instrument/cfh12k";
+$force = 0;
+
+# grab the command line arguments:
+@tARGV = ();
+for (; @ARGV > 0; ) {
+
+    if ($ARGV[0] eq "-force") {
+	shift;
+	$force = 1;
+	next;
+    }
+    
+    @tARGV = (@tARGV, $ARGV[0]);
+    shift;
+}
+@ARGV = @tARGV;
+
+if (@ARGV != 1) { die "USAGE: clean.rawdir (crunid)\n" ;}
+
+if ($ARGV[0] eq "-current") {
+    $runid = `gconfig -q RUNID`; chop ($runid);
+} else {
+    $runid = $ARGV[0];
+}
+print "runid: $runid\n";
+
+$rawdir = `gconfig -q -D RUNID $runid RAWDIR`; chop ($rawdir);
+if ($rawdir eq "") {
+    print STDERR "can't find config entry RAWDIR\n";
+    exit 1;
+}
+print "rawdir: $rawdir\n";
+
+@meflist = ();
+@splitlist = ();
+
+# load in the MEF files (must be of format 123456x.fits)
+@tlist = <$rawdir/*.fits>;
+foreach $tname (@tlist) { 
+    if ((-f $tname) && ($tname =~ /\d\d\d\d\d\d\w.fits$/)) { 
+	@meflist = (@meflist, $tname); 
+    } 
+}
+
+# load in the SPLIT directories (must be of format 123456x)
+@tlist = <$rawdir/???????>;
+foreach $tname (@tlist) { 
+    if ((-d $tname) && ($tname =~ /\d\d\d\d\d\d\w$/)) { 
+	@splitlist = (@splitlist, $tname); 
+    } 
+}
+$N1 = @meflist;
+$N2 = @splitlist;
+
+foreach $file (@meflist) {
+
+    # grab the root name:
+    $root = mefnames ($file, "root");
+    
+    $arname = "$archive/$root.fits";
+    $newname = $file;
+
+    # check that the file exists in the archive
+    if (-l $file) { next; }
+    if (! -e $arname) { next; }
+    if (! -f $arname) { next; }
+
+    unlink $file;
+    symlink $arname, $newname;
+}
+
+foreach $file (@splitlist) {
+
+    # grab the root name:
+    $root = splitnames ($file, "root");
+    
+    $arname = "$archive/$root.fits";
+    $newname = "$rawdir/$root.fits";
+
+    # check that the file exists in the archive
+    if (! -e $arname) { next; }
+    if (! -f $arname) { next; }
+
+    vsystem ("rm -rf $file\n");
+    symlink $arname, $newname;
+    vsystem ("imsearch -name $root -split2mef\n");
+}
+
+exit 0;
+
+# utilities ##############################################
+
+sub gt_names {
+    # in: filename mode type
+    # out: word
+
+    my ($value);
+
+    $value = "";
+    if ($_[2] eq "MEF")   { $value = mefnames ($_[0], $_[1]); }
+    if ($_[2] eq "SPLIT") { $value = splitnames ($_[0], $_[1]); }
+    
+    return $value;
+}
+
+sub mefnames {
+    # in: (/path/file.fits) (mode) 
+    # out: word
+
+    my($fullname) = $_[0];
+    my($mode) = $_[1];
+    my($answer);
+
+    # split rootdir and filename:
+    my (@words) = split ("/", $fullname);
+    $N = @words;
+
+    if ($mode eq "path") {
+	$answer = "";
+	for ($i = 0; $i < $N - 1; $i++) {
+	    $answer = $answer . $words[$i] . "/";
+	}
+	chop ($answer); # strip off last /
+	if ($answer eq "") { $answer = "."; }
+	return ($answer);
+    }
+    
+    if ($mode eq "root") {
+	$answer = "$words[$N-1]";
+	$answer =~ s/.fits$//;
+	return ($answer);
+    }
+    
+    if ($mode eq "Nccd") {
+	if (! -e $fullname) {
+	    return (0);
+	}
+	$answer = `echo $fullname | fields NEXTEND`;
+	@words = split (" ", $answer);
+	if ($words[1] eq "") {
+	    return (0);
+	}
+	return ($words[1]);
+    }
+    
+    return (0);
+}
+
+sub splitnames {
+    # in: (/path/file) (mode) 
+    # out: word
+    # /path/file is directory containing Nccd fits images
+
+    my($fullname) = $_[0];
+    my($mode) = $_[1];
+    my($answer, $N, $tmpname, @imlist, @words);
+
+    # split rootdir and filename:
+    @words = split ("/", $fullname);
+    $N = @words;
+
+    if ($mode eq "path") {
+	$answer = "";
+	for ($i = 0; $i < $N - 1; $i++) {
+	    $answer = $answer . $words[$i] . "/";
+	}
+	chop ($answer); # strip off last /
+	if ($answer eq "") { $answer = "."; }
+	return ($answer);
+    }
+    
+    if ($mode eq "root") {
+	$answer = "$words[$N-1]";
+	return ($answer);
+    }
+    
+    if ($mode eq "Nccd") {
+	
+	$tmpname = "$fullname/$words[$N-1]";
+	@imlist = <$tmpname??.fits>;
+
+	$Nccd = @imlist;
+	return $Nccd;
+    }
+    
+    return (0);
+}
+
+sub ckimtype {
+    # in: (/path/file)
+    # out: MEF | SPLIT | SINGLE | (NULL)
+    
+    my ($answer, $name, $value);
+    my ($file) = $_[0];
+
+    if (! -e $file) { 
+	print STDOUT "can't open file\n";
+	return ""; 
+    }
+
+    # if /path/file is a directory, it is split:
+    if (-d $file) { return "SPLIT"; }
+
+    # check that the file is a FITS image
+    $answer = `file -L $file`;
+    if ($?) { 
+	print STDOUT "can't open file\n";
+	return ""; 
+    }
+    ($name, $value) = split (" ", $answer);
+    if ($value ne "FITS") { 
+	print STDOUT "not a valid image\n";
+	return ""; 
+    }
+    
+    # check for NAXIS = 0 (MEF) 
+    $answer = `echo $file | fields NAXIS`;
+    # if ($?) { return ""; }
+    ($name, $value) = split (" ", $answer);
+    if ($value eq 0) { return "MEF"; }
+    
+    if ($value == 2) { return "SINGLE"; }
+
+    print STDOUT "not a valid image\n";
+    return "";
+}
+
+sub vsystem {
+    # print STDERR "@_\n";
+    my($status) = system ("@_");
+    $status;
+}
+
+sub goodbye {
+    die "@_\n";
+}
+
+
+# This program calls several other perl scripts to get information 
+# about the image.  
+# ckrunid   - determine the appropriate Camera Run ID for this image
+# ckastrom  - check for the appropriate astrometry information
+# ckdetrend - check for the appropriate detrend images
+# ckphotom  - check for the appropriate photometry data
+
+# at the moment, there are different calling conventions for each of
+# these functions.  Some take a single name (MEF / SPLIT), some take a
+# reference to the specific CCD (filename CCD MODE).  
+
+# none of the called functions need to find the number of CCDs
+# ckvalid determines the number of CCDs from the header (MEF) or the
+# number of appropriately named FITS files in the directory (SPLIT).
+

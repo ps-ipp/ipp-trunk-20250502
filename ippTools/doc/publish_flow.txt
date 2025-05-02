@@ -1,0 +1,14 @@
+### Setup
+pubtool -defineclient -stage diff -comment Comment -product IPP-MOPS -workdir /path/to/somewhere
+
+### Regularly run by pantasks to generate publishing runs based on data that has been processed
+pubtool -definerun
+
+### Regularly run by pantasks to get list of files to publish
+pubtool -pending
+--> publish_file.pl --pub_id 12345 --workdir /path/to/somewhere --product IPP-MOPS --stage diff --stage_id 67890
+----> pubtool -add -pub_id 12345 -path_base /path/to/somewherenice -fault 0
+
+### Run as required
+pubtool -revert
+

@@ -1,0 +1,96 @@
+#!/usr/bin/env perl
+
+if (@ARGV != 1) { die "USAGE: dads.keywords (outdir)\n" ;}
+
+# get list of image files:
+@list = <$ARGV[0]/*.fits>;
+$name = $list[0];
+
+# get appropriate run ID
+$runid = `ckrunid $name`; chop ($runid);
+if ($?) {
+    print STDERR "ERROR: can't find run ID\n";
+    exit 1;
+}
+
+# get the appropriate reduced data directory
+$tmpdir=`gconfig -D RUNID $runid TMPDIR`; chop ($tmpdir);
+if ($?) {
+    print STDERR "ERROR: can't find tmpdir\n";
+    exit 1;
+}
+
+if (! -d $tmpdir) { 
+    print STDERR "ERROR: can't open $tmpdir\n";
+    exit 1;
+}
+
+foreach $name (@list) {
+
+    # files have names like /path/654321p/654321p00.fits
+
+    # split rootdir and filename:
+    @words = split ("/", $name);
+    $N = @words;
+
+    # extract root (654321p) convert to original form (654321o)
+    ($root, $ccd) = $words[$N-1] =~ /(\d\d\d\d\d\d)\S(\d\d)/;
+    $base = sprintf "%so/%so%02d", $root, $root, $ccd;
+
+    # generate name of output header file
+    $hdxfile = $name;
+    $hdxfile =~ s/.fits$/.hdx/;
+    if ($hdxfile eq $name) {
+	print STDERR "ERROR in format of filename $name\n";
+	exit 1;
+    }
+
+    # grab.keywords tests both smp & cmp
+    $cmproot = "$tmpdir/$base";
+    if (vsystem ("grab.keywords $name $cmproot $hdxfile")) {
+	print STDERR "ERROR: can't get keywords for $name\n";
+	exit 1;
+    }
+
+    if (vsystem ("fits_insert $name $hdxfile -comment 5 'Fully Characterized and Analysed by Elixir @ CFHT'" )) {
+	print STDERR "ERROR inserting keywords in $name\n";
+	exit 1;
+    }
+}
+
+# add data for phu file:
+@list = <$ARGV[0]/*.phu>;
+$phufile = $list[0];
+
+# generate name of output header file
+$hdxfile = $name;
+$hdxfile =~ s/.fits$/.phu/;
+if ($hdxfile eq $name) {
+    print STDERR "ERROR in format of filename $name\n";
+    exit 1;
+}
+
+if (vsystem ("grab.keywords $phufile phu $hdxfile")) {
+    print STDERR "ERROR: can't get keywords for $name\n";
+    exit 1;
+}
+
+if (vsystem ("fits_insert $phufile $hdxfile -comment 5 'Fully Characterized and Analysed by Elixir @ CFHT'" )) {
+    print STDERR "ERROR inserting keywords in $name\n";
+    exit 1;
+}
+
+print STDERR "SUCCESS: applied new keywords\n";
+exit 0;
+
+# utilities ##############################################
+
+sub vsystem {
+    print STDERR "@_\n";
+    $status = system ("@_");
+    $status;
+}
+
+sub goodbye {
+    die "@_\n";
+}

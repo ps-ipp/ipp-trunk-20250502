@@ -1,0 +1,65 @@
+### Set up a run:
+magictool -definerun -workdir /path/to/workdir
+magictool -addinputskyfile -magic_id 6 -diff_id 1 -node 5.1
+magictool -addinputskyfile -magic_id 6 -diff_id 2 -node 5.2
+magictool -addinputskyfile -magic_id 6 -diff_id 3 -node 5.3
+magictool -addinputskyfile -magic_id 6 -diff_id 4 -node 5.4
+magictool -updaterun -magic_id 6 -state run
+
+### Set up a run in a single call:
+magictool -queue -select_XXX
+
+### Generate a processing tree
+magictool -totree
+#magic_tree.pl --magic_id X [camera, tess_id, ra0, dec0]
+* magictool -inputskyfile -magic_id 6
+* magictool -inputtree -magic_id 6 -dep_file magic_dep.mdc
+
+### Process the tree
+magictool -toprocess
+#magicMe  METADATA
+#   magic_id         S64       5
+#   node             STR       5.1
+#   dep              STR       NULL
+#   done             S64       0
+#   uri              STR       NULL
+#END
+#magic_process.pl --magic_id 6 --node 5.1
+magictool -inputs -magic_id 6 -node 5.1
+
+magictool -addresult -magic_id 6 -node 5.1 -uri foo
+magictool -addresult -magic_id 6 -node 5.2 -uri bar
+magictool -addresult -magic_id 6 -node 5.3 -uri baz
+magictool -addresult -magic_id 6 -node 5.4 -uri qix
+
+### Merging the tree
+magictool -toprocess
+#magicMe  METADATA
+#   magic_id         S64       5
+#   node             STR       5A
+#   uri MULTI
+#   uri              STR       foo
+#   uri              STR       bar
+#END
+#magic_process.pl --magic_id 6 --node 5A
+magictool -inputs -magic_id 6 -node 5A
+
+magictool -addresult -magic_id 6 -node 5A -uri foobar
+magictool -addresult -magic_id 6 -node 5B -uri bazqix
+
+### Final merge
+magictool -toprocess
+#magicMe  METADATA
+#   magic_id         S64       5
+#   node             STR       root
+#END
+#magic_process.pl --magic_id 6 --node root
+magictool -inputs -magic_id 6 -node root
+
+magictool -addresult -magic_id 6 -node root -uri foobarbazqix
+
+### Generate the mask description
+magictool -tomask
+magic_mask.pl --magic_id X
+magictool -inputs -magic_id 6 -node root
+magictool -addmask -magic_id 6 -uri foobarbazqixqit

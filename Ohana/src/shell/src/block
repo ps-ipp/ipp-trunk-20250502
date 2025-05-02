@@ -1,0 +1,40 @@
+#!/bin/csh -f
+# wait for the file to exist
+
+set file=""
+set timeout=10;
+while ("$1" != "") 
+ switch ($1)
+  case -t: 
+   shift;
+   if ("$1" == "") goto escape
+   set timeout=$1;
+   breaksw;
+  case -*: 
+   goto escape
+   breaksw;
+  default:
+   if ("$file" != "") goto escape
+   set file=$1;
+   breaksw;
+ endsw
+ shift
+end
+
+if ("$file" == "") goto escape
+
+set i=0
+while ($i < $timeout)
+ if (-r $file) then
+  echo "block success: $i seconds $file"
+  exit 0;
+ endif
+ sleep 1
+ @ i++
+end
+echo "block failure: $i seconds $file";
+exit 1;
+
+escape:
+ echo "USAGE: block file [-t timeout]";
+ exit 2;

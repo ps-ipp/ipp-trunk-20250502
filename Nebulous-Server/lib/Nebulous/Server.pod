@@ -1,0 +1,263 @@
+=pod
+
+=head1 NAME
+
+Nebulous::Server - Nebulous server component
+
+=head1 SYNOPSIS
+
+    use Nebulous::Server;
+
+    Nebulous::Server->new( $dsn, $username, $passwd );
+    Nebulous::Server->db( $db );
+    Nebulous::Server->log( $log );
+    Nebulous::Server->sql( $sql );
+    Nebulous::Server->config( $config );
+    Nebulous::Server->create_object( $key, $volume );
+    Nebulous::Server->rename_object( $key, $newkey );
+    Nebulous::Server->swap_objects( $key1, $key2 );
+    Nebulous::Server->replicate_object( $key, $volume );
+    Nebulous::Server->lock_object( $key, $type );
+    Nebulous::Server->unlock_object( $key, $type );
+    Nebulous::Server->setxattr_object( $key, $name, $value, $flags );
+    Nebulous::Server->getxattr_object( $key, $name );
+    Nebulous::Server->listxattr_object( $key );
+    Nebulous::Server->removexattr_object( $key, $name );
+    Nebulous::Server->find_objects( $pattern );
+    Nebulous::Server->find_instances( $key, $volume );
+    Nebulous::Server->delete_instance( $key, $uri );
+    Nebulous::Server->stat_object( $key );
+    Nebulous::Server->mounts();
+    Nebulous::Server->chmod_object( $key, $mode);
+    Nebulous::Server->prune_object( $key );
+
+=head1 DESCRIPTION
+
+This is the server side component of the Nebulous system.  It is primarily a
+middle-ware abstraction of an SQL database.
+
+=head1 USAGE
+
+Typically, this module would not be directly interacted with (although, it is
+possible to do so).  It is intended that one or more intermediate transport
+layers are used (SOAP, XML-RPC, etc.)
+
+=head2 Import Parameters
+
+This module accepts no arguments to it's C<import> method and exports no
+I<symbols>.
+
+=head2 Methods
+
+=head3 Class Methods
+
+=over 4
+
+=item * setup( $dsn, $username, $passwd );
+
+Accepts 3 parameters, all are mandatory.  Returns Boolean true.  Throws an
+exception on error.
+
+=item * create_object( $key, $volume );
+
+Accepts 4 parameters, only the first is mandatory.  Returns a URI.  Throws an
+exception on error.
+
+=item * replicate_object( $key, $volume );
+
+Accepts 2 parameters, only the first is mandatory.  Returns a URI.  Throws an
+exception on error.
+
+=item * lock_object( $key, $type );
+
+Accepts 2 parameters, all are mandatory.  Returns Boolean true.   Throws an
+exception on error.
+
+=item * unlock_object( $key, $type );
+
+Accepts 2 parameters, all are mandatory.  Returns Boolean true.   Throws an
+exception on error.
+
+=item * setxattr_object( $key, $name, $value, $flags );
+
+Accepts 4 parameters, all are mandatory.  
+
+=over 4
+
+=item C<$key>
+
+Nebulous key to create the xattr on.
+
+=item C<$name>
+
+The xattr's name.
+
+=item C<$value>
+
+The xattr's value.
+
+=item C<$flags>
+
+The xattr key insertion mode flag.  Acceptable value are either C<"create"> or
+C<"replace">.  If the xattr already exists then trying to insert another xattr
+with the same name in C<"create"> mode will fail.
+
+=back
+
+Returns Boolean true on success.  Throws an exception on error.
+
+=item * getxattr_object( $key, $name );
+
+Accepts 2 parameters, all are mandatory.  
+
+=over 4
+
+=item C<$key>
+
+Nebulous key to fetch the xattr from.
+
+=item C<$name>
+
+The xattr's name.
+
+=back
+
+Returns the string value of C<$name> on success.  Throws an exception on error.
+
+=item * listxattr_object( $key );
+
+Accepts 1 mandatory parameter. 
+
+=over 4
+
+=item C<$key>
+
+List all xattrs on this Nebulous key.
+
+=back
+
+Returns an C<ARRAYREF> on success.  Throws an exception on error.
+
+=item * removexattr_object( $key, $name );
+
+Accepts 2 parameters, all are mandatory.  
+
+=over 4
+
+=item C<$key>
+
+Nebulous key to remove the xattr from.
+
+=item C<$name>
+
+The xattr's name.
+
+=back
+
+Returns Boolean true on success.  Throws an exception on error.
+
+=item * find_instance( $key, $volume );
+
+Accepts 2 parameters, only the first is mandatory.  Returns an arrayref.
+Throws an exception on error.
+
+=item * delete_instance( $key, $uri );
+
+Accepts 2 parameters, both mandatory.  Returns Boolean true.  C<<$uri>> must be
+an instance of C<<$key>>.  Throws an exception on error.
+
+=item * swap_objects( $key1, $key2 );
+
+Accepts 2 parameters, all mandatory.  Atomically swaps the object names of
+C<$key1> and C<$key2>.  Both objects must already exist.  Return true on
+success or an exception on error.
+
+=item * stat_object( $key );
+
+Accepts 1 parameters, it is mandatory.  Returns a list of:
+
+    so_id
+    ext_id
+    read_lock
+    write_lock
+    epoch
+    mtime
+    number of available instances
+    total number of instances
+
+=item * mounts( $key );
+
+Accepts no parameters and returns an AoA of:
+
+    [
+        [
+            mountpoint,
+            total,
+            used,
+            vol_id,
+            name,
+            path,
+            allocate,
+            available,
+            xattr,
+        ],
+        [ ... ],
+        ...
+    ]
+
+=item * chmod_object( $key, $mode );
+
+Accepts 2 parameters, both mandatory.  C<$key> is the nebulous key to operate
+on and C<$mode> are the POSIX like file permissions to set on all instances of
+C<$key>.  C<$mode> must be specified in oct.  Returns C<$mode> or sucess or an
+exception on failure.
+
+=item * prune_object( $key );
+
+Removes all of the inaccessible instances from an object.
+
+Accepts 1 mandatory parameter.  Returns the number of inaccessible instances actually pruned from the object.
+
+=back
+
+=head1 DEVELOPER NOTES
+
+=head2 REFERENCES
+
+=head1 CREDITS
+
+Just me, myself, and I.
+
+=head1 SUPPORT
+
+Please contact the author directly via e-mail.
+
+=head1 AUTHOR
+
+Joshua Hoblitt <jhoblitt@cpan.org>
+
+=head1 COPYRIGHT
+
+Copyright (C) 2004-2009  Joshua Hoblitt.  All rights reserved.
+
+This program is free software; you can redistribute it and/or modify it under
+the terms of the GNU General Public License as published by the Free Software
+Foundation; either version 2 of the License, or (at your option) any later
+version.
+
+This program is distributed in the hope that it will be useful, but WITHOUT ANY
+WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A
+PARTICULAR PURPOSE.  See the GNU General Public License for more details.
+
+You should have received a copy of the GNU General Public License along with
+this program; if not, write to the Free Software Foundation, Inc., 59 Temple
+Place - Suite 330, Boston, MA  02111-1307, USA.
+
+The full text of the license can be found in the LICENSE file included with
+this module, or in the L<perlgpl> Pod as supplied with Perl 5.8.1 and later.
+
+=head1 SEE ALSO
+
+L<Nebulous::Client>
+
+=cut

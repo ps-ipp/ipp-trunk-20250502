@@ -1,0 +1,166 @@
+
+<h2> data structures in DVO </h2>
+
+DVO uses several data structures, defined in <tt>loneos.h</tt> to
+represent data in the database tables.  This document attempts to
+describe the actual usage, some of which may disagree with the comment
+entries in <tt>loneos.h</tt>.
+
+<b> Image </b>
+<table> 
+<tr><th> name               </th><th> type           </th><th> value                     </th><th> units              </th>
+<tr><td> coords             </td><td> Coords         </td><td> astrometry                </td><td>                    </td>
+<tr><td> tzero              </td><td> unsigned int   </td><td> readout time row 0        </td><td> unix time          </td>
+<tr><td> nstar              </td><td> unsigned int   </td><td> number of stars on image  </td><td>                    </td>
+<tr><td> secz               </td><td> short int      </td><td> airmass                   </td><td> 1000*airmass       </td>
+<tr><td> NX                 </td><td> short int      </td><td> image size                </td><td> pixels             </td>
+<tr><td> NY                 </td><td> short int      </td><td> image size                </td><td> pixels             </td>
+<tr><td> apmifit            </td><td> short int      </td><td> aperture correction       </td><td> 1000*mag           </td>
+<tr><td> dapmifit           </td><td> short int      </td><td> error                     </td><td> 1000*mag           </td>
+<tr><td> source             </td><td> short int      </td><td> photcode                  </td><td>                    </td>
+<tr><td> Mcal               </td><td> short int      </td><td> relphot correciton        </td><td> 1000*mag           </td>
+<tr><td> dMcal              </td><td> short int      </td><td> error                     </td><td> 1000*mag           </td>
+<tr><td> Xm                 </td><td> short int      </td><td> image chi-square          </td><td> 100*log(chisq)     </td>
+<tr><td> name[32]           </td><td> char           </td><td> image name                </td><td>                    </td>
+<tr><td> detection_limit    </td><td> unsigned char  </td><td>                           </td><td> 10*mag             </td>
+<tr><td> saturation_limit   </td><td> unsigned char  </td><td>                           </td><td> 10*mag             </td>
+<tr><td> cerror             </td><td> unsigned char  </td><td> astrometric error         </td><td> 50*arcsec          </td>
+<tr><td> fwhm_x             </td><td> unsigned char  </td><td> average FWHM X            </td><td> 25*arcsec          </td>
+<tr><td> fwhm_y             </td><td> unsigned char  </td><td> average FWHM Y            </td><td> 25*arcsec          </td>
+<tr><td> trate              </td><td> unsigned char  </td><td> drift rate                </td><td> 10000*sec/pix      </td>
+<tr><td> exptime            </td><td> float          </td><td> exposure time             </td><td> seconds            </td>
+<tr><td> code               </td><td> char           </td><td> data flags                </td><td>                    </td>
+<tr><td> ccdnum             </td><td> unsigned char  </td><td> mosaic CCD ID number      </td><td>                    </td>
+<tr><td> dummy[20]          </td><td> char           </td><td> extra                     </td><td>                    </td>
+<tr><td> order              </td><td> short int      </td><td> order of Mcal function    </td><td>                    </td>
+<tr><td> Mx                 </td><td> short int      </td><td> Mcal polynomial term      </td><td>                    </td>
+<tr><td> My                 </td><td> short int      </td><td> Mcal polynomial term      </td><td>                    </td>
+<tr><td> Mxx                </td><td> short int      </td><td> Mcal polynomial term      </td><td>                    </td>
+<tr><td> Mxy                </td><td> short int      </td><td> Mcal polynomial term      </td><td>                    </td>
+<tr><td> Myy                </td><td> short int      </td><td> Mcal polynomial term      </td><td>                    </td>
+<tr><td> Mxxx               </td><td> short int      </td><td> Mcal polynomial term      </td><td>                    </td>
+<tr><td> Mxxy               </td><td> short int      </td><td> Mcal polynomial term      </td><td>                    </td>
+<tr><td> Mxyy               </td><td> short int      </td><td> Mcal polynomial term      </td><td>                    </td>
+<tr><td> Myyy               </td><td> short int      </td><td> Mcal polynomial term      </td><td>                    </td>
+<tr><td> Mxxxx              </td><td> short int      </td><td> Mcal polynomial term      </td><td>                    </td>
+<tr><td> Mxxxy              </td><td> short int      </td><td> Mcal polynomial term      </td><td>                    </td>
+<tr><td> Mxxyy              </td><td> short int      </td><td> Mcal polynomial term      </td><td>                    </td>
+<tr><td> Mxyyy              </td><td> short int      </td><td> Mcal polynomial term      </td><td>                    </td>
+<tr><td> Myyyy              </td><td> short int      </td><td> Mcal polynomial term      </td><td>                    </td>
+</table>
+
+<em> apmifit, dapmifit are needed for dophot data, but not sextractor data.  are these correctly handled? </em>
+<em> skyprobe used Mxxxx for Ncal and Myyyy for sky - can this be reconciled? </em>
+
+<h3> codes in Image</h3>
+<ul>
+<li> ID_IMAGE_NOCAL = 0x04 - internal to relphot 
+<li> ID_IMAGE_POOR  = 0x02 - set by relphot
+<li> ID_IMAGE_SKIP  = 0x04 - use by relphot (!!!)
+</ul>
+
+<b> Average </b>
+<table> 
+<tr><th> name       </th><th> type           </th><th> value               </th><th> units                 </th></tr>
+<tr><td> R          </td><td> float          </td><td> RA                  </td><td> decimal degrees J2000 </td></tr>
+<tr><td> D          </td><td> float          </td><td> DEC                 </td><td> decimal degrees J2000 </td></tr>
+<tr><td> M          </td><td> short int      </td><td>                     </td><td> 1000*mag		    </td></tr>
+<tr><td> Nm         </td><td> unsigned short </td><td> N measure	    </td><td> 			    </td></tr>
+<tr><td> Nn         </td><td> unsigned short </td><td> N missing	    </td><td> 			    </td></tr>
+<tr><td> Xp         </td><td> short int      </td><td> position scatter    </td><td> 100*arcsec	    </td></tr>
+<tr><td> Xm         </td><td> short int      </td><td> mag chisq           </td><td> 100*log(chisq)	    </td></tr>
+<tr><td> code       </td><td> unsigned short </td><td> data flags	    </td><td> 			    </td></tr>
+<tr><td> offset     </td><td> signed int     </td><td> measure offset	    </td><td> 			    </td></tr>
+<tr><td> missing    </td><td> signed int     </td><td> missing offset	    </td><td> 			    </td></tr>
+<tr><td> dM         </td><td> short int      </td><td> error on M          </td><td> 1000*log(value)	    </td></tr>
+<tr><td> Xg         </td><td> short int      </td><td> best chisq value    </td><td> ??		    </td></tr>
+</table>		  
+
+<h3> codes in Average</h3>
+<li> set to 0 by addstar, etc
+<li> ID_STAR_NOCAL        = 0x0001 - set by relphot
+<li> ID_PROPER            = 0x0400 - set by addusno, used by markrock
+<li> ID_BAD_DATE          = 0x0800 - deprecate (not currently set)
+<li> ID_TRANSIENT         = 0x1000 - not currently set? 
+<li> ID_VARIABLE          = 0x2000 - not currently set? 
+<li> ID_ROCK              = 0xa000 - set by markrock
+<li> ID_GHOST             = 0xc001 - set by fixcat, markstar
+<li> ID_TRAIL             = 0xc002 - set by fixcat, markstar
+<li> ID_BLEED             = 0xc003 - set by fixcat, markstar, markrock
+<li> ID_COSMIC            = 0xc004 - set by markrock
+</ul>
+
+<b> Measure </b>
+<table> 
+<tr><th> name       </th><th> type           </th><th> value               </th><th> units             </th>
+<tr><td> dR         </td><td> short int      </td><td> RA offset           </td><td> 100*arcsec        </td>
+<tr><td> dD         </td><td> short int      </td><td> DEC offset          </td><td> 100*arcsec        </td>
+<tr><td> M          </td><td> short int      </td><td> catalog mag         </td><td> 1000*mag          </td>
+<tr><td> Mcal       </td><td> short int      </td><td> image cal mag       </td><td> 1000*mag          </td>
+<tr><td> Mgal       </td><td> short int      </td><td> 'galaxy' mag,       </td><td> 1000*mag          </td>
+<tr><td> airmass    </td><td> short int      </td><td> (airmass - 1),      </td><td> 1000*airmass      </td>
+<tr><td> FWx        </td><td> short int      </td><td> fwhm major axis     </td><td> 100*arcsec        </td>
+<tr><td> dM         </td><td> unsigned char  </td><td> mag error           </td><td> 1000*mag          </td>
+<tr><td> fwy        </td><td> unsigned char  </td><td> minor/major ratio   </td><td>                   </td>
+<tr><td> theta      </td><td> unsigned char  </td><td> angle wrt ccd X dir </td><td> degree*(256/360)  </td>
+<tr><td> dophot     </td><td> char           </td><td> dophot type         </td><td>                   </td>
+<tr><td> source     </td><td> unsigned short </td><td> photcode            </td><td>                   </td>
+<tr><td> t          </td><td> unsigned int   </td><td> time                </td><td> unix time         </td>
+<tr><td> averef     </td><td> unsigned int   </td><td> average entry       </td><td>                   </td>
+<tr><td> dt         </td><td> short int      </td><td> exposure time       </td><td> 2500*log(exptime) </td>
+<tr><td> flags      </td><td> unsigned short </td><td> data flags          </td><td>                   </td>
+</table>
+
+<h3> flags in Measure</h3>
+<ul>
+<li> ID_MEAS_POOR         = 0x0001 - set by relphot, unset?
+<li> ID_MEAS_NOCAL        = 0x0002 - set by relphot, unset?
+<li> BLEND_IMAGE          = 0x0100 - set by addstar, etc
+<li> BLEND_CATALOG        = 0x0200 - set by addstar, etc
+<li> BLEND_IMAGE_NEIGHBOR = 0x1000 - set by addstar, etc
+<li> PART_OF_TRAIL        = 0x2000 - set by markstar, fixcat, used by markrock
+<li> GHOST_DATA           = 0x4000 - set by markstar, fixcat, used by markrock
+</ul>
+
+<em> relphot flag meanings: </em>
+<b> ID_IMAGE_NOCAL </b> : completely ignore image (internal only)
+<b> ID_IMAGE_SKIP  </b> : externally marked, don't include in Mrel, calculate Mcal (?)
+<b> ID_IMAGE_POOR  </b> : internally marked, don't include in Mrel, calculate Mcal (?)
+
+<b> ID_STAR_NOCAL  </b> : poor star, don't include in Mcal, calculate Mrel
+STAR_BAD == (average.Xm > STAR_CHISQ) || (average.dM > STAR_SCATTER) || (NVALID < MEAS_TOOFEW)
+
+<b> ID_MEAS_NOCAL  </b> : skip this measurement (temporary, internal)
+<b> ID_MEAS_POOR   </b> : poor star, don't include in Mcal, calculate Mrel
+MEAS_POOR == (3 sigma outlier) || (out of detector area)
+<em> currently NOT sticky!! </em>
+
+--
+
+uniphot.h:
+# define MEAS_POOR     0x0001
+# define MEAS_NOCAL    0x0002
+# define ID_IMAGE_SKIP 0x0004
+
+relphot.h:
+# define ID_VARIABLE   0x2000
+# define ID_TRANSIENT  0x1000 /* is this mutually exclusive with USNO?  */
+# define ID_BAD_DATA   0x0800 /* stationary object with some bad data points */
+# define ID_PROPER     0x0400 /* star with large proper motion */
+
+# define MEAS_POOR     0x0001
+# define MEAS_NOCAL    0x0002
+# define ID_IMAGE_SKIP 0x0004
+
+<em> things to update, cleanup </em>
+<d> finish fix of photcode in imregister-3.0, etc </d>
+<d> move flag constants from relphot/uniphot/photdbc include -> loneos.h </d>
+<d> watch for use of Xp, Xg, code in photdbc & status.extract, status.gstar</d>
+<b> status.extract.NVALID : count !(measure.flag & MEAS_POOR) </b>
+<d> fix error with ID_IMAGE_NOCAL == ID_IMAGE_SKIP </d>
+<d> make sure ID_IMAGE_POOR is saved and ID_IMAGE_SKIP is kept, including with -mosaic </d>
+<d> should STAR_BAD be saved or not?  probably not: there is not one per photcode </d>
+<d> MEAS_POOR should be saved, MEAS_NOCAL should not </d>
+<b> recompile all dvo programs, test </b>
+
+<b> photdbc </b> <em> check on the use of flags, etc; consistent with relphot, uniphot? </em>

@@ -1,0 +1,6 @@
+#  REQ_NAME EXTVER ACTION USERNAME EMAIL
+CHANGEME 1
+#  ROWNUM CENTER_X CENTER_Y WIDTH HEIGHT COORD_MASK JOB_TYPE OPTION_MASK PROJECT REQ_TYPE IMG_TYPE ID TESS_ID COMPONENT DATA_GROUP REQFILT MJD_MIN MJD_MAX | COMMENT
+0         241.54949 55.4273  1500  1500       2      stamp      2049      gpc1     byid    stack  875274 null   null      null       null     0      0     | sample v1 request tadpole galaxy i band
+
+

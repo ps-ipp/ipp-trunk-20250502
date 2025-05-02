@@ -1,0 +1,33 @@
+
+Installing gene's FITS C libraries.
+
+These FITS libraries are part of a larger package, but the rest of the
+package is not needed to make the libraries.  To install it for a
+specific system, the Makefile expects the environment variable ARCH to
+be defined to something appropriate to your machine (ie, sol for
+solaris, or linux for linux machines.  The resulting .o files then
+have machine specific names (ie, F_read_M.sol.o), making it easy to
+recompile for multiple machines.  The compiled library also has
+a machine specific names (libFITS.sol.a), and the installed version is
+then placed with a generic name in a machine specific locations (ie
+lib/sol/libFITS.a).  
+
+
+Edit the Configure file match your current system.  As it stands, the Makefile
+expects the fits directory to be $(ROOT)/src/fits.  The XINC and XLIB
+variables are not actually used by the fits libraries, so you can
+igore them.  
+
+BYTE_SWAP: byte swapping can be forced by placing a -DBYTE_SWAP option
+on the CC line in Configure (see commented out line).  Byte swapping
+is also enabled automatically if ARCH = linux.  (If you have other
+byte swapped machines, you can edit include/fits.h to enable them
+automatically as well).
+
+define an environment variable ARCH and run "make" or "make install"
+to install the library.
+
+good luck
+
+gene
+

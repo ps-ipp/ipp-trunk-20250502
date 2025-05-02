@@ -1,0 +1,164 @@
+	
+--
+
+As usual, I have totally forgotten the previous discussion with respect
+to rummaging around in the USNO-B database, but that is just normal for me.
+I think that there are two ways to proceed, and both stem from the exercise
+of attaching WCS headers to the individual PMM camera footprints that we
+did for Google.  I should note that Andy Connolly swears that Google
+will soon serve the 10 TPixels that we gave them, but I am not going
+to hold my breath.
+
+The PMM scanned each Schmidt plate as 588 individual footprints.  The
+scale is about 0.9 arcsec/pixel (2X optics, 6.8 micron camera pixels,
+67.5 arcsec/mm for Schmidt plates).  The readout format was 1394x1037
+(not even an integer multiple of 4!) of which we claimed that the
+useful area was from (67:1378 and 3:1035).  There are no dead pixels
+in either camera, the bias frames are zero, and we have the flats.
+Each image covers 17.8 by 14.0 millimeters but the step-and-stop
+was done on a 16 by 12 millimeter grid giving about 2 millimeters
+(about 2.2 arcminutes) overlap between footprints.
+
+I wrote software that extracted each footprint from each plate,
+made a short, paired list of (X,Y) and (RA,Dec), fed this to imwcs(),
+and saved the image+WCS as separate FITS files.  We scanned 12070
+Schmidt plates of which we saved the pixels for all but the 897 UJ
+(3 minute exposure blue plates from POSS-II).  So far as I know,
+We have 588 times 11,173 FITS files spinning on our disks somewhere.
+These files have been given to Google and SDSC, and they are available
+to anybody else that could seriously use them.  We do not have the
+bandwidth to make soft copies, so we must negotiate for reasonable
+ways to copy the 10 TPixels involved.  We have yet to play the same
+game with the Yale Astrograph plates, but will eventually add these
+3 TPixels of FITS images to the archive.
+
+So Option 1 would be to just hand you guys the FITS WCS images and let you
+play.  You can figure out whether IPP or SExtractor works on photographic
+pixels, how to do photometry, how to handle the overlap zones, and
+all of the other unpleasant things I had to do for PMM for which I
+have been so roundly criticized.
+
+Option 2 would require a small hack in the pixel processing pipeline
+that would save the PMM detection lists and the WCS transformations
+in some reasonable way.  This would save you the work and bandwidth
+of dealing with the images, but would then rely on the PMM's image
+processing software for computation of the detection parameters.
+
+Depending on which, if either, seems to be a reasonable way to
+proceed, I think that we have enough bandwidth (or could use DVDs)
+so send a small sample of what the data would look like.  Did I send
+you the flat ASCII file of the nominal pointings and epochs (12070 lines)?
+
+Let me know.  I will be in Flagstaff for the next couple of weeks,
+but then my travel schedule goes nuts.
+
+-Dave
+
+--
+
+I had thought that I passed you this file before.  The files
+I would be passing you would start with the 7 character root
+in the third column, SSnnnnn where SS is a unique survey
+identifier, and nnnnn is a unique plate number from that
+observatory.  You can safely ignore the first 2 columns.
+The plate is the third, followed by DDMonYYYY HH:MM
+HHMMSS sDDMMSS Emulsion Filter Exposure H:MM.  It is
+believed that the UT is for the start of the exposure,
+but it might be for the middle.  Many things are lost in
+the cobwebs of antiquity.  I can give you a table of
+nominal wavelengths for various Emulsion+Filter combinations.
+The final column is the hour angle of mid-exposure.
+
+-Dave
+
+example:
+
+0         1         2         3         4         5         6         7         8         9         0         
+01234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789
+so0001 /nofs/leo1/sel/jb0/se100/so0001a.inf PO00570 23AUG1952 09:22 194300 +900000 103AO NONE    10 0:13E
+so0002 /nofs/leo1/sel/jb0/se100/so0002a.inf PO00567 22AUG1952 08:21 223100 +900000 103AO NONE    10 1:14E
+so0003 /nofs/leo1/sel/jb0/se100/so0003a.inf PO00568 22AUG1952 10:53 000624 +843140 103AO NONE    10 1:10W
+so0004 /nofs/leo1/sel/jb0/se100/so0004a.inf PO01277 23NOV1954 06:45 025031 +842224 103AO NONE    12 0:29W
+so0005 /nofs/leo1/sel/jb0/se100/so0005a.inf PO01328 29JAN1955 06:42 052420 +840404 103AO NONE    12 2:19W
+
+
+emulsions:
+098
+098-0
+103AD
+103AE
+103AO
+IIIAF
+IIIAJ
+IVN
+
+filters:
+#12
+AMB2
+AMB3
+AMB4
+AMB5
+AMB6
+AMB7
+AMB8
+GG358
+GG385
+GG395
+MULTI
+NONE
+OG590
+RED
+RED66
+RED67
+RED68
+RED69
+RED70
+RED71
+RED73
+RG2444
+RG600
+RG610
+RG630
+RG715
+RG9
+RP2444
+WR88A
+YEL3
+YEL8
+
+combinations:
+098 RED 
+098-0 RED70 
+098-0 RG630 
+103AD MULTI 
+103AD YEL3 
+103AD YEL8 
+103AE #12 
+103AE AMB2 
+103AE AMB3 
+103AE AMB4 
+103AE AMB5 
+103AE AMB6 
+103AE AMB7 
+103AE AMB8 
+103AE NONE 
+103AE RED66 
+103AE RED67 
+103AE RED68 
+103AE RED69 
+103AE RED70 
+103AE RED71 
+103AE RED73 
+103AE RG2444 
+103AE RP2444 
+103AO NONE 
+IIIAF OG590 
+IIIAF RG600 
+IIIAF RG610 
+IIIAF RG630 
+IIIAJ GG358 
+IIIAJ GG385 
+IIIAJ GG395 
+IVN RG715 
+IVN RG9 
+IVN WR88A 

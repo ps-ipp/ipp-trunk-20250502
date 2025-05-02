@@ -1,0 +1,92 @@
+#!/usr/bin/env perl
+
+$update = 0;
+
+# grab the command line arguments:
+@tARGV = ();
+for (; @ARGV > 0; ) {
+
+    # new images get mode of 0, old image keep their mode
+    if ($ARGV[0] eq "-update") {
+	shift;
+	$update = 1;
+	next;
+    }
+    
+    @tARGV = (@tARGV, $ARGV[0]);
+    shift;
+}
+@ARGV = @tARGV;
+
+if (@ARGV != 3) { die "USAGE: merge.lists (list.split) (list.msplit) (list.master) [-update]\n" ;}
+
+# load names from SPLIT and MEF
+open (FILE, "$ARGV[0]");
+@split = <FILE>;
+close (FILE);
+
+open (FILE, "$ARGV[1]");
+@mef = <FILE>;
+close (FILE);
+
+# load old names from MASTER
+open (FILE, "$ARGV[2]");
+@master = <FILE>;
+close (FILE);
+
+# merge new entries into a single list, compare with state in master
+@names = (@split, @mef);
+
+@newname = ();
+@newmode = ();
+
+for ($i = 0; $i < @names; $i++) {
+
+    $name = $names[$i]; chop ($name);
+
+    $mode = 1;
+    if ($update) {
+	$mode = 0;
+
+      INNER:
+	foreach $line (@master) {
+	    @words = split (" ", $line);
+	    if ($words[0] eq $name) {
+		$mode = $words[1];
+		last INNER;
+	    }
+	}
+    }
+    @newname = (@newname, $name);
+    @newmode = (@newmode, $mode);
+}
+
+if (! @newname) {
+    print STDERR "ERROR: no relevant ccd images\n";
+    exit 1;
+}
+    
+# check on list: if there are none selected, select all
+$Ngood = 0;
+foreach $mode (@newmode) {
+    if ($mode) {
+	$Ngood ++;
+    }
+}
+if ($Ngood == 0) {
+    foreach $mode (@newmode) {
+	$mode = 1;
+    }
+}
+
+open (FILE, ">$ARGV[2]");
+for ($i = 0; $i < @newname; $i++) {
+    print FILE "$newname[$i] $newmode[$i]\n";
+}
+close (FILE);
+
+# this file must be accessible by www user  
+chmod 0666, $ARGV[2];
+
+print STDOUT "SUCCESS\n";
+exit 0;

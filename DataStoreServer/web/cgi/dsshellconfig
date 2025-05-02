@@ -1,0 +1,15 @@
+# set up some environment needed by the scripts
+export PERL5LIB=INSERT_VALUE_HERE
+
+# IPC::Cmd::can_run routine doesn't find programs in ds-cgi
+# unless . is in the path
+PATH=.:${PATH}
+
+# setting these here allow the data store to run independnt of the ipp configuration
+export DBSERVER=INSERT_VALUE_HERE
+export DBNAME=INSERT_VALUE_HERE
+export DBPASSWORD=INSERT_VALUE_HERE
+export DBUSER=INSERT_VALUE_HERE
+
+export DS_ROOT=INSERT_VALUE_HERE
+

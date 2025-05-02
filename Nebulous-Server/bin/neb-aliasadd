@@ -1,0 +1,231 @@
+#!/usr/bin/env perl
+
+# Copyright (C) 2016 Chris Waters
+#
+# $Id: neb-aliasadd
+
+use strict;
+use warnings FATAL => qw( all );
+
+use vars qw( $VERSION );
+$VERSION = '0.02';
+
+use DBI;
+use Nebulous::Server::SQL;
+use URI::file;
+use URI;
+
+use Getopt::Long qw( GetOptions :config auto_help auto_version );
+use Pod::Usage qw( pod2usage );
+
+my ($db, $dbhost, $dbuser, $dbpass, $alias, $target, $update, $alias_id);
+
+$db     = $ENV{'NEB_DB'} unless $db;
+$dbhost = $ENV{'NEB_DBHOST'} || 'localhost';
+$dbuser = $ENV{'NEB_USER'} unless $dbuser;
+$dbpass = $ENV{'NEB_PASS'} unless $dbpass;
+
+GetOptions(
+    'db|d=s'            => \$db,
+    'host=s'            => \$dbhost,
+    'pass|p=s'          => \$dbpass,
+    'user|u=s'          => \$dbuser,
+    'alias_name=s'      => \$alias,
+    'target_name=s'     => \$target,
+    'alias_id=s'        => \$alias_id,
+    'update'            => \$update,
+) || pod2usage( 2 );
+
+pod2usage( -msg => "Unknown option: @ARGV", -exitval => 2 ) if @ARGV;
+pod2usage( -msg => "Required options: --db --user --pass --alias_name --target_name", -exitval => 2 )
+    unless $db && $dbuser && $dbpass && $alias && $target;
+
+my $dbh = DBI->connect(
+    "DBI:mysql:database=$db:host=$dbhost",
+    $dbuser,
+    $dbpass,
+    {
+        RaiseError => 1,
+        PrintError => 0,
+        AutoCommit => 1,
+    },
+);
+
+my $sql = Nebulous::Server::SQL->new();
+
+
+if ($update) {
+    unless ($alias && $target && $alias_id) {
+	pod2usage( -msg => "Required options for update: --db --user --pass --alias_name --target_name --alias_id", -exitval => 2 );
+    }
+    print "Updating alias...";
+    my ($vol_id, $tmp_name);
+    
+    my $vol_query = $dbh->prepare( $sql->get_volume_by_name );
+    $vol_query->execute( $target );
+    ($vol_id, $tmp_name, undef, undef) = $vol_query->fetchrow_array;
+    $vol_query->finish;
+    
+    unless ( (defined($vol_id))&& ($target eq $tmp_name)) {
+	die "ALIAS NOT CHANGED: ($target != $tmp_name) $vol_id not defined!";
+    }
+    
+    eval {
+	my $query = $dbh->prepare( $sql->update_alias );
+	# CHECK:
+#        UPDATE alias SET
+#          vol_id = ?,
+#          name   = ?
+#        WHERE alias_id = ?
+#        AND   alias    = ?
+	$query->execute( $vol_id, $target, $alias_id, $alias);
+    };
+    if ($@) {
+	die "database error: $@";
+    }
+    
+}
+else {
+    
+    print "Adding alias...";
+    my ($vol_id, $tmp_name);
+    
+    my $vol_query = $dbh->prepare( $sql->get_volume_by_name );
+    $vol_query->execute( $target );
+    ($vol_id, $tmp_name, undef, undef) = $vol_query->fetchrow_array;
+    $vol_query->finish;
+    
+    unless ( (defined($vol_id))&& ($target eq $tmp_name)) {
+	die "ALIAS NOT ADDED: ($target != $tmp_name) $vol_id not defined!";
+    }
+    
+    eval {
+	my $query = $dbh->prepare( $sql->new_alias );
+	$query->execute( $alias, $target, $vol_id);
+    };
+    if ($@) {
+	die "database error: $@";
+    }
+}
+
+print "OK $alias => $target\n";
+
+__END__
+
+=pod
+
+=head1 NAME
+
+neb-aliasadd - Add a volume alias to the aliasvol table
+
+=head1 SYNOPSIS
+
+    neb-cabadd --target_name <target_volume> --alias_name <alias_volume>
+    [--db <database>] [--user <username>] [--pass <password>] [--host <hostname]
+
+=head1 DESCRIPTION
+
+This program creates a volume alias, allowing the database to correctly substitute
+the target volume when the alias volume is requested.  This can be used to ensure
+that Nebulous file reads choose the nearest local copy.
+
+
+=head1 OPTIONS
+
+=over 4
+
+=item * --target_name <target_volume>
+
+Symbolic name of volume the alias should point to.
+
+=item * --alias_name <alias_volume>
+
+Symbolic name of volume the alias should point from.
+
+=item * --db|-d <database>
+
+Name of database (C<namespace>) to create tables in.
+
+Optional if the appropriate environment variable is set.
+
+=item * --user|-u <username>
+
+Username to authenticate with.
+
+Optional if the appropriate environment variable is set.
+
+=item * --pass|-p <password>
+
+Password to authenticate with.
+
+Optional if the appropriate environment variable is set.
+
+=item * --host <database host>
+
+Name of host on which the database resides.
+
+Optional.  Defaults to C<localhost>.
+
+=head1 ENVIRONMENT
+
+These environment variables may be used in place of the specified command line
+options.  All command line option will override the corresponding environment
+value.
+
+=over 4
+
+=item * C<NEB_DB>
+
+Equivalent to --db|-d
+
+=item * C<NEB_HOST>
+
+Equivalent to --host
+
+=item * C<NEB_USER>
+
+Equivalent to --user|-u
+
+=item * C<NEB_PASS>
+
+Equivalent to --pass|-p 
+
+=back
+
+=head1 CREDITS
+
+Josh Hoblitt and Chris Waters 
+
+=head1 SUPPORT
+
+Please contact the author directly via e-mail.
+
+=head1 AUTHOR
+
+IPP
+
+=head1 COPYRIGHT
+
+Copyright (C) 2005-2008  Joshua Hoblitt.  All rights reserved.
+
+This program is free software; you can redistribute it and/or modify it under
+the terms of the GNU General Public License as published by the Free Software
+Foundation; either version 2 of the License, or (at your option) any later
+version.
+
+This program is distributed in the hope that it will be useful, but WITHOUT ANY
+WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A
+PARTICULAR PURPOSE.  See the GNU General Public License for more details.
+
+You should have received a copy of the GNU General Public License along with
+this program; if not, write to the Free Software Foundation, Inc., 59 Temple
+Place - Suite 330, Boston, MA  02111-1307, USA.
+
+The full text of the license can be found in the L<perlgpl> Pod as supplied
+with Perl 5.8.1 and later.
+
+=head1 SEE ALSO
+
+L<Nebulous::Server>, L<neb-initdb>, L<neb-df>, L<nebdiskd>
+
+=cut

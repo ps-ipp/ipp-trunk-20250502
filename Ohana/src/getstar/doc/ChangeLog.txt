@@ -1,0 +1,8 @@
+ getstar-1-2
+  * added maximum magnitude selection
+
+ getstar-1-1
+  * converted to gfits APIs (forces libfits 1.6)
+
+ getstar-1-0
+    basic program, not really tested (not sure why this is tagged)

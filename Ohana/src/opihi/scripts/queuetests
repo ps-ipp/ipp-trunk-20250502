@@ -1,0 +1,19 @@
+
+macro test.unique
+  list line -x "cat new.list"
+  for i 0 $line:n
+    push t1 "$line:$i"
+  end
+
+  queuelist
+  queuesize t1
+
+  list line -x "cat copy.list"
+  for i 0 $line:n
+    push t1 "$line:$i" -uniq
+  end
+
+  queuelist
+  queuesize t1
+
+end

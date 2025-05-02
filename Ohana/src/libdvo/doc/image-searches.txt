@@ -1,0 +1,19 @@
+
+I am making some fixes to the code to select an image from the full
+table (specifically for mextract).
+
+here is how things work currently: 
+
+* mextract detects that a query needs data from an image field
+* mextract calls SetImageSelection()
+  * SetImageSelection calls:
+    * LoadImagesDVO(), which reads the image table into its static cache
+    * BuildChipMatch to generate the index for chip->mosaic 
+    * image_subset which generates a local (to ImageSelection.c) static subset
+    * sort_image_subset sorts the subset selection to be ordered by time
+* mextract calls MatchImageDVO to find a specific image
+  * match_image_subset is ok because subset is sorted by time
+
+* for the image metadata, I need to do the following:
+
+* load the image subset table

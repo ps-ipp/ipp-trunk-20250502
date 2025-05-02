@@ -1,0 +1,54 @@
+
+
+2014.07.09
+
+* trying to make sense of mosaic.Mcal vs image.Mcal in the context of UBERCAL:
+
+  * relphot_images:
+    * load_images (convert raw FITS table to Image structure, select subset matching selection)
+      * initMosaics (associate mosaics to images (gpc1 photcodes only))
+      	* initMosaicGrid (define spatial range of mosaics [only used by grid analysis]; set Mcal to <image.Mcal> and image.Mcal to 0.0)
+    --- calculate image or mosaic Mcal values
+    * setMcalFinal (set image.Mcal = mosaicMcal)
+
+  * relphot_parallel_regions:
+    * assign_images
+      * makeMosaics (equivalent to initMosaics, but works on full image table, not subset)
+      * setMosaicCenters (set Mcal to <image.Mcal> and image.Mcal to 0.0) <--- this is wrong!
+      (sends images ONLY, not mosaics, to remote machines)
+      (slurps back new image values, applies to db)
+      
+  * relphot_parallel_images:
+    * makeMosaics (associate mosaics to images, gpc1 photcodes only)
+      * initMosaicGrid (needed in this one)
+---
+
+For 'mosaic' zero points, I define the mosaics by grouping the images
+by observation time.  I do this by generating a list of the image
+start times.  I sort this list and then find the unique entries.  Each
+time defines a new mosaic entry.  I then assign images to the mosaics
+by matching their start times.  
+
+The above currently happens on the image subset.  I need to identify
+the images which are NOT in the subset but for which a mosaic has been
+constructed -- these are partially accepted images.  I then need to be
+able to do something with those images and mosaics: either reject all
+partial mosaics or accept all images from partial mosaics.  The
+advantage of the latter is that the choice of accepted images depends
+on the catalog / regions loaded -- I need to accept images only if all
+overlapping region files are loaded, right?
+
+So, a few things are needed: 
+
+1) identify the images which are NOT selected by have matching start
+times.
+2) exclude them from the subset somehow.
+
+Some questions:
+
+ * the image subset is currently a *copy* of the Image array, not a
+   view.  does it help to change this? (beyond the memory savings?)
+
+ * I'm still a bit unclear on what 'load_images' vs 'reload_images'
+   does.  
+

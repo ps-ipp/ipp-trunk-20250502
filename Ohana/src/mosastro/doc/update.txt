@@ -1,0 +1,8 @@
+
+mosastro USAGE:
+
+  - mosastro (inglob) (outext) [-dist (distort)] [-chips (chipset)]
+
+  * given a collection of chip data, measure the complete model
+    parameters relative to reference.  output is individual chip files
+    with a new extension (and updated header contents)

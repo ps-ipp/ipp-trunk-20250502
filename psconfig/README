@@ -1,0 +1,23 @@
+
+Welcome to the IPP Software Tree.  To build the full IPP suite, you
+must be in the directory ipp/psconfig.  Follow the instructions in
+'ipp/psconfig/INSTALL'.
+
+
+*** SUMMARY ***
+
+For Ubuntu (gcc includes -as-needed by default) :
+
+  psbuild -extbuild -clean -rebuild -dev -optimize -no-as-needed ipp-ubuntu
+
+For Gentoo:
+
+  psbuild -extbuild -clean -rebuild -dev -optimize ipp-gentoo
+
+For Manjaro (gcc 11 strict on strcpy) :
+
+  psbuild -extbuild -clean -rebuild -dev -optimize -debug-build ipp-manjaro
+
+For a new build, make sure you have a valid file for ~/.ipprc and ~/.ptolemyrc.
+Follow the directions in ipp/ippconfig/README
+
